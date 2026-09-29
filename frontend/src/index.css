@@ -1,0 +1,207 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource/young-serif";
+@import "@fontsource-variable/hanken-grotesk";
+@import "@fontsource-variable/jetbrains-mono";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+  Direção visual: fichário de arquivo técnico.
+  Papel quente, tinta escura, abas coloridas por tipo de app e um vermelho de carimbo como acento.
+*/
+
+@theme inline {
+  --font-heading: 'Young Serif', ui-serif, Georgia, serif;
+  --font-sans: 'Hanken Grotesk Variable', ui-sans-serif, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
+  --color-stamp: var(--stamp);
+  --color-stamp-soft: var(--stamp-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-rule: var(--rule);
+
+  --color-kind-script: var(--kind-script);
+  --color-kind-web: var(--kind-web);
+  --color-kind-desktop: var(--kind-desktop);
+  --color-kind-scheduled: var(--kind-scheduled);
+  --color-kind-executable: var(--kind-executable);
+  --color-kind-reference: var(--kind-reference);
+  --color-kind-system: var(--kind-system);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+:root {
+  --radius: 0.4rem;
+
+  --background: oklch(0.955 0.014 85);
+  --foreground: oklch(0.22 0.015 60);
+  --card: oklch(0.985 0.008 85);
+  --card-foreground: oklch(0.22 0.015 60);
+  --popover: oklch(0.99 0.006 85);
+  --popover-foreground: oklch(0.22 0.015 60);
+  --primary: oklch(0.24 0.02 60);
+  --primary-foreground: oklch(0.97 0.01 85);
+  --secondary: oklch(0.915 0.018 85);
+  --secondary-foreground: oklch(0.26 0.02 60);
+  --muted: oklch(0.925 0.016 85);
+  --muted-foreground: oklch(0.47 0.02 60);
+  --accent: oklch(0.91 0.03 60);
+  --accent-foreground: oklch(0.24 0.02 60);
+  --destructive: oklch(0.55 0.2 28);
+  --border: oklch(0.84 0.02 80);
+  --input: oklch(0.8 0.02 80);
+  --ring: oklch(0.58 0.17 35);
+
+  --ink: oklch(0.2 0.018 60);
+  --ink-foreground: oklch(0.93 0.015 85);
+  --stamp: oklch(0.56 0.18 33);
+  --stamp-soft: oklch(0.92 0.045 40);
+  --warn: oklch(0.55 0.13 70);
+  --warn-soft: oklch(0.93 0.06 85);
+  --ok: oklch(0.5 0.11 150);
+  --ok-soft: oklch(0.92 0.045 150);
+  --rule: oklch(0.82 0.035 230 / 0.45);
+
+  --kind-script: oklch(0.6 0.13 245);
+  --kind-web: oklch(0.6 0.13 165);
+  --kind-desktop: oklch(0.62 0.14 300);
+  --kind-scheduled: oklch(0.68 0.14 75);
+  --kind-executable: oklch(0.55 0.05 60);
+  --kind-reference: oklch(0.7 0.03 80);
+  --kind-system: oklch(0.5 0.12 25);
+
+  --shadow-card: 0 1px 0 oklch(0.8 0.02 80), 0 8px 20px -14px oklch(0.3 0.03 60 / 0.35);
+}
+
+.dark {
+  --background: oklch(0.175 0.012 250);
+  --foreground: oklch(0.91 0.018 85);
+  --card: oklch(0.215 0.014 250);
+  --card-foreground: oklch(0.91 0.018 85);
+  --popover: oklch(0.235 0.015 250);
+  --popover-foreground: oklch(0.91 0.018 85);
+  --primary: oklch(0.88 0.03 85);
+  --primary-foreground: oklch(0.2 0.015 250);
+  --secondary: oklch(0.27 0.015 250);
+  --secondary-foreground: oklch(0.9 0.018 85);
+  --muted: oklch(0.26 0.014 250);
+  --muted-foreground: oklch(0.68 0.02 85);
+  --accent: oklch(0.3 0.03 40);
+  --accent-foreground: oklch(0.93 0.02 85);
+  --destructive: oklch(0.66 0.19 28);
+  --border: oklch(0.32 0.015 250);
+  --input: oklch(0.36 0.015 250);
+  --ring: oklch(0.72 0.16 45);
+
+  --ink: oklch(0.13 0.012 250);
+  --ink-foreground: oklch(0.88 0.02 85);
+  --stamp: oklch(0.72 0.16 42);
+  --stamp-soft: oklch(0.3 0.06 40);
+  --warn: oklch(0.8 0.13 80);
+  --warn-soft: oklch(0.3 0.05 80);
+  --ok: oklch(0.76 0.12 150);
+  --ok-soft: oklch(0.28 0.05 150);
+  --rule: oklch(0.5 0.03 250 / 0.22);
+
+  --kind-script: oklch(0.72 0.12 245);
+  --kind-web: oklch(0.74 0.12 165);
+  --kind-desktop: oklch(0.74 0.12 300);
+  --kind-scheduled: oklch(0.8 0.13 80);
+  --kind-executable: oklch(0.68 0.04 80);
+  --kind-reference: oklch(0.62 0.02 85);
+  --kind-system: oklch(0.7 0.13 30);
+
+  --shadow-card: 0 1px 0 oklch(0.12 0.01 250), 0 10px 24px -16px oklch(0 0 0 / 0.8);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "ss01", "tnum";
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  a,
+  select,
+  label[for],
+  input[type="checkbox"] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
+/* Papel pautado: linhas finas horizontais e uma margem vermelha. */
+.paper {
+  background-image:
+    linear-gradient(to right, transparent 3.25rem, var(--stamp-soft) 3.25rem, var(--stamp-soft) calc(3.25rem + 1px), transparent calc(3.25rem + 1px)),
+    repeating-linear-gradient(to bottom, transparent 0, transparent 1.95rem, var(--rule) 1.95rem, var(--rule) 2rem);
+}
+
+/* Grão sutil no painel escuro da navegação. */
+.grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.rise {
+  animation: rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes stamp-in {
+  0% { opacity: 0; transform: scale(1.6) rotate(-14deg); }
+  60% { opacity: 1; transform: scale(0.94) rotate(-8deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-8deg); }
+}
+.stamp-in {
+  animation: stamp-in 0.4s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise, .stamp-in { animation: none; }
+}
