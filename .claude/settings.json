@@ -1,0 +1,7 @@
+{
+  "model": "opus[1m]",
+  "defaultMode": "acceptEdits",
+  "permissions": {
+    "allow": ["Bash", "Read", "WebFetch"]
+  }
+}
