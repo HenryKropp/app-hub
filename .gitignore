@@ -1,0 +1,7 @@
+backend/cmd/server/server
+frontend/dist/
+frontend/node_modules/
+e2e/node_modules/
+.venv/
+.env
+*:Zone.Identifier
