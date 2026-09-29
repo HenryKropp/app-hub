@@ -1,0 +1,9 @@
+[tools]
+go = "1"
+sqlc = "1"
+python = "3.14"
+node = "24"
+jq = "1"
+
+[settings]
+python.compile = false
