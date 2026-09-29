@@ -1,6 +1,6 @@
 # PRD — App Hub (Módulo 1: Gestão e orquestração de apps)
 
-**Status:** Rascunho para validação · **Atualizado:** 2026-09-29
+**Status:** Em construção (Fundação e Registro prontos) · **Atualizado:** 2026-09-29
 **Fonte:** `Documentação/Especificação do produto.md` (visão completa, Módulos 1 e 2)
 
 ---
@@ -58,7 +58,8 @@ A numeração segue a especificação do produto.
 - **Manifesto salvo ao lado do app:** o arquivo de configuração fica dentro da pasta do app, legível mesmo fora do Hub.
 - **Detecção de segredos:** se achar senha ou chave escrita no código, avisa e oferece mover para o cofre (3.7).
 - **Nada é perdido:** o estado original do app é guardado como versão 1 (3.6).
-- **Aviso de duplicado:** ao registrar, avisa se já existe app parecido (por nome e descrição).
+- **Aviso de duplicado:** ao registrar, avisa se já existe app parecido (por nome e descrição), no catálogo ou no mesmo lote.
+- **Pastas de arquivo:** pastas com nome de material antigo (ex.: "Old", "backup") vêm marcadas para pular.
 - Só publica com responsável definido (3.9).
 
 ### 3.2 Ficha do app (1.2)

@@ -7,36 +7,36 @@ Status: Pending / In Progress / Done / Blocked
 | Tarefa | Status | Notas |
 |---|---|---|
 | Ler especificação e apps de teste | Done | Pasta `8. Programação` analisada: scripts, Streamlit, desktop, agendados, `.exe`, documentos |
-| PRD do Módulo 1 | Done | `docs/PRD.md` — aguardando validação do Henry |
-| Decidir onde os apps executam (Windows vs WSL) | Pending | Apps usam `.bat`, `pythonw`, janelas `tkinter`, caminhos do Windows. Registrar em ADR |
+| PRD do Módulo 1 | Done | `docs/PRD.md` |
+| Decidir onde os apps executam (Windows vs WSL) | Done | ADR 001: Hub no WSL lendo `/mnt/c`; execução do lado Windows (detalhar na Fase 4) |
 
 ## Fase 1 — Fundação
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Esqueleto Go + React + Postgres local | Pending | Stack padrão do cofundador |
-| Layout base, identidade visual, navegação | Pending | Catálogo, Registrar, Painel, Pessoas, Cofre |
-| Cadastro de pessoas e login simples (protótipo) | Pending | Usuário e senha só no piloto local |
+| Esqueleto Go + React + Postgres local | Done | Banco `app-hub-db` na porta 5433; Dockerfile pronto |
+| Layout base, identidade visual, navegação | Done | Visual de fichário; claro/escuro/sistema; Painel e Cofre marcados "em breve" |
+| Cadastro de pessoas e login simples (protótipo) | Done | ADR 003. Primeiro acesso cria o administrador; perfis admin/criador/usuário |
 
 ## Fase 2 — Manifesto e registro (1.1, 1.5)
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Especificar o formato do manifesto (genérico, versionado) | Pending | Tipos: script, web, desktop, agendado, executável, referência. ADR |
-| Diagnóstico por regras | Pending | Linguagem, ponto de entrada, `requirements.txt`/imports, arquivos fixos lidos, `tkinter`, servidores web, `.bat` |
-| Detecção de segredos no código | Pending | Padrões de chave/senha; oferecer mover para o cofre |
-| Varredura em lote de uma pasta | Pending | Um app por subpasta, ignorando `.venv`, `dist`, saídas |
-| Tela de revisão do diagnóstico + perguntas do incerto | Pending | |
-| Salvar manifesto e ficha na pasta do app | Pending | Nunca altera código |
-| Aviso de duplicado | Pending | Por nome/descrição (sem IA) |
+| Especificar o formato do manifesto (genérico, versionado) | Done | ADR 002, `app-hub.yaml` v1 (`internal/manifest`) |
+| Diagnóstico por regras | Done | `internal/scanner`; testado nos 19 apps da pasta de teste (só leitura) |
+| Detecção de segredos no código | Done | Mostra arquivo e linha, nunca o valor. "Mover para o cofre" entra na Fase 6 |
+| Varredura em lote de uma pasta | Done | Um app por subpasta; ignora `.venv`, `node_modules`, pastas ocultas; sugere pular pastas "Old/arquivo" |
+| Tela de revisão do diagnóstico + perguntas do incerto | Done | Tela Registrar apps |
+| Salvar manifesto e ficha na pasta do app | Done | Cria só `app-hub.yaml` e `FICHA.md`; recusa sobrescrever arquivo que não é do Hub |
+| Aviso de duplicado | Done | Por palavras do nome, contra o catálogo e dentro do lote |
 
 ## Fase 3 — Catálogo e ficha (1.2, 1.4)
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Catálogo em cartões com busca e filtro por área/status | Pending | |
+| Catálogo em cartões com busca e filtro por área/status | In Progress | Cartões e busca simples prontos; faltam filtros por área/status |
 | Favoritos por pessoa | Pending | |
-| Ficha do app (visualização e edição) | Pending | Texto humano tem prioridade |
+| Ficha do app (visualização e edição) | In Progress | Visualização básica pronta; edição direto na ficha pendente (hoje: reanalisar a pasta e "Atualizar ficha") |
 
 ## Fase 4 — Execução (1.3), feature central
 
