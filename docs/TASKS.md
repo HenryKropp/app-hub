@@ -41,6 +41,13 @@ Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep)
 6. Assinatura digital do App Hub (etapa 4), antes de vender
 7. Depois: retomar a Fase 2b (teste com mais 4 apps e MCP)
 
+**Para a próxima sessão (deixado em 2026-09-30):**
+- Começar pela **Fase 5** (histórico). Seguir o fluxo: desenho → plano → implementação.
+- O Agente no PC do Henry está na **0.2.3** e se atualiza sozinho. O código do Hub também está na 0.2.3, e `dist/agent/AppHubAgente.exe` da pasta principal já é essa versão.
+- Para publicar um Agente novo: subir `agentproto.Version`, rodar `scripts/build-agent.sh` e reiniciar o Hub.
+- Nunca ligar um Hub de teste (com outro banco) na porta 8080: o Agente real fala com ele e esquece a conexão.
+- Ainda falta o Henry conferir a janela de pastas moderna (item da Fase 4).
+
 ## Fase 2b — Registro pelo Claude via MCP (3.11) — pausada
 
 Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prioridade acima. Primeiro o protocolo, testado localmente; depois o MCP. Substitui a necessidade de chave da API para o diagnóstico por IA.
@@ -82,6 +89,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Atualização automática do Agente | Done | 2026-09-30, testada no PC do Henry (0.2.0 → 0.2.1 sozinho; 0.2.2 com defeito voltou 3 vezes e o Hub parou; 0.2.3 entrou). Para publicar: subir `agentproto.Version`, rodar `scripts/build-agent.sh` e reiniciar o Hub. Sem número novo, nada atualiza. A 0.1.x precisa de uma última instalação manual |
 | App Hub: ícone, janela própria e instalador único (B) | Pending | Decidido na ADR 005 (2026-09-30): o Agente vira o App Hub, mostrando as mesmas telas do site numa janela, com o Hub sempre num servidor central. Etapas 2 e 3, antes do primeiro colega |
 | Assinatura digital do App Hub | Pending | Etapa 4, antes de vender (certificado pago) |
+| Pendências menores da atualização automática | Pending | "Atualizando…" aparece enquanto o Agente espera um app fechar (pode durar horas); espera pelo app não é cancelada se o Agente fechar; uma execução nova pode passar na frente da atualização; `install()` chama `/quit` sem limite de tempo; poucos testes para falha ao abrir a versão nova e para download 404/401; uma atualização bem-sucedida antiga pode virar "falha" se outra entrar em menos de 10 min (só histórico) |
 | Pendências menores da revisão da Fase 4 | Pending | Cópia do `.exe` que sobra bloqueia a próxima execução; `entrypoint` com subpasta; pasta sem permissão interrompe a leitura; nomes com `..`; trava rara no download; trava de instância única por porta TCP; erro de uma consulta fica na tela; espera de 5 min na janela de pastas se o Agente caiu; apps em pasta do WSL; limpeza de pedidos de conexão vencidos |
 | Registro das execuções | Done | Quem, quando, duração, pasta, computador, versão do app (data e tamanho do `.exe`); Interrompida quando o Agente reinicia ou o computador não responde |
 | Executor genérico isolado da pasta original | Pending | Para scripts: roda numa cópia de trabalho; coleta arquivos novos como saídas |
