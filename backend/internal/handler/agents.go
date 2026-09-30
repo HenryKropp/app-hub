@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -249,8 +250,12 @@ func (h *Handler) agentHello(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = c.Name
 	}
-	if err := h.q.HelloComputer(r.Context(), sqlc.HelloComputerParams{ID: c.ID, Name: name, AgentVersion: body.Version}); err != nil {
+	if err := h.q.HelloComputer(r.Context(), sqlc.HelloComputerParams{ID: c.ID, Name: name, AgentVersion: body.Version, CanUpdate: body.CanUpdate}); err != nil {
 		internalError(w, "hello", err)
+		return
+	}
+	if err := h.q.ResolveTakenUpdates(r.Context(), sqlc.ResolveTakenUpdatesParams{ComputerID: c.ID, TargetVersion: body.Version}); err != nil {
+		internalError(w, "resolve updates", err)
 		return
 	}
 	if err := h.q.InterruptTakenRuns(r.Context(), c.ID); err != nil {
@@ -260,6 +265,10 @@ func (h *Handler) agentHello(w http.ResponseWriter, r *http.Request) {
 	if err := h.q.FailTakenJobs(r.Context(), c.ID); err != nil {
 		internalError(w, "fail jobs", err)
 		return
+	}
+	c.AgentVersion, c.CanUpdate = body.Version, body.CanUpdate
+	if err := h.maybeEnqueueUpdate(r.Context(), c); err != nil {
+		slog.Error("queue agent update", "computer", c.ID, "err", err)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -304,6 +313,9 @@ func (h *Handler) agentNext(w http.ResponseWriter, r *http.Request) {
 	if err := h.q.ExpireStaleJobs(ctx); err != nil {
 		internalError(w, "expire jobs", err)
 		return
+	}
+	if err := h.maybeEnqueueUpdate(ctx, c); err != nil {
+		slog.Error("queue agent update", "computer", c.ID, "err", err)
 	}
 	deadline := time.Now().Add(h.waitNext)
 	for {

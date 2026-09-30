@@ -60,7 +60,7 @@ func (q *Queries) ClaimJob(ctx context.Context, computerID int64) (AgentJob, err
 }
 
 const connectedComputerForPerson = `-- name: ConnectedComputerForPerson :one
-SELECT id, person_id, name, token_hash, agent_version, last_seen_at, created_at, revoked_at FROM computers
+SELECT id, person_id, name, token_hash, agent_version, last_seen_at, created_at, revoked_at, can_update FROM computers
 WHERE person_id = $1 AND revoked_at IS NULL AND last_seen_at > now() - interval '60 seconds'
 ORDER BY last_seen_at DESC
 LIMIT 1
@@ -78,6 +78,7 @@ func (q *Queries) ConnectedComputerForPerson(ctx context.Context, personID int64
 		&i.LastSeenAt,
 		&i.CreatedAt,
 		&i.RevokedAt,
+		&i.CanUpdate,
 	)
 	return i, err
 }
@@ -100,10 +101,41 @@ func (q *Queries) ConsumePairing(ctx context.Context, secretHash string) (Consum
 	return i, err
 }
 
+const countActiveUpdates = `-- name: CountActiveUpdates :one
+SELECT count(*) FROM agent_jobs
+WHERE computer_id = $1 AND kind = 'update' AND status IN ('pending', 'taken')
+`
+
+func (q *Queries) CountActiveUpdates(ctx context.Context, computerID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countActiveUpdates, computerID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countFailedUpdates = `-- name: CountFailedUpdates :one
+SELECT count(*) FROM agent_jobs
+WHERE computer_id = $1 AND kind = 'update' AND status = 'failed'
+  AND taken_at IS NOT NULL AND payload->>'version' = $2::text
+`
+
+type CountFailedUpdatesParams struct {
+	ComputerID    int64  `json:"computer_id"`
+	TargetVersion string `json:"target_version"`
+}
+
+// Only updates the agent took count; one that expired in the queue does not.
+func (q *Queries) CountFailedUpdates(ctx context.Context, arg CountFailedUpdatesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countFailedUpdates, arg.ComputerID, arg.TargetVersion)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createComputer = `-- name: CreateComputer :one
 INSERT INTO computers (person_id, name, token_hash, last_seen_at)
 VALUES ($1, $2, $3, now())
-RETURNING id, person_id, name, token_hash, agent_version, last_seen_at, created_at, revoked_at
+RETURNING id, person_id, name, token_hash, agent_version, last_seen_at, created_at, revoked_at, can_update
 `
 
 type CreateComputerParams struct {
@@ -124,6 +156,7 @@ func (q *Queries) CreateComputer(ctx context.Context, arg CreateComputerParams) 
 		&i.LastSeenAt,
 		&i.CreatedAt,
 		&i.RevokedAt,
+		&i.CanUpdate,
 	)
 	return i, err
 }
@@ -234,7 +267,7 @@ func (q *Queries) FinishJob(ctx context.Context, arg FinishJobParams) error {
 }
 
 const getComputer = `-- name: GetComputer :one
-SELECT id, person_id, name, token_hash, agent_version, last_seen_at, created_at, revoked_at FROM computers WHERE id = $1
+SELECT id, person_id, name, token_hash, agent_version, last_seen_at, created_at, revoked_at, can_update FROM computers WHERE id = $1
 `
 
 func (q *Queries) GetComputer(ctx context.Context, id int64) (Computer, error) {
@@ -249,12 +282,13 @@ func (q *Queries) GetComputer(ctx context.Context, id int64) (Computer, error) {
 		&i.LastSeenAt,
 		&i.CreatedAt,
 		&i.RevokedAt,
+		&i.CanUpdate,
 	)
 	return i, err
 }
 
 const getComputerByToken = `-- name: GetComputerByToken :one
-SELECT id, person_id, name, token_hash, agent_version, last_seen_at, created_at, revoked_at FROM computers WHERE token_hash = $1 AND revoked_at IS NULL
+SELECT id, person_id, name, token_hash, agent_version, last_seen_at, created_at, revoked_at, can_update FROM computers WHERE token_hash = $1 AND revoked_at IS NULL
 `
 
 func (q *Queries) GetComputerByToken(ctx context.Context, tokenHash string) (Computer, error) {
@@ -269,6 +303,7 @@ func (q *Queries) GetComputerByToken(ctx context.Context, tokenHash string) (Com
 		&i.LastSeenAt,
 		&i.CreatedAt,
 		&i.RevokedAt,
+		&i.CanUpdate,
 	)
 	return i, err
 }
@@ -337,17 +372,23 @@ func (q *Queries) GetPairingStateBySecret(ctx context.Context, secretHash string
 }
 
 const helloComputer = `-- name: HelloComputer :exec
-UPDATE computers SET last_seen_at = now(), name = $2, agent_version = $3 WHERE id = $1
+UPDATE computers SET last_seen_at = now(), name = $2, agent_version = $3, can_update = $4 WHERE id = $1
 `
 
 type HelloComputerParams struct {
 	ID           int64  `json:"id"`
 	Name         string `json:"name"`
 	AgentVersion string `json:"agent_version"`
+	CanUpdate    bool   `json:"can_update"`
 }
 
 func (q *Queries) HelloComputer(ctx context.Context, arg HelloComputerParams) error {
-	_, err := q.db.Exec(ctx, helloComputer, arg.ID, arg.Name, arg.AgentVersion)
+	_, err := q.db.Exec(ctx, helloComputer,
+		arg.ID,
+		arg.Name,
+		arg.AgentVersion,
+		arg.CanUpdate,
+	)
 	return err
 }
 
@@ -377,8 +418,30 @@ func (q *Queries) IsComputerConnected(ctx context.Context, id int64) (bool, erro
 	return column_1, err
 }
 
+const latestUpdateJob = `-- name: LatestUpdateJob :one
+SELECT id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at FROM agent_jobs WHERE computer_id = $1 AND kind = 'update' ORDER BY id DESC LIMIT 1
+`
+
+func (q *Queries) LatestUpdateJob(ctx context.Context, computerID int64) (AgentJob, error) {
+	row := q.db.QueryRow(ctx, latestUpdateJob, computerID)
+	var i AgentJob
+	err := row.Scan(
+		&i.ID,
+		&i.ComputerID,
+		&i.RunID,
+		&i.Kind,
+		&i.Payload,
+		&i.Status,
+		&i.Result,
+		&i.CreatedAt,
+		&i.TakenAt,
+		&i.DoneAt,
+	)
+	return i, err
+}
+
 const listPersonComputers = `-- name: ListPersonComputers :many
-SELECT id, person_id, name, token_hash, agent_version, last_seen_at, created_at, revoked_at, (last_seen_at > now() - interval '60 seconds')::boolean AS connected
+SELECT id, person_id, name, token_hash, agent_version, last_seen_at, created_at, revoked_at, can_update, (last_seen_at > now() - interval '60 seconds')::boolean AS connected
 FROM computers
 WHERE person_id = $1 AND revoked_at IS NULL
 ORDER BY last_seen_at DESC NULLS LAST
@@ -393,6 +456,7 @@ type ListPersonComputersRow struct {
 	LastSeenAt   pgtype.Timestamptz `json:"last_seen_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	RevokedAt    pgtype.Timestamptz `json:"revoked_at"`
+	CanUpdate    bool               `json:"can_update"`
 	Connected    bool               `json:"connected"`
 }
 
@@ -414,6 +478,7 @@ func (q *Queries) ListPersonComputers(ctx context.Context, personID int64) ([]Li
 			&i.LastSeenAt,
 			&i.CreatedAt,
 			&i.RevokedAt,
+			&i.CanUpdate,
 			&i.Connected,
 		); err != nil {
 			return nil, err
@@ -424,6 +489,25 @@ func (q *Queries) ListPersonComputers(ctx context.Context, personID int64) ([]Li
 		return nil, err
 	}
 	return items, nil
+}
+
+const resolveTakenUpdates = `-- name: ResolveTakenUpdates :exec
+UPDATE agent_jobs
+SET status = CASE WHEN payload->>'version' = $1::text THEN 'done' ELSE 'failed' END,
+    done_at = now()
+WHERE computer_id = $2 AND kind = 'update' AND status = 'taken'
+`
+
+type ResolveTakenUpdatesParams struct {
+	TargetVersion string `json:"target_version"`
+	ComputerID    int64  `json:"computer_id"`
+}
+
+// Called on hello: the agent restarted, so a taken update either worked
+// (it now reports the target version) or was rolled back.
+func (q *Queries) ResolveTakenUpdates(ctx context.Context, arg ResolveTakenUpdatesParams) error {
+	_, err := q.db.Exec(ctx, resolveTakenUpdates, arg.TargetVersion, arg.ComputerID)
+	return err
 }
 
 const revokeComputer = `-- name: RevokeComputer :exec

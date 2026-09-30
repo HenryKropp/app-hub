@@ -34,7 +34,7 @@ SELECT * FROM computers WHERE id = $1;
 UPDATE computers SET last_seen_at = now() WHERE id = $1;
 
 -- name: HelloComputer :exec
-UPDATE computers SET last_seen_at = now(), name = $2, agent_version = $3 WHERE id = $1;
+UPDATE computers SET last_seen_at = now(), name = $2, agent_version = $3, can_update = $4 WHERE id = $1;
 
 -- name: ListPersonComputers :many
 SELECT *, (last_seen_at > now() - interval '60 seconds')::boolean AS connected
@@ -104,3 +104,24 @@ WHERE status IN ('waiting', 'running') AND id IN (
 -- name: FailTakenJobs :exec
 UPDATE agent_jobs SET status = 'failed', done_at = now()
 WHERE computer_id = $1 AND status = 'taken';
+
+-- name: CountActiveUpdates :one
+SELECT count(*) FROM agent_jobs
+WHERE computer_id = $1 AND kind = 'update' AND status IN ('pending', 'taken');
+
+-- name: CountFailedUpdates :one
+-- Only updates the agent took count; one that expired in the queue does not.
+SELECT count(*) FROM agent_jobs
+WHERE computer_id = sqlc.arg(computer_id) AND kind = 'update' AND status = 'failed'
+  AND taken_at IS NOT NULL AND payload->>'version' = sqlc.arg(target_version)::text;
+
+-- name: ResolveTakenUpdates :exec
+-- Called on hello: the agent restarted, so a taken update either worked
+-- (it now reports the target version) or was rolled back.
+UPDATE agent_jobs
+SET status = CASE WHEN payload->>'version' = sqlc.arg(target_version)::text THEN 'done' ELSE 'failed' END,
+    done_at = now()
+WHERE computer_id = sqlc.arg(computer_id) AND kind = 'update' AND status = 'taken';
+
+-- name: LatestUpdateJob :one
+SELECT * FROM agent_jobs WHERE computer_id = $1 AND kind = 'update' ORDER BY id DESC LIMIT 1;
