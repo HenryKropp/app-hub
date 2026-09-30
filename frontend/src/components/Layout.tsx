@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
-import { FolderSearch, Gauge, KeyRound, LibraryBig, LogOut, Users } from "lucide-react"
+import { FolderSearch, Gauge, KeyRound, Laptop, LibraryBig, LogOut, Users } from "lucide-react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { roleLabel } from "@/lib/kinds"
@@ -10,6 +10,7 @@ const NAV = [
   { to: "/", label: "Catálogo", icon: LibraryBig, roles: ["admin", "criador", "usuario"] },
   { to: "/registrar", label: "Registrar apps", icon: FolderSearch, roles: ["admin", "criador"] },
   { to: "/pessoas", label: "Pessoas", icon: Users, roles: ["admin", "criador", "usuario"] },
+  { to: "/meu-computador", label: "Meu computador", icon: Laptop, roles: ["admin", "criador", "usuario"] },
 ]
 
 const SOON = [
