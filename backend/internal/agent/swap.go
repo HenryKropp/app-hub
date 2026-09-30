@@ -40,15 +40,18 @@ func (s *Swap) Run(ctx context.Context) error {
 	if s.RetryWait == 0 {
 		s.RetryWait = time.Second
 	}
-	if s.Tries == 0 {
+	if s.Tries <= 0 {
 		s.Tries = 30
 	}
 	s.QuitRunning()
 	if err := s.copyRetrying(ctx, s.Self, s.Target); err != nil {
 		// The old agent already quit: bring it back rather than leave none.
 		// The target was never touched, so it is still the previous agent.
-		berr := s.bringBack(true)
-		return fmt.Errorf("install new agent: %w (restart: %w)", errors.Join(ErrRolledBack, err), berr)
+		rerr := errors.Join(ErrRolledBack, err)
+		if berr := s.bringBack(true); berr != nil {
+			return fmt.Errorf("install new agent: %w (restart: %w)", rerr, berr)
+		}
+		return fmt.Errorf("install new agent: %w", rerr)
 	}
 	stop, err := s.Start(s.Target)
 	if err == nil && s.waitConnected(ctx) {

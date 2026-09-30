@@ -495,18 +495,23 @@ const resolveTakenUpdates = `-- name: ResolveTakenUpdates :exec
 UPDATE agent_jobs
 SET status = CASE WHEN payload->>'version' = $1::text THEN 'done' ELSE 'failed' END,
     done_at = now()
-WHERE computer_id = $2 AND kind = 'update' AND status = 'taken'
+WHERE computer_id = $2 AND kind = 'update'
+  AND (status = 'taken'
+       OR (status = 'done' AND done_at > now() - interval '10 minutes'
+           AND payload->>'version' <> $1::text))
 `
 
 type ResolveTakenUpdatesParams struct {
-	TargetVersion string `json:"target_version"`
-	ComputerID    int64  `json:"computer_id"`
+	HelloVersion string `json:"hello_version"`
+	ComputerID   int64  `json:"computer_id"`
 }
 
 // Called on hello: the agent restarted, so a taken update either worked
-// (it now reports the target version) or was rolled back.
+// (it now reports the target version) or was rolled back. An update marked
+// done in the last 10 minutes whose version the agent no longer runs
+// connected and then died, so it counts as failed.
 func (q *Queries) ResolveTakenUpdates(ctx context.Context, arg ResolveTakenUpdatesParams) error {
-	_, err := q.db.Exec(ctx, resolveTakenUpdates, arg.TargetVersion, arg.ComputerID)
+	_, err := q.db.Exec(ctx, resolveTakenUpdates, arg.HelloVersion, arg.ComputerID)
 	return err
 }
 
