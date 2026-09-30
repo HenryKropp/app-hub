@@ -102,7 +102,7 @@ func (u *Updater) download(ctx context.Context, dst string, p agentproto.UpdateP
 	}
 	dctx, cancel := context.WithTimeout(ctx, limit)
 	defer cancel()
-	n, err := u.Client.DownloadBinary(dctx,io.MultiWriter(&capWriter{w: f, left: p.Size}, sum))
+	n, err := u.Client.DownloadBinary(dctx, io.MultiWriter(&capWriter{w: f, left: p.Size}, sum))
 	if cerr := f.Close(); err == nil {
 		err = cerr
 	}
