@@ -413,3 +413,26 @@ func TestDownloadErrorIsReadablePageInBrowser(t *testing.T) {
 		t.Fatalf("%d %q %s", resp.StatusCode, resp.Header.Get("Content-Type"), b)
 	}
 }
+
+// Fixing the manifest's output patterns must also fix the groups of past runs.
+func TestGroupsFollowCurrentManifest(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	rel := "PETROBRAS/5. Formulário Referência/2025/FRE_2025-12-31_v1_completo.pdf"
+	runID, _ := finishedRun(t, c, []agentproto.FileEntry{{Path: rel, Size: 1, Modified: time.Now(), Change: "new"}})
+
+	m := filesPrepManifest()
+	m.Outputs[0].Pattern = "*/*/**/*.pdf"
+	raw, _ := json.Marshal(m)
+	if _, err := testPool.Exec(context.Background(), "UPDATE apps SET manifest = $1", raw); err != nil {
+		t.Fatal(err)
+	}
+	var run runJSON
+	c.do("GET", "/api/runs/"+strconv.FormatInt(runID, 10), nil, &run)
+	if len(run.Groups[0].Files) != 1 || run.Groups[0].Files[0].Path != rel {
+		t.Fatalf("groups %+v", run.Groups)
+	}
+	if last := run.Groups[len(run.Groups)-1]; last.Index == -1 {
+		t.Fatalf("file still in Outros: %+v", run.Groups)
+	}
+}

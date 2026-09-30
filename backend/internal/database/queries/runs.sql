@@ -34,7 +34,7 @@ ORDER BY r.id DESC
 LIMIT 20;
 
 -- name: ListRunFiles :many
-SELECT * FROM run_files WHERE run_id = $1 ORDER BY group_index < 0, group_index, rel_path;
+SELECT * FROM run_files WHERE run_id = $1 ORDER BY rel_path;
 
 -- name: GetRunFile :one
 SELECT * FROM run_files WHERE id = $1 AND run_id = $2;
