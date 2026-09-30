@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Compiles the Agente do Hub for Windows into dist/agent/AppHubAgente.exe.
 # HUB_URL is the address the agent uses to reach the Hub's Go server.
+# Releasing a new agent: bump agentproto.Version, run this script, then restart
+# the Hub. Connected agents (0.2.0+) update themselves; same version = no update.
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 HUB_URL="${HUB_URL:-http://localhost:8080}"

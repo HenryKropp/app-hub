@@ -8,7 +8,7 @@ import (
 )
 
 // Version is the agent version this Hub expects.
-const Version = "0.1.1"
+const Version = "0.2.0"
 
 // Job kinds.
 const (

@@ -4,20 +4,29 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	"github.com/HenryKropp/app-hub/backend/internal/agent"
+	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
 )
 
 // hubURL is set at build time (scripts/build-agent.sh); APPHUB_URL overrides it.
 var hubURL = "http://localhost:8080"
 
 const lockAddr = "127.0.0.1:47631"
+
+// connected turns true once this agent reached the Hub; /status reports it so
+// an updating agent knows the new version works.
+var connected atomic.Bool
 
 func main() {
 	if v := os.Getenv("APPHUB_URL"); v != "" {
@@ -29,6 +38,11 @@ func main() {
 	}
 	if f, err := os.OpenFile(dir+string(os.PathSeparator)+"agente.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600); err == nil {
 		slog.SetDefault(slog.New(slog.NewTextHandler(f, nil)))
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "--update" {
+		runUpdate(dir)
+		return
 	}
 
 	handedOff, err := install(dir)
@@ -51,6 +65,11 @@ func main() {
 		if r.Method == http.MethodPost && r.URL.Path == "/quit" {
 			w.WriteHeader(http.StatusNoContent)
 			go func() { time.Sleep(100 * time.Millisecond); os.Exit(0) }()
+			return
+		}
+		if r.Method == http.MethodGet && r.URL.Path == "/status" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"version": agentproto.Version, "connected": connected.Load()})
 			return
 		}
 		http.NotFound(w, r)
@@ -82,9 +101,13 @@ func main() {
 		slog.Warn("hello", "err", err)
 		time.Sleep(5 * time.Second)
 	}
+	connected.Store(true)
+	exe, _ := os.Executable()
+	runner := &agent.Runner{Launcher: agent.ExecLauncher{}, StateDir: dir}
 	a := &agent.Agent{
-		Client: client, StateDir: dir, Name: name, ChooseFolder: chooseFolder,
-		Runner: &agent.Runner{Launcher: agent.ExecLauncher{}, StateDir: dir},
+		Client: client, StateDir: dir, Name: name, ChooseFolder: chooseFolder, Runner: runner,
+		Updater: &agent.Updater{Client: client, Runner: runner, StateDir: dir, CurrentExe: exe,
+			Start: func(p string, args ...string) error { _, err := startProcess(p, args...); return err }},
 	}
 	if err := a.Loop(ctx); errors.Is(err, agent.ErrUnauthorized) {
 		forget(dir)
@@ -99,4 +122,63 @@ func forget(dir string) {
 	if err := removeAutostart(); err != nil {
 		slog.Warn("remove autostart", "err", err)
 	}
+}
+
+// runUpdate is update mode: this is the downloaded agent, which installs
+// itself over the current one and rolls back if it does not connect.
+func runUpdate(dir string) {
+	self, err := os.Executable()
+	if err != nil {
+		slog.Error("update: executable", "err", err)
+		return
+	}
+	s := &agent.Swap{
+		Self: self, Target: filepath.Join(dir, "AppHubAgente.exe"), Backup: filepath.Join(dir, "AppHubAgente.anterior.exe"),
+		QuitRunning: quitRunning,
+		Start:       func(exe string) (func(), error) { return startProcess(exe) },
+		Connected: func(ctx context.Context) bool {
+			return agent.StatusConnected(ctx, "http://"+lockAddr+"/status", agentproto.Version)
+		},
+	}
+	switch err := s.Run(context.Background()); {
+	case err == nil:
+		slog.Info("update done", "version", agentproto.Version)
+	case errors.Is(err, agent.ErrRolledBack):
+		slog.Warn("update rolled back", "version", agentproto.Version)
+	default:
+		slog.Error("update", "err", err)
+	}
+}
+
+// quitRunning asks the agent on this computer to close and gives Windows a
+// moment to release its file. The short timeout keeps a hung agent from
+// blocking the swap.
+func quitRunning() {
+	hc := &http.Client{Timeout: 3 * time.Second}
+	if resp, err := hc.Post("http://"+lockAddr+"/quit", "", nil); err == nil {
+		resp.Body.Close()
+		time.Sleep(2 * time.Second)
+	}
+}
+
+// startProcess opens a program without waiting. stop closes it politely via
+// /quit, kills it if it has not exited after a few seconds, and returns only
+// once the process is gone so its exe file is released.
+func startProcess(exe string, args ...string) (func(), error) {
+	cmd := exec.Command(exe, args...)
+	if err := cmd.Start(); err != nil {
+		return nil, err
+	}
+	done := make(chan struct{})
+	go func() { _ = cmd.Wait(); close(done) }()
+	return func() {
+		quitRunning()
+		select {
+		case <-done:
+			return
+		case <-time.After(3 * time.Second):
+		}
+		_ = cmd.Process.Kill()
+		<-done
+	}, nil
 }
