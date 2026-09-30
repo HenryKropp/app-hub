@@ -3,8 +3,10 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -235,5 +237,143 @@ func TestChooseFolder(t *testing.T) {
 	}
 	if code := c.do("POST", "/api/choose-folder", map[string]string{"initial": `C:\`}, &out); code != http.StatusOK || out.Folder != `C:\Users\Henry\Relatórios` {
 		t.Fatalf("%d %+v", code, out)
+	}
+}
+
+// finishedRun creates a run with the given files and returns run id, token.
+func finishedRun(t *testing.T, c *client, files []agentproto.FileEntry) (int64, string) {
+	t.Helper()
+	app := insertApp(t, filesPrepManifest())
+	token := pairComputer(t, c, "PC")
+	var run runJSON
+	c.do("POST", appPath(app, "/runs"), map[string]string{}, &run)
+	var job agentproto.Job
+	c.agent("GET", "/api/agent/next", token, nil, &job)
+	c.agent("POST", "/api/agent/jobs/"+strconv.FormatInt(job.ID, 10)+"/result", token, agentproto.Result{Event: agentproto.EventFinished, Files: files}, nil)
+	return run.ID, token
+}
+
+// fakeAgentSend answers one send_file job with body, or reports missing.
+func fakeAgentSend(t *testing.T, c *client, token string, body string, missing bool) <-chan agentproto.SendFilePayload {
+	got := make(chan agentproto.SendFilePayload, 1)
+	go func() {
+		var job agentproto.Job
+		for job.ID == 0 {
+			c.agent("GET", "/api/agent/next", token, nil, &job)
+		}
+		var p agentproto.SendFilePayload
+		_ = json.Unmarshal(job.Payload, &p)
+		got <- p
+		id := strconv.FormatInt(job.ID, 10)
+		if missing {
+			c.agent("POST", "/api/agent/jobs/"+id+"/result", token, agentproto.Result{Event: agentproto.EventMissing}, nil)
+			return
+		}
+		req, _ := http.NewRequest("POST", c.srv.URL+"/api/agent/jobs/"+id+"/upload", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := http.DefaultClient.Do(req)
+		if err == nil {
+			resp.Body.Close()
+		}
+	}()
+	return got
+}
+
+func TestDownloadFile(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	runID, token := finishedRun(t, c, []agentproto.FileEntry{
+		{Path: "PETROBRAS/MD_Output/PETROBRAS_DataPack_Consolidado.md", Size: 5, Modified: time.Now(), Change: "new"},
+	})
+	sent := fakeAgentSend(t, c, token, "# Data", false)
+
+	resp, err := c.c.Get(c.srv.URL + "/api/runs/" + strconv.FormatInt(runID, 10) + "/files/1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK || string(b) != "# Data" {
+		t.Fatalf("%d %q", resp.StatusCode, b)
+	}
+	if cd := resp.Header.Get("Content-Disposition"); !strings.Contains(cd, "PETROBRAS_DataPack_Consolidado.md") {
+		t.Fatalf("disposition %q", cd)
+	}
+	p := recvPayload(t, sent)
+	if p.Zip || len(p.Paths) != 1 || p.Paths[0] != "PETROBRAS/MD_Output/PETROBRAS_DataPack_Consolidado.md" {
+		t.Fatalf("payload %+v", p)
+	}
+}
+
+func TestDownloadMissingFile(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	runID, token := finishedRun(t, c, []agentproto.FileEntry{{Path: "a.txt", Size: 1, Modified: time.Now(), Change: "new"}})
+	fakeAgentSend(t, c, token, "", true)
+	var e map[string]string
+	if code := c.do("GET", "/api/runs/"+strconv.FormatInt(runID, 10)+"/files/1", nil, &e); code != http.StatusNotFound || e["error"] != "Esse arquivo não está mais na pasta." {
+		t.Fatalf("%d %v", code, e)
+	}
+}
+
+func TestDownloadGroupZipPayload(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	now := time.Now()
+	runID, token := finishedRun(t, c, []agentproto.FileEntry{
+		{Path: "P/FRE/a.pdf", Size: 1, Modified: now, Change: "new"},
+		{Path: "P/DFP/b.pdf", Size: 1, Modified: now, Change: "new"},
+		{Path: "log.txt", Size: 1, Modified: now, Change: "new"},
+	})
+	sent := fakeAgentSend(t, c, token, "PK", false)
+	resp, err := c.c.Get(c.srv.URL + "/api/runs/" + strconv.FormatInt(runID, 10) + "/groups/0/zip")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	p := recvPayload(t, sent)
+	if !p.Zip || len(p.Paths) != 2 || resp.Header.Get("Content-Type") != "application/zip" {
+		t.Fatalf("payload %+v type %q", p, resp.Header.Get("Content-Type"))
+	}
+}
+
+func TestDownloadRefusesUnknownFileAndOtherPerson(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	runID, _ := finishedRun(t, c, []agentproto.FileEntry{{Path: "a.txt", Size: 1, Modified: time.Now(), Change: "new"}})
+	if code := c.do("GET", "/api/runs/"+strconv.FormatInt(runID, 10)+"/files/999", nil, nil); code != http.StatusNotFound {
+		t.Fatalf("unknown file %d", code)
+	}
+	createPersonAs(t, c, "Ana", "ana@alis.com", "usuario")
+	ana := c.fresh()
+	loginAs(t, ana, "ana@alis.com")
+	if code := ana.do("GET", "/api/runs/"+strconv.FormatInt(runID, 10)+"/files/1", nil, nil); code != http.StatusNotFound {
+		t.Fatalf("other person %d", code)
+	}
+	var jobs int
+	_ = testPool.QueryRow(context.Background(), "SELECT count(*) FROM agent_jobs WHERE kind = 'send_file'").Scan(&jobs)
+	if jobs != 0 {
+		t.Fatalf("refused downloads must not reach the agent, got %d jobs", jobs)
+	}
+}
+
+func TestDownloadComputerOffline(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	runID, _ := finishedRun(t, c, []agentproto.FileEntry{{Path: "a.txt", Size: 1, Modified: time.Now(), Change: "new"}})
+	_, _ = testPool.Exec(context.Background(), "UPDATE computers SET last_seen_at = now() - interval '5 minutes'")
+	if code := c.do("GET", "/api/runs/"+strconv.FormatInt(runID, 10)+"/files/1", nil, nil); code != http.StatusConflict {
+		t.Fatalf("offline %d", code)
+	}
+}
+
+func recvPayload(t *testing.T, ch <-chan agentproto.SendFilePayload) agentproto.SendFilePayload {
+	t.Helper()
+	select {
+	case p := <-ch:
+		return p
+	case <-time.After(5 * time.Second):
+		t.Fatal("the agent never received a send_file job")
+		return agentproto.SendFilePayload{}
 	}
 }
