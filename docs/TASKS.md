@@ -33,7 +33,7 @@ Status: Pending / In Progress / Done / Blocked
 ## Prioridade atual (2026-09-30)
 
 Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep) antes de registrar mais apps.** Ordem:
-1. Fase 4 para apps com janela e `.exe`: rodar pelo Hub, pegar os resultados e registrar cada execução ← **construída (2026-09-30), falta o teste de verdade com o Henry**
+1. Fase 4 para apps com janela e `.exe`: rodar pelo Hub, pegar os resultados e registrar cada execução ← **feita e testada de verdade (2026-09-30)**. Próximo: atualização automática do Agente (A), depois desenhar o Hub como app de computador (B)
 2. Fase 5: histórico de mudanças no código e na ficha, e voltar atrás (junto com as execuções numa linha do tempo)
 3. Acabamento: tela da ficha com os campos da v0.2 (opções, várias escolhas, `depends_on`, `build`); barra lateral não vai até o fim em páginas compridas
 4. Depois: retomar a Fase 2b (teste com mais 4 apps e MCP)
@@ -72,10 +72,13 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Agente do Hub no Windows (instalar, conectar, ligar com o Windows) | Done | ADR 004. `scripts/build-agent.sh`; página Meu computador e Conectar. Falta o teste de verdade no computador do Henry |
-| Rodar app com janela/`.exe` pelo Agente, com pasta escolhida | Done | Padrão: pasta do app; outra pasta: cópia temporária do `.exe`. **Primeiro alvo:** Eq. Research Files Prep. Falta o teste de verdade |
-| Resultados agrupados pelo manifesto | Done | Arquivos novos ou alterados; grupos pelas `outputs` + "Outros arquivos" |
-| Baixar resultados pelo Agente (arquivo e .zip) | Done | Sob demanda; só arquivos registrados como resultado daquela execução |
+| Agente do Hub no Windows (instalar, conectar, ligar com o Windows) | Done | ADR 004. `scripts/build-agent.sh`; Meu computador e Conectar. Testado de verdade em 2026-09-30 (A-HKROPP01) |
+| Rodar app com janela/`.exe` pelo Agente, com pasta escolhida | Done | Padrão: pasta do app; outra pasta: cópia temporária do `.exe`. Eq. Research Files Prep rodado de verdade em 2026-09-30 na pasta do app. Janela de pastas moderna (Agente 0.1.1): falta o Henry conferir |
+| Resultados agrupados pelo manifesto | Done | Arquivos novos ou alterados; grupos pelas `outputs` + "Outros arquivos". Padrões aceitam `**`; grupos calculados pela ficha atual. Ficha do Files Prep corrigida após o 1º teste (`*/*/**/*.pdf`, `*_secoes.pdf`) |
+| Baixar resultados pelo Agente (arquivo e .zip) | Done | Sob demanda; só arquivos da execução. Um arquivo, grupo inteiro, ou arquivos marcados ("Baixar selecionados", pedido do Henry). Erros viram página legível |
+| Atualização automática do Agente | Pending | **Próxima sessão (A).** Pedido do Henry: não depender de baixar pelo navegador. O Agente vê a versão nova no Hub, baixa e troca sozinho |
+| Hub como app de computador (B) | Pending | Ideia do Henry (2026-09-30): um instalador único "App Hub" com o Agente junto, janela própria sem navegador e botão "Procurar atualizações". Precisa de desenho próprio, pensando no Módulo 2 |
+| Pendências menores da revisão da Fase 4 | Pending | Cópia do `.exe` que sobra bloqueia a próxima execução; `entrypoint` com subpasta; pasta sem permissão interrompe a leitura; nomes com `..`; trava rara no download; trava de instância única por porta TCP; erro de uma consulta fica na tela; espera de 5 min na janela de pastas se o Agente caiu; apps em pasta do WSL; limpeza de pedidos de conexão vencidos |
 | Registro das execuções | Done | Quem, quando, duração, pasta, computador, versão do app (data e tamanho do `.exe`); Interrompida quando o Agente reinicia ou o computador não responde |
 | Executor genérico isolado da pasta original | Pending | Para scripts: roda numa cópia de trabalho; coleta arquivos novos como saídas |
 | Ambiente reproduzível por app | Pending | Versão da linguagem e bibliotecas fixadas, preparado na 1ª vez |

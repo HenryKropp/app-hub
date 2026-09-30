@@ -78,6 +78,8 @@ A numeração segue a especificação do produto.
   - **Resultado:** ao fechar a janela, o Hub mostra todo arquivo novo ou alterado, em grupos pelas saídas da ficha, mais "Outros arquivos".
   - **Downloads:** os arquivos ficam na pasta. Ao clicar em Baixar (um arquivo ou o grupo em .zip), o Agente envia na hora. Por isso é preciso que o computador esteja ligado.
   - **Quem vê:** até a Fase 6, só quem rodou e os administradores veem e baixam uma execução.
+  - **Baixar escolhendo:** a pessoa marca os arquivos que quer e baixa de uma vez (um arquivo vem direto; vários vêm num .zip).
+  - **Próximo (pedido do Henry, 2026-09-30):** o Agente se atualiza sozinho, sem baixar pelo navegador. Depois, estudar o Hub como app de computador: um instalador único com o Agente junto, janela própria e botão "Procurar atualizações".
 - **Ambiente preparado sozinho:** na primeira vez, o Hub instala a versão certa da linguagem e das bibliotecas. Nas seguintes, reaproveita o que já instalou. O usuário não vê terminal.
 - **Progresso e resultado:** mostra o andamento e, ao final, o texto impresso, as tabelas e os arquivos gerados para baixar.
 - **Registro de cada execução:** quem rodou, quando, com quais entradas, duração, resultado e versão usada.
