@@ -77,7 +77,7 @@ func (r *Runner) Run(ctx context.Context, p agentproto.RunPayload, report func(a
 
 	if target != exe {
 		if err := copyFile(exe, target); err != nil {
-			_ = os.Remove(target)
+			// copyFile cleans up only what it created; never touch a file that was there.
 			return failed("Não consegui copiar o app para a pasta escolhida.")
 		}
 		defer os.Remove(target)
@@ -123,9 +123,14 @@ func copyFile(src, dst string) error {
 	}
 	if _, err := io.Copy(out, in); err != nil {
 		out.Close()
+		_ = os.Remove(dst) // we created it (O_EXCL), so it is ours to remove
 		return err
 	}
-	return out.Close()
+	if err := out.Close(); err != nil {
+		_ = os.Remove(dst)
+		return err
+	}
+	return nil
 }
 
 func humanSize(n int64) string {

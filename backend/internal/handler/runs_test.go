@@ -377,3 +377,39 @@ func recvPayload(t *testing.T, ch <-chan agentproto.SendFilePayload) agentproto.
 		return agentproto.SendFilePayload{}
 	}
 }
+
+func TestClaimedButLostRunIsInterrupted(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	app := insertApp(t, filesPrepManifest())
+	token := pairComputer(t, c, "PC")
+	var run runJSON
+	c.do("POST", appPath(app, "/runs"), map[string]string{}, &run)
+	var job agentproto.Job
+	c.agent("GET", "/api/agent/next", token, nil, &job) // claimed, but the agent never reports
+	if _, err := testPool.Exec(context.Background(), "UPDATE agent_jobs SET taken_at = now() - interval '2 minutes'"); err != nil {
+		t.Fatal(err)
+	}
+	c.do("GET", "/api/runs/"+strconv.FormatInt(run.ID, 10), nil, &run)
+	if run.Status != "interrupted" || run.ErrorMessage == "" {
+		t.Fatalf("lost claimed run %+v", run)
+	}
+}
+
+func TestDownloadErrorIsReadablePageInBrowser(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	runID, token := finishedRun(t, c, []agentproto.FileEntry{{Path: "a.txt", Size: 1, Modified: time.Now(), Change: "new"}})
+	fakeAgentSend(t, c, token, "", true)
+	req, _ := http.NewRequest("GET", c.srv.URL+"/api/runs/"+strconv.FormatInt(runID, 10)+"/files/1", nil)
+	req.Header.Set("Accept", "text/html,application/xhtml+xml")
+	resp, err := c.c.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusNotFound || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/html") || !strings.Contains(string(b), "Esse arquivo não está mais na pasta.") {
+		t.Fatalf("%d %q %s", resp.StatusCode, resp.Header.Get("Content-Type"), b)
+	}
+}

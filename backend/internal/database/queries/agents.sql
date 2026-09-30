@@ -82,7 +82,11 @@ UPDATE runs SET status = 'interrupted', finished_at = now(),
     error_message = 'O computador não abriu o app a tempo. Confira se ele está ligado e tente de novo.'
 WHERE status = 'waiting' AND id IN (
     SELECT j.run_id FROM agent_jobs j
-    WHERE j.status = 'pending' AND j.run_id IS NOT NULL AND j.created_at <= now() - interval '2 minutes'
+    WHERE j.run_id IS NOT NULL AND j.kind = 'run' AND (
+        (j.status = 'pending' AND j.created_at <= now() - interval '2 minutes')
+        -- claimed but the agent never said "started" (connection lost)
+        OR (j.status = 'taken' AND j.taken_at <= now() - interval '1 minute')
+    )
 );
 
 -- name: ExpireStaleJobs :exec

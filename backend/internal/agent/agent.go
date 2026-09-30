@@ -20,6 +20,8 @@ type Agent struct {
 	StateDir     string
 	Name         string
 	ChooseFolder func(ctx context.Context, initial string) (folder string, ok bool, err error)
+	// RetryBase is the first wait before re-sending a result (default 1 s).
+	RetryBase time.Duration
 }
 
 // Loop asks the Hub for jobs until ctx ends or the token is revoked.
@@ -47,9 +49,29 @@ func (a *Agent) Loop(ctx context.Context) error {
 	return ctx.Err()
 }
 
+// report sends a job result, retrying while the Hub is unreachable (it may be
+// restarting) so that a finished run is not lost.
 func (a *Agent) report(ctx context.Context, id int64, r agentproto.Result) {
-	if err := a.Client.Result(ctx, id, r); err != nil {
-		slog.Error("report result", "job", id, "err", err)
+	wait := a.RetryBase
+	if wait <= 0 {
+		wait = time.Second
+	}
+	for {
+		err := a.Client.Result(ctx, id, r)
+		if err == nil {
+			return
+		}
+		if errors.Is(err, ErrUnauthorized) || errors.Is(err, ErrNotFound) {
+			slog.Error("report result: hub refused", "job", id, "err", err)
+			return
+		}
+		slog.Warn("report result: retrying", "job", id, "err", err, "in", wait)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(wait):
+		}
+		wait = min(wait*2, 30*time.Second)
 	}
 }
 

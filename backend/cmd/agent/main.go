@@ -76,7 +76,7 @@ func main() {
 			break
 		}
 		if errors.Is(err, agent.ErrUnauthorized) {
-			_ = agent.SaveToken(dir, "")
+			forget(dir)
 			return
 		}
 		slog.Warn("hello", "err", err)
@@ -87,7 +87,16 @@ func main() {
 		Runner: &agent.Runner{Launcher: agent.ExecLauncher{}, StateDir: dir},
 	}
 	if err := a.Loop(ctx); errors.Is(err, agent.ErrUnauthorized) {
-		slog.Info("computer disconnected in the Hub; forgetting token")
-		_ = agent.SaveToken(dir, "")
+		forget(dir)
+	}
+}
+
+// forget runs when the computer was disconnected in the Hub: the agent drops
+// its token and stops starting with Windows, until it is installed again.
+func forget(dir string) {
+	slog.Info("computer disconnected in the Hub; forgetting token and autostart")
+	_ = agent.SaveToken(dir, "")
+	if err := removeAutostart(); err != nil {
+		slog.Warn("remove autostart", "err", err)
 	}
 }

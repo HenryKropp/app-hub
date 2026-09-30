@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"html"
 	"io"
 	"mime"
 	"net/http"
@@ -357,12 +359,12 @@ func (h *Handler) downloadFile(w http.ResponseWriter, r *http.Request) {
 	}
 	fileID, err := strconv.ParseInt(r.PathValue("fileId"), 10, 64)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "Arquivo não encontrado.")
+		downloadError(w, r, http.StatusNotFound, "Arquivo não encontrado.")
 		return
 	}
 	f, err := h.q.GetRunFile(r.Context(), sqlc.GetRunFileParams{ID: fileID, RunID: row.ID})
 	if errors.Is(err, pgx.ErrNoRows) {
-		writeError(w, http.StatusNotFound, "Arquivo não encontrado.")
+		downloadError(w, r, http.StatusNotFound, "Arquivo não encontrado.")
 		return
 	}
 	if err != nil {
@@ -384,7 +386,7 @@ func (h *Handler) downloadGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	index, err := strconv.Atoi(r.PathValue("index"))
 	if err != nil {
-		writeError(w, http.StatusNotFound, "Grupo não encontrado.")
+		downloadError(w, r, http.StatusNotFound, "Grupo não encontrado.")
 		return
 	}
 	j, err := h.toRunJSON(r.Context(), row)
@@ -409,7 +411,7 @@ func (h *Handler) downloadGroup(w http.ResponseWriter, r *http.Request) {
 		h.relayFromAgent(w, r, row, agentproto.SendFilePayload{RunID: row.ID, Paths: paths, Zip: true}, name, "application/zip")
 		return
 	}
-	writeError(w, http.StatusNotFound, "Esse grupo não tem arquivos.")
+	downloadError(w, r, http.StatusNotFound, "Esse grupo não tem arquivos.")
 }
 
 // relayFromAgent asks the run's computer for the files and streams its upload
@@ -422,7 +424,7 @@ func (h *Handler) relayFromAgent(w http.ResponseWriter, r *http.Request, row sql
 		return
 	}
 	if !connected {
-		writeError(w, http.StatusConflict, "O computador onde o app rodou ("+row.ComputerName+") não está conectado. Ligue-o e tente de novo.")
+		downloadError(w, r, http.StatusConflict, "O computador onde o app rodou ("+row.ComputerName+") não está conectado. Ligue-o e tente de novo.")
 		return
 	}
 	job, err := h.enqueue(ctx, row.ComputerID, &row.ID, agentproto.KindSendFile, p)
@@ -435,7 +437,7 @@ func (h *Handler) relayFromAgent(w http.ResponseWriter, r *http.Request, row sql
 	select {
 	case up := <-ch:
 		if up.missing {
-			writeError(w, http.StatusNotFound, "Esse arquivo não está mais na pasta.")
+			downloadError(w, r, http.StatusNotFound, "Esse arquivo não está mais na pasta.")
 			return
 		}
 		w.Header().Set("Content-Type", ctype)
@@ -443,7 +445,7 @@ func (h *Handler) relayFromAgent(w http.ResponseWriter, r *http.Request, row sql
 		_, err := io.Copy(w, up.body)
 		up.done <- err
 	case <-time.After(h.waitFile):
-		writeError(w, http.StatusGatewayTimeout, "O computador não respondeu. Confira se ele está ligado e tente de novo.")
+		downloadError(w, r, http.StatusGatewayTimeout, "O computador não respondeu. Confira se ele está ligado e tente de novo.")
 	case <-ctx.Done():
 	}
 }
@@ -481,4 +483,19 @@ func (h *Handler) agentUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// downloadError answers a download link. Browsers navigate to these links, so
+// they get a small readable page instead of JSON.
+func downloadError(w http.ResponseWriter, r *http.Request, status int, msg string) {
+	if !strings.Contains(r.Header.Get("Accept"), "text/html") {
+		writeError(w, status, msg)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	fmt.Fprintf(w, `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Não foi possível baixar</title>
+<body style="font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;line-height:1.5">
+<h1 style="font-size:1.25rem">Não foi possível baixar</h1><p>%s</p>
+<p><a href="javascript:history.back()">Voltar</a></p></body></html>`, html.EscapeString(msg))
 }

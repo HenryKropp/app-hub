@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
 )
@@ -16,6 +17,7 @@ import (
 var (
 	ErrUnauthorized = errors.New("agent token rejected")
 	ErrGone         = errors.New("pairing expired or used")
+	ErrNotFound     = errors.New("hub does not know this job")
 )
 
 // Client talks to the Hub. Every call is started by the agent.
@@ -23,9 +25,25 @@ type Client struct {
 	BaseURL string
 	Token   string
 	HTTP    *http.Client
+	// RequestTimeout bounds every call except uploads (default 60 s, above
+	// the Hub's 25 s long-poll), so a half-open connection can't freeze the agent.
+	RequestTimeout time.Duration
+}
+
+func (c *Client) timeout() time.Duration {
+	if c.RequestTimeout > 0 {
+		return c.RequestTimeout
+	}
+	return 60 * time.Second
 }
 
 func (c *Client) do(ctx context.Context, method, path string, body io.Reader, contentType string, out any) (int, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.timeout())
+	defer cancel()
+	return c.send(ctx, method, path, body, contentType, out)
+}
+
+func (c *Client) send(ctx context.Context, method, path string, body io.Reader, contentType string, out any) (int, error) {
 	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, body)
 	if err != nil {
 		return 0, err
@@ -46,6 +64,8 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader, co
 		return resp.StatusCode, ErrUnauthorized
 	case resp.StatusCode == http.StatusGone:
 		return resp.StatusCode, ErrGone
+	case resp.StatusCode == http.StatusNotFound:
+		return resp.StatusCode, ErrNotFound
 	case resp.StatusCode >= 300:
 		return resp.StatusCode, fmt.Errorf("hub %s %s: %d", method, path, resp.StatusCode)
 	}
@@ -96,6 +116,7 @@ func (c *Client) Result(ctx context.Context, jobID int64, r agentproto.Result) e
 }
 
 func (c *Client) Upload(ctx context.Context, jobID int64, body io.Reader) error {
-	_, err := c.do(ctx, "POST", "/api/agent/jobs/"+strconv.FormatInt(jobID, 10)+"/upload", body, "application/octet-stream", nil)
+	// No timeout: a big file or zip can take long.
+	_, err := c.send(ctx, "POST", "/api/agent/jobs/"+strconv.FormatInt(jobID, 10)+"/upload", body, "application/octet-stream", nil)
 	return err
 }

@@ -25,3 +25,5 @@ func openBrowser(url string) error {
 	slog.Info("open this page to connect", "url", url)
 	return nil
 }
+
+func removeAutostart() error { return nil }
