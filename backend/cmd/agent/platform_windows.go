@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"io"
 	"net/http"
 	"os"
@@ -77,21 +78,18 @@ func copySelf(src, dst string) error {
 	return out.Close()
 }
 
-// folderScript shows the Windows folder picker on top of other windows and
-// prints the chosen path as UTF-8 (paths like "8. Programação").
-const folderScript = `
-[Console]::OutputEncoding = [Text.Encoding]::UTF8
-Add-Type -AssemblyName System.Windows.Forms
-$owner = New-Object System.Windows.Forms.Form -Property @{TopMost = $true}
-$d = New-Object System.Windows.Forms.FolderBrowserDialog
-$d.Description = 'Onde salvar os resultados'
-$d.ShowNewFolderButton = $true
-if ($env:APPHUB_INITIAL -and (Test-Path -LiteralPath $env:APPHUB_INITIAL)) { $d.SelectedPath = $env:APPHUB_INITIAL }
-if ($d.ShowDialog($owner) -eq [System.Windows.Forms.DialogResult]::OK) { [Console]::Out.Write($d.SelectedPath) }
-`
+//go:embed folderpicker.ps1
+var folderScript []byte
 
+// chooseFolder runs the folder picker script (written next to the agent) and
+// returns the folder the person chose.
 func chooseFolder(ctx context.Context, initial string) (string, bool, error) {
-	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-Command", folderScript)
+	script := filepath.Join(stateDir(), "escolher-pasta.ps1")
+	// UTF-8 with BOM so Windows PowerShell reads the accents in the script right.
+	if err := os.WriteFile(script, append([]byte("\ufeff"), folderScript...), 0o600); err != nil {
+		return "", false, err
+	}
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-File", script)
 	cmd.Env = append(os.Environ(), "APPHUB_INITIAL="+initial)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: createNoWindow}
 	out, err := cmd.Output()
