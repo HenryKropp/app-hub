@@ -63,6 +63,10 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/apps", h.listApps)
 	mux.HandleFunc("GET /api/apps/{id}", h.getApp)
 	mux.HandleFunc("POST /api/apps", h.saveApp)
+	mux.HandleFunc("POST /api/apps/{id}/runs", h.startRun)
+	mux.HandleFunc("GET /api/apps/{id}/runs", h.listAppRuns)
+	mux.HandleFunc("GET /api/runs/{id}", h.getRun)
+	mux.HandleFunc("POST /api/choose-folder", h.chooseFolder)
 
 	mux.HandleFunc("POST /api/agent/pair/start", h.pairStart)
 	mux.HandleFunc("POST /api/agent/pair/poll", h.pairPoll)

@@ -387,7 +387,3 @@ func (h *Handler) finishJob(ctx context.Context, id int64, status string, res ag
 	}
 	return h.q.FinishJob(ctx, sqlc.FinishJobParams{ID: id, Status: status, Result: raw})
 }
-
-func (h *Handler) onRunResult(ctx context.Context, j sqlc.AgentJob, res agentproto.Result) error {
-	return h.finishJob(ctx, j.ID, "done", res)
-}
