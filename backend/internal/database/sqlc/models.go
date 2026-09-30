@@ -47,6 +47,7 @@ type Computer struct {
 	LastSeenAt   pgtype.Timestamptz `json:"last_seen_at"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	RevokedAt    pgtype.Timestamptz `json:"revoked_at"`
+	CanUpdate    bool               `json:"can_update"`
 }
 
 type Pairing struct {

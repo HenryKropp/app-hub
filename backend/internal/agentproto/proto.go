@@ -15,6 +15,7 @@ const (
 	KindRun          = "run"
 	KindChooseFolder = "choose_folder"
 	KindSendFile     = "send_file"
+	KindUpdate       = "update"
 )
 
 // Result events.
@@ -73,9 +74,17 @@ type Result struct {
 	Canceled   bool        `json:"canceled,omitempty"`
 }
 
-type Hello struct {
-	Name    string `json:"name"`
+// UpdatePayload asks the agent to replace itself with the Hub's agent binary.
+type UpdatePayload struct {
 	Version string `json:"version"`
+	SHA256  string `json:"sha256"`
+	Size    int64  `json:"size"`
+}
+
+type Hello struct {
+	Name      string `json:"name"`
+	Version   string `json:"version"`
+	CanUpdate bool   `json:"can_update,omitempty"` // 0.2.0+: understands update jobs
 }
 
 type PairStartRequest struct {
