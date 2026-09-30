@@ -73,6 +73,11 @@ A numeração segue a especificação do produto.
 - **Scripts:** o Hub gera um formulário a partir das entradas do manifesto (upload de arquivo, data, número, texto, lista de opções). O usuário preenche e roda.
 - **Apps com tela própria (web):** o Hub sobe o app e abre a tela dele.
 - **Apps de desktop e executáveis:** o Hub abre o app.
+- **Agente do Hub (Fase 4, 2026-09-30):** apps com janela abrem pelo Agente, um programa pequeno e invisível instalado no Windows de cada pessoa (ADR 004). A pessoa instala e conecta uma vez em **Meu computador**. O app sempre abre no computador de quem clicou em Rodar.
+  - **Onde salvar:** antes de abrir, o Hub pergunta onde salvar os resultados. O padrão é a pasta do app, e a pessoa pode escolher outra pela janela de pastas do Windows.
+  - **Resultado:** ao fechar a janela, o Hub mostra todo arquivo novo ou alterado, em grupos pelas saídas da ficha, mais "Outros arquivos".
+  - **Downloads:** os arquivos ficam na pasta. Ao clicar em Baixar (um arquivo ou o grupo em .zip), o Agente envia na hora. Por isso é preciso que o computador esteja ligado.
+  - **Quem vê:** até a Fase 6, só quem rodou e os administradores veem e baixam uma execução.
 - **Ambiente preparado sozinho:** na primeira vez, o Hub instala a versão certa da linguagem e das bibliotecas. Nas seguintes, reaproveita o que já instalou. O usuário não vê terminal.
 - **Progresso e resultado:** mostra o andamento e, ao final, o texto impresso, as tabelas e os arquivos gerados para baixar.
 - **Registro de cada execução:** quem rodou, quando, com quais entradas, duração, resultado e versão usada.
