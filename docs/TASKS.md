@@ -80,7 +80,8 @@ Antecipada a pedido do Henry (2026-09-30). Primeiro o protocolo, testado localme
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Permissões por app (usar / editar) | Pending | |
+| Empresa e times (time = área; pessoa em uma empresa só) | Pending | Combinado em 2026-09-30: fazer depois do app funcionando (registro, catálogo, execução). Área do app vira time |
+| Permissões por app (usar / editar) | Pending | Visível para a empresa toda, alguns times ou pessoas escolhidas |
 | Cofre local criptografado + injeção na execução | Pending | |
 | Registro de uso de chaves | Pending | |
 

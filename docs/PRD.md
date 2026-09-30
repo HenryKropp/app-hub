@@ -98,6 +98,11 @@ A numeração segue a especificação do produto.
 - Cadastro de pessoas da empresa. Cada app tem quem pode usar e quem pode editar.
 - **Cofre local:** chaves e senhas guardadas criptografadas. O app recebe a chave na hora de rodar e o usuário nunca a vê.
 - Registro de qual app usou qual chave e quando.
+- **Empresa e times (combinado em 2026-09-30, construir depois do app funcionando):**
+  - **Empresa** é a conta: nome, áreas, padrões, cofre da empresa, chave da IA e pastas de apps. Cada pessoa pertence a **uma empresa só**.
+  - **Time = área.** Os times (Investimentos, Research, Operações…) substituem a lista de áreas. A pessoa pode estar em mais de um time. Cada app pertence a um time.
+  - **Quem vê cada app:** a empresa toda, só alguns times ou só pessoas escolhidas (app restrito).
+  - No piloto existe uma empresa só (Alis). Configurações extras por time ou por pessoa, como limites e aprovação antes de publicar, ficam para depois.
 
 ### 3.8 Saúde (1.8)
 - Toda execução com erro fica registrada com a mensagem de erro.
