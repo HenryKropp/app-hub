@@ -1,6 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, FileText, FolderOpen, KeyRound, TriangleAlert } from "lucide-react"
+import { ArrowLeft, FileText, FolderOpen, KeyRound, Play, TriangleAlert } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { RunDialog } from "@/components/RunDialog"
+import { RunsList } from "@/components/RunsList"
 import { KindTab } from "@/components/bits"
 import { api, type AppDetail } from "@/lib/api"
 import { INPUT_SOURCES, INPUT_TYPES, kindInfo } from "@/lib/kinds"
@@ -18,6 +21,7 @@ export function AppPage() {
   const { id } = useParams()
   const [app, setApp] = useState<AppDetail | null>(null)
   const [error, setError] = useState("")
+  const [runOpen, setRunOpen] = useState(false)
 
   useEffect(() => {
     if (id) api.app(id).then(setApp, (e: Error) => setError(e.message))
@@ -37,6 +41,14 @@ export function AppPage() {
         <p className="font-mono text-xs tracking-[0.16em] text-stamp uppercase">{kindInfo(m.kind).label}</p>
         <h1 className="mt-2 font-heading text-4xl">{m.name}</h1>
         <p className="mt-3 max-w-prose text-lg text-muted-foreground">{m.summary || "Sem resumo ainda."}</p>
+        {app.can_run && (
+          <div className="mt-5">
+            <Button onClick={() => setRunOpen(true)} className="gap-2">
+              <Play className="size-4" /> Rodar
+            </Button>
+            <RunDialog app={app} open={runOpen} onOpenChange={setRunOpen} />
+          </div>
+        )}
 
         <dl className="mt-6 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-3">
           <div>
@@ -102,6 +114,9 @@ export function AppPage() {
               </p>
             </Section>
           )}
+          <Section title="Execuções">
+            <RunsList appId={app.id} />
+          </Section>
           <Section title="Onde está">
             <p className="flex items-start gap-2 text-sm">
               <FolderOpen className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
