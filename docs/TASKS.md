@@ -30,6 +30,24 @@ Status: Pending / In Progress / Done / Blocked
 | Salvar manifesto e ficha na pasta do app | Done | Cria só `app-hub.yaml` e `FICHA.md`; recusa sobrescrever arquivo que não é do Hub |
 | Aviso de duplicado | Done | Por palavras do nome, contra o catálogo e dentro do lote |
 
+## Fase 2b — Registro pelo Claude via MCP (3.11) ← próxima
+
+Antecipada a pedido do Henry (2026-09-30). Substitui a necessidade de chave da API para o diagnóstico por IA.
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| ADR: servidor MCP dentro do binário do Hub | Pending | HTTP (streamable) em `/mcp`, SDK oficial de MCP em Go; mesmas regras dos handlers |
+| Código de acesso pessoal (token) | Pending | Gerado/revogado na tela Pessoas; guardado com hash; a IA age com o perfil da pessoa |
+| Ferramenta: listar catálogo e ler ficha | Pending | Para achar duplicados antes de registrar |
+| Ferramenta: formato do manifesto e regras da empresa | Pending | Esquema + explicação em português (padrões 1.5) |
+| Ferramenta: listar pessoas | Pending | Para escolher responsável e reserva |
+| Ferramenta: varrer pasta e diagnóstico por regras | Pending | Reaproveita `internal/scanner` como ponto de partida |
+| Ferramenta: ler arquivos de um app com segredos mascarados | Pending | Só dentro da pasta registrada/varrida; limite de tamanho; nunca devolve valor de chave |
+| Ferramenta: registrar/atualizar app | Pending | Mesmo caminho do botão Publicar; marca "via IA" (coluna nova) |
+| Marca "via IA" no catálogo e na ficha | Pending | |
+| Instruções de conexão (Claude Code e Claude Desktop) | Pending | Tela "Conectar o Claude" com o comando pronto |
+| Testes (Go) + teste de ponta a ponta com um cliente MCP | Pending | |
+
 ## Fase 3 — Catálogo e ficha (1.2, 1.4)
 
 | Tarefa | Status | Notas |
@@ -77,12 +95,13 @@ Status: Pending / In Progress / Done / Blocked
 | Tarefa | Status | Notas |
 |---|---|---|
 | Configurar chave da Claude API | Blocked | Decisão adiada pelo Henry |
-| Diagnóstico e ficha escritos por IA | Blocked | Depende da chave |
+| Diagnóstico e ficha escritos por IA | Pending | Resolvido pelo MCP (Fase 2b) para o registro; dentro do Hub ainda depende da chave |
 | Explicação de erros em português | Blocked | Depende da chave |
 | Busca em linguagem natural, "pergunte ao app" | Blocked | Depende da chave |
 
-## Fase 9 — MCP (V2)
+## Fase 9 — MCP completo
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Servidor MCP expondo catálogo, padrões, projeto, execução, publicação | Pending | V2; operações do Hub já desenhadas para isso |
+| MCP: criar app do zero, rodar, ler saúde, usar cofre | Pending | Depois das Fases 4–7; registro já coberto na Fase 2b |
+

@@ -111,6 +111,18 @@ A numeração segue a especificação do produto.
 ### 3.10 Painel de governança (1.10)
 - Uma tela com inventário (apps por área e tipo), uso (mais usados, execuções por semana) e apps em risco.
 
+### 3.11 Registro pelo Claude via MCP (1.11, antecipado)
+Pedido do Henry em 2026-09-30: registrar apps de dentro do Claude, sem preencher nada à mão.
+- O criador conecta o Claude que já usa ao Hub, com um **código de acesso pessoal** gerado na tela Pessoas.
+- O criador pede, por exemplo, "registra todos os apps da pasta de programação". O Claude:
+  1. lista as pastas e o que já está no catálogo;
+  2. lê o código de cada app, com **chaves e senhas mascaradas** pelo Hub (o Claude nunca vê os valores);
+  3. parte do diagnóstico por regras e completa com o que entendeu do código: resumo em português, entradas, saídas, arquivo de início, área e pontos de atenção;
+  4. registra o app com responsável e reserva, usando o formato padrão do manifesto.
+- **Confirmação humana:** cada registro passa pela confirmação do próprio Claude ("permitir registrar?"), e o app fica marcado no Hub como **registrado via IA**.
+- A IA age com as permissões de quem gerou o código de acesso, nunca mais que isso.
+- **Não precisa de chave da Claude API:** quem lê e escreve é o Claude do criador.
+
 ---
 
 ## 4. Fluxos principais
@@ -133,6 +145,12 @@ A numeração segue a especificação do produto.
 2. O Hub percebe a mudança e pede para registrar a nova versão, com um resumo.
 3. Se algo der errado, volta para a versão anterior com um clique.
 
+**E. Registrar pelo Claude (criador)**
+1. Na tela Pessoas, gera o código de acesso e conecta o Claude (uma vez só).
+2. No Claude, pede: "registra os apps da pasta de programação".
+3. O Claude lê cada app, mostra o que entendeu e registra, pedindo confirmação a cada um.
+4. Os apps aparecem no catálogo com a marca "via IA", e o criador pode revisar no Hub.
+
 **D. Ver a saúde da empresa (sócio)**
 1. Abre o painel.
 2. Vê quantos apps existem, quais são usados, quais estão com erro e quais estão em risco.
@@ -148,15 +166,15 @@ A numeração segue a especificação do produto.
 - **Manifesto aberto e legível:** o app continua compreensível fora do Hub.
 - **Segredos nunca visíveis** na interface, nos registros ou no manifesto.
 - **Preparado para o Módulo 2:** a forma de rodar os apps fica separada do resto, para depois levar a execução para a nuvem sem refazer o Hub.
-- **Preparado para o MCP (V2):** tudo o que a interface faz (registrar, ler ficha, rodar, versionar) fica disponível como operação que a IA também poderá usar.
+- **Operável pela IA (MCP):** tudo o que a interface faz (registrar, ler ficha, rodar, versionar) fica disponível como operação que a IA também pode usar (3.11).
 
 ---
 
 ## 6. Fora do escopo do piloto
 
 - **Módulo 2 inteiro** (nuvem, acesso remoto, cobrança).
-- **Servidor MCP (1.11):** V2, mas a arquitetura já prevê.
-- **Funções de IA:** diagnóstico por IA, ficha escrita por IA, explicação de erros, "pergunte ao app", busca em linguagem natural e resumo das mudanças. Ficam para quando a chave da API estiver configurada.
+- **MCP além do registro:** criar apps do zero, rodar, ler saúde e usar o cofre pelo MCP ficam para depois das Fases 4–7. O registro pelo MCP (3.11) entra já.
+- **Funções de IA com chave própria do Hub:** diagnóstico por IA dentro do Hub, ficha escrita por IA dentro do Hub, explicação de erros, "pergunte ao app", busca em linguagem natural e resumo das mudanças. Ficam para quando a chave da API estiver configurada.
 - **Correção automática de apps (1.8):** V2.
 - Login com Google ou Microsoft, grupos de acesso, chaves pessoais por usuário.
 - Encadeamento de apps, presets salvos e agendamento pelo Hub.
