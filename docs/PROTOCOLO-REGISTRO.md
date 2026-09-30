@@ -245,6 +245,6 @@ Regras de validação do Hub (o registro é recusado sem elas): nome; tipo váli
 
 | Rodada | Data | Apps | O que deu errado | O que mudou no protocolo |
 |---|---|---|---|---|
-| 1 | | | | |
+| 1 | 2026-09-30 | Henry Files Prep | Pelas regras, o Hub rodaria o código quebrado em vez do .exe; nenhuma entrada detectada; faltavam 2 de 3 saídas | 8 propostas para a v0.2, em `protocolo-testes/rodada-1/henry-files-prep/LEITURA.md` (aguardando avaliação) |
 
 O protocolo está pronto para virar MCP quando os 4 apps passarem nos 8 critérios sem nada inventado.

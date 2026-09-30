@@ -1,0 +1,71 @@
+# App Hub — manifesto do app
+# RASCUNHO da rodada 1 do teste do protocolo (docs/PROTOCOLO-REGISTRO.md).
+# Não publicado. Não foi escrito na pasta do app.
+manifest_version: 1
+id: pipeline-ia-equity-research
+name: Pipeline IA — Equity Research
+summary: >-
+  Baixa da CVM os documentos de uma empresa aberta (Formulário de Referência,
+  apresentações, fatos relevantes, ITR e DFP) e junta os que você escolher num
+  único arquivo de texto, o Data Pack, pronto para usar numa IA na análise da empresa.
+kind: desktop
+language: python
+entrypoint: Ferramenta CVM.exe
+run:
+  command: '"Ferramenta CVM.exe"'
+runtime:
+  language: python
+  dependencies_file: Código-fonte/requirements.txt
+  dependencies: [pdfplumber, pypdf, requests, tqdm, curl_cffi]
+inputs:
+  - id: empresa
+    label: "Nome da empresa ou CNPJ (ex.: PETROBRAS)"
+    type: text
+    source: prompt
+    required: true
+  - id: anos
+    label: Quantos anos de histórico baixar (padrão 3, de 1 a 20)
+    type: number
+    source: prompt
+    required: true
+  - id: documentos
+    label: Quais documentos baixar (pode marcar vários)
+    type: choice
+    source: prompt
+    options: [FRE, Apresentações, Fatos Relevantes, ITR, DFP]
+    required: true
+  - id: pasta_raiz
+    label: Pasta onde os documentos serão salvos (padrão é a pasta do app)
+    type: folder
+    source: dialog
+    required: false
+  - id: pasta_trabalho
+    label: Pasta com os PDFs que entram no Data Pack (padrão é a da empresa baixada)
+    type: folder
+    source: dialog
+    required: false
+  - id: fre_unico
+    label: FRE em PDF único, para cortar só as seções que interessam (opcional)
+    type: file
+    source: dialog
+    required: false
+outputs:
+  - label: Documentos da CVM baixados, numa pasta por empresa e por tipo
+    pattern: "*/*/*.pdf"
+  - label: Data Pack da empresa, um arquivo de texto com todos os documentos escolhidos
+    pattern: "*/MD_Output/*_DataPack_Consolidado.md"
+  - label: FRE cortado, só com as seções usadas na análise
+    pattern: "*_cortado_secoes.pdf"
+area: Research
+owner: { name: Henry Kropp, email: henry.kropp@alisinvestimentos.com }
+backup: null
+tags: [cvm, fre, data-pack, research, pdf]
+notes:
+  - Depende do app CVM Downloader (8. Programação\CVM Downloader\src\cvm_downloader.py), que é o motor do download. Se o CVM Downloader mudar, este app precisa ser recompilado.
+  - Só o Ferramenta CVM.exe funciona hoje. Rodar pelo código (Código-fonte\Files Prep.py) dá erro ao iniciar, porque ele procura o motor numa pasta que não existe.
+  - O atalho de recompilar (Recompilar Ferramenta CVM.bat) aponta para o Python de outro usuário do Windows (C:\Users\hkrop\...). Neste computador, a linha 11 precisa ser ajustada antes de recompilar.
+  - Por padrão os downloads vão para a própria pasta do app, que hoje tem 2,3 GB de PDFs de 7 empresas no OneDrive, misturados com o programa.
+  - Precisa de internet e dos sites da CVM (dados.cvm.gov.br e rad.cvm.gov.br) no ar.
+  - Antes de gerar o Data Pack dá para colocar PDFs próprios na pasta da empresa, como relatórios de corretoras, e eles entram na curadoria.
+  - A pasta Old tem um atalho antigo (Abrir Ferramenta CVM.vbs) que aponta para um arquivo que não existe mais.
+  - Sem reserva definido.
