@@ -33,8 +33,8 @@ Status: Pending / In Progress / Done / Blocked
 ## Prioridade atual (2026-09-30)
 
 Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep) antes de registrar mais apps.** Fase 4 para apps com janela e `.exe` feita e testada de verdade (2026-09-30). Ordem combinada depois da decisão do App Hub (ADR 005):
-1. **Atualização automática do Agente** ← agora (etapa 1 do App Hub)
-2. Fase 5: histórico de mudanças no código e na ficha, e voltar atrás (junto com as execuções numa linha do tempo)
+1. ~~Atualização automática do Agente~~ Feita e testada de verdade (2026-09-30)
+2. **Fase 5:** ← próxima; histórico de mudanças no código e na ficha, e voltar atrás (junto com as execuções numa linha do tempo)
 3. Acabamento: tela da ficha com os campos da v0.2 (opções, várias escolhas, `depends_on`, `build`); barra lateral não vai até o fim em páginas compridas
 4. Rodar scripts: formulário automático e ambiente preparado sozinho
 5. App Hub: ícone perto do relógio, janela própria e instalador único (etapas 2 e 3), antes de o primeiro colega entrar
@@ -79,7 +79,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Rodar app com janela/`.exe` pelo Agente, com pasta escolhida | Done | Padrão: pasta do app; outra pasta: cópia temporária do `.exe`. Eq. Research Files Prep rodado de verdade em 2026-09-30 na pasta do app. Janela de pastas moderna (Agente 0.1.1): falta o Henry conferir |
 | Resultados agrupados pelo manifesto | Done | Arquivos novos ou alterados; grupos pelas `outputs` + "Outros arquivos". Padrões aceitam `**`; grupos calculados pela ficha atual. Ficha do Files Prep corrigida após o 1º teste (`*/*/**/*.pdf`, `*_secoes.pdf`) |
 | Baixar resultados pelo Agente (arquivo e .zip) | Done | Sob demanda; só arquivos da execução. Um arquivo, grupo inteiro, ou arquivos marcados ("Baixar selecionados", pedido do Henry). Erros viram página legível |
-| Atualização automática do Agente | Pending | **Próxima sessão (A).** Pedido do Henry: não depender de baixar pelo navegador. O Agente vê a versão nova no Hub, baixa e troca sozinho |
+| Atualização automática do Agente | Done | 2026-09-30, testada no PC do Henry (0.2.0 → 0.2.1 sozinho; 0.2.2 com defeito voltou 3 vezes e o Hub parou; 0.2.3 entrou). Para publicar: subir `agentproto.Version`, rodar `scripts/build-agent.sh` e reiniciar o Hub. Sem número novo, nada atualiza. A 0.1.x precisa de uma última instalação manual |
 | App Hub: ícone, janela própria e instalador único (B) | Pending | Decidido na ADR 005 (2026-09-30): o Agente vira o App Hub, mostrando as mesmas telas do site numa janela, com o Hub sempre num servidor central. Etapas 2 e 3, antes do primeiro colega |
 | Assinatura digital do App Hub | Pending | Etapa 4, antes de vender (certificado pago) |
 | Pendências menores da revisão da Fase 4 | Pending | Cópia do `.exe` que sobra bloqueia a próxima execução; `entrypoint` com subpasta; pasta sem permissão interrompe a leitura; nomes com `..`; trava rara no download; trava de instância única por porta TCP; erro de uma consulta fica na tela; espera de 5 min na janela de pastas se o Agente caiu; apps em pasta do WSL; limpeza de pedidos de conexão vencidos |

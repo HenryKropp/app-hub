@@ -28,7 +28,7 @@ Um programa pequeno, o **Agente do Hub** (`AppHubAgente.exe`), fica instalado no
 - Não guarda cópias dos resultados nem expõe outros arquivos do computador.
 
 **Cons:**
-- É mais um programa para instalar e atualizar em cada computador. A atualização automática fica para depois; por enquanto o Hub avisa "Atualize o Agente".
+- É mais um programa para instalar e atualizar em cada computador. Atualiza sozinho desde a 0.2.0 (spec 2026-09-30); a 0.1.x precisa de uma última instalação manual.
 - Só dá para baixar com o computador ligado e o arquivo ainda na pasta.
 - A cópia do `.exe` para outra pasta só funciona para `.exe` de arquivo único (PyInstaller `--onefile`), que é o caso deste app.
 
