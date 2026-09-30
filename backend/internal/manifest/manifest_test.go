@@ -90,3 +90,37 @@ func TestWriteToFolderRoundTripAndSafety(t *testing.T) {
 		t.Error("manifest must not be written when ficha is foreign")
 	}
 }
+
+func TestProtocolV02Fields(t *testing.T) {
+	m := valid()
+	m.ID = "files-prep"
+	m.Kind = KindDesktop
+	m.Inputs = []Input{{ID: "docs", Label: "Documentos", Type: "choice", Source: "window", Options: []string{"FRE", "DFP"}, Multiple: true}}
+	m.DependsOn = []string{"cvm-downloader"}
+	m.Build = &Build{Source: "src/app.py", Command: "build.bat"}
+	if errs := m.Validate(); len(errs) != 0 {
+		t.Fatalf("unexpected errors: %v", errs)
+	}
+	data, err := Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	back, err := Parse(data)
+	if err != nil || !back.Inputs[0].Multiple || back.DependsOn[0] != "cvm-downloader" || back.Build.Command != "build.bat" {
+		t.Fatalf("round trip: %+v %v", back, err)
+	}
+	ficha := RenderFicha(m)
+	for _, want := range []string{"pode marcar várias", "campo na janela do app", "FRE, DFP", "cvm-downloader", "build.bat"} {
+		if !strings.Contains(ficha, want) {
+			t.Errorf("ficha missing %q:\n%s", want, ficha)
+		}
+	}
+
+	bad := m
+	bad.Inputs = []Input{{ID: "x", Label: "X", Type: "text", Source: "window", Multiple: true}}
+	bad.DependsOn = []string{"files-prep"}
+	bad.Build = &Build{Command: "build.bat"}
+	if errs := bad.Validate(); len(errs) != 3 {
+		t.Errorf("want 3 errors, got %v", errs)
+	}
+}

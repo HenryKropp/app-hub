@@ -80,6 +80,7 @@ var inputSourceLabels = map[string]string{
 	"dialog":     "janela de seleção do Windows",
 	"prompt":     "pergunta no terminal",
 	"argument":   "parâmetro na linha de comando",
+	"window":     "campo na janela do app",
 }
 
 // RenderFicha produces the human-readable ficha exported next to the app.
@@ -119,7 +120,14 @@ func RenderFicha(m Manifest) string {
 		b.WriteString("Nada. É só rodar.\n")
 	}
 	for _, in := range m.Inputs {
-		fmt.Fprintf(&b, "- **%s** (%s, via %s)", in.Label, inputTypeLabels[in.Type], inputSourceLabels[in.Source])
+		kind := inputTypeLabels[in.Type]
+		if in.Multiple {
+			kind += ", pode marcar várias"
+		}
+		fmt.Fprintf(&b, "- **%s** (%s, via %s)", in.Label, kind, inputSourceLabels[in.Source])
+		if len(in.Options) > 0 {
+			fmt.Fprintf(&b, ": %s", strings.Join(in.Options, ", "))
+		}
 		if in.Path != "" {
 			fmt.Fprintf(&b, ": `%s`", in.Path)
 		}
@@ -132,6 +140,21 @@ func RenderFicha(m Manifest) string {
 	}
 	for _, out := range m.Outputs {
 		fmt.Fprintf(&b, "- **%s**: `%s`\n", out.Label, out.Pattern)
+	}
+
+	if len(m.DependsOn) > 0 {
+		b.WriteString("\n## Outros apps de que ele precisa\n\n")
+		for _, d := range m.DependsOn {
+			fmt.Fprintf(&b, "- %s\n", d)
+		}
+	}
+
+	if m.Build != nil {
+		b.WriteString("\n## Como gerar o app de novo\n\n")
+		fmt.Fprintf(&b, "- **Código:** `%s`\n", m.Build.Source)
+		if m.Build.Command != "" {
+			fmt.Fprintf(&b, "- **Para recompilar:** `%s`\n", m.Build.Command)
+		}
 	}
 
 	if len(m.Runtime.Dependencies) > 0 {

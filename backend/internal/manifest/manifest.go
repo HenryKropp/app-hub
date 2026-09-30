@@ -48,7 +48,9 @@ var KindLabels = map[string]string{
 
 // Input types and sources.
 var InputTypes = []string{"file", "folder", "text", "number", "date", "choice"}
-var InputSources = []string{"fixed_file", "dialog", "prompt", "argument"}
+// "window" means the app's own window asks for it after opening: the Hub shows
+// it in the ficha but never asks for it before running.
+var InputSources = []string{"fixed_file", "dialog", "prompt", "argument", "window"}
 
 type Manifest struct {
 	ManifestVersion int         `yaml:"manifest_version" json:"manifest_version"`
@@ -68,6 +70,8 @@ type Manifest struct {
 	Owner           *PersonRef  `yaml:"owner,omitempty" json:"owner"`
 	Backup          *PersonRef  `yaml:"backup,omitempty" json:"backup"`
 	Tags            []string    `yaml:"tags,omitempty" json:"tags"`
+	DependsOn       []string    `yaml:"depends_on,omitempty" json:"depends_on"`
+	Build           *Build      `yaml:"build,omitempty" json:"build"`
 	Notes           []string    `yaml:"notes,omitempty" json:"notes"`
 }
 
@@ -82,6 +86,12 @@ type Runtime struct {
 	Dependencies     []string `yaml:"dependencies,omitempty" json:"dependencies"`
 }
 
+// Build says where the source of a compiled app lives and how to rebuild it.
+type Build struct {
+	Source  string `yaml:"source" json:"source"`
+	Command string `yaml:"command,omitempty" json:"command"`
+}
+
 type Input struct {
 	ID       string   `yaml:"id" json:"id"`
 	Label    string   `yaml:"label" json:"label"`
@@ -89,6 +99,7 @@ type Input struct {
 	Source   string   `yaml:"source" json:"source"`
 	Path     string   `yaml:"path,omitempty" json:"path"`
 	Options  []string `yaml:"options,omitempty" json:"options"`
+	Multiple bool     `yaml:"multiple,omitempty" json:"multiple"`
 	Required bool     `yaml:"required" json:"required"`
 }
 
@@ -140,10 +151,21 @@ func (m Manifest) Validate() []string {
 		if !contains(InputSources, in.Source) {
 			errs = append(errs, fmt.Sprintf("Origem de entrada inválida: %q.", in.Source))
 		}
+		if in.Multiple && in.Type != "choice" {
+			errs = append(errs, fmt.Sprintf("Só uma lista de opções pode aceitar várias escolhas: %q.", in.Label))
+		}
 		if seen[in.ID] {
 			errs = append(errs, fmt.Sprintf("Entrada repetida: %q.", in.ID))
 		}
 		seen[in.ID] = true
+	}
+	for _, dep := range m.DependsOn {
+		if dep == m.ID && dep != "" {
+			errs = append(errs, "O app não pode depender dele mesmo.")
+		}
+	}
+	if m.Build != nil && strings.TrimSpace(m.Build.Source) == "" {
+		errs = append(errs, "Informe onde está o código usado para gerar o app.")
 	}
 	return errs
 }

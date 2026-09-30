@@ -66,3 +66,17 @@ Tem também um botão para cortar um FRE inteiro só nas seções que interessam
 6. **Pasta com muitos dados:** 2,3 GB e 600 arquivos, quase tudo PDF de saída. O mapa da pasta precisa separar "programa" de "dados gerados" logo no passo 1, para não gastar leitura com isso.
 7. **Checar se o código roda de verdade:** o caminho quebrado só apareceu porque conferi para onde apontavam os caminhos relativos. Vale virar um passo explícito: "conferir se os caminhos que o código usa existem".
 8. **Validar a ficha no próprio Hub antes de mostrar.** O meu primeiro rascunho tinha um erro de formato: um texto com "ex.: PETROBRAS" quebrava o YAML. Com o MCP, a ferramenta de registro valida sozinha. No teste, o passo final passa a ser "validar com o leitor do Hub".
+
+## Respostas e avaliação (2026-09-30)
+
+**Respostas do Henry:**
+1. Nome no catálogo: **Eq. Research Files Prep** (nem o da janela nem o do .exe)
+2. Responsável: **Henry Kropp**. Reserva: **Andre Ogliari**
+3. Área: **Research**, confirmada
+4. Relação com o CVM Downloader: **em aberto**, decidir depois de ler o CVM Downloader (app 4 do teste)
+
+**Avaliação da ficha pelos 8 critérios:** aprovada ("tá bom por enquanto"), sem nada apontado como errado ou inventado.
+
+**Propostas:** as 8 foram aprovadas e entraram no protocolo **v0.2**. O rascunho `app-hub.yaml` foi atualizado para a v0.2 (`source: window`, `multiple`, `depends_on`, `build`) e passou na validação do Hub (`backend/cmd/validate-manifest`).
+
+**Lição sobre a conversa:** o conteúdo que eu pedia para avaliar estava fora da janela da pergunta, e o Henry não conseguiu ler. Nas próximas rodadas, o material vai dentro da pergunta, ou é mostrado antes e a pergunta vem na mensagem seguinte.
