@@ -1,20 +1,33 @@
 import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, Download, LoaderCircle } from "lucide-react"
+import { ArrowLeft, Download, LoaderCircle, X } from "lucide-react"
 import { buttonVariants } from "@/components/ui/button"
-import { api, fileUrl, groupZipUrl, type Run, type RunGroup } from "@/lib/api"
+import { api, fileUrl, groupZipUrl, selectedUrl, type Run, type RunGroup } from "@/lib/api"
 import { formatDuration, formatSize, formatWhen, isLive, STATUS } from "@/lib/runs"
 import { cn } from "@/lib/utils"
 
 const SHOWN = 10
 
-function Group({ run, g }: { run: Run; g: RunGroup }) {
+const CHECK = "size-4 shrink-0 cursor-pointer accent-[var(--stamp)]"
+
+function Group({ run, g, selected, toggle }: { run: Run; g: RunGroup; selected: Set<number>; toggle: (ids: number[], on: boolean) => void }) {
   const [all, setAll] = useState(false)
   const files = all ? g.files : g.files.slice(0, SHOWN)
   return (
     <section className="border-t border-border py-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <h2 className="font-mono text-xs tracking-[0.16em] text-muted-foreground uppercase">{g.label} ({g.files.length})</h2>
+        <div className="flex items-center gap-3">
+          {g.files.length > 0 && (
+            <input
+              type="checkbox"
+              aria-label={`Marcar todos: ${g.label}`}
+              className={CHECK}
+              checked={g.files.every((f) => selected.has(f.id))}
+              onChange={(e) => toggle(g.files.map((f) => f.id), e.target.checked)}
+            />
+          )}
+          <h2 className="font-mono text-xs tracking-[0.16em] text-muted-foreground uppercase">{g.label} ({g.files.length})</h2>
+        </div>
         {g.files.length > 0 && (
           <a href={groupZipUrl(run.id, g.index)} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-2")}>
             <Download className="size-4" /> Baixar tudo
@@ -27,6 +40,13 @@ function Group({ run, g }: { run: Run; g: RunGroup }) {
         <ul className="flex flex-col gap-2 text-sm">
           {files.map((f) => (
             <li key={f.id} className="flex items-baseline gap-3">
+              <input
+                type="checkbox"
+                aria-label={f.path.split("/").pop()}
+                className={cn(CHECK, "translate-y-0.5")}
+                checked={selected.has(f.id)}
+                onChange={(e) => toggle([f.id], e.target.checked)}
+              />
               <a href={fileUrl(run.id, f.id)} className="group min-w-0 flex-1">
                 <span className="block truncate font-mono text-xs underline-offset-4 group-hover:underline">{f.path.split("/").pop()}</span>
                 {f.path.includes("/") && (
@@ -54,6 +74,16 @@ export function RunPage() {
   const [run, setRun] = useState<Run | null>(null)
   const [error, setError] = useState("")
   const [, setNow] = useState(() => Date.now())
+  const [selected, setSelected] = useState<Set<number>>(() => new Set())
+  const toggle = (ids: number[], on: boolean) =>
+    setSelected((cur) => {
+      const next = new Set(cur)
+      for (const i of ids) {
+        if (on) next.add(i)
+        else next.delete(i)
+      }
+      return next
+    })
 
   useEffect(() => {
     if (!id) return
@@ -106,7 +136,22 @@ export function RunPage() {
           <div><dt className="text-muted-foreground">Versão do app</dt><dd className="font-medium">{run.app_version || "—"}</dd></div>
         </dl>
         {!isLive(run.status) && run.groups.length > 0 && (
-          <div className="mt-6">{run.groups.map((g) => <Group key={`${g.index}-${g.label}`} run={run} g={g} />)}</div>
+          <div className="mt-6">
+            <p className="text-sm text-muted-foreground">Clique num arquivo para baixar só ele, ou marque os que quiser e baixe de uma vez.</p>
+            {run.groups.map((g) => (
+              <Group key={`${g.index}-${g.label}`} run={run} g={g} selected={selected} toggle={toggle} />
+            ))}
+          </div>
+        )}
+        {selected.size > 0 && (
+          <div className="rise sticky bottom-4 z-10 mt-4 flex flex-wrap items-center justify-end gap-3 rounded-lg border border-border bg-card/95 p-3 shadow-card backdrop-blur">
+            <button type="button" onClick={() => setSelected(new Set())} className="inline-flex cursor-pointer items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+              <X className="size-4" /> Limpar
+            </button>
+            <a href={selectedUrl(run.id, [...selected].sort((a, b) => a - b))} className={cn(buttonVariants(), "gap-2")}>
+              <Download className="size-4" /> Baixar selecionados ({selected.size})
+            </a>
+          </div>
         )}
       </div>
     </article>

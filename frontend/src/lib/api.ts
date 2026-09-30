@@ -149,3 +149,4 @@ export const api = {
 export const AGENT_DOWNLOAD_URL = "/api/agent/download"
 export const fileUrl = (runId: number, fileId: number) => `/api/runs/${runId}/files/${fileId}`
 export const groupZipUrl = (runId: number, index: number) => `/api/runs/${runId}/groups/${index}/zip` 
+export const selectedUrl = (runId: number, fileIds: number[]) => `/api/runs/${runId}/selected?files=${fileIds.join(",")}`

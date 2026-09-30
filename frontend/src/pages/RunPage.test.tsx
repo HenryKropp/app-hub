@@ -34,3 +34,25 @@ test("error shows the message", async () => {
   renderAt()
   expect(await screen.findByRole("alert")).toHaveTextContent("Já existe um Ferramenta CVM.exe nessa pasta.")
 })
+
+test("choose files and download the selection", async () => {
+  const user = (await import("@testing-library/user-event")).default.setup()
+  vi.spyOn(api, "run").mockResolvedValue(run())
+  renderAt()
+  await screen.findByText("Concluída")
+  expect(screen.queryByRole("link", { name: /Baixar selecionados/ })).not.toBeInTheDocument()
+  await user.click(screen.getByRole("checkbox", { name: "FRE_2025.pdf" }))
+  await user.click(screen.getByRole("checkbox", { name: "log.txt" }))
+  expect(screen.getByRole("link", { name: /Baixar selecionados \(2\)/ })).toHaveAttribute("href", "/api/runs/7/selected?files=1,3")
+  await user.click(screen.getByRole("checkbox", { name: "log.txt" }))
+  expect(screen.getByRole("link", { name: /Baixar selecionados \(1\)/ })).toHaveAttribute("href", "/api/runs/7/selected?files=1")
+})
+
+test("mark all in a group", async () => {
+  const user = (await import("@testing-library/user-event")).default.setup()
+  vi.spyOn(api, "run").mockResolvedValue(run())
+  renderAt()
+  await screen.findByText("Concluída")
+  await user.click(screen.getByRole("checkbox", { name: "Marcar todos: Data Pack" }))
+  expect(screen.getByRole("link", { name: /Baixar selecionados \(1\)/ })).toHaveAttribute("href", "/api/runs/7/selected?files=2")
+})
