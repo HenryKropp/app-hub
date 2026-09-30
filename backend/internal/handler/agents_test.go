@@ -3,6 +3,8 @@ package handler
 import (
 	"context"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -189,5 +191,27 @@ func TestResultForOtherComputersJobIsRejected(t *testing.T) {
 	res := agentproto.Result{Event: agentproto.EventDone, Canceled: true}
 	if code := c.agent("POST", "/api/agent/jobs/"+strconv.FormatInt(job.ID, 10)+"/result", token2, res, nil); code != http.StatusNotFound {
 		t.Fatalf("foreign result %d", code)
+	}
+}
+
+func TestAgentDownload(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	if code := c.do("GET", "/api/agent/download", nil, nil); code != http.StatusNotFound {
+		t.Fatalf("missing binary %d", code)
+	}
+	bin := filepath.Join(t.TempDir(), "AppHubAgente.exe")
+	_ = os.WriteFile(bin, []byte("MZ"), 0o644)
+	h.cfg.AgentBinaryPath = bin
+	resp, err := c.c.Get(c.srv.URL + "/api/agent/download")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK || !strings.Contains(resp.Header.Get("Content-Disposition"), "AppHubAgente.exe") {
+		t.Fatalf("%d %q", resp.StatusCode, resp.Header.Get("Content-Disposition"))
+	}
+	if code := c.fresh().do("GET", "/api/agent/download", nil, nil); code != http.StatusUnauthorized {
+		t.Fatalf("anonymous %d", code)
 	}
 }

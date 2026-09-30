@@ -6,3 +6,4 @@ e2e/node_modules/
 .env
 *:Zone.Identifier
 .superpowers/
+dist/
