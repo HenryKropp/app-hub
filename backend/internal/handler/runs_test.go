@@ -436,3 +436,44 @@ func TestGroupsFollowCurrentManifest(t *testing.T) {
 		t.Fatalf("file still in Outros: %+v", run.Groups)
 	}
 }
+
+func TestDownloadSelectedFiles(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	now := time.Now()
+	runID, token := finishedRun(t, c, []agentproto.FileEntry{
+		{Path: "P/FRE/a.pdf", Size: 1, Modified: now, Change: "new"},
+		{Path: "P/DFP/b.pdf", Size: 1, Modified: now, Change: "new"},
+		{Path: "log.txt", Size: 1, Modified: now, Change: "new"},
+	})
+	sent := fakeAgentSend(t, c, token, "PK", false)
+	resp, err := c.c.Get(c.srv.URL + "/api/runs/" + strconv.FormatInt(runID, 10) + "/selected?files=1,3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	p := recvPayload(t, sent)
+	if resp.StatusCode != http.StatusOK || !p.Zip || len(p.Paths) != 2 || p.Paths[0] != "P/FRE/a.pdf" || p.Paths[1] != "log.txt" {
+		t.Fatalf("%d payload %+v", resp.StatusCode, p)
+	}
+	if !strings.Contains(resp.Header.Get("Content-Disposition"), ".zip") {
+		t.Fatalf("disposition %q", resp.Header.Get("Content-Disposition"))
+	}
+}
+
+func TestDownloadSelectedRefusesForeignOrEmpty(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	runID, _ := finishedRun(t, c, []agentproto.FileEntry{{Path: "a.txt", Size: 1, Modified: time.Now(), Change: "new"}})
+	base := "/api/runs/" + strconv.FormatInt(runID, 10) + "/selected?files="
+	for _, q := range []string{"1,999", "", "abc"} {
+		if code := c.do("GET", base+q, nil, nil); code != http.StatusNotFound && code != http.StatusBadRequest {
+			t.Fatalf("files=%q: %d", q, code)
+		}
+	}
+	var jobs int
+	_ = testPool.QueryRow(context.Background(), "SELECT count(*) FROM agent_jobs WHERE kind = 'send_file'").Scan(&jobs)
+	if jobs != 0 {
+		t.Fatalf("refused selections must not reach the agent, got %d jobs", jobs)
+	}
+}
