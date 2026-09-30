@@ -68,6 +68,7 @@ A numeração segue a especificação do produto.
 - **Exportação:** a ficha também é salva como arquivo de texto na pasta do app.
 
 ### 3.3 Execução com interface automática (1.3), a feature central
+- **Prioridade (2026-09-30):** deixar o Hub redondo com um app só (Eq. Research Files Prep, um app com janela aberto por `.exe`) antes de registrar mais apps. Para apps com janela, rodar é abrir o app no Windows, esperar ele fechar e mostrar os arquivos novos que ele gerou, para baixar pelo Hub.
 - Todo app que pode rodar ganha um botão **Rodar**.
 - **Scripts:** o Hub gera um formulário a partir das entradas do manifesto (upload de arquivo, data, número, texto, lista de opções). O usuário preenche e roda.
 - **Apps com tela própria (web):** o Hub sobe o app e abre a tela dele.
@@ -89,7 +90,9 @@ A numeração segue a especificação do produto.
 - Na ficha, o Hub aponta o que foge do padrão (ex.: "a chave está escrita no código", "a entrada depende de uma janela de seleção").
 
 ### 3.6 Versões e histórico (1.6)
+Pedido do Henry em 2026-09-30: o histórico de um app mostra três coisas, numa linha do tempo só: **mudanças no código**, **execuções** e **mudanças na ficha**.
 - Toda alteração publicada gera uma versão, com quem mudou, quando e um resumo.
+- Toda mudança na ficha (nome, resumo, responsável, entradas…) fica registrada com quem mudou e quando.
 - O Hub detecta quando o código da pasta mudou e oferece registrar a nova versão.
 - Botão para voltar a uma versão anterior. A restauração também vira uma versão.
 - Histórico de execuções ligado à versão usada.

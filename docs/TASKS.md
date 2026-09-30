@@ -30,9 +30,17 @@ Status: Pending / In Progress / Done / Blocked
 | Salvar manifesto e ficha na pasta do app | Done | Cria só `app-hub.yaml` e `FICHA.md`; recusa sobrescrever arquivo que não é do Hub |
 | Aviso de duplicado | Done | Por palavras do nome, contra o catálogo e dentro do lote |
 
-## Fase 2b — Registro pelo Claude via MCP (3.11) ← próxima
+## Prioridade atual (2026-09-30)
 
-Antecipada a pedido do Henry (2026-09-30). Primeiro o protocolo, testado localmente; depois o MCP. Substitui a necessidade de chave da API para o diagnóstico por IA.
+Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep) antes de registrar mais apps.** Ordem:
+1. Fase 4 para apps com janela e `.exe`: rodar pelo Hub, pegar os resultados e registrar cada execução ← **próxima**
+2. Fase 5: histórico de mudanças no código e na ficha, e voltar atrás (junto com as execuções numa linha do tempo)
+3. Acabamento: tela da ficha com os campos da v0.2 (opções, várias escolhas, `depends_on`, `build`); barra lateral não vai até o fim em páginas compridas
+4. Depois: retomar a Fase 2b (teste com mais 4 apps e MCP)
+
+## Fase 2b — Registro pelo Claude via MCP (3.11) — pausada
+
+Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prioridade acima. Primeiro o protocolo, testado localmente; depois o MCP. Substitui a necessidade de chave da API para o diagnóstico por IA.
 
 | Tarefa | Status | Notas |
 |---|---|---|
@@ -64,12 +72,14 @@ Antecipada a pedido do Henry (2026-09-30). Primeiro o protocolo, testado localme
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Executor genérico isolado da pasta original | Pending | Roda numa cópia de trabalho; coleta arquivos novos como saídas |
+| Abrir app com janela / `.exe` no Windows pelo Hub | Pending | **Primeiro alvo:** Eq. Research Files Prep. O Hub (no WSL) abre o `.exe` do lado Windows, espera fechar e compara a pasta antes/depois pelos `outputs` do manifesto |
+| Baixar resultados pelo Hub | Pending | Lista os arquivos novos de cada execução, com download |
+| Executor genérico isolado da pasta original | Pending | Para scripts: roda numa cópia de trabalho; coleta arquivos novos como saídas |
 | Ambiente reproduzível por app | Pending | Versão da linguagem e bibliotecas fixadas, preparado na 1ª vez |
 | Formulário automático a partir do manifesto | Pending | Arquivo, data, número, texto, lista |
 | Progresso ao vivo e resultado (texto, tabela, downloads) | Pending | |
 | Apps web: subir e abrir; desktop/executável: abrir | Pending | |
-| Registro e repetição de execuções | Pending | |
+| Registro e repetição de execuções | Pending | Quem, quando, com o quê, resultado, arquivos gerados |
 
 ## Fase 5 — Versões (1.6)
 
@@ -77,6 +87,8 @@ Antecipada a pedido do Henry (2026-09-30). Primeiro o protocolo, testado localme
 |---|---|---|
 | Versão 1 no registro + detecção de mudança na pasta | Pending | |
 | Histórico, comparação e voltar atrás | Pending | |
+| Histórico de mudanças na ficha | Pending | Quem mudou o quê e quando (pedido 2026-09-30) |
+| Linha do tempo única: código + ficha + execuções | Pending | Na página do app |
 
 ## Fase 6 — Acesso e cofre (1.7)
 
