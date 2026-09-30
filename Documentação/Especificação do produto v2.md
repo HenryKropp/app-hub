@@ -186,7 +186,7 @@ Quem abre o app no computador da pessoa é o **Agente do Hub**, um programa pequ
 - **Quem começa a conversa é o Agente:** ele pergunta à plataforma se há algo para fazer. Por isso atravessa firewall e funciona igual com a plataforma local ou na nuvem (Módulo 2).
 - **Cada computador tem sua própria chave**, e desconectar um computador corta o acesso na hora.
 - **Os resultados ficam no computador:** a plataforma guarda só a lista. Ao clicar em Baixar, o Agente envia o arquivo na hora, e só arquivos daquela execução. Para baixar, o computador precisa estar ligado.
-- **Próximo passo, atualizar sozinho:** quando sair uma versão nova, o Agente vai baixar e se trocar sem a pessoa fazer nada. Hoje a plataforma avisa "Atualize o Agente" e a pessoa baixa de novo.
+- **Atualiza sozinho:** quando sai uma versão nova, o Agente baixa e se troca sem a pessoa fazer nada, nunca no meio de uma execução. Se a versão nova não funcionar, a anterior volta sozinha; depois de 3 falhas, a plataforma pede para baixar de novo.
 - **Futuro, a desenhar:** a plataforma como app de computador, num instalador único com o Agente junto, janela própria sem navegador e botão "Procurar atualizações".
 
 **No piloto da Alis:** Hub local com botão Rodar para os apps registrados, preparando o ambiente de cada um sem terminal. Primeiro caso completo: o Eq. Research Files Prep (app com janela, `.exe`), rodado pelo Agente, com resultados agrupados e baixados pela plataforma.
@@ -434,6 +434,7 @@ A variedade confirmou que a plataforma precisa ser genérica: scripts que leem u
 | Registro pelo Claude (1.11) | Pausado. Protocolo testado com 1 app; faltam 4 apps e o MCP em si |
 | Catálogo e ficha (1.2, 1.4) | Cartões e busca prontos; faltam filtros, favoritos e edição direto na ficha |
 | Execução (1.3) de apps com janela abertos por um `.exe`, pelo Agente (1º caso: Eq. Research Files Prep) | Pronta e testada de verdade; faltam pendências menores |
+| Atualização automática do Agente | Pronta e testada de verdade (30/09) |
 | Execução de outros apps com janela (em Python) e de executáveis soltos | A fazer |
 | Execução de scripts com formulário, apps web, ambiente preparado sozinho | A fazer |
 | Versões e linha do tempo (1.6) | A fazer |
@@ -441,7 +442,7 @@ A variedade confirmou que a plataforma precisa ser genérica: scripts que leem u
 | Saúde, continuidade e painel (1.8 a 1.10) | A fazer |
 | Funções de IA dentro da plataforma | Aguardando decisão sobre a chave de IA |
 
-**Prioridade:** deixar a plataforma redonda com um app só (Eq. Research Files Prep) antes de registrar mais apps. Ordem: atualização automática do Agente e desenho da plataforma como app de computador; versões e linha do tempo; acabamento da ficha; depois retomar o registro pelo Claude com mais apps.
+**Prioridade:** deixar a plataforma redonda com um app só (Eq. Research Files Prep) antes de registrar mais apps. Ordem: atualização automática do Agente (pronta); versões e linha do tempo; acabamento da ficha; depois retomar o registro pelo Claude com mais apps.
 
 ## Módulo 2 — Nuvem gerenciada
 

@@ -1,6 +1,6 @@
 # Atualização automática do Agente (desenho)
 
-**Data:** 2026-09-30 · **Status:** aprovado em conversa, aguardando revisão do documento
+**Data:** 2026-09-30 · **Status:** implementado e testado de verdade (2026-09-30)
 **Contexto:** etapa 1 do App Hub (ADR 005). O Agente hoje é a versão 0.1.1 (ADR 004).
 
 ## 1. Objetivo
