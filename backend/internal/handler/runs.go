@@ -4,7 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"mime"
 	"net/http"
+	"net/url"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -344,4 +348,137 @@ type runSummaryJSON struct {
 	StartedAt  *time.Time `json:"started_at"`
 	FinishedAt *time.Time `json:"finished_at"`
 	FileCount  int64      `json:"file_count"`
+}
+
+func (h *Handler) downloadFile(w http.ResponseWriter, r *http.Request) {
+	row, _, ok := h.runForPerson(w, r)
+	if !ok {
+		return
+	}
+	fileID, err := strconv.ParseInt(r.PathValue("fileId"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Arquivo não encontrado.")
+		return
+	}
+	f, err := h.q.GetRunFile(r.Context(), sqlc.GetRunFileParams{ID: fileID, RunID: row.ID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "Arquivo não encontrado.")
+		return
+	}
+	if err != nil {
+		internalError(w, "get run file", err)
+		return
+	}
+	name := f.RelPath[strings.LastIndex(f.RelPath, "/")+1:]
+	ctype := mime.TypeByExtension(filepath.Ext(name))
+	if ctype == "" {
+		ctype = "application/octet-stream"
+	}
+	h.relayFromAgent(w, r, row, agentproto.SendFilePayload{RunID: row.ID, Paths: []string{f.RelPath}}, name, ctype)
+}
+
+func (h *Handler) downloadGroup(w http.ResponseWriter, r *http.Request) {
+	row, _, ok := h.runForPerson(w, r)
+	if !ok {
+		return
+	}
+	index, err := strconv.Atoi(r.PathValue("index"))
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Grupo não encontrado.")
+		return
+	}
+	j, err := h.toRunJSON(r.Context(), row)
+	if err != nil {
+		internalError(w, "run json", err)
+		return
+	}
+	for _, g := range j.Groups {
+		if g.Index != index || len(g.Files) == 0 {
+			continue
+		}
+		paths := make([]string, 0, len(g.Files))
+		for _, f := range g.Files {
+			paths = append(paths, f.Path)
+		}
+		name := strings.Map(func(r rune) rune {
+			if strings.ContainsRune(`\/:*?"<>|`, r) {
+				return '-'
+			}
+			return r
+		}, row.AppName+" - "+g.Label) + ".zip"
+		h.relayFromAgent(w, r, row, agentproto.SendFilePayload{RunID: row.ID, Paths: paths, Zip: true}, name, "application/zip")
+		return
+	}
+	writeError(w, http.StatusNotFound, "Esse grupo não tem arquivos.")
+}
+
+// relayFromAgent asks the run's computer for the files and streams its upload
+// to the browser.
+func (h *Handler) relayFromAgent(w http.ResponseWriter, r *http.Request, row sqlc.GetRunRow, p agentproto.SendFilePayload, name, ctype string) {
+	ctx := r.Context()
+	connected, err := h.q.IsComputerConnected(ctx, row.ComputerID)
+	if err != nil {
+		internalError(w, "computer connected", err)
+		return
+	}
+	if !connected {
+		writeError(w, http.StatusConflict, "O computador onde o app rodou ("+row.ComputerName+") não está conectado. Ligue-o e tente de novo.")
+		return
+	}
+	job, err := h.enqueue(ctx, row.ComputerID, &row.ID, agentproto.KindSendFile, p)
+	if err != nil {
+		internalError(w, "enqueue send", err)
+		return
+	}
+	ch := h.uploads.expect(job.ID)
+	defer h.uploads.cancel(job.ID)
+	select {
+	case up := <-ch:
+		if up.missing {
+			writeError(w, http.StatusNotFound, "Esse arquivo não está mais na pasta.")
+			return
+		}
+		w.Header().Set("Content-Type", ctype)
+		w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+url.PathEscape(name))
+		_, err := io.Copy(w, up.body)
+		up.done <- err
+	case <-time.After(h.waitFile):
+		writeError(w, http.StatusGatewayTimeout, "O computador não respondeu. Confira se ele está ligado e tente de novo.")
+	case <-ctx.Done():
+	}
+}
+
+func (h *Handler) agentUpload(w http.ResponseWriter, r *http.Request) {
+	c, ok := h.currentComputer(w, r)
+	if !ok {
+		return
+	}
+	j, ok := h.jobForComputer(w, r, c)
+	if !ok {
+		return
+	}
+	if j.Kind != agentproto.KindSendFile {
+		writeError(w, http.StatusBadRequest, "Esse pedido não é de envio de arquivo.")
+		return
+	}
+	done, ok := h.uploads.deliver(j.ID, r.Body, 5*time.Second)
+	if !ok {
+		writeError(w, http.StatusGone, "Ninguém está esperando esse arquivo.")
+		return
+	}
+	var copyErr error
+	select {
+	case copyErr = <-done:
+	case <-r.Context().Done():
+		copyErr = r.Context().Err()
+	}
+	status := "done"
+	if copyErr != nil {
+		status = "failed"
+	}
+	if err := h.finishJob(r.Context(), j.ID, status, agentproto.Result{Event: agentproto.EventDone}); err != nil {
+		internalError(w, "finish send", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
