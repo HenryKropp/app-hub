@@ -234,7 +234,7 @@ func (q *Queries) ListAppRuns(ctx context.Context, arg ListAppRunsParams) ([]Lis
 }
 
 const listRunFiles = `-- name: ListRunFiles :many
-SELECT id, run_id, rel_path, size, modified_at, change, group_index, group_label FROM run_files WHERE run_id = $1 ORDER BY group_index < 0, group_index, rel_path
+SELECT id, run_id, rel_path, size, modified_at, change, group_index, group_label FROM run_files WHERE run_id = $1 ORDER BY rel_path
 `
 
 func (q *Queries) ListRunFiles(ctx context.Context, runID int64) ([]RunFile, error) {

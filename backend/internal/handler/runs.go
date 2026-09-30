@@ -191,10 +191,8 @@ func (h *Handler) toRunJSON(ctx context.Context, row sqlc.GetRunRow) (runJSON, e
 	}
 	for _, f := range files {
 		fj := runFileJSON{ID: f.ID, Path: f.RelPath, Size: f.Size, Modified: f.ModifiedAt.Time, Change: f.Change}
-		idx := int(f.GroupIndex)
-		if idx < 0 || idx >= len(m.Outputs) || m.Outputs[idx].Label != f.GroupLabel {
-			idx = -1 // others, or a group the manifest no longer has
-		}
+		// Group by the current manifest, so fixing its patterns fixes past runs too.
+		idx, _ := outputs.Match(m.Outputs, f.RelPath)
 		if idx >= 0 {
 			j.Groups[idx].Files = append(j.Groups[idx].Files, fj)
 			continue
