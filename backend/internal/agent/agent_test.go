@@ -77,8 +77,8 @@ func TestAgentLoop(t *testing.T) {
 	defer srv.Close()
 
 	a := &Agent{
-		Client: &Client{BaseURL: srv.URL, Token: "t", HTTP: srv.Client()},
-		Runner: &Runner{Launcher: &fakeLauncher{write: map[string]string{"novo.md": "# oi"}}, StateDir: state},
+		Client:   &Client{BaseURL: srv.URL, Token: "t", HTTP: srv.Client()},
+		Runner:   &Runner{Launcher: &fakeLauncher{write: map[string]string{"novo.md": "# oi"}}, StateDir: state},
 		StateDir: state,
 		ChooseFolder: func(ctx context.Context, initial string) (string, bool, error) {
 			return `C:\Relatórios`, true, nil
