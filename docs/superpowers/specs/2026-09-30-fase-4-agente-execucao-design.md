@@ -81,7 +81,7 @@ Navegador ──► Hub (Go, WSL) ◄── Agente (Go, Windows)
 - `runs`: id, app_id, person_id, computer_id, output_folder, status (`waiting` / `running` / `done` / `no_files` / `error` / `interrupted`), exit_code, error_message, app_version (data e tamanho do `.exe`), started_at, finished_at, created_at.
 - `run_files`: id, run_id, rel_path, size, modified_at, change (`new` / `changed`), group_label.
 
-**Grupos:** ao receber `finished`, o Hub compara cada `rel_path` com as `outputs[].pattern` do manifesto (glob com `/`, `path.Match`, sem `**`). O primeiro padrão que casa dá o grupo. Os que não casam vão para "Outros arquivos".
+**Grupos:** ao receber `finished`, o Hub compara cada `rel_path` com as `outputs[].pattern` do manifesto (glob por pasta; `*` não atravessa `/`; `**` = qualquer número de pastas; grupos calculados pela ficha atual). O primeiro padrão que casa dá o grupo. Os que não casam vão para "Outros arquivos".
 
 **Conectado** = computador não revogado com `last_seen_at` há menos de 60 s.
 
@@ -90,7 +90,7 @@ Navegador ──► Hub (Go, WSL) ◄── Agente (Go, Windows)
 **Rota de download:** o navegador chama `GET /api/runs/{id}/files/{fileId}` (ou `.../groups/{n}/zip`). O Hub confere a permissão, cria o pedido `send_file` e espera o Agente enviar (até 60 s para começar). Um encontro em memória liga o upload do Agente à resposta do navegador. O Hub é um processo só no piloto.
 
 **Endereços**
-- Pessoa (sessão atual): `GET /api/computers/me`, `DELETE /api/computers/{id}`, `POST /api/pairings/{code}/approve`, `GET /api/pairings/{code}`, `GET /api/agent/download`, `POST /api/apps/{id}/choose-folder`, `POST /api/apps/{id}/runs`, `GET /api/apps/{id}/runs`, `GET /api/runs/{id}`, downloads acima.
+- Pessoa (sessão atual): `GET /api/computers/me`, `DELETE /api/computers/{id}`, `POST /api/pairings/{code}/approve`, `GET /api/pairings/{code}`, `GET /api/agent/download`, `POST /api/choose-folder`, `POST /api/apps/{id}/runs`, `GET /api/apps/{id}/runs`, `GET /api/runs/{id}`, downloads acima.
 - Agente (chave do computador, cabeçalho `Authorization: Bearer`): `pair/start`, `pair/poll`, `hello`, `next`, `jobs/{id}/result`, `jobs/{id}/upload`.
 
 **Distribuição do Agente:** `scripts/build-agent.sh` compila `agent/` para Windows em `dist/agent/AppHubAgente.exe` (ignorado pelo git). `GET /api/agent/download` serve esse arquivo (`AGENT_BINARY_PATH`). O Hub conhece a versão esperada do Agente e avisa "Atualize o Agente" quando a versão conectada é outra.
