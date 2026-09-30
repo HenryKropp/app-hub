@@ -20,14 +20,20 @@ import (
 
 var testPool *pgxpool.Pool
 
+// testDatabaseName is where handler tests run, next to the development database.
+const testDatabaseName = "apphub_test"
+
 func TestMain(m *testing.M) {
 	url := os.Getenv("DATABASE_URL")
 	if url == "" {
 		panic("DATABASE_URL must be set to run handler tests (load .env)")
 	}
 	ctx := context.Background()
-	var err error
-	testPool, err = pgxpool.New(ctx, url)
+	testURL, err := ensureTestDatabase(ctx, url)
+	if err != nil {
+		panic(err)
+	}
+	testPool, err = pgxpool.New(ctx, testURL)
 	if err != nil {
 		panic(err)
 	}
