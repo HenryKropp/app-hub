@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react"
-import { Navigate, useNavigate } from "react-router-dom"
+import { Navigate, useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field, Logo } from "@/components/bits"
@@ -9,13 +9,14 @@ import { useAuth } from "@/lib/auth"
 export function LoginPage() {
   const { needsSetup, person, setPerson } = useAuth()
   const navigate = useNavigate()
+  const from = (useLocation().state as { from?: string } | null)?.from ?? "/"
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
 
-  if (person) return <Navigate to="/" replace />
+  if (person) return <Navigate to={from} replace />
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -24,7 +25,7 @@ export function LoginPage() {
     try {
       const p = needsSetup ? await api.setup({ name, email, password }) : await api.login({ email, password })
       setPerson(p)
-      navigate("/")
+      navigate(from, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível entrar.")
     } finally {

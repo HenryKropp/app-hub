@@ -87,7 +87,21 @@ export type AppDetail = {
   backup_id: number | null
   manifest: Manifest
   updated_at: string
+  can_run: boolean
 }
+
+export type Computer = { id: number; name: string; agent_version: string; last_seen_at: string | null; connected: boolean; outdated: boolean }
+export type ComputersInfo = { computers: Computer[]; expected_version: string; agent_available: boolean }
+export type Pairing = { code: string; computer_name: string; expired: boolean; approved: boolean }
+export type RunStatus = "waiting" | "running" | "done" | "no_files" | "error" | "interrupted"
+export type RunFile = { id: number; path: string; size: number; modified: string; change: "new" | "changed" }
+export type RunGroup = { index: number; label: string; files: RunFile[] }
+export type Run = {
+  id: number; app_id: number; app_name: string; person_name: string; computer_name: string; output_folder: string
+  status: RunStatus; exit_code: number | null; error_message: string; app_version: string
+  created_at: string; started_at: string | null; finished_at: string | null; groups: RunGroup[]
+}
+export type RunSummary = { id: number; status: RunStatus; person_name: string; created_at: string; started_at: string | null; finished_at: string | null; file_count: number }
 
 export class ApiError extends Error {
   status: number
@@ -122,4 +136,16 @@ export const api = {
   app: (id: number | string) => request<AppDetail>("GET", `/api/apps/${id}`),
   saveApp: (b: { folder_path: string; owner_id: number; backup_id: number | null; manifest: Manifest }) =>
     request<AppDetail>("POST", "/api/apps", b),
+  computers: () => request<ComputersInfo>("GET", "/api/computers/me"),
+  disconnect: (id: number) => request<void>("DELETE", `/api/computers/${id}`),
+  pairing: (code: string) => request<Pairing>("GET", `/api/pairings/${encodeURIComponent(code)}`),
+  approvePairing: (code: string) => request<void>("POST", `/api/pairings/${encodeURIComponent(code)}/approve`),
+  chooseFolder: (initial: string) => request<{ folder: string; canceled: boolean }>("POST", "/api/choose-folder", { initial }),
+  startRun: (appId: number, output_folder: string) => request<Run>("POST", `/api/apps/${appId}/runs`, { output_folder }),
+  appRuns: (appId: number | string) => request<RunSummary[]>("GET", `/api/apps/${appId}/runs`),
+  run: (id: number | string) => request<Run>("GET", `/api/runs/${id}`),
 }
+
+export const AGENT_DOWNLOAD_URL = "/api/agent/download"
+export const fileUrl = (runId: number, fileId: number) => `/api/runs/${runId}/files/${fileId}`
+export const groupZipUrl = (runId: number, index: number) => `/api/runs/${runId}/groups/${index}/zip` 

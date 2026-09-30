@@ -1,18 +1,21 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom"
 import { Toaster } from "@/components/ui/sonner"
 import { Layout } from "@/components/Layout"
 import { AuthProvider, useAuth } from "@/lib/auth"
 import { ThemeProvider } from "@/lib/theme"
 import { AppPage } from "@/pages/AppPage"
 import { CatalogPage } from "@/pages/CatalogPage"
+import { ComputerPage } from "@/pages/ComputerPage"
+import { ConnectPage } from "@/pages/ConnectPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { PeoplePage } from "@/pages/PeoplePage"
 import { RegisterPage } from "@/pages/RegisterPage"
 
 function Protected() {
   const { loading, person } = useAuth()
+  const location = useLocation()
   if (loading) return null
-  if (!person) return <Navigate to="/entrar" replace />
+  if (!person) return <Navigate to="/entrar" replace state={{ from: location.pathname + location.search }} />
   return <Layout />
 }
 
@@ -40,6 +43,8 @@ function Routed() {
           }
         />
         <Route path="pessoas" element={<PeoplePage />} />
+        <Route path="meu-computador" element={<ComputerPage />} />
+        <Route path="conectar" element={<ConnectPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

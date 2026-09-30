@@ -1,4 +1,4 @@
-import type { Manifest, Person, ScanItem } from "@/lib/api"
+import type { Computer, Manifest, Person, ScanItem } from "@/lib/api"
 
 export const henry: Person = { id: 1, name: "Henry", email: "henry@alis.com", role: "admin" }
 export const ana: Person = { id: 2, name: "Ana", email: "ana@alis.com", role: "criador" }
@@ -45,4 +45,8 @@ export function scanItem(over: Partial<ScanItem> = {}): ScanItem {
     similar: [],
     ...over,
   }
+}
+
+export function computer(over: Partial<Computer> = {}): Computer {
+  return { id: 1, name: "NOTE-HENRY", agent_version: "0.1.0", last_seen_at: "2026-09-30T14:00:00Z", connected: true, outdated: false, ...over }
 }
