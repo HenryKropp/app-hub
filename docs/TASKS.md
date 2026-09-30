@@ -8,7 +8,7 @@ Status: Pending / In Progress / Done / Blocked
 |---|---|---|
 | Ler especificação e apps de teste | Done | Pasta `8. Programação` analisada: scripts, Streamlit, desktop, agendados, `.exe`, documentos |
 | PRD do Módulo 1 | Done | `docs/PRD.md` |
-| Decidir onde os apps executam (Windows vs WSL) | Done | ADR 001: Hub no WSL lendo `/mnt/c`; execução do lado Windows (detalhar na Fase 4) |
+| Decidir onde os apps executam (Windows vs WSL) | Done | ADR 001: Hub no WSL lendo `/mnt/c`; execução pelo Agente do Hub no Windows (ADR 004) |
 
 ## Fase 1 — Fundação
 
@@ -33,7 +33,7 @@ Status: Pending / In Progress / Done / Blocked
 ## Prioridade atual (2026-09-30)
 
 Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep) antes de registrar mais apps.** Ordem:
-1. Fase 4 para apps com janela e `.exe`: rodar pelo Hub, pegar os resultados e registrar cada execução ← **próxima**
+1. Fase 4 para apps com janela e `.exe`: rodar pelo Hub, pegar os resultados e registrar cada execução ← **construída (2026-09-30), falta o teste de verdade com o Henry**
 2. Fase 5: histórico de mudanças no código e na ficha, e voltar atrás (junto com as execuções numa linha do tempo)
 3. Acabamento: tela da ficha com os campos da v0.2 (opções, várias escolhas, `depends_on`, `build`); barra lateral não vai até o fim em páginas compridas
 4. Depois: retomar a Fase 2b (teste com mais 4 apps e MCP)
@@ -72,14 +72,17 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Abrir app com janela / `.exe` no Windows pelo Hub | Pending | **Primeiro alvo:** Eq. Research Files Prep. O Hub (no WSL) abre o `.exe` do lado Windows, espera fechar e compara a pasta antes/depois pelos `outputs` do manifesto |
-| Baixar resultados pelo Hub | Pending | Lista os arquivos novos de cada execução, com download |
+| Agente do Hub no Windows (instalar, conectar, ligar com o Windows) | Done | ADR 004. `scripts/build-agent.sh`; página Meu computador e Conectar. Falta o teste de verdade no computador do Henry |
+| Rodar app com janela/`.exe` pelo Agente, com pasta escolhida | Done | Padrão: pasta do app; outra pasta: cópia temporária do `.exe`. **Primeiro alvo:** Eq. Research Files Prep. Falta o teste de verdade |
+| Resultados agrupados pelo manifesto | Done | Arquivos novos ou alterados; grupos pelas `outputs` + "Outros arquivos" |
+| Baixar resultados pelo Agente (arquivo e .zip) | Done | Sob demanda; só arquivos registrados como resultado daquela execução |
+| Registro das execuções | Done | Quem, quando, duração, pasta, computador, versão do app (data e tamanho do `.exe`); Interrompida quando o Agente reinicia ou o computador não responde |
 | Executor genérico isolado da pasta original | Pending | Para scripts: roda numa cópia de trabalho; coleta arquivos novos como saídas |
 | Ambiente reproduzível por app | Pending | Versão da linguagem e bibliotecas fixadas, preparado na 1ª vez |
 | Formulário automático a partir do manifesto | Pending | Arquivo, data, número, texto, lista |
 | Progresso ao vivo e resultado (texto, tabela, downloads) | Pending | |
 | Apps web: subir e abrir; desktop/executável: abrir | Pending | |
-| Registro e repetição de execuções | Pending | Quem, quando, com o quê, resultado, arquivos gerados |
+| Repetir execução | Pending | Registro já feito (acima); falta rodar de novo com as mesmas escolhas |
 
 ## Fase 5 — Versões (1.6)
 

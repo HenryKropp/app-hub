@@ -8,7 +8,7 @@ O piloto roda no computador do Henry (Windows). Os apps de teste ficam no OneDri
 ## Decision
 O servidor do Hub roda no WSL. As pessoas digitam caminhos do Windows (`C:\...` ou `\\wsl$\...`) e o Hub traduz para o caminho que o WSL enxerga (`/mnt/c/...`), mostrando sempre o formato do Windows na tela (`internal/hostpath`).
 
-A **execução** dos apps (Fase 4) acontecerá do lado Windows, chamada a partir do WSL (interop do Windows: `cmd.exe`/`powershell.exe`), porque os apps dependem do Windows. Essa parte será detalhada numa ADR própria quando o executor for construído.
+A **execução** dos apps acontece do lado Windows, porque os apps dependem do Windows. Ela é feita pelo Agente do Hub instalado no Windows (ADR 004).
 
 ## Rationale
 - Mantém a stack padrão (Go, Postgres em container, deploy em container no Módulo 2).
