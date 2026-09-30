@@ -145,6 +145,42 @@ func TestUpdateGivesUpAfterThreeFailures(t *testing.T) {
 	}
 }
 
+// A new version that connects (job done) and then dies: the watchdog rolls
+// back and the old agent's hello must count that as a failure.
+func TestUpdateThatConnectsThenDiesCounts(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	token := pairComputer(t, c, "PC")
+	withBinary(t, h, "MZ")
+	old := agentproto.Hello{Name: "PC", Version: "0.1.9", CanUpdate: true}
+	fresh := agentproto.Hello{Name: "PC", Version: agentproto.Version, CanUpdate: true}
+
+	c.agent("POST", "/api/agent/hello", token, old, nil)
+	for i := range 3 {
+		j, code := nextJob(t, c, token)
+		if code != http.StatusOK || j.Kind != agentproto.KindUpdate {
+			t.Fatalf("try %d: next %d %+v", i, code, j)
+		}
+		c.agent("POST", "/api/agent/hello", token, fresh, nil)
+		if s := jobStatus(t, j.ID); s != "done" {
+			t.Fatalf("try %d connected: %s", i, s)
+		}
+		c.agent("POST", "/api/agent/hello", token, old, nil) // died, rolled back
+		if s := jobStatus(t, j.ID); s != "failed" {
+			t.Fatalf("try %d died: %s", i, s)
+		}
+	}
+	if n := updateJobs(t); n != 3 {
+		t.Fatalf("want 3 update jobs, got %d", n)
+	}
+	if _, code := nextJob(t, c, token); code != http.StatusNoContent {
+		t.Fatalf("after 3 failures next %d", code)
+	}
+	if n := updateJobs(t); n != 3 {
+		t.Fatalf("4th job queued: %d", n)
+	}
+}
+
 func TestExpiredUpdateDoesNotCount(t *testing.T) {
 	c, h := newPoolClient(t)
 	setupAdmin(t, c)
@@ -180,6 +216,34 @@ func TestAgentBinaryNeedsComputerToken(t *testing.T) {
 	b, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK || string(b) != "MZ-new" {
 		t.Fatalf("%d %q", resp.StatusCode, b)
+	}
+}
+
+func TestAgentBinaryUnavailable(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	token := pairComputer(t, c, "PC")
+
+	h.cfg.AgentBinaryPath = filepath.Join(t.TempDir(), "missing.exe")
+	if code := c.agent("GET", "/api/agent/binary", token, nil, nil); code != http.StatusNotFound {
+		t.Fatalf("missing %d", code)
+	}
+	h.cfg.AgentBinaryPath = t.TempDir() // a directory
+	if code := c.agent("GET", "/api/agent/binary", token, nil, nil); code != http.StatusNotFound {
+		t.Fatalf("directory %d", code)
+	}
+	// A directory is not a binary: no update is queued for it.
+	c.agent("POST", "/api/agent/hello", token, agentproto.Hello{Name: "PC", Version: "0.1.9", CanUpdate: true}, nil)
+	if n := updateJobs(t); n != 0 {
+		t.Fatalf("update queued for a directory: %d", n)
+	}
+
+	withBinary(t, h, "MZ")
+	if code := c.do("DELETE", "/api/computers/1", nil, nil); code != http.StatusNoContent {
+		t.Fatalf("revoke %d", code)
+	}
+	if code := c.agent("GET", "/api/agent/binary", token, nil, nil); code != http.StatusUnauthorized {
+		t.Fatalf("revoked %d", code)
 	}
 }
 

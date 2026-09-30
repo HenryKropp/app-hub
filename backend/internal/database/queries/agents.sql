@@ -117,11 +117,16 @@ WHERE computer_id = sqlc.arg(computer_id) AND kind = 'update' AND status = 'fail
 
 -- name: ResolveTakenUpdates :exec
 -- Called on hello: the agent restarted, so a taken update either worked
--- (it now reports the target version) or was rolled back.
+-- (it now reports the target version) or was rolled back. An update marked
+-- done in the last 10 minutes whose version the agent no longer runs
+-- connected and then died, so it counts as failed.
 UPDATE agent_jobs
-SET status = CASE WHEN payload->>'version' = sqlc.arg(target_version)::text THEN 'done' ELSE 'failed' END,
+SET status = CASE WHEN payload->>'version' = sqlc.arg(hello_version)::text THEN 'done' ELSE 'failed' END,
     done_at = now()
-WHERE computer_id = sqlc.arg(computer_id) AND kind = 'update' AND status = 'taken';
+WHERE computer_id = sqlc.arg(computer_id) AND kind = 'update'
+  AND (status = 'taken'
+       OR (status = 'done' AND done_at > now() - interval '10 minutes'
+           AND payload->>'version' <> sqlc.arg(hello_version)::text));
 
 -- name: LatestUpdateJob :one
 SELECT * FROM agent_jobs WHERE computer_id = $1 AND kind = 'update' ORDER BY id DESC LIMIT 1;

@@ -58,6 +58,11 @@ func fileDigest(path string) (string, int64, error) {
 		return "", 0, err
 	}
 	defer f.Close()
+	if info, err := f.Stat(); err != nil {
+		return "", 0, err
+	} else if !info.Mode().IsRegular() {
+		return "", 0, fs.ErrNotExist
+	}
 	sum := sha256.New()
 	n, err := io.Copy(sum, f)
 	if err != nil {
@@ -75,7 +80,7 @@ func (h *Handler) agentBinary(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Hub.")
 		return
 	}
-	if _, err := os.Stat(h.cfg.AgentBinaryPath); err != nil {
+	if info, err := os.Stat(h.cfg.AgentBinaryPath); err != nil || !info.Mode().IsRegular() {
 		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Hub.")
 		return
 	}
@@ -93,7 +98,9 @@ func (h *Handler) updateState(ctx context.Context, computerID int64, differs boo
 		return "", "", nil, err
 	}
 	var p agentproto.UpdatePayload
-	_ = json.Unmarshal(j.Payload, &p)
+	if json.Unmarshal(j.Payload, &p) != nil || p.Version == "" {
+		p.Version = agentproto.Version
+	}
 	switch {
 	case j.Status == "pending" || j.Status == "taken":
 		return "updating", p.Version, nil, nil

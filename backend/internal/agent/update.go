@@ -27,6 +27,9 @@ type Updater struct {
 	// HandOver is how long to wait for the new agent to close this one after
 	// a successful Start (0 = 5 minutes, above the swap's 2-minute watchdog).
 	HandOver time.Duration
+	// DownloadTimeout bounds the binary download so a stalled one cannot hold
+	// the runner forever (0 = 10 minutes).
+	DownloadTimeout time.Duration
 }
 
 // Apply waits until no app is open, downloads and checks the new agent, keeps
@@ -93,7 +96,13 @@ func (u *Updater) download(ctx context.Context, dst string, p agentproto.UpdateP
 		return err
 	}
 	sum := sha256.New()
-	n, err := u.Client.DownloadBinary(ctx, io.MultiWriter(&capWriter{w: f, left: p.Size}, sum))
+	limit := u.DownloadTimeout
+	if limit <= 0 {
+		limit = 10 * time.Minute
+	}
+	dctx, cancel := context.WithTimeout(ctx, limit)
+	defer cancel()
+	n, err := u.Client.DownloadBinary(dctx,io.MultiWriter(&capWriter{w: f, left: p.Size}, sum))
 	if cerr := f.Close(); err == nil {
 		err = cerr
 	}

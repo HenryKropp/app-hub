@@ -263,7 +263,7 @@ func (h *Handler) agentHello(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "hello", err)
 		return
 	}
-	if err := h.q.ResolveTakenUpdates(r.Context(), sqlc.ResolveTakenUpdatesParams{ComputerID: c.ID, TargetVersion: body.Version}); err != nil {
+	if err := h.q.ResolveTakenUpdates(r.Context(), sqlc.ResolveTakenUpdatesParams{ComputerID: c.ID, HelloVersion: body.Version}); err != nil {
 		internalError(w, "resolve updates", err)
 		return
 	}

@@ -102,7 +102,10 @@ func main() {
 		time.Sleep(5 * time.Second)
 	}
 	connected.Store(true)
-	exe, _ := os.Executable()
+	exe, err := os.Executable()
+	if err != nil {
+		slog.Warn("cannot locate the running agent; self-update may fail", "err", err)
+	}
 	runner := &agent.Runner{Launcher: agent.ExecLauncher{}, StateDir: dir}
 	a := &agent.Agent{
 		Client: client, StateDir: dir, Name: name, ChooseFolder: chooseFolder, Runner: runner,
