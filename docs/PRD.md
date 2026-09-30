@@ -1,7 +1,7 @@
 # PRD — App Hub (Módulo 1: Gestão e orquestração de apps)
 
 **Status:** Em construção (Fundação e Registro prontos) · **Atualizado:** 2026-09-29
-**Fonte:** `Documentação/Especificação do produto.md` (visão completa, Módulos 1 e 2)
+**Fonte:** `Documentação/Especificação do produto v2.md` (visão completa, Módulos 1 e 2; a v1 fica em `Especificação do produto.md`)
 
 ---
 
