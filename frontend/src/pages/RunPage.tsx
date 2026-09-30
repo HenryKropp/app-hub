@@ -13,7 +13,7 @@ function Group({ run, g }: { run: Run; g: RunGroup }) {
   const files = all ? g.files : g.files.slice(0, SHOWN)
   return (
     <section className="border-t border-border py-5">
-      <div className="mb-3 flex items-center justify-between gap-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h2 className="font-mono text-xs tracking-[0.16em] text-muted-foreground uppercase">{g.label} ({g.files.length})</h2>
         {g.files.length > 0 && (
           <a href={groupZipUrl(run.id, g.index)} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-2")}>
@@ -24,11 +24,16 @@ function Group({ run, g }: { run: Run; g: RunGroup }) {
       {g.files.length === 0 ? (
         <p className="text-sm text-muted-foreground">Nada desta vez.</p>
       ) : (
-        <ul className="flex flex-col gap-1.5 text-sm">
+        <ul className="flex flex-col gap-2 text-sm">
           {files.map((f) => (
             <li key={f.id} className="flex items-baseline gap-3">
-              <a href={fileUrl(run.id, f.id)} className="min-w-0 truncate font-mono text-xs underline-offset-4 hover:underline">{f.path}</a>
-              <span className="ml-auto shrink-0 text-xs text-muted-foreground">{f.change === "changed" ? "alterado · " : ""}{formatSize(f.size)}</span>
+              <a href={fileUrl(run.id, f.id)} className="group min-w-0 flex-1">
+                <span className="block truncate font-mono text-xs underline-offset-4 group-hover:underline">{f.path.split("/").pop()}</span>
+                {f.path.includes("/") && (
+                  <span className="block truncate text-[0.7rem] text-muted-foreground">{f.path.split("/").slice(0, -1).join(" / ")}</span>
+                )}
+              </a>
+              <span className="shrink-0 text-xs text-muted-foreground">{f.change === "changed" ? "alterado · " : ""}{formatSize(f.size)}</span>
             </li>
           ))}
           {!all && g.files.length > SHOWN && (
