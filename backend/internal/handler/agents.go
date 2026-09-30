@@ -387,3 +387,19 @@ func (h *Handler) finishJob(ctx context.Context, id int64, status string, res ag
 	}
 	return h.q.FinishJob(ctx, sqlc.FinishJobParams{ID: id, Status: status, Result: raw})
 }
+func (h *Handler) agentDownload(w http.ResponseWriter, r *http.Request) {
+	if _, ok := h.currentPerson(w, r); !ok {
+		return
+	}
+	if h.cfg.AgentBinaryPath == "" {
+		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Hub.")
+		return
+	}
+	if _, err := os.Stat(h.cfg.AgentBinaryPath); err != nil {
+		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Hub.")
+		return
+	}
+	w.Header().Set("Content-Type", "application/vnd.microsoft.portable-executable")
+	w.Header().Set("Content-Disposition", `attachment; filename="AppHubAgente.exe"`)
+	http.ServeFile(w, r, h.cfg.AgentBinaryPath)
+}
