@@ -32,10 +32,12 @@ Status: Pending / In Progress / Done / Blocked
 
 ## Fase 2b — Registro pelo Claude via MCP (3.11) ← próxima
 
-Antecipada a pedido do Henry (2026-09-30). Substitui a necessidade de chave da API para o diagnóstico por IA.
+Antecipada a pedido do Henry (2026-09-30). Primeiro o protocolo, testado localmente; depois o MCP. Substitui a necessidade de chave da API para o diagnóstico por IA.
 
 | Tarefa | Status | Notas |
 |---|---|---|
+| Protocolo de registro pelo Claude | In Progress | `docs/PROTOCOLO-REGISTRO.md` v0.1 escrito; vira as instruções do MCP |
+| Teste local do protocolo em 4 apps da Alis | Pending | Rascunhos fora das pastas da Alis; critérios na seção 8 do protocolo. Antes do MCP |
 | ADR: servidor MCP dentro do binário do Hub | Pending | HTTP (streamable) em `/mcp`, SDK oficial de MCP em Go; mesmas regras dos handlers |
 | Código de acesso pessoal (token) | Pending | Gerado/revogado na tela Pessoas; guardado com hash; a IA age com o perfil da pessoa |
 | Ferramenta: listar catálogo e ler ficha | Pending | Para achar duplicados antes de registrar |
