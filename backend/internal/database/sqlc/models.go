@@ -8,6 +8,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AgentJob struct {
+	ID         int64              `json:"id"`
+	ComputerID int64              `json:"computer_id"`
+	RunID      pgtype.Int8        `json:"run_id"`
+	Kind       string             `json:"kind"`
+	Payload    []byte             `json:"payload"`
+	Status     string             `json:"status"`
+	Result     []byte             `json:"result"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	TakenAt    pgtype.Timestamptz `json:"taken_at"`
+	DoneAt     pgtype.Timestamptz `json:"done_at"`
+}
+
 type App struct {
 	ID         int64              `json:"id"`
 	Slug       string             `json:"slug"`
@@ -25,6 +38,26 @@ type App struct {
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Computer struct {
+	ID           int64              `json:"id"`
+	PersonID     int64              `json:"person_id"`
+	Name         string             `json:"name"`
+	TokenHash    string             `json:"token_hash"`
+	AgentVersion string             `json:"agent_version"`
+	LastSeenAt   pgtype.Timestamptz `json:"last_seen_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	RevokedAt    pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type Pairing struct {
+	Code         string             `json:"code"`
+	SecretHash   string             `json:"secret_hash"`
+	ComputerName string             `json:"computer_name"`
+	PersonID     pgtype.Int8        `json:"person_id"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type Person struct {
 	ID           int64              `json:"id"`
 	Name         string             `json:"name"`
@@ -32,6 +65,32 @@ type Person struct {
 	PasswordHash string             `json:"password_hash"`
 	Role         string             `json:"role"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type Run struct {
+	ID           int64              `json:"id"`
+	AppID        int64              `json:"app_id"`
+	PersonID     int64              `json:"person_id"`
+	ComputerID   int64              `json:"computer_id"`
+	OutputFolder string             `json:"output_folder"`
+	Status       string             `json:"status"`
+	ExitCode     pgtype.Int4        `json:"exit_code"`
+	ErrorMessage string             `json:"error_message"`
+	AppVersion   string             `json:"app_version"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	StartedAt    pgtype.Timestamptz `json:"started_at"`
+	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
+}
+
+type RunFile struct {
+	ID         int64              `json:"id"`
+	RunID      int64              `json:"run_id"`
+	RelPath    string             `json:"rel_path"`
+	Size       int64              `json:"size"`
+	ModifiedAt pgtype.Timestamptz `json:"modified_at"`
+	Change     string             `json:"change"`
+	GroupIndex int32              `json:"group_index"`
+	GroupLabel string             `json:"group_label"`
 }
 
 type Session struct {
