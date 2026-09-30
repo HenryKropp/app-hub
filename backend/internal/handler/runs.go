@@ -412,6 +412,60 @@ func (h *Handler) downloadGroup(w http.ResponseWriter, r *http.Request) {
 	downloadError(w, r, http.StatusNotFound, "Esse grupo não tem arquivos.")
 }
 
+// downloadSelected sends the files the person ticked: one file as itself,
+// several as a zip. Every id must belong to the run.
+func (h *Handler) downloadSelected(w http.ResponseWriter, r *http.Request) {
+	row, _, ok := h.runForPerson(w, r)
+	if !ok {
+		return
+	}
+	var ids []int64
+	for _, part := range strings.Split(r.URL.Query().Get("files"), ",") {
+		id, err := strconv.ParseInt(strings.TrimSpace(part), 10, 64)
+		if err != nil {
+			downloadError(w, r, http.StatusBadRequest, "Escolha pelo menos um arquivo.")
+			return
+		}
+		ids = append(ids, id)
+	}
+	var files []sqlc.RunFile
+	for _, id := range ids {
+		f, err := h.q.GetRunFile(r.Context(), sqlc.GetRunFileParams{ID: id, RunID: row.ID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			downloadError(w, r, http.StatusNotFound, "Arquivo não encontrado.")
+			return
+		}
+		if err != nil {
+			internalError(w, "get run file", err)
+			return
+		}
+		files = append(files, f)
+	}
+	if len(files) == 1 {
+		name := files[0].RelPath[strings.LastIndex(files[0].RelPath, "/")+1:]
+		ctype := mime.TypeByExtension(filepath.Ext(name))
+		if ctype == "" {
+			ctype = "application/octet-stream"
+		}
+		h.relayFromAgent(w, r, row, agentproto.SendFilePayload{RunID: row.ID, Paths: []string{files[0].RelPath}}, name, ctype)
+		return
+	}
+	paths := make([]string, 0, len(files))
+	for _, f := range files {
+		paths = append(paths, f.RelPath)
+	}
+	h.relayFromAgent(w, r, row, agentproto.SendFilePayload{RunID: row.ID, Paths: paths, Zip: true}, zipName(row.AppName+" - arquivos escolhidos"), "application/zip")
+}
+
+func zipName(s string) string {
+	return strings.Map(func(r rune) rune {
+		if strings.ContainsRune(`\/:*?"<>|`, r) {
+			return '-'
+		}
+		return r
+	}, s) + ".zip"
+}
+
 // relayFromAgent asks the run's computer for the files and streams its upload
 // to the browser.
 func (h *Handler) relayFromAgent(w http.ResponseWriter, r *http.Request, row sqlc.GetRunRow, p agentproto.SendFilePayload, name, ctype string) {
