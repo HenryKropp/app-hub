@@ -105,3 +105,12 @@ func chooseFolder(ctx context.Context, initial string) (string, bool, error) {
 func openBrowser(url string) error {
 	return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
 }
+
+func removeAutostart() error {
+	k, err := registry.OpenKey(registry.CURRENT_USER, `Software\Microsoft\Windows\CurrentVersion\Run`, registry.SET_VALUE)
+	if err != nil {
+		return err
+	}
+	defer k.Close()
+	return k.DeleteValue("AppHubAgente")
+}
