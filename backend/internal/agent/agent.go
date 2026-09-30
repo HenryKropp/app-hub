@@ -22,6 +22,8 @@ type Agent struct {
 	ChooseFolder func(ctx context.Context, initial string) (folder string, ok bool, err error)
 	// RetryBase is the first wait before re-sending a result (default 1 s).
 	RetryBase time.Duration
+	// Updater applies update jobs; nil means this agent cannot update itself.
+	Updater *Updater
 }
 
 // Loop asks the Hub for jobs until ctx ends or the token is revoked.
@@ -118,6 +120,20 @@ func (a *Agent) handle(ctx context.Context, job agentproto.Job) {
 			slog.Error("upload", "job", job.ID, "err", err)
 		}
 		_ = pr.Close()
+	case agentproto.KindUpdate:
+		var p agentproto.UpdatePayload
+		if err := json.Unmarshal(job.Payload, &p); err != nil || a.Updater == nil {
+			a.report(ctx, job.ID, failed("Este Agente não consegue se atualizar sozinho."))
+			return
+		}
+		if err := a.Updater.Apply(ctx, p); err != nil {
+			slog.Error("update", "version", p.Version, "err", err)
+			msg := "Não consegui atualizar o Agente."
+			if errors.Is(err, ErrBadDownload) {
+				msg = "O arquivo baixado veio diferente do esperado."
+			}
+			a.report(ctx, job.ID, failed(msg))
+		}
 	default:
 		a.report(ctx, job.ID, failed("Pedido desconhecido."))
 	}

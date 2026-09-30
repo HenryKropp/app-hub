@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
 )
@@ -38,6 +39,18 @@ type Runner struct {
 	Launcher Launcher
 	StateDir string
 	mu       sync.Mutex
+	updating atomic.Bool
+}
+
+// Hold waits until no app is open and keeps new runs from starting until
+// release is called (used while the agent updates itself).
+func (r *Runner) Hold() (release func()) {
+	r.mu.Lock()
+	r.updating.Store(true)
+	return func() {
+		r.updating.Store(false)
+		r.mu.Unlock()
+	}
 }
 
 func failed(msg string) agentproto.Result {
@@ -48,6 +61,9 @@ func failed(msg string) agentproto.Result {
 // in the output folder. report receives the "started" event.
 func (r *Runner) Run(ctx context.Context, p agentproto.RunPayload, report func(agentproto.Result)) agentproto.Result {
 	if !r.mu.TryLock() {
+		if r.updating.Load() {
+			return failed("O Agente está se atualizando. Tente de novo em um minuto.")
+		}
 		return failed("Já tem um app aberto pelo Hub neste computador. Feche-o e tente de novo.")
 	}
 	defer r.mu.Unlock()

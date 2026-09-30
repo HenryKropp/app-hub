@@ -115,6 +115,28 @@ func (c *Client) Result(ctx context.Context, jobID int64, r agentproto.Result) e
 	return err
 }
 
+// DownloadBinary streams the Hub's agent binary into w. No timeout: it is a
+// multi-MB file.
+func (c *Client) DownloadBinary(ctx context.Context, w io.Writer) (int64, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", c.BaseURL+"/api/agent/binary", nil)
+	if err != nil {
+		return 0, err
+	}
+	req.Header.Set("Authorization", "Bearer "+c.Token)
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusUnauthorized {
+		return 0, ErrUnauthorized
+	}
+	if resp.StatusCode != http.StatusOK {
+		return 0, fmt.Errorf("hub GET /api/agent/binary: %d", resp.StatusCode)
+	}
+	return io.Copy(w, resp.Body)
+}
+
 func (c *Client) Upload(ctx context.Context, jobID int64, body io.Reader) error {
 	// No timeout: a big file or zip can take long.
 	_, err := c.send(ctx, "POST", "/api/agent/jobs/"+strconv.FormatInt(jobID, 10)+"/upload", body, "application/octet-stream", nil)
