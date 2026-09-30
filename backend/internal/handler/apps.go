@@ -124,6 +124,7 @@ type appDetail struct {
 	BackupID      *int64             `json:"backup_id"`
 	Manifest      manifest.Manifest  `json:"manifest"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	CanRun        bool               `json:"can_run"`
 }
 
 func toAppDetail(a sqlc.App) (appDetail, error) {
@@ -132,6 +133,7 @@ func toAppDetail(a sqlc.App) (appDetail, error) {
 		d.BackupID = &a.BackupID.Int64
 	}
 	err := json.Unmarshal(a.Manifest, &d.Manifest)
+	d.CanRun = canRun(d.Manifest)
 	return d, err
 }
 

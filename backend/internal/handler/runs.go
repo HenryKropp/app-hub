@@ -1,0 +1,347 @@
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
+	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
+	"github.com/HenryKropp/app-hub/backend/internal/hostpath"
+	"github.com/HenryKropp/app-hub/backend/internal/manifest"
+	"github.com/HenryKropp/app-hub/backend/internal/outputs"
+)
+
+var windowsAbs = regexp.MustCompile(`^[A-Za-z]:\\`)
+
+// canRun: in this phase only desktop apps opened by an .exe run through the agent.
+func canRun(m manifest.Manifest) bool {
+	return m.Kind == "desktop" && strings.HasSuffix(strings.ToLower(m.Entrypoint), ".exe")
+}
+
+func tsPtr(t pgtype.Timestamptz) *time.Time {
+	if !t.Valid {
+		return nil
+	}
+	return &t.Time
+}
+
+func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
+	me, ok := h.currentPerson(w, r)
+	if !ok {
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "App não encontrado.")
+		return
+	}
+	var body struct {
+		OutputFolder string `json:"output_folder"`
+	}
+	if !readJSON(w, r, &body) {
+		return
+	}
+	ctx := r.Context()
+	a, err := h.q.GetApp(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, "App não encontrado.")
+		return
+	}
+	if err != nil {
+		internalError(w, "get app", err)
+		return
+	}
+	var m manifest.Manifest
+	if err := json.Unmarshal(a.Manifest, &m); err != nil {
+		internalError(w, "decode manifest", err)
+		return
+	}
+	if !canRun(m) {
+		writeError(w, http.StatusBadRequest, "Este app ainda não pode rodar pelo Hub.")
+		return
+	}
+	appFolder := hostpath.ToDisplay(a.FolderPath)
+	out := strings.TrimSpace(body.OutputFolder)
+	if out == "" {
+		out = appFolder
+	}
+	if !windowsAbs.MatchString(out) {
+		writeError(w, http.StatusBadRequest, `Informe a pasta completa, começando pela letra do disco (ex.: C:\Users\voce\Documentos).`)
+		return
+	}
+	comp, err := h.q.ConnectedComputerForPerson(ctx, me.ID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusConflict, "Seu computador não está conectado.")
+		return
+	}
+	if err != nil {
+		internalError(w, "connected computer", err)
+		return
+	}
+	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: me.ID, ComputerID: comp.ID, OutputFolder: out})
+	if err != nil {
+		internalError(w, "create run", err)
+		return
+	}
+	payload := agentproto.RunPayload{RunID: run.ID, AppFolder: appFolder, Exe: m.Entrypoint, OutputFolder: out}
+	if _, err := h.enqueue(ctx, comp.ID, &run.ID, agentproto.KindRun, payload); err != nil {
+		internalError(w, "enqueue run", err)
+		return
+	}
+	row, err := h.q.GetRun(ctx, run.ID)
+	if err != nil {
+		internalError(w, "get run", err)
+		return
+	}
+	j, err := h.toRunJSON(ctx, row)
+	if err != nil {
+		internalError(w, "run json", err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, j)
+}
+
+// onRunResult applies an agent event to the run.
+func (h *Handler) onRunResult(ctx context.Context, j sqlc.AgentJob, res agentproto.Result) error {
+	if !j.RunID.Valid {
+		return h.finishJob(ctx, j.ID, "failed", res)
+	}
+	runID := j.RunID.Int64
+	switch res.Event {
+	case agentproto.EventStarted:
+		return h.q.StartRun(ctx, sqlc.StartRunParams{ID: runID, AppVersion: res.AppVersion})
+	case agentproto.EventFinished:
+		row, err := h.q.GetRun(ctx, runID)
+		if err != nil {
+			return err
+		}
+		var m manifest.Manifest
+		if err := json.Unmarshal(row.AppManifest, &m); err != nil {
+			return err
+		}
+		for _, f := range res.Files {
+			idx, label := outputs.Match(m.Outputs, f.Path)
+			if err := h.q.AddRunFile(ctx, sqlc.AddRunFileParams{
+				RunID: runID, RelPath: f.Path, Size: f.Size,
+				ModifiedAt: pgtype.Timestamptz{Time: f.Modified, Valid: true},
+				Change:     f.Change, GroupIndex: int32(idx), GroupLabel: label,
+			}); err != nil {
+				return err
+			}
+		}
+		status, msg := "done", ""
+		if len(res.Files) == 0 {
+			status = "no_files"
+			if res.ExitCode != 0 {
+				status, msg = "error", "O app fechou com erro (código "+strconv.Itoa(res.ExitCode)+") e não gerou arquivos."
+			}
+		}
+		if err := h.q.FinishRun(ctx, sqlc.FinishRunParams{ID: runID, Status: status,
+			ExitCode: pgtype.Int4{Int32: int32(res.ExitCode), Valid: true}, ErrorMessage: msg}); err != nil {
+			return err
+		}
+		return h.finishJob(ctx, j.ID, "done", res)
+	default: // failed
+		msg := res.Error
+		if msg == "" {
+			msg = "O Agente não conseguiu abrir o app."
+		}
+		if err := h.q.FinishRun(ctx, sqlc.FinishRunParams{ID: runID, Status: "error", ErrorMessage: msg}); err != nil {
+			return err
+		}
+		return h.finishJob(ctx, j.ID, "failed", res)
+	}
+}
+
+func (h *Handler) toRunJSON(ctx context.Context, row sqlc.GetRunRow) (runJSON, error) {
+	j := runJSON{
+		ID: row.ID, AppID: row.AppID, AppName: row.AppName, PersonName: row.PersonName, ComputerName: row.ComputerName,
+		OutputFolder: row.OutputFolder, Status: row.Status, ErrorMessage: row.ErrorMessage, AppVersion: row.AppVersion,
+		CreatedAt: row.CreatedAt.Time, StartedAt: tsPtr(row.StartedAt), FinishedAt: tsPtr(row.FinishedAt),
+		Groups: []runGroupJSON{},
+	}
+	if row.ExitCode.Valid {
+		j.ExitCode = &row.ExitCode.Int32
+	}
+	var m manifest.Manifest
+	if err := json.Unmarshal(row.AppManifest, &m); err != nil {
+		return j, err
+	}
+	for i, o := range m.Outputs {
+		j.Groups = append(j.Groups, runGroupJSON{Index: i, Label: o.Label, Files: []runFileJSON{}})
+	}
+	files, err := h.q.ListRunFiles(ctx, row.ID)
+	if err != nil {
+		return j, err
+	}
+	for _, f := range files {
+		fj := runFileJSON{ID: f.ID, Path: f.RelPath, Size: f.Size, Modified: f.ModifiedAt.Time, Change: f.Change}
+		idx := int(f.GroupIndex)
+		if idx < 0 || idx >= len(m.Outputs) || m.Outputs[idx].Label != f.GroupLabel {
+			idx = -1 // others, or a group the manifest no longer has
+		}
+		if idx >= 0 {
+			j.Groups[idx].Files = append(j.Groups[idx].Files, fj)
+			continue
+		}
+		last := len(j.Groups) - 1
+		if last < 0 || j.Groups[last].Index != -1 {
+			j.Groups = append(j.Groups, runGroupJSON{Index: -1, Label: outputs.OtherLabel, Files: []runFileJSON{}})
+			last++
+		}
+		j.Groups[last].Files = append(j.Groups[last].Files, fj)
+	}
+	return j, nil
+}
+
+// runForPerson loads the run in the path; only its person and admins see it.
+func (h *Handler) runForPerson(w http.ResponseWriter, r *http.Request) (sqlc.GetRunRow, sqlc.Person, bool) {
+	me, ok := h.currentPerson(w, r)
+	if !ok {
+		return sqlc.GetRunRow{}, me, false
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err == nil {
+		if err := h.q.ExpireStaleRuns(r.Context()); err != nil {
+			internalError(w, "expire runs", err)
+			return sqlc.GetRunRow{}, me, false
+		}
+		row, err := h.q.GetRun(r.Context(), id)
+		if err == nil && (row.PersonID == me.ID || me.Role == "admin") {
+			return row, me, true
+		}
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			internalError(w, "get run", err)
+			return row, me, false
+		}
+	}
+	writeError(w, http.StatusNotFound, "Execução não encontrada.")
+	return sqlc.GetRunRow{}, me, false
+}
+
+func (h *Handler) getRun(w http.ResponseWriter, r *http.Request) {
+	row, _, ok := h.runForPerson(w, r)
+	if !ok {
+		return
+	}
+	j, err := h.toRunJSON(r.Context(), row)
+	if err != nil {
+		internalError(w, "run json", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, j)
+}
+
+func (h *Handler) listAppRuns(w http.ResponseWriter, r *http.Request) {
+	me, ok := h.currentPerson(w, r)
+	if !ok {
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "App não encontrado.")
+		return
+	}
+	if err := h.q.ExpireStaleRuns(r.Context()); err != nil {
+		internalError(w, "expire runs", err)
+		return
+	}
+	rows, err := h.q.ListAppRuns(r.Context(), sqlc.ListAppRunsParams{AppID: id, SeeAll: me.Role == "admin", PersonID: me.ID})
+	if err != nil {
+		internalError(w, "list runs", err)
+		return
+	}
+	out := make([]runSummaryJSON, 0, len(rows))
+	for _, x := range rows {
+		out = append(out, runSummaryJSON{ID: x.ID, Status: x.Status, PersonName: x.PersonName, CreatedAt: x.CreatedAt.Time,
+			StartedAt: tsPtr(x.StartedAt), FinishedAt: tsPtr(x.FinishedAt), FileCount: x.FileCount})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (h *Handler) chooseFolder(w http.ResponseWriter, r *http.Request) {
+	me, ok := h.currentPerson(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		Initial string `json:"initial"`
+	}
+	if !readJSON(w, r, &body) {
+		return
+	}
+	ctx := r.Context()
+	comp, err := h.q.ConnectedComputerForPerson(ctx, me.ID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusConflict, "Seu computador não está conectado.")
+		return
+	}
+	if err != nil {
+		internalError(w, "connected computer", err)
+		return
+	}
+	job, err := h.enqueue(ctx, comp.ID, nil, agentproto.KindChooseFolder, agentproto.ChooseFolderPayload{Initial: body.Initial})
+	if err != nil {
+		internalError(w, "enqueue folder", err)
+		return
+	}
+	done, ok := h.waitJob(ctx, job.ID, h.waitFolder)
+	if !ok {
+		writeError(w, http.StatusGatewayTimeout, "A janela de pastas não respondeu. Tente de novo.")
+		return
+	}
+	var res agentproto.Result
+	_ = json.Unmarshal(done.Result, &res)
+	if done.Status == "failed" {
+		writeError(w, http.StatusBadGateway, "Não consegui abrir a janela de pastas no seu computador.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"folder": res.Folder, "canceled": res.Canceled || res.Folder == ""})
+}
+
+type runFileJSON struct {
+	ID       int64     `json:"id"`
+	Path     string    `json:"path"`
+	Size     int64     `json:"size"`
+	Modified time.Time `json:"modified"`
+	Change   string    `json:"change"`
+}
+type runGroupJSON struct {
+	Index int           `json:"index"`
+	Label string        `json:"label"`
+	Files []runFileJSON `json:"files"`
+}
+type runJSON struct {
+	ID           int64          `json:"id"`
+	AppID        int64          `json:"app_id"`
+	AppName      string         `json:"app_name"`
+	PersonName   string         `json:"person_name"`
+	ComputerName string         `json:"computer_name"`
+	OutputFolder string         `json:"output_folder"`
+	Status       string         `json:"status"`
+	ExitCode     *int32         `json:"exit_code"`
+	ErrorMessage string         `json:"error_message"`
+	AppVersion   string         `json:"app_version"`
+	CreatedAt    time.Time      `json:"created_at"`
+	StartedAt    *time.Time     `json:"started_at"`
+	FinishedAt   *time.Time     `json:"finished_at"`
+	Groups       []runGroupJSON `json:"groups"`
+}
+type runSummaryJSON struct {
+	ID         int64      `json:"id"`
+	Status     string     `json:"status"`
+	PersonName string     `json:"person_name"`
+	CreatedAt  time.Time  `json:"created_at"`
+	StartedAt  *time.Time `json:"started_at"`
+	FinishedAt *time.Time `json:"finished_at"`
+	FileCount  int64      `json:"file_count"`
+}
