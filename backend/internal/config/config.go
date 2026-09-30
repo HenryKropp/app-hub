@@ -11,6 +11,8 @@ type Config struct {
 	DatabaseURL string
 	BaseURL     string
 	DevMode     bool
+
+	AgentBinaryPath string
 }
 
 func Load() (Config, error) {
@@ -19,6 +21,8 @@ func Load() (Config, error) {
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		BaseURL:     os.Getenv("BASE_URL"),
 		DevMode:     os.Getenv("DEV_MODE") != "",
+
+		AgentBinaryPath: os.Getenv("AGENT_BINARY_PATH"),
 	}
 	if cfg.Port == "" {
 		cfg.Port = "8080"

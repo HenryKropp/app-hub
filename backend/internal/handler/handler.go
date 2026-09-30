@@ -27,10 +27,19 @@ const (
 type Handler struct {
 	q   *sqlc.Queries
 	cfg config.Config
+
+	// Waits used by the agent endpoints; tests shorten them.
+	waitNext   time.Duration
+	waitFile   time.Duration
+	waitFolder time.Duration
+	tick       time.Duration
 }
 
 func New(q *sqlc.Queries, cfg config.Config) *Handler {
-	return &Handler{q: q, cfg: cfg}
+	return &Handler{
+		q: q, cfg: cfg,
+		waitNext: 25 * time.Second, waitFile: 60 * time.Second, waitFolder: 5 * time.Minute, tick: 300 * time.Millisecond,
+	}
 }
 
 func (h *Handler) Register(mux *http.ServeMux) {
@@ -51,6 +60,14 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/apps", h.listApps)
 	mux.HandleFunc("GET /api/apps/{id}", h.getApp)
 	mux.HandleFunc("POST /api/apps", h.saveApp)
+
+	mux.HandleFunc("POST /api/agent/pair/start", h.pairStart)
+	mux.HandleFunc("POST /api/agent/pair/poll", h.pairPoll)
+	mux.HandleFunc("GET /api/pairings/{code}", h.getPairing)
+	mux.HandleFunc("POST /api/pairings/{code}/approve", h.approvePairing)
+	mux.HandleFunc("GET /api/computers/me", h.myComputers)
+	mux.HandleFunc("DELETE /api/computers/{id}", h.revokeComputer)
+	mux.HandleFunc("POST /api/agent/hello", h.agentHello)
 }
 
 // --- helpers ---
