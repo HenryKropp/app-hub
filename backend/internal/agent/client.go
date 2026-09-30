@@ -1,0 +1,101 @@
+package agent
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"strconv"
+
+	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
+)
+
+var (
+	ErrUnauthorized = errors.New("agent token rejected")
+	ErrGone         = errors.New("pairing expired or used")
+)
+
+// Client talks to the Hub. Every call is started by the agent.
+type Client struct {
+	BaseURL string
+	Token   string
+	HTTP    *http.Client
+}
+
+func (c *Client) do(ctx context.Context, method, path string, body io.Reader, contentType string, out any) (int, error) {
+	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, body)
+	if err != nil {
+		return 0, err
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if c.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	switch {
+	case resp.StatusCode == http.StatusUnauthorized:
+		return resp.StatusCode, ErrUnauthorized
+	case resp.StatusCode == http.StatusGone:
+		return resp.StatusCode, ErrGone
+	case resp.StatusCode >= 300:
+		return resp.StatusCode, fmt.Errorf("hub %s %s: %d", method, path, resp.StatusCode)
+	}
+	if out != nil && resp.StatusCode == http.StatusOK {
+		return resp.StatusCode, json.NewDecoder(resp.Body).Decode(out)
+	}
+	return resp.StatusCode, nil
+}
+
+func (c *Client) postJSON(ctx context.Context, path string, in, out any) (int, error) {
+	b, err := json.Marshal(in)
+	if err != nil {
+		return 0, err
+	}
+	return c.do(ctx, "POST", path, bytes.NewReader(b), "application/json", out)
+}
+
+func (c *Client) PairStart(ctx context.Context, name string) (agentproto.PairStartResponse, error) {
+	var out agentproto.PairStartResponse
+	_, err := c.postJSON(ctx, "/api/agent/pair/start", agentproto.PairStartRequest{ComputerName: name}, &out)
+	return out, err
+}
+
+func (c *Client) PairPoll(ctx context.Context, secret string) (agentproto.PairPollResponse, error) {
+	var out agentproto.PairPollResponse
+	_, err := c.postJSON(ctx, "/api/agent/pair/poll", agentproto.PairPollRequest{Secret: secret}, &out)
+	return out, err
+}
+
+func (c *Client) Hello(ctx context.Context, name string) error {
+	_, err := c.postJSON(ctx, "/api/agent/hello", agentproto.Hello{Name: name, Version: agentproto.Version}, nil)
+	return err
+}
+
+// Next waits for the next job; nil means none arrived in the Hub's wait.
+func (c *Client) Next(ctx context.Context) (*agentproto.Job, error) {
+	var j agentproto.Job
+	code, err := c.do(ctx, "GET", "/api/agent/next", nil, "", &j)
+	if err != nil || code == http.StatusNoContent {
+		return nil, err
+	}
+	return &j, nil
+}
+
+func (c *Client) Result(ctx context.Context, jobID int64, r agentproto.Result) error {
+	_, err := c.postJSON(ctx, "/api/agent/jobs/"+strconv.FormatInt(jobID, 10)+"/result", r, nil)
+	return err
+}
+
+func (c *Client) Upload(ctx context.Context, jobID int64, body io.Reader) error {
+	_, err := c.do(ctx, "POST", "/api/agent/jobs/"+strconv.FormatInt(jobID, 10)+"/upload", body, "application/octet-stream", nil)
+	return err
+}
