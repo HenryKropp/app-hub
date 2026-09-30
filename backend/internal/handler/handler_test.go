@@ -54,7 +54,7 @@ func newClient(t *testing.T, devMode bool) *client {
 		t.Fatal(err)
 	}
 	// Start from an empty Hub inside the transaction.
-	if _, err := tx.Exec(ctx, "TRUNCATE apps, sessions, people RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := tx.Exec(ctx, "TRUNCATE run_files, agent_jobs, runs, pairings, computers, apps, sessions, people RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatal(err)
 	}
 	mux := http.NewServeMux()
