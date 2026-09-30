@@ -1,6 +1,6 @@
 # Especificação do produto — v2
 
-Sep 30, 2026 · @Henry · substitui a v1 de Sep 29, 2026 (guardada em `Especificação do produto.md`)
+30/09/2026 · @Henry · substitui a v1 de 29/09/2026 (guardada em `Especificação do produto.md`)
 
 ## O que mudou em relação à v1
 
@@ -8,15 +8,20 @@ A v2 incorpora o que foi decidido e aprendido nos primeiros dias do piloto da Al
 
 | Onde | Mudança | Por quê |
 | --- | --- | --- |
+| Módulo 1 | Princípio central: a plataforma é genérica, tudo entra pelo manifesto | Deixar claro que não é feita sob medida para a Alis |
 | 1.1 | Novos tipos de app: app de desktop, executável pronto e documento | A pasta real da Alis tem janelas do Windows, `.exe` e documentos que não rodam |
 | 1.1 | Manifesto aberto (`app-hub.yaml`) e ficha (`FICHA.md`) salvos na pasta do app | O app continua compreensível fora da plataforma |
 | 1.1 | Sem IA, o diagnóstico é feito por regras e a pessoa confirma o incerto | Permite começar o piloto sem chave de IA |
+| 1.2 | No piloto sem IA, a ficha nasce do diagnóstico por regras ou é escrita pelo Claude | Piloto começa sem chave de IA |
 | 1.3 | Nasce o **Agente do Hub**, programa pequeno no computador de cada pessoa que abre os apps | Apps com janela precisam do Windows, e o mesmo desenho serve para a nuvem |
 | 1.3 | Apps com janela: a plataforma abre, espera fechar e mostra os arquivos gerados | Primeiro caso real (Eq. Research Files Prep) |
 | 1.3 | A pessoa escolhe onde salvar e baixa os resultados escolhendo os arquivos | Resultados podem ter centenas de arquivos |
-| 1.6 | Linha do tempo única do app: mudanças no código, na ficha e execuções | Pedido do Henry, 30/09 |
-| 1.7 | Empresa e times: time = área; cada pessoa pertence a uma empresa só | Combinado em 30/09 |
+| 1.6 | Histórico da ficha (quem mudou o quê e quando) e mais dados em cada execução | Pedido do Henry, 30/09/2026 |
+| 1.6 | Linha do tempo única do app: mudanças no código, na ficha e execuções | Pedido do Henry, 30/09/2026 |
+| 1.7 | Empresa e times: time = área; cada pessoa pertence a uma empresa só | Combinado em 30/09/2026 |
+| 1.7 | No piloto: login com e-mail e senha, três perfis, e execuções visíveis só a quem rodou e aos administradores | Piloto local, sem serviço externo |
 | 1.11 | Registro pelo Claude via MCP antecipado para o piloto, sem chave de IA da plataforma | Quem lê o código é o Claude do próprio criador |
+| 2.1 | Modo híbrido pelo Agente: apps com janela ou que dependem do escritório seguem rodando no computador | Com a plataforma na nuvem, só muda o endereço com que o Agente conversa |
 | Novo | Seção "O piloto da Alis" com prioridades e o que já funciona | Registrar o andamento real |
 
 ## Introdução
@@ -98,7 +103,7 @@ O criador entrega uma pasta, e a plataforma devolve um app pronto pra ser usado 
 | Sistema complexo | Vários serviços e banco de dados | Registro e ficha; execução fora do escopo inicial |
 | Documento, não app | Instruções, prompts, modelos em `.docx` | Só catálogo e ficha |
 
-**Como o app recebe a entrada** também varia e entra no manifesto: arquivo com nome fixo ao lado do código, janela de seleção do Windows, pergunta na tela ou parâmetro no comando. Um app pode depender de outro (`depends_on`) e pode ter um passo de preparo (`build`), como gerar o `.exe` a partir do script.
+**Como o app recebe a entrada** também varia e entra no manifesto: arquivo com nome fixo ao lado do código, janela de seleção do Windows, a própria janela do app, pergunta na tela ou parâmetro no comando. Um app pode depender de outro (`depends_on`) e pode ter um passo de preparo (`build`), como gerar o `.exe` a partir do script.
 
 **Detalhes**
 
@@ -110,7 +115,7 @@ O criador entrega uma pasta, e a plataforma devolve um app pronto pra ser usado 
 - **Não destrutivo:** a plataforma só adiciona o manifesto e a ficha à pasta, e se recusa a sobrescrever um arquivo com o mesmo nome que ela não criou.
 - **Nada é perdido:** o código original fica guardado como versão 1 (1.6).
 
-**No piloto da Alis:** registro em lote da pasta onde ficam os apps, rodando localmente, com os manifestos salvos junto de cada app. Diagnóstico por regras, testado nos 19 apps da pasta de programação; registro pelo Claude em teste.
+**No piloto da Alis:** registro em lote da pasta onde ficam os apps, rodando localmente, com os manifestos salvos junto de cada app. Diagnóstico por regras, testado nos 19 apps da pasta de programação; registro pelo Claude com o protocolo em teste, pausado.
 
 ### 1.2 Ficha do app (documentação automática)
 
@@ -137,7 +142,7 @@ Cada app ganha uma página escrita pela IA, em português simples, que responde 
 - **Pergunte ao app:** um campo de perguntas ("funciona com ITR de banco?") respondido pela IA a partir do código e da ficha.
 - **Exportação:** a ficha vira um arquivo de texto guardado junto do app, que continua legível mesmo fora da plataforma.
 
-**No piloto da Alis:** ficha gerada para cada app registrado, salva como arquivo ao lado do código.
+**No piloto da Alis:** ficha gerada para cada app registrado, salva como arquivo ao lado do código. Sem IA, o texto nasce de um modelo preenchido pelo diagnóstico por regras, ou é escrito pelo Claude via MCP (1.11).
 
 ### 1.3 Execução com interface automática
 
@@ -166,6 +171,7 @@ Esta é a feature central do produto: qualquer app registrado ganha um botão "R
 - **Apps com tela própria** (Streamlit, página web): a plataforma sobe o app e abre a tela dele, sem gerar formulário.
 - **Apps de desktop e executáveis:** a plataforma abre a janela do app, espera a pessoa usar e fechar, e mostra os arquivos novos ou alterados, agrupados pelas saídas da ficha, mais "Outros arquivos".
 - **Onde salvar:** antes de abrir, a plataforma pergunta onde o app deve gravar os resultados. O padrão é a pasta do app; a pessoa pode escolher outra pela janela de pastas do Windows, sem mexer no app original.
+- **Ponto em aberto:** o ideal é que rodar não suje a pasta original do app. Hoje o padrão para apps com janela é gravar na pasta do app, porque é onde eles já gravam; o executor de scripts (a fazer) vai rodar numa cópia de trabalho.
 - **Baixar os resultados:** um arquivo, um grupo inteiro (.zip) ou só os arquivos que a pessoa marcou.
 - **Execuções salvas:** dá pra repetir uma execução anterior com as mesmas entradas, ou salvar um preset ("ITR trimestral").
 - **Encadeamento:** a saída de um app pode ser a entrada de outro (extrair PDF → atualizar modelo), montando um fluxo.
@@ -180,7 +186,7 @@ Quem abre o app no computador da pessoa é o **Agente do Hub**, um programa pequ
 - **Quem começa a conversa é o Agente:** ele pergunta à plataforma se há algo para fazer. Por isso atravessa firewall e funciona igual com a plataforma local ou na nuvem (Módulo 2).
 - **Cada computador tem sua própria chave**, e desconectar um computador corta o acesso na hora.
 - **Os resultados ficam no computador:** a plataforma guarda só a lista. Ao clicar em Baixar, o Agente envia o arquivo na hora, e só arquivos daquela execução. Para baixar, o computador precisa estar ligado.
-- **Atualiza sozinho:** quando sai uma versão nova, o Agente baixa e se troca sem a pessoa fazer nada.
+- **Próximo passo, atualizar sozinho:** quando sair uma versão nova, o Agente vai baixar e se trocar sem a pessoa fazer nada. Hoje a plataforma avisa "Atualize o Agente" e a pessoa baixa de novo.
 - **Futuro, a desenhar:** a plataforma como app de computador, num instalador único com o Agente junto, janela própria sem navegador e botão "Procurar atualizações".
 
 **No piloto da Alis:** Hub local com botão Rodar para os apps registrados, preparando o ambiente de cada um sem terminal. Primeiro caso completo: o Eq. Research Files Prep (app com janela, `.exe`), rodado pelo Agente, com resultados agrupados e baixados pela plataforma.
@@ -260,7 +266,7 @@ Toda mudança na ficha (nome, resumo, responsável, entradas, saídas) também f
 
 Na página de cada app, as três histórias aparecem juntas, em ordem: mudanças no código, mudanças na ficha e execuções.
 
-**No piloto da Alis:** versão automática a cada alteração, com resumo e botão de voltar; log de execuções (já funcionando) e histórico da ficha, numa linha do tempo só.
+**No piloto da Alis:** versão automática a cada alteração, com resumo e botão de voltar; log de execuções e histórico da ficha, numa linha do tempo só.
 
 ### 1.7 Acesso, permissões e cofre de chaves
 
@@ -282,7 +288,6 @@ Define quem pode ver, usar e alterar cada app, e guarda as chaves e senhas que o
 - **Times:** time e área são a mesma coisa (Investimentos, Research, Operações). Uma pessoa pode estar em mais de um time, e cada app pertence a um time.
 - **Quem vê cada app:** a empresa toda, só alguns times, ou só pessoas escolhidas.
 - **Apps restritos:** apps que tocam dados sensíveis (carteira, clientes) ficam visíveis só pra quem tem acesso.
-- **Execuções:** enquanto as permissões por app não existem, só quem rodou e os administradores veem e baixam uma execução.
 
 **Cofre de chaves**
 
@@ -292,7 +297,7 @@ Define quem pode ver, usar e alterar cada app, e guarda as chaves e senhas que o
 - **Troca centralizada:** mudou a senha de um sistema, troca num lugar e todos os apps passam a usar a nova.
 - **Registro de uso:** qual app usou qual chave, quando.
 
-**No piloto da Alis:** login com e-mail e senha (só no piloto local; antes da nuvem, troca por Google, Microsoft ou link por e-mail), três perfis (administrador, criador e usuário) e cofre local, com as chaves tiradas dos códigos existentes. Uma empresa só (Alis); times e permissões por app entram depois que registro, catálogo e execução estiverem redondos.
+**No piloto da Alis:** login com e-mail e senha (só no piloto local; antes da nuvem, troca por Google, Microsoft ou link por e-mail), três perfis (administrador, criador e usuário) e cofre local, com as chaves tiradas dos códigos existentes. Enquanto as permissões por app não existem, só quem rodou e os administradores veem e baixam uma execução. Uma empresa só (Alis); times e permissões por app entram depois que registro, catálogo e execução estiverem redondos.
 
 ### 1.8 Saúde e manutenção com IA
 
@@ -321,7 +326,7 @@ A plataforma percebe quando um app quebra, explica o motivo em português e prop
 
 **Status de cada app:** funcionando, com alerta, quebrado ou sem uso, visível na ficha (1.2), no catálogo (1.4) e no painel (1.10).
 
-**No piloto da Alis:** registro de erros com explicação da IA; correção proposta fica pra V2.
+**No piloto da Alis:** registro de erros, com explicação da IA quando a chave de IA estiver configurada; correção proposta fica pra V2.
 
 ### 1.9 Continuidade e responsáveis
 
@@ -405,12 +410,12 @@ A primeira parte do MCP a existir é o registro, porque dispensa a chave de IA d
 
 1. O criador gera um **código de acesso pessoal** na plataforma e conecta o Claude, uma vez só.
 2. Pede, por exemplo: "registra todos os apps da pasta de programação".
-3. O Claude lista as pastas e o catálogo, lê o código com **chaves e senhas mascaradas** pela plataforma (ele nunca vê os valores), parte do diagnóstico por regras e completa com o que entendeu: resumo em português, entradas, saídas, arquivo de início, time e pontos de atenção.
+3. O Claude lista as pastas e o catálogo, lê o código com **chaves e senhas mascaradas** pela plataforma (ele nunca vê os valores), parte do diagnóstico por regras e completa com o que entendeu: resumo em português, entradas, saídas, arquivo de início, área (futuro time) e pontos de atenção.
 4. Registra cada app com responsável e reserva, pedindo confirmação a cada um. O app fica marcado como **registrado via IA**.
 
 O passo a passo que o Claude segue é um protocolo escrito (`docs/PROTOCOLO-REGISTRO.md`), testado primeiro à mão e depois transformado nas instruções do MCP.
 
-**No piloto da Alis:** o registro pelo MCP entra já; criar app do zero, rodar, ler saúde e usar o cofre pelo MCP ficam para depois.
+**No piloto da Alis:** o registro pelo MCP entra no piloto, antes do resto do MCP. Está pausado desde 30/09/2026, até a plataforma ficar redonda com um app só. Criar app do zero, rodar, ler saúde e usar o cofre pelo MCP ficam para depois.
 
 ## O piloto da Alis
 
@@ -425,10 +430,11 @@ A variedade confirmou que a plataforma precisa ser genérica: scripts que leem u
 | Parte | Situação |
 | --- | --- |
 | Fundação: login, pessoas, visual | Pronta |
-| Registro (1.1): diagnóstico por regras, lote, segredos, duplicados, manifesto e ficha na pasta | Pronto |
-| Registro pelo Claude (1.11) | Protocolo testado com 1 app; faltam 4 apps e o MCP em si |
+| Registro (1.1): diagnóstico por regras, lote, detecção de segredos, duplicados, manifesto e ficha na pasta | Pronto |
+| Registro pelo Claude (1.11) | Pausado. Protocolo testado com 1 app; faltam 4 apps e o MCP em si |
 | Catálogo e ficha (1.2, 1.4) | Cartões e busca prontos; faltam filtros, favoritos e edição direto na ficha |
-| Execução (1.3) de apps com janela e `.exe` pelo Agente | Pronta e testada de verdade |
+| Execução (1.3) de apps com janela abertos por um `.exe`, pelo Agente (1º caso: Eq. Research Files Prep) | Pronta e testada de verdade; faltam pendências menores |
+| Execução de outros apps com janela (em Python) e de executáveis soltos | A fazer |
 | Execução de scripts com formulário, apps web, ambiente preparado sozinho | A fazer |
 | Versões e linha do tempo (1.6) | A fazer |
 | Times, permissões e cofre (1.7) | A fazer |
