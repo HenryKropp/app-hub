@@ -80,3 +80,7 @@ Tem também um botão para cortar um FRE inteiro só nas seções que interessam
 **Propostas:** as 8 foram aprovadas e entraram no protocolo **v0.2**. O rascunho `app-hub.yaml` foi atualizado para a v0.2 (`source: window`, `multiple`, `depends_on`, `build`) e passou na validação do Hub (`backend/cmd/validate-manifest`).
 
 **Lição sobre a conversa:** o conteúdo que eu pedia para avaliar estava fora da janela da pergunta, e o Henry não conseguiu ler. Nas próximas rodadas, o material vai dentro da pergunta, ou é mostrado antes e a pergunta vem na mensagem seguinte.
+
+## Registro no Hub (2026-09-30)
+
+Publicado no catálogo a pedido do Henry, antes do fim das rodadas, **sem reserva** (o Andre Ogliari ainda não está cadastrado no Hub; ficou como ponto de atenção). O responsável é o Henry, com o e-mail cadastrado no Hub. O Hub gravou `app-hub.yaml` e `FICHA.md` na pasta do app; nada mais foi alterado lá.
