@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
@@ -260,4 +262,132 @@ func (h *Handler) agentHello(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) enqueue(ctx context.Context, computerID int64, runID *int64, kind string, payload any) (sqlc.AgentJob, error) {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return sqlc.AgentJob{}, err
+	}
+	run := pgtype.Int8{}
+	if runID != nil {
+		run = pgtype.Int8{Int64: *runID, Valid: true}
+	}
+	return h.q.CreateJob(ctx, sqlc.CreateJobParams{ComputerID: computerID, RunID: run, Kind: kind, Payload: raw})
+}
+
+// waitJob polls until the job is done or failed, or max passes.
+func (h *Handler) waitJob(ctx context.Context, id int64, max time.Duration) (sqlc.AgentJob, bool) {
+	deadline := time.Now().Add(max)
+	for {
+		j, err := h.q.GetJob(ctx, id)
+		if err == nil && (j.Status == "done" || j.Status == "failed") {
+			return j, true
+		}
+		if time.Now().After(deadline) || ctx.Err() != nil {
+			return j, false
+		}
+		time.Sleep(h.tick)
+	}
+}
+
+func (h *Handler) agentNext(w http.ResponseWriter, r *http.Request) {
+	c, ok := h.currentComputer(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	if err := h.q.ExpireStaleRuns(ctx); err != nil {
+		internalError(w, "expire runs", err)
+		return
+	}
+	if err := h.q.ExpireStaleJobs(ctx); err != nil {
+		internalError(w, "expire jobs", err)
+		return
+	}
+	deadline := time.Now().Add(h.waitNext)
+	for {
+		j, err := h.q.ClaimJob(ctx, c.ID)
+		if err == nil {
+			writeJSON(w, http.StatusOK, agentproto.Job{ID: j.ID, Kind: j.Kind, Payload: j.Payload})
+			return
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			internalError(w, "claim job", err)
+			return
+		}
+		if time.Now().After(deadline) || ctx.Err() != nil {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		time.Sleep(h.tick)
+	}
+}
+
+// jobForComputer loads a job by path id and checks it belongs to c.
+func (h *Handler) jobForComputer(w http.ResponseWriter, r *http.Request, c sqlc.Computer) (sqlc.AgentJob, bool) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err == nil {
+		j, err := h.q.GetJob(r.Context(), id)
+		if err == nil && j.ComputerID == c.ID {
+			return j, true
+		}
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			internalError(w, "get job", err)
+			return j, false
+		}
+	}
+	writeError(w, http.StatusNotFound, "Pedido não encontrado.")
+	return sqlc.AgentJob{}, false
+}
+
+func (h *Handler) agentResult(w http.ResponseWriter, r *http.Request) {
+	c, ok := h.currentComputer(w, r)
+	if !ok {
+		return
+	}
+	j, ok := h.jobForComputer(w, r, c)
+	if !ok {
+		return
+	}
+	var res agentproto.Result
+	r.Body = http.MaxBytesReader(w, r.Body, 16<<20) // big run file lists
+	if err := json.NewDecoder(r.Body).Decode(&res); err != nil {
+		writeError(w, http.StatusBadRequest, "Não entendi os dados enviados.")
+		return
+	}
+	ctx := r.Context()
+	var err error
+	switch j.Kind {
+	case agentproto.KindRun:
+		err = h.onRunResult(ctx, j, res)
+	case agentproto.KindSendFile:
+		if res.Event == agentproto.EventMissing || res.Event == agentproto.EventFailed {
+			h.uploads.missing(j.ID)
+		}
+		err = h.finishJob(ctx, j.ID, "failed", res)
+	default:
+		status := "done"
+		if res.Event == agentproto.EventFailed {
+			status = "failed"
+		}
+		err = h.finishJob(ctx, j.ID, status, res)
+	}
+	if err != nil {
+		internalError(w, "job result", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) finishJob(ctx context.Context, id int64, status string, res agentproto.Result) error {
+	raw, err := json.Marshal(res)
+	if err != nil {
+		return err
+	}
+	return h.q.FinishJob(ctx, sqlc.FinishJobParams{ID: id, Status: status, Result: raw})
+}
+
+func (h *Handler) onRunResult(ctx context.Context, j sqlc.AgentJob, res agentproto.Result) error {
+	return h.finishJob(ctx, j.ID, "done", res)
 }

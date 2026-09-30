@@ -3,8 +3,10 @@ package handler
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
 )
@@ -138,5 +140,54 @@ func loginAs(t *testing.T, c *client, email string) {
 	t.Helper()
 	if code := c.do("POST", "/api/auth/login", map[string]string{"email": email, "password": "senha-forte-1"}, nil); code != http.StatusOK {
 		t.Fatalf("login %d", code)
+	}
+}
+
+func TestNextLongPollAndChooseFolderResult(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	token := pairComputer(t, c, "PC")
+
+	// Nothing queued: 204 after the wait.
+	if code := c.agent("GET", "/api/agent/next", token, nil, nil); code != http.StatusNoContent {
+		t.Fatalf("empty next %d", code)
+	}
+
+	ctx := context.Background()
+	job, err := h.enqueue(ctx, 1, nil, agentproto.KindChooseFolder, agentproto.ChooseFolderPayload{Initial: `C:\apps`})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got agentproto.Job
+	if code := c.agent("GET", "/api/agent/next", token, nil, &got); code != http.StatusOK || got.ID != job.ID || got.Kind != agentproto.KindChooseFolder {
+		t.Fatalf("next %d %+v", code, got)
+	}
+	// Claimed once only.
+	if code := c.agent("GET", "/api/agent/next", token, nil, nil); code != http.StatusNoContent {
+		t.Fatalf("second next %d", code)
+	}
+
+	res := agentproto.Result{Event: agentproto.EventDone, Folder: `D:\Saídas`}
+	if code := c.agent("POST", "/api/agent/jobs/"+strconv.FormatInt(job.ID, 10)+"/result", token, res, nil); code != http.StatusNoContent {
+		t.Fatalf("result %d", code)
+	}
+	done, ok := h.waitJob(ctx, job.ID, time.Second)
+	if !ok || done.Status != "done" || !strings.Contains(string(done.Result), `D:\\Saídas`) {
+		t.Fatalf("job %+v", done)
+	}
+}
+
+func TestResultForOtherComputersJobIsRejected(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	pairComputer(t, c, "PC1")
+	token2 := pairComputer(t, c, "PC2")
+	job, err := h.enqueue(context.Background(), 1, nil, agentproto.KindChooseFolder, agentproto.ChooseFolderPayload{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res := agentproto.Result{Event: agentproto.EventDone, Canceled: true}
+	if code := c.agent("POST", "/api/agent/jobs/"+strconv.FormatInt(job.ID, 10)+"/result", token2, res, nil); code != http.StatusNotFound {
+		t.Fatalf("foreign result %d", code)
 	}
 }

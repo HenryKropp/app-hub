@@ -33,12 +33,15 @@ type Handler struct {
 	waitFile   time.Duration
 	waitFolder time.Duration
 	tick       time.Duration
+
+	uploads *uploadHub
 }
 
 func New(q *sqlc.Queries, cfg config.Config) *Handler {
 	return &Handler{
 		q: q, cfg: cfg,
 		waitNext: 25 * time.Second, waitFile: 60 * time.Second, waitFolder: 5 * time.Minute, tick: 300 * time.Millisecond,
+		uploads: newUploadHub(),
 	}
 }
 
@@ -68,6 +71,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/computers/me", h.myComputers)
 	mux.HandleFunc("DELETE /api/computers/{id}", h.revokeComputer)
 	mux.HandleFunc("POST /api/agent/hello", h.agentHello)
+	mux.HandleFunc("GET /api/agent/next", h.agentNext)
+	mux.HandleFunc("POST /api/agent/jobs/{id}/result", h.agentResult)
 }
 
 // --- helpers ---
