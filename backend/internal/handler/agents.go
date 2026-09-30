@@ -180,7 +180,11 @@ type computerJSON struct {
 	AgentVersion string     `json:"agent_version"`
 	LastSeenAt   *time.Time `json:"last_seen_at"`
 	Connected    bool       `json:"connected"`
-	Outdated     bool       `json:"outdated"`
+	// Outdated: the person has to download the agent by hand.
+	Outdated      bool       `json:"outdated"`
+	UpdateState   string     `json:"update_state"` // "", "updating", "updated", "gave_up"
+	UpdateVersion string     `json:"update_version,omitempty"`
+	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
 }
 
 func (h *Handler) myComputers(w http.ResponseWriter, r *http.Request) {
@@ -195,11 +199,16 @@ func (h *Handler) myComputers(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]computerJSON, 0, len(rows))
 	for _, c := range rows {
-		j := computerJSON{ID: c.ID, Name: c.Name, AgentVersion: c.AgentVersion, Connected: c.Connected,
-			Outdated: c.AgentVersion != "" && c.AgentVersion != agentproto.Version}
+		j := computerJSON{ID: c.ID, Name: c.Name, AgentVersion: c.AgentVersion, Connected: c.Connected}
 		if c.LastSeenAt.Valid {
 			j.LastSeenAt = &c.LastSeenAt.Time
 		}
+		differs := c.AgentVersion != "" && c.AgentVersion != agentproto.Version
+		if j.UpdateState, j.UpdateVersion, j.UpdatedAt, err = h.updateState(r.Context(), c.ID, differs); err != nil {
+			internalError(w, "update state", err)
+			return
+		}
+		j.Outdated = differs && (!c.CanUpdate || j.UpdateState == "gave_up")
 		out = append(out, j)
 	}
 	_, statErr := os.Stat(h.cfg.AgentBinaryPath)

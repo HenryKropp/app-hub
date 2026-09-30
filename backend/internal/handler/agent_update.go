@@ -4,12 +4,15 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"io/fs"
 	"net/http"
 	"os"
+	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
@@ -78,4 +81,34 @@ func (h *Handler) agentBinary(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/vnd.microsoft.portable-executable")
 	http.ServeFile(w, r, h.cfg.AgentBinaryPath)
+}
+
+// updateState summarises the latest update job of a computer for the page.
+func (h *Handler) updateState(ctx context.Context, computerID int64, differs bool) (string, string, *time.Time, error) {
+	j, err := h.q.LatestUpdateJob(ctx, computerID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", nil, nil
+	}
+	if err != nil {
+		return "", "", nil, err
+	}
+	var p agentproto.UpdatePayload
+	_ = json.Unmarshal(j.Payload, &p)
+	switch {
+	case j.Status == "pending" || j.Status == "taken":
+		return "updating", p.Version, nil, nil
+	case j.Status == "done" && j.DoneAt.Valid && time.Since(j.DoneAt.Time) < 24*time.Hour && !differs:
+		return "updated", p.Version, &j.DoneAt.Time, nil
+	}
+	if !differs {
+		return "", "", nil, nil
+	}
+	failed, err := h.q.CountFailedUpdates(ctx, sqlc.CountFailedUpdatesParams{ComputerID: computerID, TargetVersion: agentproto.Version})
+	if err != nil {
+		return "", "", nil, err
+	}
+	if failed >= maxUpdateTries {
+		return "gave_up", "", nil, nil
+	}
+	return "", "", nil, nil
 }

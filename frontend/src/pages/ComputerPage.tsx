@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import { Download, Laptop, TriangleAlert } from "lucide-react"
+import { Download, Laptop, RefreshCw, TriangleAlert } from "lucide-react"
 import { PageHeader } from "@/components/bits"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { AGENT_DOWNLOAD_URL, api, type ComputersInfo } from "@/lib/api"
@@ -63,7 +63,19 @@ export function ComputerPage() {
                   {c.last_seen_at && ` · visto pela última vez em ${formatWhen(c.last_seen_at)}`}
                   {c.agent_version && ` · Agente ${c.agent_version}`}
                 </p>
-                {c.outdated && (
+                {c.update_state === "updating" && (
+                  <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                    <RefreshCw className="size-4 animate-spin" /> Atualizando o Agente para a versão {c.update_version}…
+                  </p>
+                )}
+                {c.update_state === "updated" && c.updated_at && (
+                  <p className="mt-2 text-sm text-ok">Agente atualizado sozinho em {formatWhen(c.updated_at)}.</p>
+                )}
+                {c.update_state === "gave_up" ? (
+                  <p className="mt-2 flex items-center gap-2 text-sm text-warn">
+                    <TriangleAlert className="size-4" /> Não conseguimos atualizar o Agente sozinho. Baixe e abra a versão {info.expected_version} de novo.
+                  </p>
+                ) : c.outdated && (
                   <p className="mt-2 flex items-center gap-2 text-sm text-warn">
                     <TriangleAlert className="size-4" /> Atualize o Agente: baixe e abra a versão {info.expected_version}.
                   </p>

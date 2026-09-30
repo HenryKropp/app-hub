@@ -90,7 +90,11 @@ export type AppDetail = {
   can_run: boolean
 }
 
-export type Computer = { id: number; name: string; agent_version: string; last_seen_at: string | null; connected: boolean; outdated: boolean }
+export type UpdateState = "" | "updating" | "updated" | "gave_up"
+export type Computer = {
+  id: number; name: string; agent_version: string; last_seen_at: string | null; connected: boolean; outdated: boolean
+  update_state: UpdateState; update_version?: string; updated_at?: string
+}
 export type ComputersInfo = { computers: Computer[]; expected_version: string; agent_available: boolean }
 export type Pairing = { code: string; computer_name: string; expired: boolean; approved: boolean }
 export type RunStatus = "waiting" | "running" | "done" | "no_files" | "error" | "interrupted"
