@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
 )
@@ -23,6 +24,9 @@ type Updater struct {
 	StateDir   string
 	CurrentExe string                                 // the running agent
 	Start      func(exe string, args ...string) error // opens a program without waiting
+	// HandOver is how long to wait for the new agent to close this one after
+	// a successful Start (0 = 5 minutes, above the swap's 2-minute watchdog).
+	HandOver time.Duration
 }
 
 // Apply waits until no app is open, downloads and checks the new agent, keeps
@@ -32,11 +36,39 @@ type Updater struct {
 // seconds before this agent is closed.
 func (u *Updater) Apply(ctx context.Context, p agentproto.UpdatePayload) error {
 	release := u.Runner.Hold()
-	err := u.handOver(ctx, p)
-	if err != nil {
+	if err := u.handOver(ctx, p); err != nil {
 		release()
+		return err
 	}
-	return err
+	wait := u.HandOver
+	if wait <= 0 {
+		wait = 5 * time.Minute
+	}
+	t := time.NewTimer(wait)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		// The agent is shutting down: stay held, do not report.
+		return nil
+	case <-t.C:
+		// The new agent never closed this one: give the runner back.
+		release()
+		return errors.New("new agent did not take over in time")
+	}
+}
+
+// capWriter refuses bytes beyond its limit, so an oversized download stops early.
+type capWriter struct {
+	w    io.Writer
+	left int64
+}
+
+func (c *capWriter) Write(b []byte) (int, error) {
+	if int64(len(b)) > c.left {
+		return 0, ErrBadDownload
+	}
+	c.left -= int64(len(b))
+	return c.w.Write(b)
 }
 
 func (u *Updater) handOver(ctx context.Context, p agentproto.UpdatePayload) error {
@@ -61,7 +93,7 @@ func (u *Updater) download(ctx context.Context, dst string, p agentproto.UpdateP
 		return err
 	}
 	sum := sha256.New()
-	n, err := u.Client.DownloadBinary(ctx, io.MultiWriter(f, sum))
+	n, err := u.Client.DownloadBinary(ctx, io.MultiWriter(&capWriter{w: f, left: p.Size}, sum))
 	if cerr := f.Close(); err == nil {
 		err = cerr
 	}

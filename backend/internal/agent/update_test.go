@@ -58,7 +58,10 @@ func newUpdater(t *testing.T, c *Client) (*Updater, *startRec) {
 
 func TestUpdaterAppliesVerifiedDownload(t *testing.T) {
 	u, rec := newUpdater(t, binaryHub(t, "MZ-new"))
-	if err := u.Apply(context.Background(), agentproto.UpdatePayload{Version: "0.2.1", SHA256: digest("MZ-new"), Size: 6}); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { time.Sleep(200 * time.Millisecond); cancel() }()
+	if err := u.Apply(ctx, agentproto.UpdatePayload{Version: "0.2.1", SHA256: digest("MZ-new"), Size: 6}); err != nil {
 		t.Fatal(err)
 	}
 	dl := filepath.Join(u.StateDir, "update", "AppHubAgente.exe")
@@ -82,6 +85,7 @@ func TestUpdaterRejectsBadDownload(t *testing.T) {
 	for name, p := range map[string]agentproto.UpdatePayload{
 		"short":    {SHA256: digest("MZ-new-and-more"), Size: 15},
 		"tampered": {SHA256: digest("MZ-evil"), Size: 6},
+		"oversize": {SHA256: digest("MZ"), Size: 2},
 	} {
 		t.Run(name, func(t *testing.T) {
 			u, rec := newUpdater(t, binaryHub(t, "MZ-new"))
@@ -102,7 +106,10 @@ func TestUpdaterWaitsForOpenApp(t *testing.T) {
 	u, rec := newUpdater(t, binaryHub(t, "MZ-new"))
 	u.Runner.mu.Lock() // an app is open
 	done := make(chan error, 1)
-	go func() { done <- u.Apply(context.Background(), agentproto.UpdatePayload{SHA256: digest("MZ-new"), Size: 6}) }()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go func() { time.Sleep(400 * time.Millisecond); cancel() }()
+	go func() { done <- u.Apply(ctx, agentproto.UpdatePayload{SHA256: digest("MZ-new"), Size: 6}) }()
 	time.Sleep(100 * time.Millisecond)
 	if rec.n() != 0 {
 		t.Fatal("updated while an app was open")
