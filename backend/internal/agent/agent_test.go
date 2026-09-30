@@ -25,6 +25,9 @@ type fakeHub struct {
 
 func (f *fakeHub) handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/agent/binary", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("MZ-new"))
+	})
 	mux.HandleFunc("GET /api/agent/next", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
