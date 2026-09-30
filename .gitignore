@@ -5,3 +5,4 @@ e2e/node_modules/
 .venv/
 .env
 *:Zone.Identifier
+.superpowers/
