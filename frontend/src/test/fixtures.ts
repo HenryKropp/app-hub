@@ -48,7 +48,7 @@ export function scanItem(over: Partial<ScanItem> = {}): ScanItem {
 }
 
 export function computer(over: Partial<Computer> = {}): Computer {
-  return { id: 1, name: "NOTE-HENRY", agent_version: "0.1.0", last_seen_at: "2026-09-30T14:00:00Z", connected: true, outdated: false, ...over }
+  return { id: 1, name: "NOTE-HENRY", agent_version: "0.1.0", last_seen_at: "2026-09-30T14:00:00Z", connected: true, outdated: false, update_state: "", ...over }
 }
 
 export function run(over: Partial<Run> = {}): Run {

@@ -182,3 +182,40 @@ func TestAgentBinaryNeedsComputerToken(t *testing.T) {
 		t.Fatalf("%d %q", resp.StatusCode, b)
 	}
 }
+
+func TestComputerUpdateState(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	token := pairComputer(t, c, "PC")
+	withBinary(t, h, "MZ")
+	state := func() computerJSON {
+		var me struct {
+			Computers []computerJSON `json:"computers"`
+		}
+		c.do("GET", "/api/computers/me", nil, &me)
+		return me.Computers[0]
+	}
+	old := agentproto.Hello{Name: "PC", Version: "0.1.9", CanUpdate: true}
+
+	c.agent("POST", "/api/agent/hello", token, old, nil)
+	if s := state(); s.UpdateState != "updating" || s.UpdateVersion != agentproto.Version || s.Outdated {
+		t.Fatalf("updating: %+v", s)
+	}
+	nextJob(t, c, token)
+	c.agent("POST", "/api/agent/hello", token, agentproto.Hello{Name: "PC", Version: agentproto.Version, CanUpdate: true}, nil)
+	if s := state(); s.UpdateState != "updated" || s.UpdatedAt == nil {
+		t.Fatalf("updated: %+v", s)
+	}
+
+	// Three rollbacks: give up and show the manual message.
+	if _, err := testPool.Exec(context.Background(), "UPDATE computers SET agent_version = '0.1.9'"); err != nil {
+		t.Fatal(err)
+	}
+	for range 3 {
+		nextJob(t, c, token)
+		c.agent("POST", "/api/agent/hello", token, old, nil)
+	}
+	if s := state(); s.UpdateState != "gave_up" || !s.Outdated {
+		t.Fatalf("gave up: %+v", s)
+	}
+}
