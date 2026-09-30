@@ -1,9 +1,9 @@
 # App Hub — manifesto do app
 # RASCUNHO da rodada 1 do teste do protocolo (docs/PROTOCOLO-REGISTRO.md).
-# Não publicado. Não foi escrito na pasta do app.
+# Não publicado. Não foi escrito na pasta do app. Atualizado para o protocolo v0.2.
 manifest_version: 1
-id: pipeline-ia-equity-research
-name: Pipeline IA — Equity Research
+id: eq-research-files-prep
+name: Eq. Research Files Prep
 summary: >-
   Baixa da CVM os documentos de uma empresa aberta (Formulário de Referência,
   apresentações, fatos relevantes, ITR e DFP) e junta os que você escolher num
@@ -21,33 +21,34 @@ inputs:
   - id: empresa
     label: "Nome da empresa ou CNPJ (ex.: PETROBRAS)"
     type: text
-    source: prompt
+    source: window
     required: true
   - id: anos
     label: Quantos anos de histórico baixar (padrão 3, de 1 a 20)
     type: number
-    source: prompt
+    source: window
     required: true
   - id: documentos
-    label: Quais documentos baixar (pode marcar vários)
+    label: Quais documentos baixar
     type: choice
-    source: prompt
+    source: window
     options: [FRE, Apresentações, Fatos Relevantes, ITR, DFP]
+    multiple: true
     required: true
   - id: pasta_raiz
     label: Pasta onde os documentos serão salvos (padrão é a pasta do app)
     type: folder
-    source: dialog
+    source: window
     required: false
   - id: pasta_trabalho
     label: Pasta com os PDFs que entram no Data Pack (padrão é a da empresa baixada)
     type: folder
-    source: dialog
+    source: window
     required: false
   - id: fre_unico
     label: FRE em PDF único, para cortar só as seções que interessam (opcional)
     type: file
-    source: dialog
+    source: window
     required: false
 outputs:
   - label: Documentos da CVM baixados, numa pasta por empresa e por tipo
@@ -58,8 +59,12 @@ outputs:
     pattern: "*_cortado_secoes.pdf"
 area: Research
 owner: { name: Henry Kropp, email: henry.kropp@alisinvestimentos.com }
-backup: null
+backup: { name: Andre Ogliari }
 tags: [cvm, fre, data-pack, research, pdf]
+depends_on: [cvm-downloader]
+build:
+  source: Código-fonte/Files Prep.py
+  command: Recompilar Ferramenta CVM.bat
 notes:
   - Depende do app CVM Downloader (8. Programação\CVM Downloader\src\cvm_downloader.py), que é o motor do download. Se o CVM Downloader mudar, este app precisa ser recompilado.
   - Só o Ferramenta CVM.exe funciona hoje. Rodar pelo código (Código-fonte\Files Prep.py) dá erro ao iniciar, porque ele procura o motor numa pasta que não existe.
@@ -68,4 +73,4 @@ notes:
   - Precisa de internet e dos sites da CVM (dados.cvm.gov.br e rad.cvm.gov.br) no ar.
   - Antes de gerar o Data Pack dá para colocar PDFs próprios na pasta da empresa, como relatórios de corretoras, e eles entram na curadoria.
   - A pasta Old tem um atalho antigo (Abrir Ferramenta CVM.vbs) que aponta para um arquivo que não existe mais.
-  - Sem reserva definido.
+  - O título da janela ainda é "Pipeline IA — Equity Research" e o .exe se chama "Ferramenta CVM"; o nome no catálogo é Eq. Research Files Prep.

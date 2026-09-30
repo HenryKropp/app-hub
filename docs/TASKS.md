@@ -36,8 +36,10 @@ Antecipada a pedido do Henry (2026-09-30). Primeiro o protocolo, testado localme
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Protocolo de registro pelo Claude | In Progress | `docs/PROTOCOLO-REGISTRO.md` v0.1 escrito; vira as instruções do MCP |
-| Teste local do protocolo em 4 apps da Alis | Pending | Rascunhos fora das pastas da Alis; critérios na seção 8 do protocolo. Antes do MCP |
+| Protocolo de registro pelo Claude | In Progress | `docs/PROTOCOLO-REGISTRO.md` v0.2 (8 melhorias da rodada 1 aprovadas); vira as instruções do MCP |
+| Teste local do protocolo em 4 apps da Alis | In Progress | Rodada 1 (Eq. Research Files Prep, app extra) aprovada. Faltam: Python Rentabilidade fundos, Research Platform, transcritor-calls, CVM Downloader (decidir aí a relação com o Files Prep) |
+| Formato v0.2 do manifesto | Done | Origem `window`, `multiple`, `depends_on`, `build`, todos opcionais; comando `cmd/validate-manifest` para validar rascunhos |
+| Tela de revisão: mostrar/editar `depends_on`, `build` e várias escolhas | Pending | Hoje o formato aceita e a ficha mostra; a tela de revisão ainda não edita esses campos |
 | ADR: servidor MCP dentro do binário do Hub | Pending | HTTP (streamable) em `/mcp`, SDK oficial de MCP em Go; mesmas regras dos handlers |
 | Código de acesso pessoal (token) | Pending | Gerado/revogado na tela Pessoas; guardado com hash; a IA age com o perfil da pessoa |
 | Ferramenta: listar catálogo e ler ficha | Pending | Para achar duplicados antes de registrar |

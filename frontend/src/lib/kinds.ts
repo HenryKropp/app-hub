@@ -28,6 +28,7 @@ export const INPUT_SOURCES: Record<Input["source"], string> = {
   dialog: "janela de seleção",
   prompt: "pergunta no terminal",
   argument: "parâmetro",
+  window: "campo na janela do app",
 }
 
 export const ROLES: { value: Role; label: string; hint: string }[] = [

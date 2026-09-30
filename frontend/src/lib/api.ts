@@ -8,9 +8,10 @@ export type Input = {
   id: string
   label: string
   type: "file" | "folder" | "text" | "number" | "date" | "choice"
-  source: "fixed_file" | "dialog" | "prompt" | "argument"
+  source: "fixed_file" | "dialog" | "prompt" | "argument" | "window"
   path?: string
   options?: string[] | null
+  multiple?: boolean
   required: boolean
 }
 
@@ -36,6 +37,8 @@ export type Manifest = {
   owner: PersonRef | null
   backup: PersonRef | null
   tags: string[] | null
+  depends_on?: string[] | null
+  build?: { source: string; command: string } | null
   notes: string[] | null
 }
 
