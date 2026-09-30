@@ -10,6 +10,7 @@ import { ConnectPage } from "@/pages/ConnectPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { PeoplePage } from "@/pages/PeoplePage"
 import { RegisterPage } from "@/pages/RegisterPage"
+import { RunPage } from "@/pages/RunPage"
 
 function Protected() {
   const { loading, person } = useAuth()
@@ -45,6 +46,7 @@ function Routed() {
         <Route path="pessoas" element={<PeoplePage />} />
         <Route path="meu-computador" element={<ComputerPage />} />
         <Route path="conectar" element={<ConnectPage />} />
+        <Route path="execucoes/:id" element={<RunPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
