@@ -30,8 +30,10 @@ import (
 var windowsAbs = regexp.MustCompile(`^[A-Za-z]:\\`)
 
 // canRun: in this phase only desktop apps opened by an .exe run through the agent.
-func canRun(m manifest.Manifest) bool {
-	return m.Kind == "desktop" && strings.HasSuffix(strings.ToLower(m.Entrypoint), ".exe")
+func canRun(m manifest.Manifest) bool { return canRunKind(m.Kind, m.Entrypoint) }
+
+func canRunKind(kind, entrypoint string) bool {
+	return kind == "desktop" && strings.HasSuffix(strings.ToLower(entrypoint), ".exe")
 }
 
 func tsPtr(t pgtype.Timestamptz) *time.Time {
@@ -53,6 +55,7 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		OutputFolder string `json:"output_folder"`
+		Remember     *bool  `json:"remember"`
 	}
 	if !readJSON(w, r, &body) {
 		return
@@ -115,6 +118,17 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internalError(w, "enqueue run", err)
 		return
+	}
+	if body.Remember != nil {
+		var err error
+		if *body.Remember {
+			err = h.q.SetRunFolder(ctx, sqlc.SetRunFolderParams{PersonID: me.ID, AppID: a.ID, Folder: out})
+		} else {
+			err = h.q.ClearRunFolder(ctx, sqlc.ClearRunFolderParams{PersonID: me.ID, AppID: a.ID})
+		}
+		if err != nil {
+			slog.Error("remember folder", "app", a.ID, "err", err) // the run is already queued; don't fail it
+		}
 	}
 	row, err := h.q.GetRun(ctx, run.ID)
 	if err != nil {
