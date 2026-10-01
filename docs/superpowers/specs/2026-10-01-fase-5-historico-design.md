@@ -1,6 +1,6 @@
 # Fase 5: histórico e voltar atrás (desenho)
 
-**Data:** 2026-10-01 · **Status:** desenho aprovado em conversa, aguardando revisão do documento
+**Data:** 2026-10-01 · **Status:** aprovado pelo Henry; plano em `docs/superpowers/plans/2026-10-01-fase-5-historico.md`
 **Contexto:** PRD 3.6 (Versões e histórico) e fluxo C (Atualizar um app). Item 2 da ordem combinada depois da ADR 005.
 
 ## 1. Objetivo
@@ -22,11 +22,12 @@ Cada app ganha uma linha do tempo só, com **mudanças no código**, **execuçõ
 
 ## 2. Como fica para a pessoa
 
-- **Aba "Histórico" na ficha do app.** Uma lista da mais recente para a mais antiga, com filtro Tudo / Código / Execuções / Ficha. Mostra 50 itens e um botão "Carregar mais".
+- **Seção "Histórico" na ficha do app** (substitui a seção "Execuções"). Uma lista da mais recente para a mais antiga, com filtro Tudo / Código / Execuções / Ficha. Mostra 50 itens e um botão "Carregar mais".
   - **Versão N:** "Mudança na pasta" ou "Restaurada da versão M"; a pessoa (ou "provável: Henry Kropp"); a data; a descrição, se houver; um resumo ("2 arquivos mudaram, 1 novo", "o .exe mudou"). Botões: **Ver mudanças**, **Ver como estava**, **Descrever**, **Voltar o código para esta versão**. A versão atual não mostra o botão de voltar.
   - **Execução:** quem rodou, quando, o resultado, "versão N", com link para a tela da execução.
   - **Ficha:** quem mudou, quando e o quê ("Responsável: Ana → Henry", "Resumo alterado"). A primeira entrada é "Ficha criada".
 - **Ver mudanças:** compara com a versão anterior, arquivo por arquivo. Linhas removidas em vermelho e adicionadas em verde. Arquivo novo e arquivo removido aparecem como tal. Binários aparecem só como "mudou (75,6 MB → 75,8 MB)".
+- **Página da versão** (`/apps/{id}/versoes/{n}`), com duas abas: **O que mudou** e **Ver como estava**.
 - **Ver como estava:** lista os arquivos daquela versão; ao clicar, mostra o conteúdo inteiro. O botão de restaurar fica ali.
 - **Descrever:** um campo de texto e a escolha da pessoa que fez a mudança (começa com o responsável). Ao salvar, sai a marca "provável".
 - Chaves escritas no código aparecem mascaradas (`••••`) em todas as telas, pela mesma regra do diagnóstico (`scanner`). A cópia guardada é a original, porque a restauração precisa dela.
@@ -69,15 +70,15 @@ Cada app ganha uma linha do tempo só, com **mudanças no código**, **execuçõ
 
 ### 3.6 Banco (migração 005)
 - `code_blobs (sha256 PK, content BYTEA, size)`: conteúdo dos arquivos de código.
-- `app_versions (id, app_id, number, origin 'original'|'folder'|'restore', restored_from, author_id, author_probable, description, described_by, described_at, files_changed_at, created_at, UNIQUE(app_id, number))`.
-- `app_version_files (version_id, rel_path, sha256, size, modified_at, kind 'code'|'binary')`. Só `code` tem cópia em `code_blobs`.
+- `app_versions (id, app_id, number, origin 'original'|'folder'|'restore', restored_from, author_id, author_probable, description, described_by, described_at, files JSONB, summary JSONB, files_changed_at, created_at, UNIQUE(app_id, number))`. `files` é a lista de arquivos da versão (caminho, tamanho, data, SHA-256, `code`|`binary`), gravada junto com a versão numa operação só; só `code` tem cópia em `code_blobs`. `summary` guarda a contagem para a linha do tempo.
 - `app_changes (id, app_id, person_id, created_at, changes JSONB)`.
 - `runs.version_id BIGINT REFERENCES app_versions(id)`.
 
 ### 3.7 Rotas
 - `GET /api/apps/{id}/history?type=&before=`: linha do tempo, de 50 em 50.
 - `GET /api/apps/{id}/versions/{n}/changes`: comparação com a anterior.
-- `GET /api/apps/{id}/versions/{n}/files` e `GET .../files/content?path=`: ver como estava.
+- `GET /api/apps/{id}/versions/{n}`: dados da versão.
+- `GET /api/apps/{id}/versions/{n}/files` e `GET .../versions/{n}/content?path=`: ver como estava.
 - `PATCH /api/apps/{id}/versions/{n}`: descrição e autor (admin/criador).
 - `GET .../versions/{n}/restore-preview` e `POST .../versions/{n}/restore` (admin/criador).
 
