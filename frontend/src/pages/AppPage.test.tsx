@@ -11,7 +11,7 @@ afterEach(() => vi.restoreAllMocks())
 const detail = (can_run: boolean): AppDetail => ({
   id: 3, folder_path: "/mnt/c/apps/fp", folder_display: "C:\\apps\\fp", owner_id: 1, backup_id: null, updated_at: "2026-09-30T10:00:00Z",
   manifest: manifest({ kind: "desktop", entrypoint: "Ferramenta CVM.exe", name: "Eq. Research Files Prep" }), can_run,
-  version: { number: 2, created_at: "2026-09-30T10:00:00Z" }, folder_readable: true,
+  version: { number: 2, created_at: "2026-09-30T10:00:00Z" }, folder_readable: true, remembered_folder: "",
 })
 
 const renderAt = () =>

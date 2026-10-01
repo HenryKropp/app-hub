@@ -1,4 +1,4 @@
-import type { Computer, Manifest, Person, Run, ScanItem } from "@/lib/api"
+import type { ActiveRun, AppSummary, Computer, Manifest, Person, Run, ScanItem } from "@/lib/api"
 
 export const henry: Person = { id: 1, name: "Henry", email: "henry@alis.com", role: "admin" }
 export const ana: Person = { id: 2, name: "Ana", email: "ana@alis.com", role: "criador" }
@@ -64,4 +64,16 @@ export function run(over: Partial<Run> = {}): Run {
     ],
     ...over,
   }
+}
+
+export function activeRun(over: Partial<ActiveRun> = {}): ActiveRun {
+  return { id: 7, app_id: 3, app_name: "Eq. Research Files Prep", status: "running", error_message: "",
+    file_count: 0, created_at: "2026-10-01T14:00:00Z", finished_at: null, ...over }
+}
+
+export function appSummary(over: Partial<AppSummary> = {}): AppSummary {
+  return { id: 3, slug: "files-prep", name: "Eq. Research Files Prep", summary: "Baixa da CVM", kind: "desktop",
+    language: "python", area: "Research", folder_path: "/mnt/c/apps/fp", folder_display: "C:\\apps\\fp",
+    owner_id: 1, owner_name: "Henry", backup_id: null, updated_at: "2026-09-30T10:00:00Z",
+    can_run: true, remembered_folder: "", ...over }
 }
