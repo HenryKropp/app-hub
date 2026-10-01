@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -163,7 +164,7 @@ func (h *Handler) getApp(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "decode manifest", err)
 		return
 	}
-	v, readable, err := h.checkVersion(r.Context(), a)
+	v, readable, err := h.checkVersion(context.WithoutCancel(r.Context()), a)
 	if err != nil {
 		slog.Error("version check", "app", a.ID, "err", err)
 	}
@@ -289,7 +290,7 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// Ficha change is recorded before the check, so "Ficha criada" precedes versão 1.
-	if _, _, err := h.checkVersion(r.Context(), a); err != nil {
+	if _, _, err := h.checkVersion(context.WithoutCancel(r.Context()), a); err != nil {
 		slog.Error("version check", "app", a.ID, "err", err)
 	}
 	d, err := toAppDetail(a)
