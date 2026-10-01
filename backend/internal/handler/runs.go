@@ -582,3 +582,123 @@ func downloadError(w http.ResponseWriter, r *http.Request, status int, msg strin
 <h1 style="font-size:1.25rem">Não foi possível baixar</h1><p>%s</p>
 <p><a href="javascript:history.back()">Voltar</a></p></body></html>`, html.EscapeString(msg))
 }
+
+type activeRunJSON struct {
+	ID           int64      `json:"id"`
+	AppID        int64      `json:"app_id"`
+	AppName      string     `json:"app_name"`
+	Status       string     `json:"status"`
+	ErrorMessage string     `json:"error_message"`
+	FileCount    int64      `json:"file_count"`
+	CreatedAt    time.Time  `json:"created_at"`
+	FinishedAt   *time.Time `json:"finished_at"`
+}
+
+type runListItemJSON struct {
+	ID           int64      `json:"id"`
+	AppID        int64      `json:"app_id"`
+	AppName      string     `json:"app_name"`
+	Status       string     `json:"status"`
+	OutputFolder string     `json:"output_folder"`
+	PersonName   string     `json:"person_name"`
+	CreatedAt    time.Time  `json:"created_at"`
+	StartedAt    *time.Time `json:"started_at"`
+	FinishedAt   *time.Time `json:"finished_at"`
+	FileCount    int64      `json:"file_count"`
+}
+
+type runListJSON struct {
+	Items []runListItemJSON `json:"items"`
+	More  bool              `json:"more"`
+}
+
+// activeRuns feeds the run strip: the person's runs not dismissed yet.
+func (h *Handler) activeRuns(w http.ResponseWriter, r *http.Request) {
+	me, ok := h.currentPerson(w, r)
+	if !ok {
+		return
+	}
+	if err := h.q.ExpireStaleRuns(r.Context()); err != nil {
+		internalError(w, "expire runs", err)
+		return
+	}
+	rows, err := h.q.ListActiveRuns(r.Context(), me.ID)
+	if err != nil {
+		internalError(w, "active runs", err)
+		return
+	}
+	out := make([]activeRunJSON, 0, len(rows))
+	for _, x := range rows {
+		out = append(out, activeRunJSON{ID: x.ID, AppID: x.AppID, AppName: x.AppName, Status: x.Status,
+			ErrorMessage: x.ErrorMessage, FileCount: x.FileCount, CreatedAt: x.CreatedAt.Time, FinishedAt: tsPtr(x.FinishedAt)})
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+// dismissRun hides a run from the strip. Only the person who ran it can.
+func (h *Handler) dismissRun(w http.ResponseWriter, r *http.Request) {
+	me, ok := h.currentPerson(w, r)
+	if !ok {
+		return
+	}
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "Execução não encontrada.")
+		return
+	}
+	n, err := h.q.DismissRun(r.Context(), sqlc.DismissRunParams{ID: id, PersonID: me.ID})
+	if err != nil {
+		internalError(w, "dismiss run", err)
+		return
+	}
+	if n == 0 {
+		// Already dismissed is fine; someone else's or missing is 404.
+		row, err := h.q.GetRun(r.Context(), id)
+		if err != nil || row.PersonID != me.ID {
+			writeError(w, http.StatusNotFound, "Execução não encontrada.")
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// listRuns is Minhas execuções: the person's runs, or everyone's for admins.
+func (h *Handler) listRuns(w http.ResponseWriter, r *http.Request) {
+	me, ok := h.currentPerson(w, r)
+	if !ok {
+		return
+	}
+	all := r.URL.Query().Get("scope") == "all"
+	if all && me.Role != "admin" {
+		writeError(w, http.StatusForbidden, "Só administradores veem as execuções de todos.")
+		return
+	}
+	var before int64
+	if s := r.URL.Query().Get("before"); s != "" {
+		var err error
+		if before, err = strconv.ParseInt(s, 10, 64); err != nil {
+			writeError(w, http.StatusBadRequest, "Não entendi de onde carregar mais.")
+			return
+		}
+	}
+	if err := h.q.ExpireStaleRuns(r.Context()); err != nil {
+		internalError(w, "expire runs", err)
+		return
+	}
+	rows, err := h.q.ListRuns(r.Context(), sqlc.ListRunsParams{SeeAll: all, PersonID: me.ID, Before: before, Lim: int32(h.runsPage + 1)})
+	if err != nil {
+		internalError(w, "list runs", err)
+		return
+	}
+	out := runListJSON{Items: []runListItemJSON{}}
+	for i, x := range rows {
+		if i == h.runsPage {
+			out.More = true
+			break
+		}
+		out.Items = append(out.Items, runListItemJSON{ID: x.ID, AppID: x.AppID, AppName: x.AppName, Status: x.Status,
+			OutputFolder: x.OutputFolder, PersonName: x.PersonName, CreatedAt: x.CreatedAt.Time,
+			StartedAt: tsPtr(x.StartedAt), FinishedAt: tsPtr(x.FinishedAt), FileCount: x.FileCount})
+	}
+	writeJSON(w, http.StatusOK, out)
+}

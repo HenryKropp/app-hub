@@ -37,6 +37,7 @@ type Handler struct {
 
 	// Items per history page.
 	historyPage int
+	runsPage    int
 
 	uploads *uploadHub
 
@@ -55,6 +56,7 @@ func New(q *sqlc.Queries, cfg config.Config) *Handler {
 		q: q, cfg: cfg,
 		waitNext: 25 * time.Second, waitFile: 60 * time.Second, waitFolder: 5 * time.Minute, tick: 300 * time.Millisecond,
 		historyPage: 50,
+		runsPage:    50,
 		uploads:     newUploadHub(),
 		locks:       map[int64]*sync.Mutex{}, scans: map[int64]scanCache{},
 	}
@@ -89,6 +91,9 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/apps", h.saveApp)
 	mux.HandleFunc("POST /api/apps/{id}/runs", h.startRun)
 	mux.HandleFunc("GET /api/apps/{id}/runs", h.listAppRuns)
+	mux.HandleFunc("GET /api/runs", h.listRuns)
+	mux.HandleFunc("GET /api/runs/active", h.activeRuns)
+	mux.HandleFunc("POST /api/runs/{id}/dismiss", h.dismissRun)
 	mux.HandleFunc("GET /api/runs/{id}", h.getRun)
 	mux.HandleFunc("POST /api/choose-folder", h.chooseFolder)
 	mux.HandleFunc("GET /api/runs/{id}/files/{fileId}", h.downloadFile)
