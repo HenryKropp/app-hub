@@ -1,15 +1,17 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
-import { FolderSearch, Gauge, KeyRound, Laptop, LibraryBig, LogOut, Users } from "lucide-react"
+import { FolderSearch, Gauge, History, KeyRound, Laptop, LibraryBig, LogOut, Users } from "lucide-react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { roleLabel } from "@/lib/kinds"
-import { RunsProvider } from "@/lib/runs-context"
+import { RunsProvider, useRuns } from "@/lib/runs-context"
+import { isLive } from "@/lib/runs"
 import { cn } from "@/lib/utils"
 import { Logo, ThemeToggle } from "./bits"
 import { RunStrip } from "./RunStrip"
 
 const NAV = [
   { to: "/", label: "Catálogo", icon: LibraryBig, roles: ["admin", "criador", "usuario"] },
+  { to: "/execucoes", label: "Minhas execuções", icon: History, roles: ["admin", "criador", "usuario"] },
   { to: "/registrar", label: "Registrar apps", icon: FolderSearch, roles: ["admin", "criador"] },
   { to: "/pessoas", label: "Pessoas", icon: Users, roles: ["admin", "criador", "usuario"] },
   { to: "/meu-computador", label: "Meu computador", icon: Laptop, roles: ["admin", "criador", "usuario"] },
@@ -33,6 +35,7 @@ export function Layout() {
 function Shell() {
   const { person, setPerson } = useAuth()
   const navigate = useNavigate()
+  const openCount = useRuns().active.filter((r) => isLive(r.status)).length
   if (!person) return null
 
   const logout = async () => {
@@ -70,6 +73,11 @@ function Shell() {
                   <span className={cn("absolute top-2 bottom-2 -left-3 hidden w-1 rounded-r bg-stamp transition-opacity md:block", isActive ? "opacity-100" : "opacity-0")} />
                   <Icon className="size-4" />
                   {label}
+                  {to === "/execucoes" && openCount > 0 && (
+                    <span aria-label={`${openCount} aberto agora`} className="ml-auto rounded-full bg-stamp px-1.5 font-mono text-[0.65rem] leading-4 text-white">
+                      {openCount}
+                    </span>
+                  )}
                 </>
               )}
             </NavLink>

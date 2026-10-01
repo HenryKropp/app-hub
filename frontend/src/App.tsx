@@ -10,6 +10,7 @@ import { ConnectPage } from "@/pages/ConnectPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { PeoplePage } from "@/pages/PeoplePage"
 import { RegisterPage } from "@/pages/RegisterPage"
+import { MyRunsPage } from "@/pages/MyRunsPage"
 import { RunPage } from "@/pages/RunPage"
 import { VersionPage } from "@/pages/VersionPage"
 
@@ -48,6 +49,7 @@ function Routed() {
         <Route path="pessoas" element={<PeoplePage />} />
         <Route path="meu-computador" element={<ComputerPage />} />
         <Route path="conectar" element={<ConnectPage />} />
+        <Route path="execucoes" element={<MyRunsPage />} />
         <Route path="execucoes/:id" element={<RunPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

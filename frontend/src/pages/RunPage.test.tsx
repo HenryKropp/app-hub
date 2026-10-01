@@ -1,15 +1,19 @@
 import { render, screen } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
-import { afterEach, expect, test, vi } from "vitest"
+import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { api } from "@/lib/api"
+import { RunsProvider } from "@/lib/runs-context"
 import { run } from "@/test/fixtures"
 import { RunPage } from "./RunPage"
 
+beforeEach(() => vi.spyOn(api, "activeRuns").mockResolvedValue([]))
 afterEach(() => vi.restoreAllMocks())
 const renderAt = () =>
   render(
     <MemoryRouter initialEntries={["/execucoes/7"]}>
-      <Routes><Route path="/execucoes/:id" element={<RunPage />} /></Routes>
+      <RunsProvider>
+        <Routes><Route path="/execucoes/:id" element={<RunPage />} /></Routes>
+      </RunsProvider>
     </MemoryRouter>,
   )
 
@@ -55,4 +59,22 @@ test("mark all in a group", async () => {
   await screen.findByText("Concluída")
   await user.click(screen.getByRole("checkbox", { name: "Marcar todos: Data Pack" }))
   expect(screen.getByRole("link", { name: /Baixar selecionados \(1\)/ })).toHaveAttribute("href", "/api/runs/7/selected?files=2")
+})
+
+test("Rodar de novo uses the same folder; back goes to Minhas execuções; app name links to the ficha", async () => {
+  const user = (await import("@testing-library/user-event")).default.setup()
+  vi.spyOn(api, "run").mockResolvedValue(run({ status: "done", output_folder: "E:\\Velha", app_id: 3 }))
+  const start = vi.spyOn(api, "startRun").mockResolvedValue(run())
+  renderAt()
+  await user.click(await screen.findByRole("button", { name: "Rodar de novo" }))
+  expect(start).toHaveBeenCalledWith(3, "E:\\Velha", undefined)
+  expect(screen.getByRole("link", { name: /Minhas execuções/ })).toHaveAttribute("href", "/execucoes")
+  expect(screen.getByRole("link", { name: "Eq. Research Files Prep" })).toHaveAttribute("href", "/apps/3")
+})
+
+test("live run has no Rodar de novo", async () => {
+  vi.spyOn(api, "run").mockResolvedValue(run({ status: "running", finished_at: null, groups: [] }))
+  renderAt()
+  await screen.findByText(/a janela está aberta/)
+  expect(screen.queryByRole("button", { name: "Rodar de novo" })).not.toBeInTheDocument()
 })
