@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { Search } from "lucide-react"
-import { buttonVariants } from "@/components/ui/button"
+import { Play, Search } from "lucide-react"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState, KindTab, PageHeader } from "@/components/bits"
 import { api, type AppSummary } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
+import { useRuns } from "@/lib/runs-context"
 
 export function CatalogPage() {
   const { person } = useAuth()
+  const { run, busy } = useRuns()
   const [apps, setApps] = useState<AppSummary[] | null>(null)
   const [error, setError] = useState("")
   const [q, setQ] = useState("")
@@ -59,17 +61,34 @@ export function CatalogPage() {
       <ul className="grid gap-x-5 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
         {shown.map((a, i) => (
           <li key={a.id} className="rise" style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}>
-            <Link to={`/apps/${a.id}`} className="group block">
+            {/* The title link covers the card (after:inset-0); Rodar sits above it. */}
+            <div className="group">
               <KindTab kind={a.kind} className="ml-4" />
-              <div className="flex min-h-40 flex-col rounded-lg border border-border bg-card p-5 shadow-card transition-transform group-hover:-translate-y-0.5">
-                <h2 className="font-heading text-xl leading-snug group-hover:text-stamp">{a.name}</h2>
+              <div className="relative flex min-h-40 flex-col rounded-lg border border-border bg-card p-5 shadow-card transition-transform group-hover:-translate-y-0.5">
+                <h2 className="font-heading text-xl leading-snug group-hover:text-stamp">
+                  <Link to={`/apps/${a.id}`} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring">
+                    {a.name}
+                  </Link>
+                </h2>
                 <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{a.summary || "Sem resumo ainda."}</p>
-                <div className="mt-auto flex items-center justify-between gap-2 border-t border-dashed border-border pt-3 text-xs text-muted-foreground">
-                  <span className="truncate">{a.area || "Sem área"}</span>
-                  <span className="truncate font-medium text-foreground/80">{a.owner_name}</span>
+                <div className="mt-auto flex items-center justify-between gap-3 border-t border-dashed border-border pt-3 text-xs text-muted-foreground">
+                  <span className="min-w-0 truncate">
+                    {a.area || "Sem área"} · <span className="font-medium text-foreground/80">{a.owner_name}</span>
+                  </span>
+                  {a.can_run && (
+                    <Button
+                      size="sm"
+                      aria-label={`Rodar ${a.name}`}
+                      disabled={busy.has(a.id)}
+                      className="relative z-10 h-7 shrink-0 gap-1.5 px-2.5"
+                      onClick={() => run({ id: a.id, name: a.name, folder_display: a.folder_display, remembered_folder: a.remembered_folder })}
+                    >
+                      <Play className="size-3.5" /> Rodar
+                    </Button>
+                  )}
                 </div>
               </div>
-            </Link>
+            </div>
           </li>
         ))}
       </ul>
