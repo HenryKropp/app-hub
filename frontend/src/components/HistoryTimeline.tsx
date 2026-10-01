@@ -18,13 +18,20 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function versionLine(v: VersionInfo): string {
+  const bins = v.summary.binaries ?? []
+  if (v.origin === "original") {
+    const kept = [v.summary.added ? plural(v.summary.added, "arquivo de código", "arquivos de código") : "",
+      bins.length ? plural(bins.length, "outro arquivo", "outros arquivos") : ""].filter(Boolean)
+    return kept.length ? `Guardou ${kept.join(" e ")}` : "Nenhum arquivo de código na pasta"
+  }
   const parts: string[] = []
   if (v.summary.modified) parts.push(`${plural(v.summary.modified, "arquivo mudou", "arquivos mudaram")}`)
   if (v.summary.added) parts.push(plural(v.summary.added, "novo", "novos"))
   if (v.summary.removed) parts.push(plural(v.summary.removed, "removido", "removidos"))
   const code = parts.join(", ")
-  const bins = (v.summary.binaries ?? []).map((b) => `${b} mudou`)
-  return [code, ...bins].filter(Boolean).join(" · ") || "Sem mudança no código"
+  const named = bins.slice(0, 2).map((b) => `${b.split("/").pop()} mudou`)
+  if (bins.length > 2) named.push(`mais ${plural(bins.length - 2, "arquivo que não é código mudou", "arquivos que não são código mudaram")}`)
+  return [code, ...named].filter(Boolean).join(" · ") || "Sem mudança no código"
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

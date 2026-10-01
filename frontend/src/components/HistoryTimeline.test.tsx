@@ -71,3 +71,11 @@ test("people without edit rights see no Descrever or Voltar", async () => {
   expect(screen.queryByRole("button", { name: "Descrever" })).toBeNull()
   expect(screen.queryByRole("button", { name: /Voltar o código/ })).toBeNull()
 })
+
+test("versionLine sums up the original state and shortens long binary lists", async () => {
+  const { versionLine } = await import("./HistoryTimeline")
+  expect(versionLine(v({ origin: "original", summary: { added: 4, removed: 0, modified: 0, binaries: ["a/x.ico", "y.exe"] } })))
+    .toBe("Guardou 4 arquivos de código e 2 outros arquivos")
+  expect(versionLine(v({ summary: { added: 0, removed: 0, modified: 1, binaries: ["a/x.ico", "y.exe", "b/z.zip", "w.zip"] } })))
+    .toBe("1 arquivo mudou · x.ico mudou · y.exe mudou · mais 2 arquivos que não são código mudaram")
+})

@@ -18,7 +18,7 @@ function Changes({ files }: { files: FileChange[] }) {
     <div className="flex flex-col gap-5">
       {files.map((f) => (
         <section key={f.path}>
-          <p className="mb-2 text-sm">
+          <p className="mb-2 text-sm break-all">
             <code className="font-mono text-xs">{f.path}</code> <span className="text-muted-foreground">· {STATUS_LABEL[f.status]}</span>
           </p>
           {f.kind === "binary" ? (
@@ -42,8 +42,8 @@ function AsItWas({ appId, n, files }: { appId: string; n: string; files: Version
     api.versionContent(appId, n, path).then(setOpen, (e: Error) => setError(e.message))
   }
   return (
-    <div className="grid gap-4 md:grid-cols-[minmax(0,16rem)_1fr]">
-      <ul className="flex flex-col gap-1 text-sm">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-4 md:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
+      <ul className="flex min-w-0 flex-col gap-1 text-sm">
         {files.map((f) => (
           <li key={f.path}>
             <button type="button" disabled={f.kind === "binary"} onClick={() => show(f.path)}
@@ -119,7 +119,12 @@ export function VersionPage() {
           <Button role="tab" aria-selected={view === "mudancas"} size="sm" variant={view === "mudancas" ? "default" : "outline"} onClick={() => setParams({})}>O que mudou</Button>
           <Button role="tab" aria-selected={view === "arquivos"} size="sm" variant={view === "arquivos" ? "default" : "outline"} onClick={() => setParams({ ver: "arquivos" })}>Como estava</Button>
         </div>
-        {view === "mudancas" ? changes && <Changes files={changes} /> : files && <AsItWas appId={id} n={n} files={files} />}
+        {view === "mudancas" && info.origin === "original" ? (
+          <p className="text-sm text-muted-foreground">
+            Esta é a primeira versão: como a pasta estava quando o Hub começou a acompanhar o app. Para ver os arquivos, abra{" "}
+            <button type="button" className="underline underline-offset-4 hover:text-foreground" onClick={() => setParams({ ver: "arquivos" })}>Como estava</button>.
+          </p>
+        ) : view === "mudancas" ? changes && <Changes files={changes} /> : files && <AsItWas appId={id} n={n} files={files} />}
       </div>
     </article>
   )
