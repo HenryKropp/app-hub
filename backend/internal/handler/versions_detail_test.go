@@ -15,7 +15,7 @@ func TestVersionChanges(t *testing.T) {
 	setupAdmin(t, c)
 	id, dir := codeApp(t, c)
 	editFile(t, dir, "src/main.py", "API_KEY = \"abc123def456ghi\"\nprint('v2')\n")
-	c.do("GET", appPath(id, ""), nil, nil)
+	c.do("POST", appPath(id, "/check"), nil, nil)
 
 	var res struct {
 		Version versionItem      `json:"version"`
@@ -53,7 +53,7 @@ func TestVersionFileContent(t *testing.T) {
 	setupAdmin(t, c)
 	id, dir := codeApp(t, c)
 	editFile(t, dir, "src/main.py", "token = \"abcdefghijklmnop\"\n")
-	c.do("GET", appPath(id, ""), nil, nil)
+	c.do("POST", appPath(id, "/check"), nil, nil)
 
 	var files []versionFileJSON
 	c.do("GET", appPath(id, "/versions/1/files"), nil, &files)
@@ -108,7 +108,7 @@ func TestVersionContentMasksEnvFile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("HOST=db.local\nDB_PASSWORD=Sup3rSecret99\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	c.do("GET", appPath(id, ""), nil, nil)
+	c.do("POST", appPath(id, "/check"), nil, nil)
 	var got struct{ Path, Text string }
 	if code := c.do("GET", appPath(id, "/versions/2/content?path="+url.QueryEscape(".env")), nil, &got); code != http.StatusOK {
 		t.Fatalf("content %d", code)

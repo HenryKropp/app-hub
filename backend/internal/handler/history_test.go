@@ -10,7 +10,7 @@ func TestHistoryMixesAndPages(t *testing.T) {
 	setupAdmin(t, c)
 	id, dir := codeApp(t, c) // versão 1 + "Ficha criada"
 	editFile(t, dir, "src/main.py", "print('v2')\n")
-	c.do("GET", appPath(id, ""), nil, nil) // versão 2
+	c.do("POST", appPath(id, "/check"), nil, nil) // versão 2
 
 	var hist historyJSON
 	if code := c.do("GET", appPath(id, "/history"), nil, &hist); code != http.StatusOK {

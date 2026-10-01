@@ -119,16 +119,17 @@ func (h *Handler) listApps(w http.ResponseWriter, r *http.Request) {
 }
 
 type appDetail struct {
-	ID             int64              `json:"id"`
-	FolderPath     string             `json:"folder_path"`
-	FolderDisplay  string             `json:"folder_display"`
-	OwnerID        int64              `json:"owner_id"`
-	BackupID       *int64             `json:"backup_id"`
-	Manifest       manifest.Manifest  `json:"manifest"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	CanRun         bool               `json:"can_run"`
-	Version        *versionRef        `json:"version"`
-	FolderReadable bool               `json:"folder_readable"`
+	ID               int64              `json:"id"`
+	FolderPath       string             `json:"folder_path"`
+	FolderDisplay    string             `json:"folder_display"`
+	OwnerID          int64              `json:"owner_id"`
+	BackupID         *int64             `json:"backup_id"`
+	Manifest         manifest.Manifest  `json:"manifest"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	CanRun           bool               `json:"can_run"`
+	Version          *versionRef        `json:"version"`
+	FolderReadable   bool               `json:"folder_readable"`
+	RememberedFolder string             `json:"remembered_folder"`
 }
 
 func toAppDetail(a sqlc.App) (appDetail, error) {
@@ -142,7 +143,8 @@ func toAppDetail(a sqlc.App) (appDetail, error) {
 }
 
 func (h *Handler) getApp(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.currentPerson(w, r); !ok {
+	me, ok := h.currentPerson(w, r)
+	if !ok {
 		return
 	}
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
@@ -164,15 +166,44 @@ func (h *Handler) getApp(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "decode manifest", err)
 		return
 	}
+	d.FolderReadable = true // known only after POST /check
+	if v, err := h.q.LatestAppVersion(r.Context(), a.ID); err == nil {
+		d.Version = &versionRef{Number: v.Number, CreatedAt: v.CreatedAt.Time}
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		internalError(w, "latest version", err)
+		return
+	}
+	if f, err := h.q.GetRunFolder(r.Context(), sqlc.GetRunFolderParams{PersonID: me.ID, AppID: a.ID}); err == nil {
+		d.RememberedFolder = f
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		internalError(w, "run folder", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, d)
+}
+
+// checkApp compares the app folder with its latest version (ADR 006). The ficha
+// calls it right after opening, so the page never waits for OneDrive.
+func (h *Handler) checkApp(w http.ResponseWriter, r *http.Request) {
+	if _, ok := h.currentPerson(w, r); !ok {
+		return
+	}
+	a, ok := h.appFromPath(w, r)
+	if !ok {
+		return
+	}
 	v, readable, err := h.checkVersion(context.WithoutCancel(r.Context()), a)
 	if err != nil {
 		slog.Error("version check", "app", a.ID, "err", err)
 	}
-	d.FolderReadable = readable
+	out := struct {
+		FolderReadable bool        `json:"folder_readable"`
+		Version        *versionRef `json:"version"`
+	}{FolderReadable: readable}
 	if v.ID != 0 {
-		d.Version = &versionRef{Number: v.Number, CreatedAt: v.CreatedAt.Time}
+		out.Version = &versionRef{Number: v.Number, CreatedAt: v.CreatedAt.Time}
 	}
-	writeJSON(w, http.StatusOK, d)
+	writeJSON(w, http.StatusOK, out)
 }
 
 // saveApp publishes an app: it writes app-hub.yaml and FICHA.md into the app
