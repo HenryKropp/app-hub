@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -27,7 +28,19 @@ type Folder interface {
 
 type LocalFolder struct{ Root string }
 
-func (f LocalFolder) abs(rel string) string { return filepath.Join(f.Root, filepath.FromSlash(rel)) }
+// abs joins rel to Root and refuses anything that is absolute or escapes Root.
+func (f LocalFolder) abs(rel string) (string, error) {
+	r := filepath.FromSlash(rel)
+	if filepath.IsAbs(r) || strings.HasPrefix(r, string(filepath.Separator)) {
+		return "", errors.New("caminho fora da pasta do app")
+	}
+	p := filepath.Join(f.Root, r)
+	back, err := filepath.Rel(f.Root, p)
+	if err != nil || back == ".." || strings.HasPrefix(back, ".."+string(filepath.Separator)) {
+		return "", errors.New("caminho fora da pasta do app")
+	}
+	return p, nil
+}
 
 func (f LocalFolder) Walk(fn func(rel string, dir bool, size int64, mod time.Time) error) error {
 	if info, err := os.Stat(f.Root); err != nil || !info.IsDir() {
@@ -59,10 +72,19 @@ func (f LocalFolder) Walk(fn func(rel string, dir bool, size int64, mod time.Tim
 	})
 }
 
-func (f LocalFolder) Open(rel string) (io.ReadCloser, error) { return os.Open(f.abs(rel)) }
+func (f LocalFolder) Open(rel string) (io.ReadCloser, error) {
+	p, err := f.abs(rel)
+	if err != nil {
+		return nil, err
+	}
+	return os.Open(p)
+}
 
 func (f LocalFolder) Write(rel string, data []byte) error {
-	p := f.abs(rel)
+	p, err := f.abs(rel)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
 	}
@@ -79,9 +101,16 @@ func (f LocalFolder) Write(rel string, data []byte) error {
 }
 
 func (f LocalFolder) Move(from, to string) error {
-	dst := f.abs(to)
+	dst, err := f.abs(to)
+	if err != nil {
+		return err
+	}
+	src, err := f.abs(from)
+	if err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
-	return os.Rename(f.abs(from), dst)
+	return os.Rename(src, dst)
 }

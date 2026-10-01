@@ -15,7 +15,9 @@ func TestRestoreFlow(t *testing.T) {
 	setupAdmin(t, c)
 	id, dir := codeApp(t, c)
 	editFile(t, dir, "src/main.py", "print('quebrado')\n")
-	os.WriteFile(filepath.Join(dir, "src", "extra.py"), []byte("x\n"), 0o644)
+	if err := os.WriteFile(filepath.Join(dir, "src", "extra.py"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	// Not checked yet: the preview must record the current state first (versão 2).
 
 	var prev struct {
@@ -47,7 +49,9 @@ func TestRestoreFlow(t *testing.T) {
 	var origin string
 	var from int32
 	var probable bool
-	testPool.QueryRow(context.Background(), `SELECT origin, restored_from, author_probable FROM app_versions WHERE app_id=$1 AND number=3`, id).Scan(&origin, &from, &probable)
+	if err := testPool.QueryRow(context.Background(), `SELECT origin, restored_from, author_probable FROM app_versions WHERE app_id=$1 AND number=3`, id).Scan(&origin, &from, &probable); err != nil {
+		t.Fatal(err)
+	}
 	if origin != "restore" || from != 1 || probable {
 		t.Fatalf("%s %d %v", origin, from, probable)
 	}
@@ -96,6 +100,12 @@ func TestRestoreBlockedWhileRunning(t *testing.T) {
 	if code := c.do("POST", appPath(id, "/versions/1/restore"), nil, &e); code != http.StatusConflict || e["error"] != "Espere a execução terminar antes de voltar o código." {
 		t.Fatalf("%d %v", code, e)
 	}
+	if code := c.do("GET", appPath(id, "/versions/1/restore-preview"), nil, nil); code != http.StatusConflict {
+		t.Fatalf("preview while running %d", code)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "src", "main.py")); string(b) != "print('v2')\n" {
+		t.Fatalf("main.py touched: %q", b)
+	}
 }
 
 func TestRestoreStopsOnFailure(t *testing.T) {
@@ -114,8 +124,11 @@ func TestRestoreStopsOnFailure(t *testing.T) {
 	if code := c.do("POST", appPath(id, "/versions/1/restore"), nil, &res); code != http.StatusOK {
 		t.Fatalf("restore %d", code)
 	}
-	if len(res.Failed) != 1 || res.Failed[0].Path != "src/main.py" || res.Number != 3 {
+	if len(res.Failed) != 1 || res.Failed[0].Path != "src/main.py" || res.Number != 3 || len(res.Done) != 0 {
 		t.Fatalf("%+v", res)
+	}
+	if b, _ := os.ReadFile(filepath.Join(src, "main.py")); string(b) != "print('v2')\n" {
+		t.Fatalf("main.py = %q", b)
 	}
 }
 
