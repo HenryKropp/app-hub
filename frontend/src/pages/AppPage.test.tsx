@@ -71,12 +71,12 @@ test("unreadable folder warning appears after the check", async () => {
   expect(screen.getByText(/versão 2 ·/)).toBeInTheDocument()
 })
 
-test("failed check keeps the ficha", async () => {
+test("failed check keeps the ficha and shows the folder warning", async () => {
   base(detail(true))
   vi.spyOn(api, "checkApp").mockRejectedValue(new Error("boom"))
   renderAt()
   expect(await screen.findByRole("heading", { name: "Eq. Research Files Prep" })).toBeInTheDocument()
-  await new Promise((r) => setTimeout(r, 20))
+  expect(await screen.findByRole("alert")).toHaveTextContent("Não consegui ler a pasta do app agora.")
   expect(screen.queryByText("boom")).not.toBeInTheDocument()
 })
 

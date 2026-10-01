@@ -115,7 +115,7 @@ export type ActiveRun = {
   file_count: number; created_at: string; finished_at: string | null
 }
 export type RunListItem = {
-  id: number; app_id: number; app_name: string; status: RunStatus; output_folder: string; person_name: string
+  id: number; app_id: number; app_name: string; status: RunStatus; output_folder: string; person_id: number; person_name: string
   created_at: string; started_at: string | null; finished_at: string | null; file_count: number
 }
 export type RunList = { items: RunListItem[]; more: boolean }

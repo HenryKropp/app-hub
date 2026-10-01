@@ -601,6 +601,7 @@ type runListItemJSON struct {
 	AppName      string     `json:"app_name"`
 	Status       string     `json:"status"`
 	OutputFolder string     `json:"output_folder"`
+	PersonID     int64      `json:"person_id"`
 	PersonName   string     `json:"person_name"`
 	CreatedAt    time.Time  `json:"created_at"`
 	StartedAt    *time.Time `json:"started_at"`
@@ -698,7 +699,7 @@ func (h *Handler) listRuns(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		out.Items = append(out.Items, runListItemJSON{ID: x.ID, AppID: x.AppID, AppName: x.AppName, Status: x.Status,
-			OutputFolder: x.OutputFolder, PersonName: x.PersonName, CreatedAt: x.CreatedAt.Time,
+			OutputFolder: x.OutputFolder, PersonID: x.PersonID, PersonName: x.PersonName, CreatedAt: x.CreatedAt.Time,
 			StartedAt: tsPtr(x.StartedAt), FinishedAt: tsPtr(x.FinishedAt), FileCount: x.FileCount})
 	}
 	writeJSON(w, http.StatusOK, out)

@@ -12,7 +12,7 @@ beforeEach(() => vi.spyOn(api, "activeRuns").mockResolvedValue([]))
 afterEach(() => vi.restoreAllMocks())
 
 const item = (over: Partial<RunListItem> = {}): RunListItem => ({
-  id: 9, app_id: 3, app_name: "Eq. Research Files Prep", status: "done", output_folder: "E:\\Velha", person_name: "Henry",
+  id: 9, app_id: 3, app_name: "Eq. Research Files Prep", status: "done", output_folder: "E:\\Velha", person_id: 1, person_name: "Henry",
   created_at: "2026-09-30T13:42:00Z", started_at: "2026-09-30T13:42:00Z", finished_at: "2026-09-30T13:43:00Z", file_count: 4, ...over,
 })
 
@@ -84,4 +84,14 @@ test("reloads when a run in the strip changes", async () => {
   vi.mocked(api.activeRuns).mockResolvedValue([activeRun({ status: "done" })])
   mount()
   await vi.waitFor(() => expect(runs).toHaveBeenCalledTimes(2))
+})
+
+test("De todos: Rodar de novo only on my own runs", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "runs").mockResolvedValue({ items: [item({ id: 9, person_id: 2, person_name: "Ana" }), item({ id: 8 })], more: false })
+  mount(henry)
+  await user.click(await screen.findByRole("button", { name: "De todos" }))
+  await screen.findByText(/· Ana/)
+  expect(screen.getAllByRole("button", { name: "Rodar de novo" })).toHaveLength(1)
+  expect(screen.getAllByRole("link", { name: "Ver e baixar" })).toHaveLength(2)
 })
