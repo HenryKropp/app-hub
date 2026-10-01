@@ -587,6 +587,7 @@ type activeRunJSON struct {
 	ID           int64      `json:"id"`
 	AppID        int64      `json:"app_id"`
 	AppName      string     `json:"app_name"`
+	AppFolder    string     `json:"app_folder_display"`
 	Status       string     `json:"status"`
 	ErrorMessage string     `json:"error_message"`
 	FileCount    int64      `json:"file_count"`
@@ -629,7 +630,7 @@ func (h *Handler) activeRuns(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]activeRunJSON, 0, len(rows))
 	for _, x := range rows {
-		out = append(out, activeRunJSON{ID: x.ID, AppID: x.AppID, AppName: x.AppName, Status: x.Status,
+		out = append(out, activeRunJSON{ID: x.ID, AppID: x.AppID, AppName: x.AppName, AppFolder: hostpath.ToDisplay(x.AppFolderPath), Status: x.Status,
 			ErrorMessage: x.ErrorMessage, FileCount: x.FileCount, CreatedAt: x.CreatedAt.Time, FinishedAt: tsPtr(x.FinishedAt)})
 	}
 	writeJSON(w, http.StatusOK, out)

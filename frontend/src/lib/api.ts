@@ -111,7 +111,7 @@ export type Run = {
   created_at: string; started_at: string | null; finished_at: string | null; groups: RunGroup[]
 }
 export type ActiveRun = {
-  id: number; app_id: number; app_name: string; status: RunStatus; error_message: string
+  id: number; app_id: number; app_name: string; app_folder_display: string; status: RunStatus; error_message: string
   file_count: number; created_at: string; finished_at: string | null
 }
 export type RunListItem = {

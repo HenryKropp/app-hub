@@ -235,7 +235,7 @@ func (q *Queries) GetRunFolder(ctx context.Context, arg GetRunFolderParams) (str
 }
 
 const listActiveRuns = `-- name: ListActiveRuns :many
-SELECT r.id, r.app_id, a.name AS app_name, r.status, r.error_message, r.created_at, r.finished_at,
+SELECT r.id, r.app_id, a.name AS app_name, a.folder_path AS app_folder_path, r.status, r.error_message, r.created_at, r.finished_at,
        (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count
 FROM runs r
 JOIN apps a ON a.id = r.app_id
@@ -245,14 +245,15 @@ LIMIT 10
 `
 
 type ListActiveRunsRow struct {
-	ID           int64              `json:"id"`
-	AppID        int64              `json:"app_id"`
-	AppName      string             `json:"app_name"`
-	Status       string             `json:"status"`
-	ErrorMessage string             `json:"error_message"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
-	FileCount    int64              `json:"file_count"`
+	ID            int64              `json:"id"`
+	AppID         int64              `json:"app_id"`
+	AppName       string             `json:"app_name"`
+	AppFolderPath string             `json:"app_folder_path"`
+	Status        string             `json:"status"`
+	ErrorMessage  string             `json:"error_message"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	FinishedAt    pgtype.Timestamptz `json:"finished_at"`
+	FileCount     int64              `json:"file_count"`
 }
 
 func (q *Queries) ListActiveRuns(ctx context.Context, personID int64) ([]ListActiveRunsRow, error) {
@@ -268,6 +269,7 @@ func (q *Queries) ListActiveRuns(ctx context.Context, personID int64) ([]ListAct
 			&i.ID,
 			&i.AppID,
 			&i.AppName,
+			&i.AppFolderPath,
 			&i.Status,
 			&i.ErrorMessage,
 			&i.CreatedAt,
