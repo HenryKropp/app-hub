@@ -3,8 +3,10 @@ import { FolderSearch, Gauge, KeyRound, Laptop, LibraryBig, LogOut, Users } from
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { roleLabel } from "@/lib/kinds"
+import { RunsProvider } from "@/lib/runs-context"
 import { cn } from "@/lib/utils"
 import { Logo, ThemeToggle } from "./bits"
+import { RunStrip } from "./RunStrip"
 
 const NAV = [
   { to: "/", label: "Catálogo", icon: LibraryBig, roles: ["admin", "criador", "usuario"] },
@@ -19,6 +21,16 @@ const SOON = [
 ]
 
 export function Layout() {
+  const { person } = useAuth()
+  if (!person) return null
+  return (
+    <RunsProvider>
+      <Shell />
+    </RunsProvider>
+  )
+}
+
+function Shell() {
   const { person, setPerson } = useAuth()
   const navigate = useNavigate()
   if (!person) return null
@@ -88,11 +100,12 @@ export function Layout() {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 px-4 py-8 sm:px-8 md:px-12 md:py-12">
+      <main className="min-w-0 flex-1 px-4 pt-8 pb-32 sm:px-8 md:px-12 md:pt-12">
         <div className="mx-auto max-w-6xl">
           <Outlet />
         </div>
       </main>
+      <RunStrip />
     </div>
   )
 }
