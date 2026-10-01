@@ -88,6 +88,8 @@ export type AppDetail = {
   manifest: Manifest
   updated_at: string
   can_run: boolean
+  version: { number: number; created_at: string } | null
+  folder_readable: boolean
 }
 
 export type UpdateState = "" | "updating" | "updated" | "gave_up"
@@ -102,10 +104,31 @@ export type RunFile = { id: number; path: string; size: number; modified: string
 export type RunGroup = { index: number; label: string; files: RunFile[] }
 export type Run = {
   id: number; app_id: number; app_name: string; person_name: string; computer_name: string; output_folder: string
-  status: RunStatus; exit_code: number | null; error_message: string; app_version: string
+  status: RunStatus; exit_code: number | null; error_message: string; app_version: string; version_number: number | null
   created_at: string; started_at: string | null; finished_at: string | null; groups: RunGroup[]
 }
 export type RunSummary = { id: number; status: RunStatus; person_name: string; created_at: string; started_at: string | null; finished_at: string | null; file_count: number }
+
+export type VersionSummary = { added: number; removed: number; modified: number; binaries: string[] | null }
+export type VersionInfo = {
+  number: number; origin: "original" | "folder" | "restore"; restored_from: number | null
+  author_name: string; author_probable: boolean; description: string; summary: VersionSummary
+  files_changed_at: string | null; created_at: string; current: boolean
+}
+export type FichaChange = { field: string; label: string; before?: string; after?: string; long?: boolean }
+export type HistoryItem = {
+  type: "version" | "run" | "ficha"; at: string
+  version?: VersionInfo
+  run?: { id: number; status: RunStatus; person_name: string; version_number: number | null }
+  ficha?: { person_name: string; changes: FichaChange[] }
+}
+export type HistoryFilter = "all" | "code" | "runs" | "ficha"
+export type History = { items: HistoryItem[]; more: boolean; next_before: string }
+export type DiffLine = { op: " " | "-" | "+"; text: string; old: number; new: number }
+export type FileChange = { path: string; status: "added" | "removed" | "modified"; kind: "code" | "binary"; old_size: number | null; new_size: number | null; hunks: { lines: DiffLine[] }[] }
+export type VersionFile = { path: string; size: number; kind: "code" | "binary"; modified: string }
+export type RestorePlan = { rewrite: string[]; recreate: string[]; to_trash: string[]; binaries: string[] }
+export type RestoreResult = { number: number; done: string[]; failed: { path: string; error: string }[]; error?: string }
 
 export class ApiError extends Error {
   status: number
@@ -147,6 +170,18 @@ export const api = {
   chooseFolder: (initial: string) => request<{ folder: string; canceled: boolean }>("POST", "/api/choose-folder", { initial }),
   startRun: (appId: number, output_folder: string) => request<Run>("POST", `/api/apps/${appId}/runs`, { output_folder }),
   appRuns: (appId: number | string) => request<RunSummary[]>("GET", `/api/apps/${appId}/runs`),
+  history: (appId: number | string, filter: HistoryFilter, before?: string) =>
+    request<History>("GET", `/api/apps/${appId}/history?type=${filter}${before ? `&before=${encodeURIComponent(before)}` : ""}`),
+  version: (appId: number | string, n: number | string) => request<VersionInfo>("GET", `/api/apps/${appId}/versions/${n}`),
+  versionChanges: (appId: number | string, n: number | string) =>
+    request<{ version: VersionInfo; files: FileChange[] }>("GET", `/api/apps/${appId}/versions/${n}/changes`),
+  versionFiles: (appId: number | string, n: number | string) => request<VersionFile[]>("GET", `/api/apps/${appId}/versions/${n}/files`),
+  versionContent: (appId: number | string, n: number | string, path: string) =>
+    request<{ path: string; text: string }>("GET", `/api/apps/${appId}/versions/${n}/content?path=${encodeURIComponent(path)}`),
+  describeVersion: (appId: number, n: number, b: { description: string; author_id: number | null }) =>
+    request<VersionInfo>("PATCH", `/api/apps/${appId}/versions/${n}`, b),
+  restorePreview: (appId: number, n: number) => request<{ plan: RestorePlan; current: number }>("GET", `/api/apps/${appId}/versions/${n}/restore-preview`),
+  restore: (appId: number, n: number) => request<RestoreResult>("POST", `/api/apps/${appId}/versions/${n}/restore`),
   run: (id: number | string) => request<Run>("GET", `/api/runs/${id}`),
 }
 

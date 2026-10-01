@@ -133,7 +133,7 @@ export function RunPage() {
         <dl className="mt-6 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-3">
           <div><dt className="text-muted-foreground">Pasta</dt><dd className="font-mono text-xs break-all">{run.output_folder}</dd></div>
           <div><dt className="text-muted-foreground">Computador</dt><dd className="font-medium">{run.computer_name}</dd></div>
-          <div><dt className="text-muted-foreground">Versão do app</dt><dd className="font-medium">{run.app_version || "—"}</dd></div>
+          <div><dt className="text-muted-foreground">Versão do app</dt><dd className="font-medium">{run.version_number ? `versão ${run.version_number}` : run.app_version || "—"}</dd></div>
         </dl>
         {!isLive(run.status) && run.groups.length > 0 && (
           <div className="mt-6">

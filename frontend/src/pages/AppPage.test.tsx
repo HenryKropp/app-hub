@@ -11,6 +11,7 @@ afterEach(() => vi.restoreAllMocks())
 const detail = (can_run: boolean): AppDetail => ({
   id: 3, folder_path: "/mnt/c/apps/fp", folder_display: "C:\\apps\\fp", owner_id: 1, backup_id: null, updated_at: "2026-09-30T10:00:00Z",
   manifest: manifest({ kind: "desktop", entrypoint: "Ferramenta CVM.exe", name: "Eq. Research Files Prep" }), can_run,
+  version: { number: 2, created_at: "2026-09-30T10:00:00Z" }, folder_readable: true,
 })
 
 const renderAt = () =>
@@ -26,7 +27,7 @@ const renderAt = () =>
 test("Rodar opens the dialog with the app folder and starts the run", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "app").mockResolvedValue(detail(true))
-  vi.spyOn(api, "appRuns").mockResolvedValue([])
+  vi.spyOn(api, "history").mockResolvedValue({ items: [], more: false, next_before: "" })
   const start = vi.spyOn(api, "startRun").mockResolvedValue(run({ status: "waiting" }))
   renderAt()
   await user.click(await screen.findByRole("button", { name: "Rodar" }))
@@ -39,7 +40,7 @@ test("Rodar opens the dialog with the app folder and starts the run", async () =
 test("choose another folder fills the field", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "app").mockResolvedValue(detail(true))
-  vi.spyOn(api, "appRuns").mockResolvedValue([])
+  vi.spyOn(api, "history").mockResolvedValue({ items: [], more: false, next_before: "" })
   vi.spyOn(api, "chooseFolder").mockResolvedValue({ folder: "D:\\Saídas", canceled: false })
   renderAt()
   await user.click(await screen.findByRole("button", { name: "Rodar" }))
@@ -50,7 +51,7 @@ test("choose another folder fills the field", async () => {
 test("computer not connected points to Meu computador", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "app").mockResolvedValue(detail(true))
-  vi.spyOn(api, "appRuns").mockResolvedValue([])
+  vi.spyOn(api, "history").mockResolvedValue({ items: [], more: false, next_before: "" })
   vi.spyOn(api, "startRun").mockRejectedValue(new ApiError(409, "Seu computador não está conectado."))
   renderAt()
   await user.click(await screen.findByRole("button", { name: "Rodar" }))
@@ -61,18 +62,26 @@ test("computer not connected points to Meu computador", async () => {
 
 test("apps that cannot run have no Rodar button", async () => {
   vi.spyOn(api, "app").mockResolvedValue(detail(false))
-  vi.spyOn(api, "appRuns").mockResolvedValue([])
+  vi.spyOn(api, "history").mockResolvedValue({ items: [], more: false, next_before: "" })
   renderAt()
   expect(await screen.findByText("Eq. Research Files Prep")).toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "Rodar" })).not.toBeInTheDocument()
 })
 
-test("lists past runs", async () => {
+test("shows the version and warns when the folder cannot be read", async () => {
+  vi.spyOn(api, "app").mockResolvedValue({ ...detail(true), folder_readable: false })
+  vi.spyOn(api, "history").mockResolvedValue({ items: [], more: false, next_before: "" })
+  renderAt()
+  expect(await screen.findByText(/versão 2 ·/)).toBeInTheDocument()
+  expect(screen.getByRole("alert")).toHaveTextContent("Não consegui ler a pasta do app agora.")
+})
+
+test("shows the history timeline", async () => {
   vi.spyOn(api, "app").mockResolvedValue(detail(true))
-  vi.spyOn(api, "appRuns").mockResolvedValue([
-    { id: 7, status: "done", person_name: "Henry", created_at: "2026-09-30T14:10:00Z", started_at: "2026-09-30T14:10:05Z", finished_at: "2026-09-30T14:22:05Z", file_count: 41 },
-  ])
+  vi.spyOn(api, "history").mockResolvedValue({
+    items: [{ type: "run", at: "2026-09-30T14:10:00Z", run: { id: 7, status: "done", person_name: "Henry", version_number: 2 } }],
+    more: false, next_before: "",
+  })
   renderAt()
   expect(await screen.findByRole("link", { name: /Concluída/ })).toHaveAttribute("href", "/execucoes/7")
-  expect(screen.getByText(/41 arquivos/)).toBeInTheDocument()
 })

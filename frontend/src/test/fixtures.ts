@@ -54,7 +54,7 @@ export function computer(over: Partial<Computer> = {}): Computer {
 export function run(over: Partial<Run> = {}): Run {
   return {
     id: 7, app_id: 3, app_name: "Eq. Research Files Prep", person_name: "Henry", computer_name: "NOTE-HENRY",
-    output_folder: "C:\\apps\\Files Prep", status: "done", exit_code: 0, error_message: "", app_version: "2026-08-13 17:54 · 75,6 MB",
+    output_folder: "C:\\apps\\Files Prep", status: "done", exit_code: 0, error_message: "", app_version: "2026-08-13 17:54 · 75,6 MB", version_number: null,
     created_at: "2026-09-30T14:10:00Z", started_at: "2026-09-30T14:10:05Z", finished_at: "2026-09-30T14:22:05Z",
     groups: [
       { index: 0, label: "Documentos da CVM", files: [{ id: 1, path: "PETROBRAS/FRE/FRE_2025.pdf", size: 2048, modified: "2026-09-30T14:20:00Z", change: "new" }] },

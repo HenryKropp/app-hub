@@ -3,9 +3,11 @@ import { Link, useParams } from "react-router-dom"
 import { ArrowLeft, FileText, FolderOpen, KeyRound, Play, TriangleAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { RunDialog } from "@/components/RunDialog"
-import { RunsList } from "@/components/RunsList"
+import { HistoryTimeline } from "@/components/HistoryTimeline"
 import { KindTab } from "@/components/bits"
 import { api, type AppDetail } from "@/lib/api"
+import { useAuth } from "@/lib/auth"
+import { formatWhen } from "@/lib/runs"
 import { INPUT_SOURCES, INPUT_TYPES, kindInfo } from "@/lib/kinds"
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -21,6 +23,8 @@ export function AppPage() {
   const { id } = useParams()
   const [app, setApp] = useState<AppDetail | null>(null)
   const [error, setError] = useState("")
+  const { person } = useAuth()
+  const canEdit = person?.role === "admin" || person?.role === "criador"
   const [runOpen, setRunOpen] = useState(false)
 
   useEffect(() => {
@@ -50,7 +54,7 @@ export function AppPage() {
           </div>
         )}
 
-        <dl className="mt-6 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-3">
+        <dl className="mt-6 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-4">
           <div>
             <dt className="text-muted-foreground">Área</dt>
             <dd className="font-medium">{m.area || "—"}</dd>
@@ -63,7 +67,16 @@ export function AppPage() {
             <dt className="text-muted-foreground">Reserva</dt>
             <dd className="font-medium">{m.backup?.name ?? <span className="text-warn">ninguém ainda</span>}</dd>
           </div>
+          <div>
+            <dt className="text-muted-foreground">Versão</dt>
+            <dd className="font-medium">{app.version ? `versão ${app.version.number} · ${formatWhen(app.version.created_at)}` : "—"}</dd>
+          </div>
         </dl>
+        {!app.folder_readable && (
+          <p role="alert" className="mt-4 flex gap-2 text-sm text-warn">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" /> Não consegui ler a pasta do app agora. O histórico continua aqui, mas mudanças novas no código não são registradas e não dá para voltar versões.
+          </p>
+        )}
 
         <div className="mt-6">
           <Section title="O que ele recebe">
@@ -114,8 +127,8 @@ export function AppPage() {
               </p>
             </Section>
           )}
-          <Section title="Execuções">
-            <RunsList appId={app.id} />
+          <Section title="Histórico">
+            <HistoryTimeline appId={app.id} canEdit={canEdit} />
           </Section>
           <Section title="Onde está">
             <p className="flex items-start gap-2 text-sm">
