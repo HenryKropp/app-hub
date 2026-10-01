@@ -172,3 +172,14 @@ func TestChangesAndSummary(t *testing.T) {
 		t.Fatal("Same")
 	}
 }
+
+func TestIncludedSkipsLeftoverTempFile(t *testing.T) {
+	for _, rel := range []string{"a.py.app-hub-tmp", "src/b.py.app-hub-tmp"} {
+		if Included(rel, nil) {
+			t.Fatalf("%s must not enter a version", rel)
+		}
+	}
+	if !Included("a.py", nil) {
+		t.Fatal("a.py must be included")
+	}
+}
