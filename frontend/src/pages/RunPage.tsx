@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, Download, LoaderCircle, X } from "lucide-react"
-import { buttonVariants } from "@/components/ui/button"
+import { ArrowLeft, Download, LoaderCircle, Play, X } from "lucide-react"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { api, fileUrl, groupZipUrl, selectedUrl, type Run, type RunGroup } from "@/lib/api"
+import { useRuns } from "@/lib/runs-context"
 import { formatDuration, formatSize, formatWhen, isLive, STATUS } from "@/lib/runs"
 import { cn } from "@/lib/utils"
 
@@ -75,6 +76,7 @@ export function RunPage() {
   const [error, setError] = useState("")
   const [, setNow] = useState(() => Date.now())
   const [selected, setSelected] = useState<Set<number>>(() => new Set())
+  const { run: runApp, busy } = useRuns()
   const toggle = (ids: number[], on: boolean) =>
     setSelected((cur) => {
       const next = new Set(cur)
@@ -115,11 +117,28 @@ export function RunPage() {
 
   return (
     <article className="rise">
-      <Link to={`/apps/${run.app_id}`} className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" /> {run.app_name}
+      <Link to="/execucoes" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="size-4" /> Minhas execuções
       </Link>
       <div className="paper rounded-lg border border-border bg-card py-8 pr-8 pl-20 shadow-card">
-        <p className="font-mono text-xs tracking-[0.16em] text-stamp uppercase">Execução</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <p className="font-mono text-xs tracking-[0.16em] text-stamp uppercase">
+            Execução ·{" "}
+            <Link to={`/apps/${run.app_id}`} className="underline-offset-4 hover:underline">
+              {run.app_name}
+            </Link>
+          </p>
+          {!isLive(run.status) && (
+            <Button
+              size="sm"
+              className="gap-1.5"
+              disabled={busy.has(run.app_id)}
+              onClick={() => runApp({ id: run.app_id, name: run.app_name, folder_display: run.output_folder, remembered_folder: "" }, { folder: run.output_folder })}
+            >
+              <Play className="size-3.5" /> Rodar de novo
+            </Button>
+          )}
+        </div>
         <h1 className="mt-2 font-heading text-3xl">{formatWhen(run.created_at)} · {formatDuration(run.started_at, run.finished_at)} · {run.person_name}</h1>
         <p className={cn("mt-3 inline-flex items-center gap-2 font-medium", st.tone === "bad" && "text-destructive", st.tone === "ok" && "text-ok", st.tone === "live" && "text-stamp")}>
           {isLive(run.status) && <LoaderCircle className="size-4 animate-spin" />}
