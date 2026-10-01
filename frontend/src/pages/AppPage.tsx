@@ -48,7 +48,7 @@ export function AppPage() {
               setHistoryKey((k) => k + 1)
             }
           },
-          () => {},
+          () => !gone && setReadable(false),
         )
       },
       (e: Error) => setError(e.message),

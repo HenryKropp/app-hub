@@ -120,7 +120,7 @@ func TestListRunsScopesAndPages(t *testing.T) {
 		t.Fatalf("Ana vê do Henry %+v", page)
 	}
 	admin.do("GET", "/api/runs?scope=all", nil, &page)
-	if len(page.Items) != 2 || page.Items[0].PersonName != "Henry" || page.Items[0].OutputFolder == "" {
+	if len(page.Items) != 2 || page.Items[0].PersonName != "Henry" || page.Items[0].PersonID != 1 || page.Items[0].OutputFolder == "" {
 		t.Fatalf("all admin %+v", page)
 	}
 	if code := admin.do("GET", "/api/runs?before=x", nil, nil); code != http.StatusBadRequest {

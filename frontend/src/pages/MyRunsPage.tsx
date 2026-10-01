@@ -95,14 +95,17 @@ export function MyRunsPage() {
                   <Link to={`/execucoes/${r.id}`} className={buttonVariants({ variant: "outline", size: "sm" })}>
                     Ver e baixar
                   </Link>
-                  <Button
-                    size="sm"
-                    className="gap-1.5"
-                    disabled={busy.has(r.app_id)}
-                    onClick={() => run({ id: r.app_id, name: r.app_name, folder_display: r.output_folder, remembered_folder: "" }, { folder: r.output_folder })}
-                  >
-                    <Play className="size-3.5" /> Rodar de novo
-                  </Button>
+                  {/* Someone else's folder is on their computer, not on mine. */}
+                  {r.person_id === person?.id && (
+                    <Button
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={busy.has(r.app_id)}
+                      onClick={() => run({ id: r.app_id, name: r.app_name, folder_display: r.output_folder, remembered_folder: "" }, { folder: r.output_folder })}
+                    >
+                      <Play className="size-3.5" /> Rodar de novo
+                    </Button>
+                  )}
                 </div>
               </li>
             )

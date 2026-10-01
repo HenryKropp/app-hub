@@ -27,6 +27,9 @@ function text(r: ActiveRun): ReactNode {
   }
 }
 
+// Folder problems (from the Hub or the Agente) mention "pasta"; only those get "trocar pasta".
+const aboutFolder = (msg = "") => /pasta/i.test(msg)
+
 const ACTION = "rounded-md bg-ink-foreground/12 px-2.5 py-1 text-xs font-medium text-ink-foreground transition-colors hover:bg-ink-foreground/20"
 
 function Card({ tone, children, actions }: { tone: "live" | "ok" | "bad"; children: ReactNode; actions: ReactNode }) {
@@ -79,7 +82,7 @@ export function RunStrip() {
                   Ver Meu computador
                 </button>
               ) : (
-                n.target && (
+                n.target && aboutFolder(n.message) && (
                   <button type="button" className={ACTION} onClick={() => { dropNotice(n.key); run(n.target!, { ask: true }) }}>
                     trocar pasta
                   </button>
@@ -108,7 +111,12 @@ export function RunStrip() {
                 </button>
               ) : (
                 <>
-                  {r.status === "error" && (
+                  {r.status === "interrupted" && (
+                    <button type="button" className={ACTION} onClick={() => { dismiss(r.id); navigate("/meu-computador") }}>
+                      Ver Meu computador
+                    </button>
+                  )}
+                  {r.status === "error" && aboutFolder(r.error_message) && (
                     <button type="button" className={ACTION}
                       onClick={() => { dismiss(r.id); run({ id: r.app_id, name: r.app_name, folder_display: r.app_folder_display, remembered_folder: "" }, { ask: true }) }}>
                       trocar pasta

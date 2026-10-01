@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, expect, test, vi } from "vitest"
 import { api, ApiError } from "@/lib/api"
-import { run as runFx } from "@/test/fixtures"
+import { activeRun, run as runFx } from "@/test/fixtures"
 import { RunsProvider, useRuns, type RunTarget } from "./runs-context"
 
 afterEach(() => vi.restoreAllMocks())
@@ -116,4 +116,48 @@ test("Escolher outra fills the field", async () => {
   await user.click(screen.getByText("go"))
   await user.click(screen.getByRole("button", { name: "Escolher outra…" }))
   expect(await screen.findByDisplayValue("D:\\Saídas")).toBeInTheDocument()
+})
+
+function Cards() {
+  const { active, notices, dismiss, refresh } = useRuns()
+  return (
+    <>
+      <button onClick={refresh}>refresh</button>
+      {notices.map((n) => <p key={n.key}>notice:{n.kind}</p>)}
+      {active.map((r) => (
+        <button key={r.id} onClick={() => dismiss(r.id)}>run:{r.id}:{r.status}</button>
+      ))}
+    </>
+  )
+}
+
+test("the starting notice stays until the server lists the run, then the run replaces it", async () => {
+  const user = userEvent.setup()
+  let resolveActive: (v: ReturnType<typeof activeRun>[]) => void = () => {}
+  const active = vi.spyOn(api, "activeRuns").mockResolvedValueOnce([])
+  vi.spyOn(api, "startRun").mockResolvedValue(runFx({ id: 7, status: "waiting" }))
+  mount(<><Probe t={target("D:\\Saídas")} /><Cards /></>)
+  await vi.waitFor(() => expect(active).toHaveBeenCalledTimes(1))
+  active.mockImplementation(() => new Promise((r) => (resolveActive = r)))
+  await user.click(screen.getByText("go"))
+  // Request done, refresh in flight: the card must not disappear.
+  expect(await screen.findByText("notice:starting")).toBeInTheDocument()
+  resolveActive([activeRun({ id: 7, status: "waiting" })])
+  expect(await screen.findByText("run:7:waiting")).toBeInTheDocument()
+  expect(screen.queryByText("notice:starting")).not.toBeInTheDocument()
+})
+
+test("a poll in flight does not bring back a dismissed run", async () => {
+  const user = userEvent.setup()
+  let resolveActive: (v: ReturnType<typeof activeRun>[]) => void = () => {}
+  const active = vi.spyOn(api, "activeRuns").mockResolvedValueOnce([activeRun({ id: 7, status: "done" })])
+  vi.spyOn(api, "dismissRun").mockResolvedValue()
+  mount(<Cards />)
+  await screen.findByText("run:7:done")
+  active.mockImplementation(() => new Promise((r) => (resolveActive = r)))
+  await user.click(screen.getByText("refresh")) // poll leaves before the dismiss
+  await user.click(screen.getByText("run:7:done"))
+  resolveActive([activeRun({ id: 7, status: "done" })])
+  await new Promise((r) => setTimeout(r, 20))
+  expect(screen.queryByText("run:7:done")).not.toBeInTheDocument()
 })

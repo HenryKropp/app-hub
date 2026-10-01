@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { RunDialog } from "@/components/RunDialog"
 import { api, ApiError, type ActiveRun } from "@/lib/api"
 import { isLive } from "@/lib/runs"
@@ -6,7 +6,8 @@ import { isLive } from "@/lib/runs"
 export type RunTarget = { id: number; name: string; folder_display: string; remembered_folder: string }
 // folder: run right away in this folder (Rodar de novo); ask: always open the dialog ("trocar").
 export type RunOptions = { folder?: string; ask?: boolean }
-export type LocalNotice = { key: string; app_name: string; kind: "starting" | "error"; message?: string; offline?: boolean; target?: RunTarget }
+// runId: the request succeeded; the notice stays until the server lists that run.
+export type LocalNotice = { key: string; app_name: string; kind: "starting" | "error"; message?: string; offline?: boolean; target?: RunTarget; runId?: number }
 
 type Ctx = {
   active: ActiveRun[]
@@ -39,9 +40,18 @@ export function RunsProvider({ children }: { children: ReactNode }) {
   // Folders remembered or forgotten in this tab, ahead of the page data.
   const [remembered, setRemembered] = useState<Record<number, string>>({})
 
+  // Runs dismissed in this tab, so a poll already in flight can't bring them back.
+  const dismissed = useRef(new Set<number>())
+
   const refresh = useCallback(() => {
-    api.activeRuns().then(setActive, () => {})
+    api.activeRuns().then((rs) => setActive(rs.filter((r) => !dismissed.current.has(r.id))), () => {})
   }, [])
+
+  // Hand over from "Abrindo…" to the server's card without a gap.
+  useEffect(() => {
+    const ids = new Set(active.map((r) => r.id))
+    setNotices((ns) => (ns.some((n) => n.runId !== undefined && ids.has(n.runId)) ? ns.filter((n) => n.runId === undefined || !ids.has(n.runId)) : ns))
+  }, [active])
 
   const live = active.some((r) => isLive(r.status)) || notices.some((n) => n.kind === "starting")
   useEffect(() => {
@@ -60,9 +70,9 @@ export function RunsProvider({ children }: { children: ReactNode }) {
       api
         .startRun(t.id, folder, remember)
         .then(
-          () => {
+          (r) => {
             if (remember !== undefined) setRemembered((m) => ({ ...m, [t.id]: remember ? folder : "" }))
-            setNotices((ns) => ns.filter((n) => n.key !== key))
+            setNotices((ns) => ns.map((n) => (n.key === key ? { ...n, runId: r.id } : n)))
             refresh()
           },
           (e: unknown) => {
@@ -94,6 +104,7 @@ export function RunsProvider({ children }: { children: ReactNode }) {
   )
 
   const dismiss = useCallback((id: number) => {
+    dismissed.current.add(id)
     setActive((a) => a.filter((r) => r.id !== id))
     api.dismissRun(id).catch(() => {})
   }, [])

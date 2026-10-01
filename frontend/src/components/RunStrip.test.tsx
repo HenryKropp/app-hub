@@ -99,9 +99,38 @@ test("offline error offers Ver Meu computador", async () => {
 test("other start error offers trocar pasta, which opens the dialog", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "activeRuns").mockResolvedValue([])
-  vi.spyOn(api, "startRun").mockRejectedValue(new ApiError(400, "Informe a pasta completa."))
+  vi.spyOn(api, "startRun").mockRejectedValue(new ApiError(400, "Informe a pasta completa, começando pela letra do disco."))
   mount()
   await user.click(screen.getByText("go"))
   await user.click(await screen.findByRole("button", { name: "trocar pasta" }))
   expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("D:\\Saídas")
+})
+
+test("interrupted run points to Meu computador", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "activeRuns").mockResolvedValue([activeRun({ status: "interrupted" })])
+  vi.spyOn(api, "dismissRun").mockResolvedValue()
+  mount()
+  await user.click(await screen.findByRole("button", { name: "Ver Meu computador" }))
+  expect(await screen.findByText("meu computador")).toBeInTheDocument()
+})
+
+test("trocar pasta only for folder errors", async () => {
+  vi.spyOn(api, "activeRuns").mockResolvedValue([
+    activeRun({ id: 1, status: "error", error_message: "Não consegui usar a pasta D:\\X: ela não existe ou não aceita gravação." }),
+    activeRun({ id: 2, status: "error", error_message: "O Windows não abriu o app." }),
+  ])
+  mount()
+  await screen.findByText(/O Windows não abriu o app/)
+  expect(screen.getAllByRole("button", { name: "trocar pasta" })).toHaveLength(1)
+})
+
+test("request error not about the folder has no trocar pasta", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "activeRuns").mockResolvedValue([])
+  vi.spyOn(api, "startRun").mockRejectedValue(new ApiError(400, "Este app ainda não pode rodar pelo Hub."))
+  mount()
+  await user.click(screen.getByText("go"))
+  await screen.findByText(/ainda não pode rodar/)
+  expect(screen.queryByRole("button", { name: "trocar pasta" })).not.toBeInTheDocument()
 })
