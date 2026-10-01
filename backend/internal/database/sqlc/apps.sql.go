@@ -103,7 +103,8 @@ func (q *Queries) ListAppIdentities(ctx context.Context) ([]ListAppIdentitiesRow
 
 const listApps = `-- name: ListApps :many
 SELECT a.id, a.slug, a.name, a.summary, a.kind, a.language, a.area, a.folder_path,
-       a.owner_id, o.name AS owner_name, a.backup_id, a.created_at, a.updated_at
+       a.owner_id, o.name AS owner_name, a.backup_id, a.created_at, a.updated_at,
+       COALESCE(a.manifest->>'entrypoint', '')::text AS entrypoint
 FROM apps a
 JOIN people o ON o.id = a.owner_id
 ORDER BY a.name
@@ -123,6 +124,7 @@ type ListAppsRow struct {
 	BackupID   pgtype.Int8        `json:"backup_id"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	Entrypoint string             `json:"entrypoint"`
 }
 
 func (q *Queries) ListApps(ctx context.Context) ([]ListAppsRow, error) {
@@ -148,6 +150,7 @@ func (q *Queries) ListApps(ctx context.Context) ([]ListAppsRow, error) {
 			&i.BackupID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Entrypoint,
 		); err != nil {
 			return nil, err
 		}

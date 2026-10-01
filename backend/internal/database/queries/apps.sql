@@ -1,6 +1,7 @@
 -- name: ListApps :many
 SELECT a.id, a.slug, a.name, a.summary, a.kind, a.language, a.area, a.folder_path,
-       a.owner_id, o.name AS owner_name, a.backup_id, a.created_at, a.updated_at
+       a.owner_id, o.name AS owner_name, a.backup_id, a.created_at, a.updated_at,
+       COALESCE(a.manifest->>'entrypoint', '')::text AS entrypoint
 FROM apps a
 JOIN people o ON o.id = a.owner_id
 ORDER BY a.name;
