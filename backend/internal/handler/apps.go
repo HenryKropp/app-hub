@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -117,14 +118,16 @@ func (h *Handler) listApps(w http.ResponseWriter, r *http.Request) {
 }
 
 type appDetail struct {
-	ID            int64              `json:"id"`
-	FolderPath    string             `json:"folder_path"`
-	FolderDisplay string             `json:"folder_display"`
-	OwnerID       int64              `json:"owner_id"`
-	BackupID      *int64             `json:"backup_id"`
-	Manifest      manifest.Manifest  `json:"manifest"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	CanRun        bool               `json:"can_run"`
+	ID             int64              `json:"id"`
+	FolderPath     string             `json:"folder_path"`
+	FolderDisplay  string             `json:"folder_display"`
+	OwnerID        int64              `json:"owner_id"`
+	BackupID       *int64             `json:"backup_id"`
+	Manifest       manifest.Manifest  `json:"manifest"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	CanRun         bool               `json:"can_run"`
+	Version        *versionRef        `json:"version"`
+	FolderReadable bool               `json:"folder_readable"`
 }
 
 func toAppDetail(a sqlc.App) (appDetail, error) {
@@ -159,6 +162,14 @@ func (h *Handler) getApp(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internalError(w, "decode manifest", err)
 		return
+	}
+	v, readable, err := h.checkVersion(r.Context(), a)
+	if err != nil {
+		slog.Error("version check", "app", a.ID, "err", err)
+	}
+	d.FolderReadable = readable
+	if v.ID != 0 {
+		d.Version = &versionRef{Number: v.Number, CreatedAt: v.CreatedAt.Time}
 	}
 	writeJSON(w, http.StatusOK, d)
 }
@@ -248,6 +259,11 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "encode manifest", err)
 		return
 	}
+	old, oldErr := h.q.GetAppByFolder(r.Context(), folder)
+	if oldErr != nil && !errors.Is(oldErr, pgx.ErrNoRows) {
+		internalError(w, "get app by folder", oldErr)
+		return
+	}
 	a, err := h.q.UpsertApp(r.Context(), sqlc.UpsertAppParams{
 		Slug: m.ID, Name: m.Name, Summary: m.Summary, Kind: m.Kind, Language: m.Language, Area: m.Area,
 		FolderPath: folder, OwnerID: body.OwnerID, BackupID: backupID, Manifest: manifestJSON, CreatedBy: me.ID,
@@ -255,6 +271,26 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internalError(w, "upsert app", err)
 		return
+	}
+	changes := manifest.Created()
+	if oldErr == nil {
+		var oldM manifest.Manifest
+		if err := json.Unmarshal(old.Manifest, &oldM); err != nil {
+			internalError(w, "decode old manifest", err)
+			return
+		}
+		changes = manifest.Diff(oldM, m)
+	}
+	if len(changes) > 0 {
+		raw, _ := json.Marshal(changes)
+		if err := h.q.InsertAppChange(r.Context(), sqlc.InsertAppChangeParams{AppID: a.ID, PersonID: me.ID, Changes: raw}); err != nil {
+			internalError(w, "insert app change", err)
+			return
+		}
+	}
+	// Ficha change is recorded before the check, so "Ficha criada" precedes versão 1.
+	if _, _, err := h.checkVersion(r.Context(), a); err != nil {
+		slog.Error("version check", "app", a.ID, "err", err)
 	}
 	d, err := toAppDetail(a)
 	if err != nil {

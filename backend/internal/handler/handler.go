@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -35,6 +36,15 @@ type Handler struct {
 	tick       time.Duration
 
 	uploads *uploadHub
+
+	// One version check per app at a time.
+	locksMu sync.Mutex
+	locks   map[int64]*sync.Mutex
+
+	// Last successful scan per app, so unchanged-content files with a new
+	// mtime (OneDrive resync) are not re-read on every check.
+	scansMu sync.Mutex
+	scans   map[int64]scanCache
 }
 
 func New(q *sqlc.Queries, cfg config.Config) *Handler {
@@ -42,6 +52,7 @@ func New(q *sqlc.Queries, cfg config.Config) *Handler {
 		q: q, cfg: cfg,
 		waitNext: 25 * time.Second, waitFile: 60 * time.Second, waitFolder: 5 * time.Minute, tick: 300 * time.Millisecond,
 		uploads: newUploadHub(),
+		locks:   map[int64]*sync.Mutex{}, scans: map[int64]scanCache{},
 	}
 }
 
