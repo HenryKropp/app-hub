@@ -37,6 +37,32 @@ func (q *Queries) GetApp(ctx context.Context, id int64) (App, error) {
 	return i, err
 }
 
+const getAppByFolder = `-- name: GetAppByFolder :one
+SELECT id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at FROM apps WHERE folder_path = $1
+`
+
+func (q *Queries) GetAppByFolder(ctx context.Context, folderPath string) (App, error) {
+	row := q.db.QueryRow(ctx, getAppByFolder, folderPath)
+	var i App
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Name,
+		&i.Summary,
+		&i.Kind,
+		&i.Language,
+		&i.Area,
+		&i.FolderPath,
+		&i.OwnerID,
+		&i.BackupID,
+		&i.Manifest,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const listAppIdentities = `-- name: ListAppIdentities :many
 SELECT id, slug, name, summary, folder_path FROM apps
 `

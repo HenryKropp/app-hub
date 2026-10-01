@@ -38,6 +38,37 @@ type App struct {
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }
 
+type AppChange struct {
+	ID        int64              `json:"id"`
+	AppID     int64              `json:"app_id"`
+	PersonID  int64              `json:"person_id"`
+	Changes   []byte             `json:"changes"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type AppVersion struct {
+	ID             int64              `json:"id"`
+	AppID          int64              `json:"app_id"`
+	Number         int32              `json:"number"`
+	Origin         string             `json:"origin"`
+	RestoredFrom   pgtype.Int4        `json:"restored_from"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorProbable bool               `json:"author_probable"`
+	Description    string             `json:"description"`
+	DescribedBy    pgtype.Int8        `json:"described_by"`
+	DescribedAt    pgtype.Timestamptz `json:"described_at"`
+	Files          []byte             `json:"files"`
+	Summary        []byte             `json:"summary"`
+	FilesChangedAt pgtype.Timestamptz `json:"files_changed_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type CodeBlob struct {
+	Sha256  string `json:"sha256"`
+	Content []byte `json:"content"`
+	Size    int64  `json:"size"`
+}
+
 type Computer struct {
 	ID           int64              `json:"id"`
 	PersonID     int64              `json:"person_id"`
@@ -81,6 +112,7 @@ type Run struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	StartedAt    pgtype.Timestamptz `json:"started_at"`
 	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
+	VersionID    pgtype.Int8        `json:"version_id"`
 }
 
 type RunFile struct {

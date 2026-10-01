@@ -28,3 +28,6 @@ RETURNING *;
 
 -- name: SlugExists :one
 SELECT EXISTS(SELECT 1 FROM apps WHERE slug = $1 AND folder_path <> $2);
+
+-- name: GetAppByFolder :one
+SELECT * FROM apps WHERE folder_path = $1;

@@ -93,7 +93,7 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "connected computer", err)
 		return
 	}
-	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: me.ID, ComputerID: comp.ID, OutputFolder: out})
+	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: me.ID, ComputerID: comp.ID, OutputFolder: out, VersionID: pgtype.Int8{}})
 	if err != nil {
 		internalError(w, "create run", err)
 		return

@@ -1,6 +1,6 @@
 -- name: CreateRun :one
-INSERT INTO runs (app_id, person_id, computer_id, output_folder)
-VALUES ($1, $2, $3, $4)
+INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: StartRun :exec
@@ -17,11 +17,13 @@ INSERT INTO run_files (run_id, rel_path, size, modified_at, change, group_index,
 VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: GetRun :one
-SELECT r.*, a.name AS app_name, a.manifest AS app_manifest, p.name AS person_name, c.name AS computer_name
+SELECT r.*, a.name AS app_name, a.manifest AS app_manifest, p.name AS person_name, c.name AS computer_name,
+       v.number AS version_number
 FROM runs r
 JOIN apps a ON a.id = r.app_id
 JOIN people p ON p.id = r.person_id
 JOIN computers c ON c.id = r.computer_id
+LEFT JOIN app_versions v ON v.id = r.version_id
 WHERE r.id = $1;
 
 -- name: ListAppRuns :many

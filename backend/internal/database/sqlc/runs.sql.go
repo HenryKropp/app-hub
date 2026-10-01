@@ -40,16 +40,17 @@ func (q *Queries) AddRunFile(ctx context.Context, arg AddRunFileParams) error {
 }
 
 const createRun = `-- name: CreateRun :one
-INSERT INTO runs (app_id, person_id, computer_id, output_folder)
-VALUES ($1, $2, $3, $4)
-RETURNING id, app_id, person_id, computer_id, output_folder, status, exit_code, error_message, app_version, created_at, started_at, finished_at
+INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, app_id, person_id, computer_id, output_folder, status, exit_code, error_message, app_version, created_at, started_at, finished_at, version_id
 `
 
 type CreateRunParams struct {
-	AppID        int64  `json:"app_id"`
-	PersonID     int64  `json:"person_id"`
-	ComputerID   int64  `json:"computer_id"`
-	OutputFolder string `json:"output_folder"`
+	AppID        int64       `json:"app_id"`
+	PersonID     int64       `json:"person_id"`
+	ComputerID   int64       `json:"computer_id"`
+	OutputFolder string      `json:"output_folder"`
+	VersionID    pgtype.Int8 `json:"version_id"`
 }
 
 func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, error) {
@@ -58,6 +59,7 @@ func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, erro
 		arg.PersonID,
 		arg.ComputerID,
 		arg.OutputFolder,
+		arg.VersionID,
 	)
 	var i Run
 	err := row.Scan(
@@ -73,6 +75,7 @@ func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, erro
 		&i.CreatedAt,
 		&i.StartedAt,
 		&i.FinishedAt,
+		&i.VersionID,
 	)
 	return i, err
 }
@@ -101,31 +104,35 @@ func (q *Queries) FinishRun(ctx context.Context, arg FinishRunParams) error {
 }
 
 const getRun = `-- name: GetRun :one
-SELECT r.id, r.app_id, r.person_id, r.computer_id, r.output_folder, r.status, r.exit_code, r.error_message, r.app_version, r.created_at, r.started_at, r.finished_at, a.name AS app_name, a.manifest AS app_manifest, p.name AS person_name, c.name AS computer_name
+SELECT r.id, r.app_id, r.person_id, r.computer_id, r.output_folder, r.status, r.exit_code, r.error_message, r.app_version, r.created_at, r.started_at, r.finished_at, r.version_id, a.name AS app_name, a.manifest AS app_manifest, p.name AS person_name, c.name AS computer_name,
+       v.number AS version_number
 FROM runs r
 JOIN apps a ON a.id = r.app_id
 JOIN people p ON p.id = r.person_id
 JOIN computers c ON c.id = r.computer_id
+LEFT JOIN app_versions v ON v.id = r.version_id
 WHERE r.id = $1
 `
 
 type GetRunRow struct {
-	ID           int64              `json:"id"`
-	AppID        int64              `json:"app_id"`
-	PersonID     int64              `json:"person_id"`
-	ComputerID   int64              `json:"computer_id"`
-	OutputFolder string             `json:"output_folder"`
-	Status       string             `json:"status"`
-	ExitCode     pgtype.Int4        `json:"exit_code"`
-	ErrorMessage string             `json:"error_message"`
-	AppVersion   string             `json:"app_version"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	StartedAt    pgtype.Timestamptz `json:"started_at"`
-	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
-	AppName      string             `json:"app_name"`
-	AppManifest  []byte             `json:"app_manifest"`
-	PersonName   string             `json:"person_name"`
-	ComputerName string             `json:"computer_name"`
+	ID            int64              `json:"id"`
+	AppID         int64              `json:"app_id"`
+	PersonID      int64              `json:"person_id"`
+	ComputerID    int64              `json:"computer_id"`
+	OutputFolder  string             `json:"output_folder"`
+	Status        string             `json:"status"`
+	ExitCode      pgtype.Int4        `json:"exit_code"`
+	ErrorMessage  string             `json:"error_message"`
+	AppVersion    string             `json:"app_version"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	StartedAt     pgtype.Timestamptz `json:"started_at"`
+	FinishedAt    pgtype.Timestamptz `json:"finished_at"`
+	VersionID     pgtype.Int8        `json:"version_id"`
+	AppName       string             `json:"app_name"`
+	AppManifest   []byte             `json:"app_manifest"`
+	PersonName    string             `json:"person_name"`
+	ComputerName  string             `json:"computer_name"`
+	VersionNumber pgtype.Int4        `json:"version_number"`
 }
 
 func (q *Queries) GetRun(ctx context.Context, id int64) (GetRunRow, error) {
@@ -144,10 +151,12 @@ func (q *Queries) GetRun(ctx context.Context, id int64) (GetRunRow, error) {
 		&i.CreatedAt,
 		&i.StartedAt,
 		&i.FinishedAt,
+		&i.VersionID,
 		&i.AppName,
 		&i.AppManifest,
 		&i.PersonName,
 		&i.ComputerName,
+		&i.VersionNumber,
 	)
 	return i, err
 }
