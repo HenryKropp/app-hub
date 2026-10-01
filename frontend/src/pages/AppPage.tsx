@@ -128,7 +128,7 @@ export function AppPage() {
             </Section>
           )}
           <Section title="Histórico">
-            <HistoryTimeline appId={app.id} canEdit={canEdit} />
+            <HistoryTimeline appId={app.id} canEdit={canEdit} onChanged={() => void api.app(app.id).then(setApp, () => {})} />
           </Section>
           <Section title="Onde está">
             <p className="flex items-start gap-2 text-sm">

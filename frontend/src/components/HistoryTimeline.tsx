@@ -104,7 +104,10 @@ function Row({ appId, item, canEdit, onChanged }: { appId: number; item: History
   )
 }
 
-export function HistoryTimeline({ appId, canEdit }: { appId: number; canEdit: boolean }) {
+const itemKey = (it: HistoryItem) =>
+  it.version ? `version-${it.version.number}` : it.run ? `run-${it.run.id}` : `ficha-${it.at}`
+
+export function HistoryTimeline({ appId, canEdit, onChanged }: { appId: number; canEdit: boolean; onChanged?: () => void }) {
   const [filter, setFilter] = useState<HistoryFilter>("all")
   const [items, setItems] = useState<HistoryItem[] | null>(null)
   const [more, setMore] = useState(false)
@@ -151,9 +154,12 @@ export function HistoryTimeline({ appId, canEdit }: { appId: number; canEdit: bo
       {items && items.length === 0 && <p className="text-sm text-muted-foreground">Nada por aqui ainda.</p>}
       {items && items.length > 0 && (
         <ul aria-label="Histórico" className="flex flex-col divide-y divide-border text-sm">
-          {items.map((it, i) => (
-            <li key={`${it.type}-${it.at}-${i}`} className="py-3">
-              <Row appId={appId} item={it} canEdit={canEdit} onChanged={() => load(filter)} />
+          {items.map((it) => (
+            <li key={itemKey(it)} className="py-3">
+              <Row appId={appId} item={it} canEdit={canEdit} onChanged={() => {
+                load(filter)
+                onChanged?.()
+              }} />
             </li>
           ))}
         </ul>
