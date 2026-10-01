@@ -1,0 +1,112 @@
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
+	"github.com/HenryKropp/app-hub/backend/internal/manifest"
+	"github.com/HenryKropp/app-hub/backend/internal/versions"
+)
+
+type restoreJSON struct {
+	Number int32              `json:"number"`
+	Done   []string           `json:"done"`
+	Failed []versions.Failure `json:"failed"`
+}
+
+// prepareRestore runs the checks shared by preview and restore, with the app
+// lock held by the caller: role, no active run, folder readable, not the
+// current version. It records the current state as a version (safety copy).
+func (h *Handler) prepareRestore(w http.ResponseWriter, r *http.Request, a sqlc.App, target sqlc.GetAppVersionRow) (sqlc.AppVersion, versions.Snapshot, bool) {
+	ctx := r.Context()
+	if err := h.q.ExpireStaleRuns(ctx); err != nil {
+		internalError(w, "expire runs", err)
+		return sqlc.AppVersion{}, nil, false
+	}
+	active, err := h.q.AppHasActiveRun(ctx, a.ID)
+	if err != nil {
+		internalError(w, "active run", err)
+		return sqlc.AppVersion{}, nil, false
+	}
+	if active {
+		writeError(w, http.StatusConflict, "Espere a execução terminar antes de voltar o código.")
+		return sqlc.AppVersion{}, nil, false
+	}
+	cur, snap, readable, err := h.checkVersionLocked(ctx, a)
+	if err != nil {
+		internalError(w, "version check", err)
+		return cur, nil, false
+	}
+	if !readable {
+		writeError(w, http.StatusConflict, "Não consegui ler a pasta do app. Confira se ela existe e se o OneDrive está sincronizado.")
+		return cur, nil, false
+	}
+	if cur.Number == target.Number {
+		writeError(w, http.StatusBadRequest, "Esta já é a versão atual.")
+		return cur, nil, false
+	}
+	return cur, snap, true
+}
+
+func (h *Handler) restorePreview(w http.ResponseWriter, r *http.Request) {
+	if _, ok := h.requireRole(w, r, "admin", "criador"); !ok {
+		return
+	}
+	a, target, targetSnap, ok := h.versionFromPath(w, r)
+	if !ok {
+		return
+	}
+	defer h.lockApp(a.ID)()
+	cur, snap, ok := h.prepareRestore(w, r, a, target)
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"plan": versions.PlanRestore(snap, targetSnap), "current": cur.Number})
+}
+
+func (h *Handler) restoreVersion(w http.ResponseWriter, r *http.Request) {
+	me, ok := h.requireRole(w, r, "admin", "criador")
+	if !ok {
+		return
+	}
+	a, target, targetSnap, ok := h.versionFromPath(w, r)
+	if !ok {
+		return
+	}
+	defer h.lockApp(a.ID)()
+	_, snap, ok := h.prepareRestore(w, r, a, target)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	plan := versions.PlanRestore(snap, targetSnap)
+	blob := func(sha string) ([]byte, error) { return h.q.GetCodeBlob(ctx, sha) }
+	folder := folderOf(a)
+	done, failed := versions.ApplyRestore(folder, plan, targetSnap, blob, versions.TrashFolder(time.Now()))
+
+	var m manifest.Manifest
+	if err := json.Unmarshal(a.Manifest, &m); err != nil {
+		internalError(w, "decode manifest", err)
+		return
+	}
+	after, contents, err := versions.Scan(folder, m.Outputs, snap)
+	if err != nil {
+		internalError(w, "scan after restore", err)
+		return
+	}
+	v, err := h.insertVersion(ctx, a, snap, after, contents, "restore",
+		pgtype.Int4{Int32: target.Number, Valid: true}, pgtype.Int8{Int64: me.ID, Valid: true}, false)
+	if err != nil {
+		internalError(w, "insert restore version", err)
+		return
+	}
+	h.storeScan(a.ID, v.Number, after) // new number bypasses the old cache entry; keep it fresh anyway
+	if failed == nil {
+		failed = []versions.Failure{}
+	}
+	writeJSON(w, http.StatusOK, restoreJSON{Number: v.Number, Done: done, Failed: failed})
+}

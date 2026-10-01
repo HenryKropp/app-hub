@@ -83,6 +83,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/apps/{id}/versions/{n}/changes", h.versionChanges)
 	mux.HandleFunc("GET /api/apps/{id}/versions/{n}/files", h.versionFiles)
 	mux.HandleFunc("GET /api/apps/{id}/versions/{n}/content", h.versionContent)
+	mux.HandleFunc("GET /api/apps/{id}/versions/{n}/restore-preview", h.restorePreview)
+	mux.HandleFunc("POST /api/apps/{id}/versions/{n}/restore", h.restoreVersion)
 	mux.HandleFunc("POST /api/apps", h.saveApp)
 	mux.HandleFunc("POST /api/apps/{id}/runs", h.startRun)
 	mux.HandleFunc("GET /api/apps/{id}/runs", h.listAppRuns)
