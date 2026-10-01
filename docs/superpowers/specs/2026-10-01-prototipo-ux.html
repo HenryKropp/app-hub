@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Protótipo App Hub</title>
+<style>
+:root{--paper:#f3efe4;--card:#fbf9f3;--ink:#221a14;--muted:#6b6259;--red:#c4412b;--line:#e2dccd;--side:#241c16;--ok:#2f7a3f;--warn:#a06a00;--bad:#b3261e}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+.bar{background:#fff3c4;border-bottom:1px solid #e6d58a;padding:8px 16px;font-size:13px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.bar b{margin-right:4px}.bar label{cursor:pointer}
+.app{display:flex;min-height:calc(100vh - 38px)}
+.side{width:220px;background:var(--side);color:#cfc6b8;padding:18px 12px;font-size:14px;flex-shrink:0;position:sticky;top:0;height:calc(100vh - 38px)}
+.side .logo{font-family:Georgia,serif;color:#fff;font-size:20px;margin:0 8px 22px}
+.side a{display:flex;justify-content:space-between;padding:8px 10px;border-radius:6px;color:inherit;text-decoration:none;cursor:pointer;margin-bottom:2px}
+.side a.on{background:#3a2f27;color:#fff}.side .n{background:var(--red);color:#fff;border-radius:9px;font-size:11px;padding:1px 7px}
+.side .grp{font-family:monospace;font-size:10px;letter-spacing:.15em;color:#8a7f72;margin:18px 10px 6px}
+main{flex:1;padding:28px 36px 120px;max-width:1200px}
+.kicker{font-family:monospace;font-size:11px;letter-spacing:.18em;color:var(--red)}
+h1{font-family:Georgia,serif;font-size:34px;margin:4px 0 16px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:18px;flex-wrap:wrap}
+input.search{width:300px;padding:9px 12px;border:1px solid var(--line);border-radius:6px;background:#fff;font-size:14px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+.chip{border:1px solid var(--line);background:var(--card);padding:5px 12px;border-radius:16px;font-size:13px;cursor:pointer}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.h3{font-family:monospace;font-size:11px;letter-spacing:.15em;color:var(--muted);margin:22px 0 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;box-shadow:0 2px 6px rgba(0,0,0,.04)}
+.card:hover{border-color:#cbbfa8}
+.tag{font-family:monospace;font-size:10px;letter-spacing:.12em;padding:2px 7px;border-radius:4px;align-self:flex-start}
+.t-janela{background:#ece3f3;color:#6a3d8a}.t-script{background:#e3eef3;color:#235a74}.t-web{background:#e5f1e3;color:#2f6a2a}.t-exe{background:#f5e6d8;color:#8a4a17}.t-doc{background:#eee;color:#666}.t-agend{background:#f3efd8;color:#7a6a17}
+.card h4{font-family:Georgia,serif;font-size:18px;margin:0;cursor:pointer}.card h4:hover{text-decoration:underline}
+.card p{margin:0;font-size:13px;color:var(--muted);line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.meta{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);border-top:1px dashed var(--line);padding-top:8px;margin-top:auto}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
+.btn{border:0;background:var(--ink);color:#fff;padding:7px 14px;border-radius:6px;font-size:13px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.btn.sm{padding:5px 11px;font-size:12px}.btn:disabled{opacity:.5;cursor:default}
+.sheet{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:24px 30px}
+.sum{font-size:16px;color:var(--muted);line-height:1.55;max-width:680px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:22px 0 4px}
+.tab{padding:9px 16px;font-size:14px;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent}
+.tab.on{color:var(--ink);border-color:var(--red);font-weight:600}
+.sec{font-family:monospace;font-size:11px;letter-spacing:.15em;color:var(--muted);margin:22px 0 8px}
+.row{font-size:14px;padding:5px 0}.row small{color:var(--muted)}
+.list .it{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px dotted var(--line);font-size:14px}
+.link{text-decoration:underline;cursor:pointer}
+.warn{color:var(--warn)}
+.edit{font-size:12px;color:var(--muted);cursor:pointer;margin-left:8px;text-decoration:underline}
+.strip{position:fixed;left:236px;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px}
+.toast{background:var(--ink);color:#fff;border-radius:8px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+.toast.done{background:#1f4d2a}
+.toast .btn{background:#fff;color:var(--ink)}
+.spin{display:inline-block;width:10px;height:10px;border:2px solid #fff;border-right-color:transparent;border-radius:50%;animation:s 1s linear infinite;margin-right:8px}
+@keyframes s{to{transform:rotate(360deg)}}
+.modal{position:fixed;inset:0;background:rgba(30,20,10,.35);display:flex;align-items:center;justify-content:center}
+.dlg{background:var(--card);border-radius:10px;padding:22px 24px;width:460px;max-width:92vw}
+.dlg h3{font-family:Georgia,serif;margin:0 0 8px}.dlg p{font-size:14px;color:var(--muted);line-height:1.5}
+.dlg label{display:block;font-size:13px;margin:12px 0 4px}.dlg input,.dlg select{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px}
+.right{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+.note{font-size:12px;color:var(--muted);margin-top:4px}
+.hide{display:none}
+</style></head><body>
+
+<div class="bar"><b>PROTÓTIPO</b> (de mentira, nada roda de verdade) · Ver como:
+ <label><input type="radio" name="who" value="colega" checked> Colega que só usa</label>
+ <label><input type="radio" name="who" value="criador"> Criador (Henry)</label>
+ · <label><input type="checkbox" id="noAgent"> Colega novo, sem o Agente instalado</label>
+</div>
+
+<div class="app">
+<nav class="side">
+  <div class="logo">App Hub</div>
+  <a data-go="catalogo" class="on">Catálogo</a>
+  <a data-go="execucoes">Minhas execuções <span class="n" id="nRuns">2</span></a>
+  <a data-go="computador">Meu computador</a>
+  <div class="creator"><div class="grp">PARA QUEM CRIA</div>
+  <a>Registrar apps</a><a>Pessoas</a></div>
+</nav>
+<main id="view"></main>
+</div>
+<div class="strip" id="strip"></div>
+<div id="modal"></div>
+
+<script>
+const APPS=[
+ {id:"filesprep",name:"Eq. Research Files Prep",type:"janela",area:"Research",owner:"Henry Kropp",status:"ok",last:"hoje, 14:21",fav:true,
+  sum:"Baixa da CVM os documentos de uma empresa aberta e junta os que você escolher num único arquivo de texto, o Data Pack, pronto para usar numa IA.",
+  ins:["Nome da empresa ou CNPJ <small>ex.: PETROBRAS</small>","Quantos anos de histórico <small>padrão 3</small>","Quais documentos baixar"],
+  outs:["Documentos da CVM, numa pasta por empresa","Data Pack: um arquivo de texto com tudo","FRE cortado, só com as seções da análise"],warns:9},
+ {id:"rent",name:"Rentabilidade dos fundos",type:"script",area:"Investimentos",owner:"Henry Kropp",status:"ok",last:"ontem",fav:true,
+  sum:"Recebe uma lista de CNPJs de fundos e devolve uma planilha com a rentabilidade de cada um no mês, no ano e em 12 meses.",
+  ins:["Lista de CNPJs <small>planilha ou .csv</small>","Data de referência"],outs:["Planilha de rentabilidade (.xlsx)"],warns:2,
+  form:[["Lista de CNPJs","file"],["Data de referência","date"]]},
+ {id:"carteira",name:"Carteira detalhada dos fundos",type:"script",area:"Investimentos",owner:"Henry Kropp",status:"erro",last:"há 3 dias",
+  sum:"Abre a carteira de cada fundo da lista e monta uma visão consolidada por ativo, setor e emissor.",
+  ins:["Planilha de fundos <small>Input fundos.xlsx</small>"],outs:["Carteira consolidada (.xlsx)"],warns:3,form:[["Planilha de fundos","file"]]},
+ {id:"fre",name:"Extrair Seções do FRE",type:"janela",area:"Research",owner:"Henry Kropp",status:"ok",last:"semana passada",
+  sum:"Escolha um Formulário de Referência em PDF e o app separa as seções que você marcar em arquivos menores.",ins:["PDF do FRE"],outs:["PDFs por seção"],warns:1},
+ {id:"pdfmd",name:"PDF para texto (MD)",type:"janela",area:"Research",owner:"Henry Kropp",status:"ok",last:"há 2 semanas",
+  sum:"Converte uma pasta de PDFs em arquivos de texto, prontos para colar numa IA.",ins:["Pasta com PDFs"],outs:["Arquivos .md"],warns:0},
+ {id:"cvm",name:"CVM Downloader",type:"exe",area:"Research",owner:"Henry Kropp",status:"ok",last:"há 1 mês",
+  sum:"Baixa documentos públicos de empresas direto dos sites da CVM.",ins:["Empresa","Tipo de documento"],outs:["PDFs baixados"],warns:2},
+ {id:"fias",name:"Análise FIAs",type:"janela",area:"Investimentos",owner:"Henry Kropp",status:"sem",last:"há 4 meses",
+  sum:"Compara fundos de ações por retorno, risco e concentração, com gráficos.",ins:["Fundos escolhidos na tela"],outs:["Relatório em PDF"],warns:4},
+ {id:"transc",name:"Transcritor de calls",type:"janela",area:"Research",owner:"Henry Kropp",status:"ok",last:"ontem",
+  sum:"Transcreve o áudio de uma call de resultados e gera um resumo com os pontos principais.",ins:["Arquivo de áudio"],outs:["Transcrição","Resumo"],warns:2},
+ {id:"research",name:"Research Platform",type:"web",area:"Research",owner:"Henry Kropp",status:"ok",last:"hoje, 09:10",
+  sum:"Plataforma no navegador para organizar teses, notas e documentos por empresa.",ins:[],outs:[],warns:3},
+ {id:"sistema",name:"Sistema Alis",type:"web",area:"Operações",owner:"Henry Kropp",status:"ok",last:"hoje, 08:02",
+  sum:"Sistema interno com cadastro de clientes, posições e relatórios da gestora.",ins:[],outs:[],warns:5},
+ {id:"news",name:"News Scrapper",type:"agend",area:"Research",owner:"Henry Kropp",status:"ok",last:"hoje, 07:00 (sozinho)",
+  sum:"Todo dia às 7h junta as notícias das empresas acompanhadas e manda um resumo.",ins:[],outs:["Resumo de notícias"],warns:1},
+ {id:"proj",name:"Expandir Projeção",type:"doc",area:"Investimentos",owner:"Henry Kropp",status:"",last:"",
+  sum:"Documento com o passo a passo para estender o modelo de projeção de uma empresa.",ins:[],outs:[],warns:0},
+];
+const TYPE={janela:["JANELA","t-janela"],script:["SCRIPT","t-script"],web:["NO NAVEGADOR","t-web"],exe:["EXECUTÁVEL","t-exe"],doc:["DOCUMENTO","t-doc"],agend:["AUTOMÁTICO","t-agend"]};
+const ST={ok:["#2f7a3f","Funcionando"],erro:["#b3261e","Deu erro na última vez"],sem:["#a09080","Sem uso há meses"]};
+let who="colega",area="Todas",q="",route={p:"catalogo"},runs=[
+ {id:1,app:"filesprep",when:"30/09 às 13:42",st:"done",files:4},{id:2,app:"rent",when:"ontem às 16:05",st:"done",files:1}],runSeq=3;
+const $=s=>document.querySelector(s);
+const app=id=>APPS.find(a=>a.id===id);
+
+function action(a,small){
+  const c=small?"btn sm":"btn";
+  if(a.type==="doc")return `<button class="${c} ghost" onclick="go('ficha','${a.id}')">Ler</button>`;
+  if(a.type==="web")return `<button class="${c}" onclick="runApp('${a.id}')">↗ Abrir</button>`;
+  if(a.type==="agend")return `<button class="${c} ghost" onclick="runApp('${a.id}')">▶ Rodar agora</button>`;
+  return `<button class="${c}" onclick="runApp('${a.id}')">▶ Rodar</button>`;
+}
+function card(a){
+  const [t,cl]=TYPE[a.type];const s=ST[a.status];
+  return `<div class="card"><span class="tag ${cl}">${t}</span>
+   <h4 onclick="go('ficha','${a.id}')">${a.name}</h4><p>${a.sum}</p>
+   <div class="meta"><span>${s?`<span class="dot" style="background:${s[0]}" title="${s[1]}"></span>`:""}${a.last?"usado "+a.last:a.area}</span>${action(a,true)}</div></div>`;
+}
+function catalogo(){
+  const areas=["Todas","Research","Investimentos","Operações"];
+  const list=APPS.filter(a=>(area==="Todas"||a.area===area)&&(a.name+a.sum).toLowerCase().includes(q.toLowerCase()));
+  const favs=list.filter(a=>a.fav);
+  return `<div class="top"><div><div class="kicker">CATÁLOGO</div><h1 style="margin-bottom:0">Apps da empresa</h1></div>
+   <input class="search" placeholder="Buscar: rentabilidade, CVM, transcrever…" value="${q}" oninput="q=this.value;render(true)"></div>
+   <div class="chips">${areas.map(x=>`<span class="chip ${x===area?"on":""}" onclick="area='${x}';render()">${x}</span>`).join("")}</div>
+   ${favs.length&&!q?`<div class="h3">★ SEUS FAVORITOS</div><div class="grid">${favs.map(card).join("")}</div><div class="h3">TODOS OS APPS (${list.length})</div>`:""}
+   <div class="grid">${list.map(card).join("")}</div>`;
+}
+function ficha(id){
+  const a=app(id);const [t,cl]=TYPE[a.type];const s=ST[a.status];const care=who==="criador";
+  const tab=route.tab||"usar";
+  const my=runs.filter(r=>r.app===id);
+  let body="";
+  if(tab==="usar"){
+    body=`${a.ins.length?`<div class="sec">${a.type==="script"?"VOCÊ ESCOLHE ANTES DE RODAR":"VOCÊ INFORMA NA JANELA DO APP"}${care?'<span class="edit">editar</span>':""}</div>${a.ins.map(x=>`<div class="row">${x}</div>`).join("")}`:""}
+    ${a.outs.length?`<div class="sec">VOCÊ RECEBE${care?'<span class="edit">editar</span>':""}</div>${a.outs.map(x=>`<div class="row">${x}</div>`).join("")}`:""}
+    ${a.type!=="doc"?`<div class="sec">SUAS ÚLTIMAS EXECUÇÕES</div><div class="list">${my.length?my.map(r=>`<div class="it"><span>${r.when} · ${r.st==="run"?"aberto agora":r.files+" arquivo"+(r.files>1?"s":"")}</span><span class="link" onclick="go('execucao',${r.id})">Ver e baixar</span></div>`).join(""):`<div class="it"><span class="note">Você ainda não rodou este app.</span></div>`}</div>`:""}
+    <div class="sec">QUEM CUIDA</div><div class="row">${a.owner} <small>responsável</small> · <span class="warn">sem reserva</span></div>`;
+  } else {
+    body=`<div class="sec">PONTOS DE ATENÇÃO (${a.warns})</div>
+     <div class="row">⚠ Depende do app CVM Downloader; se ele mudar, este precisa ser recompilado.</div>
+     <div class="row">⚠ O atalho de recompilar aponta para o Python de outro usuário.</div>
+     <div class="row link">ver os outros ${Math.max(a.warns-2,0)}</div>
+     <div class="sec">HISTÓRICO</div>
+     <div class="list"><div class="it"><span>Versão 3 · restaurada da versão 1 · 01/10</span><span class="link">ver mudanças</span></div>
+     <div class="it"><span>Execução de Henry · 30/09 · 4 arquivos</span><span class="link">ver</span></div>
+     <div class="it"><span>Ficha: resumo mudou · 30/09</span><span class="link">ver</span></div></div>
+     <div class="sec">ONDE ESTÁ</div><div class="row" style="font-family:monospace;font-size:12px">C:\\…\\8. Programação\\2026 06 23 - Henry Files Prep</div>
+     <div style="margin-top:18px;display:flex;gap:8px"><button class="btn ghost sm">✎ Editar ficha</button><button class="btn ghost sm">Conferir a pasta agora</button></div>`;
+  }
+  return `<div style="margin-bottom:14px"><span class="link" onclick="go('catalogo')">← Catálogo</span></div>
+  <div class="sheet"><div class="kicker">${t} · ${a.area.toUpperCase()}</div>
+  <h1 style="margin:6px 0 10px">${a.name} ${a.fav?"★":"<span style='color:#bbb'>☆</span>"}</h1>
+  <div class="sum">${a.sum}${care?'<span class="edit">editar</span>':""}</div>
+  <div style="margin-top:16px;display:flex;align-items:center;gap:12px">${action(a)} ${a.type==="janela"||a.type==="exe"?`<span class="note">salva na pasta do app · <span class="link" onclick="runApp('${a.id}',true)">escolher outra</span></span>`:""}
+  ${s?`<span class="note"><span class="dot" style="background:${s[0]}"></span>${s[1]}</span>`:""}</div>
+  ${care?`<div class="tabs"><span class="tab ${tab==="usar"?"on":""}" onclick="route.tab='usar';render()">Usar</span><span class="tab ${tab==="cuidar"?"on":""}" onclick="route.tab='cuidar';render()">Cuidar <span class="warn">· ${a.warns} pontos</span></span></div>`:'<div style="height:6px"></div>'}
+  ${body}</div>`;
+}
+function execucoes(){
+  return `<div class="top"><div><div class="kicker">MINHAS EXECUÇÕES</div><h1 style="margin-bottom:0">O que você rodou</h1></div></div>
+  <div class="sheet"><div class="list">${runs.slice().reverse().map(r=>{const a=app(r.app);return `<div class="it"><span><b>${a.name}</b> · ${r.when}</span>
+   <span>${r.st==="run"?'<span class="note">aberto no seu computador…</span>':`${r.files} arquivo${r.files>1?"s":""} · <span class="link" onclick="go('execucao',${r.id})">Ver e baixar</span> · <span class="link" onclick="runApp('${r.app}')">Rodar de novo</span>`}</span></div>`}).join("")}</div></div>`;
+}
+function execucao(id){
+  const r=runs.find(x=>x.id==id);const a=app(r.app);
+  return `<div style="margin-bottom:14px"><span class="link" onclick="go('execucoes')">← Minhas execuções</span></div>
+  <div class="sheet"><div class="kicker">EXECUÇÃO</div><h1 style="margin:6px 0">${a.name}</h1><div class="note">${r.when} · no seu computador · ${r.files} arquivos novos</div>
+  <div style="margin:16px 0;display:flex;gap:8px"><button class="btn">⇩ Baixar tudo (.zip)</button><button class="btn ghost" onclick="runApp('${a.id}')">▶ Rodar de novo</button></div>
+  ${a.outs.map((o,i)=>`<div class="sec">${o.toUpperCase()}</div><div class="list"><div class="it"><span>arquivo_${i+1}${a.type==="script"?".xlsx":".pdf"}</span><span class="link">baixar</span></div></div>`).join("")}</div>`;
+}
+function computador(){return `<div class="top"><div><div class="kicker">MEU COMPUTADOR</div><h1 style="margin-bottom:0">${$("#noAgent").checked?"Nenhum computador conectado":"A-HKROPP01 · conectado"}</h1></div></div>`}
+
+function render(keepFocus){
+  document.querySelectorAll(".creator").forEach(e=>e.classList.toggle("hide",who!=="criador"));
+  document.querySelectorAll(".side a[data-go]").forEach(e=>e.classList.toggle("on",e.dataset.go===(route.p==="ficha"?"catalogo":route.p==="execucao"?"execucoes":route.p)));
+  $("#nRuns").textContent=runs.length;
+  const v={catalogo,ficha:()=>ficha(route.id),execucoes,execucao:()=>execucao(route.id),computador}[route.p]();
+  $("#view").innerHTML=v;
+  if(keepFocus){const i=$(".search");i.focus();i.setSelectionRange(i.value.length,i.value.length)}
+}
+function go(p,id){route={p,id};render();window.scrollTo(0,0)}
+document.querySelectorAll(".side a[data-go]").forEach(e=>e.onclick=()=>go(e.dataset.go));
+document.querySelectorAll("input[name=who]").forEach(e=>e.onchange=()=>{who=e.value;render()});
+
+function modal(html){$("#modal").innerHTML=html?`<div class="modal" onclick="if(event.target===this)modal()"><div class="dlg">${html}</div></div>`:""}
+function runApp(id,pick){
+  const a=app(id);
+  if($("#noAgent").checked&&(a.type==="janela"||a.type==="exe")){
+    return modal(`<h3>Falta um passo, só na primeira vez</h3><p>${a.name} abre no seu computador. Para isso o Hub precisa do <b>Agente</b>, um programa pequeno que fica no Windows. Leva 1 minuto.</p>
+     <ol style="font-size:14px;line-height:1.8;padding-left:18px"><li>Baixe e abra o arquivo</li><li>Clique em Conectar na página que abrir</li><li>Pronto: o app abre sozinho logo depois</li></ol>
+     <div class="right"><button class="btn ghost" onclick="modal()">Agora não</button><button class="btn" onclick="$('#noAgent').checked=false;modal();toast('Agente conectado. Abrindo '+app('${id}').name+'…');setTimeout(()=>start('${id}'),900)">⇩ Instalar o Agente</button></div>`);
+  }
+  if(pick)return modal(`<h3>Onde salvar os resultados?</h3><p>Por padrão, a pasta do app. Escolha outra pela janela de pastas do Windows.</p><input value="C:\\Users\\voce\\Documentos\\Research"><div class="right"><button class="btn ghost" onclick="modal()">Cancelar</button><button class="btn" onclick="modal();start('${id}')">Abrir app</button></div>`);
+  if(a.type==="script")return modal(`<h3>Rodar ${a.name}</h3><p>Preencha e clique em Rodar. O Hub prepara tudo sozinho.</p>
+     ${a.form.map(([l,t])=>`<label>${l}</label><input type="${t}">`).join("")}<div class="note">Já vem preenchido com o que você usou da última vez.</div>
+     <div class="right"><button class="btn ghost" onclick="modal()">Cancelar</button><button class="btn" onclick="modal();start('${id}')">▶ Rodar</button></div>`);
+  if(a.type==="web")return toast(a.name+" abriu numa aba nova.");
+  start(id);
+}
+function toast(msg){const d=document.createElement("div");d.className="toast";d.innerHTML=`<span>${msg}</span>`;$("#strip").appendChild(d);setTimeout(()=>d.remove(),3500)}
+function start(id){
+  const a=app(id);const r={id:runSeq++,app:id,when:"agora",st:"run",files:0};runs.push(r);render();
+  const d=document.createElement("div");d.className="toast";
+  d.innerHTML=`<span><span class="spin"></span><b>${a.name}</b> ${a.type==="script"?"rodando… 40%":"aberto no seu computador. Use a janela e feche quando terminar."}</span><button class="btn sm" onclick="this.closest('.toast').remove()">ocultar</button>`;
+  $("#strip").appendChild(d);
+  setTimeout(()=>{r.st="done";r.files=a.outs.length+1;r.when="hoje, agora há pouco";d.className="toast done";
+    d.innerHTML=`<span>✓ <b>${a.name}</b> terminou: ${r.files} arquivos novos.</span><span style="display:flex;gap:8px"><button class="btn sm" onclick="this.closest('.toast').remove();go('execucao',${r.id})">Ver e baixar</button><button class="btn sm" style="background:transparent;color:#fff;border:1px solid #fff6" onclick="this.closest('.toast').remove()">✕</button></span>`;render()},a.type==="script"?3000:5000);
+}
+render();
+</script></body></html>
