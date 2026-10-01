@@ -7,3 +7,4 @@ e2e/node_modules/
 *:Zone.Identifier
 .superpowers/
 dist/
+.claude/worktrees/
