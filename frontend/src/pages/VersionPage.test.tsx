@@ -1,0 +1,54 @@
+import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { MemoryRouter, Route, Routes } from "react-router-dom"
+import { afterEach, expect, test, vi } from "vitest"
+import { api, type VersionInfo } from "@/lib/api"
+import { VersionPage } from "./VersionPage"
+
+afterEach(() => vi.restoreAllMocks())
+
+const info: VersionInfo = {
+  number: 2, origin: "folder", restored_from: null, author_name: "Henry Kropp", author_probable: true, description: "Troca do título",
+  summary: { added: 0, removed: 0, modified: 1, binaries: ["Ferramenta CVM.exe"] }, files_changed_at: null, created_at: "2026-10-01T12:00:00Z", current: false,
+}
+
+const renderAt = (url: string) =>
+  render(
+    <MemoryRouter initialEntries={[url]}>
+      <Routes>
+        <Route path="/apps/:id/versoes/:n" element={<VersionPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+
+test("O que mudou shows red and green lines and binary sizes", async () => {
+  vi.spyOn(api, "versionChanges").mockResolvedValue({
+    version: info,
+    files: [
+      { path: "Código-fonte/Files Prep.py", status: "modified", kind: "code", old_size: 10, new_size: 12,
+        hunks: [{ lines: [{ op: " ", text: "import os", old: 1, new: 1 }, { op: "-", text: "TITLE = 'Pipeline'", old: 2, new: 0 }, { op: "+", text: "TITLE = 'Files Prep'", old: 0, new: 2 }] }] },
+      { path: "Ferramenta CVM.exe", status: "modified", kind: "binary", old_size: 79291437, new_size: 79500000, hunks: [] },
+    ],
+  })
+  renderAt("/apps/3/versoes/2")
+  expect(await screen.findByRole("heading", { name: /Versão 2/ })).toBeInTheDocument()
+  expect(screen.getByText("Troca do título")).toBeInTheDocument()
+  expect(screen.getByText("TITLE = 'Pipeline'").closest("[data-op]")).toHaveAttribute("data-op", "-")
+  expect(screen.getByText("TITLE = 'Files Prep'").closest("[data-op]")).toHaveAttribute("data-op", "+")
+  expect(screen.getByText("mudou (75,6 MB → 75,8 MB)")).toBeInTheDocument()
+})
+
+test("Como estava lists files and opens one", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "version").mockResolvedValue(info)
+  vi.spyOn(api, "versionFiles").mockResolvedValue([
+    { path: "Código-fonte/Files Prep.py", size: 12, kind: "code", modified: "2026-10-01T12:00:00Z" },
+    { path: "Ferramenta CVM.exe", size: 79291437, kind: "binary", modified: "2026-08-13T17:54:00Z" },
+  ])
+  const content = vi.spyOn(api, "versionContent").mockResolvedValue({ path: "Código-fonte/Files Prep.py", text: "API = \"••••\"\nprint(1)\n" })
+  renderAt("/apps/3/versoes/2?ver=arquivos")
+  await user.click(await screen.findByRole("button", { name: "Código-fonte/Files Prep.py" }))
+  expect(content).toHaveBeenCalledWith("3", "2", "Código-fonte/Files Prep.py")
+  expect(await screen.findByText(/print\(1\)/)).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "Ferramenta CVM.exe" })).toBeDisabled()
+})

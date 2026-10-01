@@ -11,6 +11,7 @@ import { LoginPage } from "@/pages/LoginPage"
 import { PeoplePage } from "@/pages/PeoplePage"
 import { RegisterPage } from "@/pages/RegisterPage"
 import { RunPage } from "@/pages/RunPage"
+import { VersionPage } from "@/pages/VersionPage"
 
 function Protected() {
   const { loading, person } = useAuth()
@@ -35,6 +36,7 @@ function Routed() {
       <Route element={<Protected />}>
         <Route index element={<CatalogPage />} />
         <Route path="apps/:id" element={<AppPage />} />
+        <Route path="apps/:id/versoes/:n" element={<VersionPage />} />
         <Route
           path="registrar"
           element={
