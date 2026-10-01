@@ -16,6 +16,7 @@ const (
 	TrashDir    = ".app-hub-lixeira"
 	KindCode    = "code"
 	KindBinary  = "binary"
+	tempSuffix  = ".app-hub-tmp"
 )
 
 var junkDirs = map[string]bool{"__pycache__": true, ".venv": true, "venv": true, "node_modules": true, ".git": true, TrashDir: true}
@@ -34,6 +35,9 @@ var codeExts = map[string]bool{
 // Included reports whether a file (path relative to the app folder, forward
 // slashes) belongs in a version.
 func Included(rel string, outs []manifest.Output) bool {
+	if strings.HasSuffix(rel, tempSuffix) {
+		return false
+	}
 	segs := strings.Split(rel, "/")
 	for _, s := range segs[:len(segs)-1] {
 		if junkDirs[s] {

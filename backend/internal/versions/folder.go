@@ -66,7 +66,7 @@ func (f LocalFolder) Write(rel string, data []byte) error {
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return err
 	}
-	tmp := p + ".app-hub-tmp"
+	tmp := p + tempSuffix
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
 		_ = os.Remove(tmp)
 		return err
