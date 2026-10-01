@@ -477,3 +477,71 @@ func TestDownloadSelectedRefusesForeignOrEmpty(t *testing.T) {
 		t.Fatalf("refused selections must not reach the agent, got %d jobs", jobs)
 	}
 }
+
+func TestRememberFolder(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	app := insertApp(t, filesPrepManifest())
+	pairComputer(t, c, "PC")
+
+	folderOf := func() string {
+		var d appDetail
+		c.do("GET", appPath(app, ""), nil, &d)
+		return d.RememberedFolder
+	}
+	c.do("POST", appPath(app, "/runs"), map[string]any{"output_folder": `D:\Saídas`, "remember": true}, nil)
+	if f := folderOf(); f != `D:\Saídas` {
+		t.Fatalf("lembrada %q", f)
+	}
+	// Rodar de novo / 1 clique: sem "remember", não mexe.
+	c.do("POST", appPath(app, "/runs"), map[string]any{"output_folder": `E:\Outra`}, nil)
+	if f := folderOf(); f != `D:\Saídas` {
+		t.Fatalf("sem remember mudou %q", f)
+	}
+	var list []appSummary
+	c.do("GET", "/api/apps", nil, &list)
+	if len(list) != 1 || !list[0].CanRun || list[0].RememberedFolder != `D:\Saídas` {
+		t.Fatalf("lista %+v", list)
+	}
+	c.do("POST", appPath(app, "/runs"), map[string]any{"output_folder": `D:\Saídas`, "remember": false}, nil)
+	if f := folderOf(); f != "" {
+		t.Fatalf("esquecida %q", f)
+	}
+}
+
+func TestRememberNotSavedWhenRunFails(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	app := insertApp(t, filesPrepManifest())
+	// Sem computador conectado: 409, e a pasta não fica lembrada.
+	if code := c.do("POST", appPath(app, "/runs"), map[string]any{"output_folder": `D:\Saídas`, "remember": true}, nil); code != http.StatusConflict {
+		t.Fatalf("code %d", code)
+	}
+	var d appDetail
+	c.do("GET", appPath(app, ""), nil, &d)
+	if d.RememberedFolder != "" {
+		t.Fatalf("lembrou sem rodar: %q", d.RememberedFolder)
+	}
+}
+
+func TestRememberedFolderIsPerPerson(t *testing.T) {
+	admin, _ := newPoolClient(t)
+	setupAdmin(t, admin)
+	app := insertApp(t, filesPrepManifest())
+	pairComputer(t, admin, "PC")
+	admin.do("POST", appPath(app, "/runs"), map[string]any{"output_folder": `D:\Henry`, "remember": true}, nil)
+
+	createPersonAs(t, admin, "Ana", "ana@alis.com", "usuario")
+	ana := admin.fresh()
+	loginAs(t, ana, "ana@alis.com")
+	var d appDetail
+	ana.do("GET", appPath(app, ""), nil, &d)
+	if d.RememberedFolder != "" {
+		t.Fatalf("Ana viu a pasta do Henry: %q", d.RememberedFolder)
+	}
+	var list []appSummary
+	ana.do("GET", "/api/apps", nil, &list)
+	if len(list) != 1 || list[0].RememberedFolder != "" {
+		t.Fatalf("lista da Ana %+v", list)
+	}
+}

@@ -99,11 +99,14 @@ func (h *Handler) scan(w http.ResponseWriter, r *http.Request) {
 
 type appSummary struct {
 	sqlc.ListAppsRow
-	FolderDisplay string `json:"folder_display"`
+	FolderDisplay    string `json:"folder_display"`
+	CanRun           bool   `json:"can_run"`
+	RememberedFolder string `json:"remembered_folder"`
 }
 
 func (h *Handler) listApps(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.currentPerson(w, r); !ok {
+	me, ok := h.currentPerson(w, r)
+	if !ok {
 		return
 	}
 	apps, err := h.q.ListApps(r.Context())
@@ -111,9 +114,19 @@ func (h *Handler) listApps(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "list apps", err)
 		return
 	}
+	folders, err := h.q.ListRunFolders(r.Context(), me.ID)
+	if err != nil {
+		internalError(w, "list run folders", err)
+		return
+	}
+	remembered := make(map[int64]string, len(folders))
+	for _, f := range folders {
+		remembered[f.AppID] = f.Folder
+	}
 	out := make([]appSummary, 0, len(apps))
 	for _, a := range apps {
-		out = append(out, appSummary{ListAppsRow: a, FolderDisplay: hostpath.ToDisplay(a.FolderPath)})
+		out = append(out, appSummary{ListAppsRow: a, FolderDisplay: hostpath.ToDisplay(a.FolderPath),
+			CanRun: canRunKind(a.Kind, a.Entrypoint), RememberedFolder: remembered[a.ID]})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
