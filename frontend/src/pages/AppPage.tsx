@@ -2,11 +2,11 @@ import { useEffect, useState, type ReactNode } from "react"
 import { Link, useParams } from "react-router-dom"
 import { ArrowLeft, FileText, FolderOpen, KeyRound, Play, TriangleAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { RunDialog } from "@/components/RunDialog"
 import { HistoryTimeline } from "@/components/HistoryTimeline"
 import { KindTab } from "@/components/bits"
 import { api, type AppDetail } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
+import { useRuns } from "@/lib/runs-context"
 import { formatWhen } from "@/lib/runs"
 import { INPUT_SOURCES, INPUT_TYPES, kindInfo } from "@/lib/kinds"
 
@@ -25,15 +25,44 @@ export function AppPage() {
   const [error, setError] = useState("")
   const { person } = useAuth()
   const canEdit = person?.role === "admin" || person?.role === "criador"
-  const [runOpen, setRunOpen] = useState(false)
+  const [readable, setReadable] = useState(true)
+  const [historyKey, setHistoryKey] = useState(0)
+  const { run, busy, rememberedFor } = useRuns()
 
+  // The ficha shows what the Hub already knows; the folder check (OneDrive can
+  // take seconds) runs behind it and only adds a new version or the warning.
   useEffect(() => {
-    if (id) api.app(id).then(setApp, (e: Error) => setError(e.message))
+    if (!id) return
+    let gone = false
+    api.app(id).then(
+      (d) => {
+        if (gone) return
+        setApp(d)
+        setReadable(true)
+        api.checkApp(id).then(
+          (c) => {
+            if (gone) return
+            setReadable(c.folder_readable)
+            if (c.version && c.version.number !== d.version?.number) {
+              setApp((a) => (a ? { ...a, version: c.version } : a))
+              setHistoryKey((k) => k + 1)
+            }
+          },
+          () => {},
+        )
+      },
+      (e: Error) => setError(e.message),
+    )
+    return () => {
+      gone = true
+    }
   }, [id])
 
   if (error) return <p className="text-destructive">{error}</p>
   if (!app) return <p className="text-muted-foreground">Carregando…</p>
   const m = app.manifest
+  const target = { id: app.id, name: m.name, folder_display: app.folder_display, remembered_folder: app.remembered_folder }
+  const saved = rememberedFor(target)
 
   return (
     <article className="rise">
@@ -46,11 +75,18 @@ export function AppPage() {
         <h1 className="mt-2 font-heading text-4xl">{m.name}</h1>
         <p className="mt-3 max-w-prose text-lg text-muted-foreground">{m.summary || "Sem resumo ainda."}</p>
         {app.can_run && (
-          <div className="mt-5">
-            <Button onClick={() => setRunOpen(true)} className="gap-2">
+          <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+            <Button onClick={() => run(target)} disabled={busy.has(app.id)} className="gap-2">
               <Play className="size-4" /> Rodar
             </Button>
-            <RunDialog app={app} open={runOpen} onOpenChange={setRunOpen} />
+            {saved && (
+              <span className="min-w-0 text-sm text-muted-foreground">
+                salva em <code className="font-mono text-xs break-all text-foreground/80">{saved}</code> ·{" "}
+                <button type="button" onClick={() => run(target, { ask: true })} className="underline underline-offset-4 hover:text-foreground">
+                  trocar
+                </button>
+              </span>
+            )}
           </div>
         )}
 
@@ -72,7 +108,7 @@ export function AppPage() {
             <dd className="font-medium">{app.version ? `versão ${app.version.number} · ${formatWhen(app.version.created_at)}` : "—"}</dd>
           </div>
         </dl>
-        {!app.folder_readable && (
+        {!readable && (
           <p role="alert" className="mt-4 flex gap-2 text-sm text-warn">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" /> Não consegui ler a pasta do app agora. O histórico continua aqui, mas mudanças novas no código não são registradas e não dá para voltar versões.
           </p>
@@ -128,7 +164,7 @@ export function AppPage() {
             </Section>
           )}
           <Section title="Histórico">
-            <HistoryTimeline appId={app.id} canEdit={canEdit} onChanged={() => void api.app(app.id).then(setApp, () => {})} />
+            <HistoryTimeline appId={app.id} canEdit={canEdit} reloadKey={historyKey} onChanged={() => void api.app(app.id).then(setApp, () => {})} />
           </Section>
           <Section title="Onde está">
             <p className="flex items-start gap-2 text-sm">

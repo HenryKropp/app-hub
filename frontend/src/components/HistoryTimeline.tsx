@@ -114,7 +114,7 @@ function Row({ appId, item, canEdit, onChanged }: { appId: number; item: History
 const itemKey = (it: HistoryItem) =>
   it.version ? `version-${it.version.number}` : it.run ? `run-${it.run.id}` : `ficha-${it.at}`
 
-export function HistoryTimeline({ appId, canEdit, onChanged }: { appId: number; canEdit: boolean; onChanged?: () => void }) {
+export function HistoryTimeline({ appId, canEdit, onChanged, reloadKey = 0 }: { appId: number; canEdit: boolean; onChanged?: () => void; reloadKey?: number }) {
   const [filter, setFilter] = useState<HistoryFilter>("all")
   const [items, setItems] = useState<HistoryItem[] | null>(null)
   const [more, setMore] = useState(false)
@@ -136,7 +136,7 @@ export function HistoryTimeline({ appId, canEdit, onChanged }: { appId: number; 
     [appId],
   )
 
-  useEffect(() => load(filter), [load, filter])
+  useEffect(() => load(filter), [load, filter, reloadKey])
 
   const loadMore = () =>
     api.history(appId, filter, next).then(

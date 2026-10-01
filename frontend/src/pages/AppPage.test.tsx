@@ -2,7 +2,8 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, expect, test, vi } from "vitest"
-import { api, ApiError, type AppDetail } from "@/lib/api"
+import { api, type AppDetail } from "@/lib/api"
+import { RunsProvider } from "@/lib/runs-context"
 import { manifest, run } from "@/test/fixtures"
 import { AppPage } from "./AppPage"
 
@@ -17,67 +18,105 @@ const detail = (can_run: boolean): AppDetail => ({
 const renderAt = () =>
   render(
     <MemoryRouter initialEntries={["/apps/3"]}>
-      <Routes>
-        <Route path="/apps/:id" element={<AppPage />} />
-        <Route path="/execucoes/:id" element={<p>página da execução</p>} />
-      </Routes>
+      <RunsProvider>
+        <Routes>
+          <Route path="/apps/:id" element={<AppPage />} />
+        </Routes>
+      </RunsProvider>
     </MemoryRouter>,
   )
 
-test("Rodar opens the dialog with the app folder and starts the run", async () => {
-  const user = userEvent.setup()
-  vi.spyOn(api, "app").mockResolvedValue(detail(true))
+const base = (d: AppDetail) => {
+  vi.spyOn(api, "app").mockResolvedValue(d)
   vi.spyOn(api, "history").mockResolvedValue({ items: [], more: false, next_before: "" })
+  vi.spyOn(api, "activeRuns").mockResolvedValue([])
+}
+
+test("ficha shows before the folder check answers", async () => {
+  base(detail(true))
+  vi.spyOn(api, "checkApp").mockReturnValue(new Promise(() => {})) // nunca responde
+  renderAt()
+  expect(await screen.findByRole("heading", { name: "Eq. Research Files Prep" })).toBeInTheDocument()
+  expect(screen.getByText(/versão 2 ·/)).toBeInTheDocument()
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+})
+
+test("check finding a new version updates the field and reloads history", async () => {
+  base(detail(true))
+  // The check answers after the ficha is on screen (OneDrive is slow).
+  vi.spyOn(api, "checkApp").mockImplementation(
+    () => new Promise((r) => setTimeout(() => r({ folder_readable: true, version: { number: 3, created_at: "2026-10-01T15:00:00Z" } }), 50)),
+  )
+  renderAt()
+  expect(await screen.findByText(/versão 2 ·/)).toBeInTheDocument()
+  expect(await screen.findByText(/versão 3 ·/)).toBeInTheDocument()
+  await vi.waitFor(() => expect(api.history).toHaveBeenCalledTimes(2))
+})
+
+test("check with same version does not reload history", async () => {
+  base(detail(true))
+  const check = vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: true, version: { number: 2, created_at: "2026-09-30T10:00:00Z" } })
+  renderAt()
+  await screen.findByRole("heading", { name: "Eq. Research Files Prep" })
+  await vi.waitFor(() => expect(check).toHaveBeenCalled())
+  await new Promise((r) => setTimeout(r, 50))
+  expect(api.history).toHaveBeenCalledTimes(1)
+})
+
+test("unreadable folder warning appears after the check", async () => {
+  base(detail(true))
+  vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: false, version: null })
+  renderAt()
+  expect(await screen.findByRole("alert")).toHaveTextContent("Não consegui ler a pasta do app agora.")
+  expect(screen.getByText(/versão 2 ·/)).toBeInTheDocument()
+})
+
+test("failed check keeps the ficha", async () => {
+  base(detail(true))
+  vi.spyOn(api, "checkApp").mockRejectedValue(new Error("boom"))
+  renderAt()
+  expect(await screen.findByRole("heading", { name: "Eq. Research Files Prep" })).toBeInTheDocument()
+  await new Promise((r) => setTimeout(r, 20))
+  expect(screen.queryByText("boom")).not.toBeInTheDocument()
+})
+
+test("Rodar with a remembered folder shows 'salva em' and runs directly; trocar asks", async () => {
+  const user = userEvent.setup()
+  base({ ...detail(true), remembered_folder: "D:\\Saídas" })
+  vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: true, version: null })
   const start = vi.spyOn(api, "startRun").mockResolvedValue(run({ status: "waiting" }))
   renderAt()
-  await user.click(await screen.findByRole("button", { name: "Rodar" }))
-  expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("C:\\apps\\fp")
-  await user.click(screen.getByRole("button", { name: "Abrir app" }))
-  expect(start).toHaveBeenCalledWith(3, "C:\\apps\\fp")
-  expect(await screen.findByText("página da execução")).toBeInTheDocument()
+  expect(await screen.findByText("D:\\Saídas")).toBeInTheDocument()
+  await user.click(screen.getByRole("button", { name: "Rodar" }))
+  expect(start).toHaveBeenCalledWith(3, "D:\\Saídas", undefined)
+  await user.click(screen.getByRole("button", { name: "trocar" }))
+  expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("D:\\Saídas")
 })
 
-test("choose another folder fills the field", async () => {
+test("Rodar without a remembered folder asks, and then shows 'salva em'", async () => {
   const user = userEvent.setup()
-  vi.spyOn(api, "app").mockResolvedValue(detail(true))
-  vi.spyOn(api, "history").mockResolvedValue({ items: [], more: false, next_before: "" })
-  vi.spyOn(api, "chooseFolder").mockResolvedValue({ folder: "D:\\Saídas", canceled: false })
+  base(detail(true))
+  vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: true, version: null })
+  vi.spyOn(api, "startRun").mockResolvedValue(run({ status: "waiting" }))
   renderAt()
   await user.click(await screen.findByRole("button", { name: "Rodar" }))
-  await user.click(screen.getByRole("button", { name: "Escolher outra…" }))
-  expect(await screen.findByDisplayValue("D:\\Saídas")).toBeInTheDocument()
-})
-
-test("computer not connected points to Meu computador", async () => {
-  const user = userEvent.setup()
-  vi.spyOn(api, "app").mockResolvedValue(detail(true))
-  vi.spyOn(api, "history").mockResolvedValue({ items: [], more: false, next_before: "" })
-  vi.spyOn(api, "startRun").mockRejectedValue(new ApiError(409, "Seu computador não está conectado."))
-  renderAt()
-  await user.click(await screen.findByRole("button", { name: "Rodar" }))
+  expect(screen.queryByText(/salva em/)).not.toBeInTheDocument()
   await user.click(screen.getByRole("button", { name: "Abrir app" }))
-  expect(await screen.findByRole("alert")).toHaveTextContent("Seu computador não está conectado.")
-  expect(screen.getByRole("link", { name: /Meu computador/ })).toHaveAttribute("href", "/meu-computador")
+  expect(await screen.findByText(/salva em/)).toHaveTextContent("salva em C:\\apps\\fp")
 })
 
 test("apps that cannot run have no Rodar button", async () => {
-  vi.spyOn(api, "app").mockResolvedValue(detail(false))
-  vi.spyOn(api, "history").mockResolvedValue({ items: [], more: false, next_before: "" })
+  base(detail(false))
+  vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: true, version: null })
   renderAt()
   expect(await screen.findByText("Eq. Research Files Prep")).toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "Rodar" })).not.toBeInTheDocument()
 })
 
-test("shows the version and warns when the folder cannot be read", async () => {
-  vi.spyOn(api, "app").mockResolvedValue({ ...detail(true), folder_readable: false })
-  vi.spyOn(api, "history").mockResolvedValue({ items: [], more: false, next_before: "" })
-  renderAt()
-  expect(await screen.findByText(/versão 2 ·/)).toBeInTheDocument()
-  expect(screen.getByRole("alert")).toHaveTextContent("Não consegui ler a pasta do app agora.")
-})
-
 test("shows the history timeline", async () => {
   vi.spyOn(api, "app").mockResolvedValue(detail(true))
+  vi.spyOn(api, "activeRuns").mockResolvedValue([])
+  vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: true, version: null })
   vi.spyOn(api, "history").mockResolvedValue({
     items: [{ type: "run", at: "2026-09-30T14:10:00Z", run: { id: 7, status: "done", person_name: "Henry", version_number: 2 } }],
     more: false, next_before: "",
