@@ -54,11 +54,11 @@ func TestVersionOneOnPublishAndNewVersionOnChange(t *testing.T) {
 		t.Fatalf("detail %+v", d)
 	}
 	editFile(t, dir, "src/main.py", "print('v2')\n")
-	c.do("GET", appPath(id, ""), nil, &d)
+	c.do("POST", appPath(id, "/check"), nil, &d)
 	if d.Version.Number != 2 {
 		t.Fatalf("after change %+v", d.Version)
 	}
-	c.do("GET", appPath(id, ""), nil, &d)
+	c.do("POST", appPath(id, "/check"), nil, &d)
 	if d.Version.Number != 2 {
 		t.Fatal("no change must not create a version")
 	}
@@ -84,7 +84,7 @@ func TestCheckVersionIgnoresTouch(t *testing.T) {
 	later := time.Now().Add(time.Hour).Truncate(time.Second)
 	_ = os.Chtimes(filepath.Join(dir, "src", "main.py"), later, later)
 	var d appDetail
-	c.do("GET", appPath(id, ""), nil, &d)
+	c.do("POST", appPath(id, "/check"), nil, &d)
 	if d.Version.Number != 1 {
 		t.Fatalf("touch created version %d", d.Version.Number)
 	}
@@ -105,7 +105,7 @@ func TestConcurrentChecksCreateOneVersion(t *testing.T) {
 	var wg sync.WaitGroup
 	for i := 0; i < 5; i++ {
 		wg.Add(1)
-		go func() { defer wg.Done(); c.do("GET", appPath(id, ""), nil, nil) }()
+		go func() { defer wg.Done(); c.do("POST", appPath(id, "/check"), nil, nil) }()
 	}
 	wg.Wait()
 	var n int
@@ -120,11 +120,11 @@ func TestGetAppWithMissingFolder(t *testing.T) {
 	setupAdmin(t, c)
 	app := insertApp(t, filesPrepManifest()) // folder /mnt/c/apps/files-prep does not exist
 	var d appDetail
-	if code := c.do("GET", appPath(app, ""), nil, &d); code != http.StatusOK {
-		t.Fatalf("ficha must open: %d", code)
+	if code := c.do("GET", appPath(app, ""), nil, &d); code != http.StatusOK || d.Version != nil {
+		t.Fatalf("ficha must open: %d %+v", code, d)
 	}
-	if d.FolderReadable || d.Version != nil {
-		t.Fatalf("%+v", d)
+	if code := c.do("POST", appPath(app, "/check"), nil, &d); code != http.StatusOK || d.FolderReadable || d.Version != nil {
+		t.Fatalf("check %d %+v", code, d)
 	}
 }
 
@@ -195,5 +195,38 @@ func TestRunWithUnreadableFolderHasNoVersion(t *testing.T) {
 	}
 	if run.VersionNumber != nil {
 		t.Fatalf("run must not claim version %d", *run.VersionNumber)
+	}
+}
+
+func TestGetAppDoesNotCheckFolderButCheckDoes(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	id, dir := codeApp(t, c) // publicar registra a versão 1
+	editFile(t, dir, "src/main.py", "print('v2')\n")
+
+	var d appDetail
+	c.do("GET", appPath(id, ""), nil, &d)
+	if d.Version == nil || d.Version.Number != 1 {
+		t.Fatalf("GET não deve conferir a pasta: %+v", d.Version)
+	}
+	var chk struct {
+		FolderReadable bool        `json:"folder_readable"`
+		Version        *versionRef `json:"version"`
+	}
+	if code := c.do("POST", appPath(id, "/check"), nil, &chk); code != http.StatusOK || !chk.FolderReadable || chk.Version == nil || chk.Version.Number != 2 {
+		t.Fatalf("check %d %+v", code, chk)
+	}
+}
+
+func TestCheckWithMissingFolder(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	id, dir := codeApp(t, c)
+	_ = os.RemoveAll(dir)
+	var chk struct {
+		FolderReadable bool `json:"folder_readable"`
+	}
+	if code := c.do("POST", appPath(id, "/check"), nil, &chk); code != http.StatusOK || chk.FolderReadable {
+		t.Fatalf("check %d %+v", code, chk)
 	}
 }

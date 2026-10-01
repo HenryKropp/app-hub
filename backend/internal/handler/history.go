@@ -1,10 +1,8 @@
 package handler
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 	"sort"
 	"strconv"
@@ -119,11 +117,6 @@ func (h *Handler) appHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	if r.URL.Query().Get("before") == "" {
-		if _, _, err := h.checkVersion(context.WithoutCancel(ctx), a); err != nil {
-			slog.Error("version check", "app", a.ID, "err", err)
-		}
-	}
 	var current int32
 	if v, err := h.q.LatestAppVersion(ctx, a.ID); err == nil {
 		current = v.Number
