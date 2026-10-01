@@ -35,18 +35,28 @@ export function RestoreDialog({ appId, number, open, onOpenChange, onDone }: {
     setError("")
     try {
       setResult(await api.restore(appId, number))
-      onDone()
     } catch (e) {
-      setError(e instanceof ApiError || e instanceof Error ? e.message : "Não foi possível voltar o código.")
+      const b = e instanceof ApiError && e.status === 409 ? (e.body as Partial<RestoreResult> | undefined) : undefined
+      if (b && Array.isArray(b.done) && Array.isArray(b.failed)) {
+        setResult({ number: b.number ?? 0, done: b.done, failed: b.failed, error: e instanceof Error ? e.message : "" })
+      } else {
+        setError(e instanceof Error ? e.message : "Não foi possível voltar o código.")
+      }
     } finally {
       setBusy(false)
     }
   }
 
+  // The timeline reloads only after the person has read the outcome.
+  const changeOpen = (v: boolean) => {
+    if (!v && result) onDone()
+    onOpenChange(v)
+  }
+
   const nothing = plan && plan.rewrite.length + plan.recreate.length + plan.to_trash.length === 0
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={changeOpen}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Voltar o código para a versão {number}</DialogTitle>
@@ -71,11 +81,17 @@ export function RestoreDialog({ appId, number, open, onOpenChange, onDone }: {
         )}
         {result && (
           <div className="flex flex-col gap-2 text-sm" role="status">
-            {result.failed.length === 0 ? (
+            {result.error ? (
+              <p className="text-destructive">{result.error}</p>
+            ) : result.failed.length === 0 ? (
               <p>Pronto. O código voltou para a versão {number} e foi registrado como versão {result.number}.</p>
             ) : (
               <>
                 <p className="text-destructive">Parei no meio. A versão {result.number} registra como a pasta ficou.</p>
+              </>
+            )}
+            {(result.error || result.failed.length > 0) && (
+              <>
                 <Files title="Voltaram" list={result.done} />
                 <Files title="Não voltaram" list={result.failed.map((f) => `${f.path} (${f.error})`)} />
               </>
@@ -85,7 +101,7 @@ export function RestoreDialog({ appId, number, open, onOpenChange, onDone }: {
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <DialogFooter>
           {result ? (
-            <Button onClick={() => onOpenChange(false)}>Fechar</Button>
+            <Button onClick={() => changeOpen(false)}>Fechar</Button>
           ) : (
             <>
               <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>

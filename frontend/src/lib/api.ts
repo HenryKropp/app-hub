@@ -132,9 +132,11 @@ export type RestoreResult = { number: number; done: string[]; failed: { path: st
 
 export class ApiError extends Error {
   status: number
-  constructor(status: number, message: string) {
+  body?: unknown
+  constructor(status: number, message: string, body?: unknown) {
     super(message)
     this.status = status
+    this.body = body
   }
 }
 
@@ -147,7 +149,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   })
   if (res.status === 204) return undefined as T
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new ApiError(res.status, data?.error || "Não foi possível completar a ação.")
+  if (!res.ok) throw new ApiError(res.status, data?.error || "Não foi possível completar a ação.", data)
   return data as T
 }
 
