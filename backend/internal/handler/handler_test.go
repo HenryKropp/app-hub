@@ -61,7 +61,7 @@ func newClient(t *testing.T, devMode bool) *client {
 		t.Fatal(err)
 	}
 	// Start from an empty Hub inside the transaction.
-	if _, err := tx.Exec(ctx, "TRUNCATE run_files, agent_jobs, runs, pairings, computers, apps, sessions, people RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := tx.Exec(ctx, "TRUNCATE run_files, agent_jobs, runs, app_changes, app_versions, code_blobs, pairings, computers, apps, sessions, people RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatal(err)
 	}
 	mux := http.NewServeMux()
@@ -120,7 +120,7 @@ func newPoolClient(t *testing.T) (*client, *Handler) {
 	t.Helper()
 	ctx := context.Background()
 	truncate := func() {
-		if _, err := testPool.Exec(ctx, "TRUNCATE run_files, agent_jobs, runs, pairings, computers, apps, sessions, people RESTART IDENTITY CASCADE"); err != nil {
+		if _, err := testPool.Exec(ctx, "TRUNCATE run_files, agent_jobs, runs, app_changes, app_versions, code_blobs, pairings, computers, apps, sessions, people RESTART IDENTITY CASCADE"); err != nil {
 			t.Fatal(err)
 		}
 	}
