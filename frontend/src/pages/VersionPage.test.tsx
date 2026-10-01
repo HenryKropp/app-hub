@@ -52,3 +52,13 @@ test("Como estava lists files and opens one", async () => {
   expect(await screen.findByText(/print\(1\)/)).toBeInTheDocument()
   expect(screen.getByRole("button", { name: "Ferramenta CVM.exe" })).toBeDisabled()
 })
+
+test("the original version explains itself instead of showing every line as new", async () => {
+  vi.spyOn(api, "versionChanges").mockResolvedValue({
+    version: { ...info, number: 1, origin: "original", summary: { added: 1, removed: 0, modified: 0, binaries: [] } },
+    files: [{ path: "a.py", status: "added", kind: "code", old_size: 0, new_size: 5, hunks: [{ lines: [{ op: "+", text: "print(1)", old: 0, new: 1 }] }] }],
+  })
+  renderAt("/apps/3/versoes/1")
+  expect(await screen.findByText(/Esta é a primeira versão/)).toBeInTheDocument()
+  expect(screen.queryByText("print(1)")).not.toBeInTheDocument()
+})
