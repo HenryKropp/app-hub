@@ -30,19 +30,19 @@ Status: Pending / In Progress / Done / Blocked
 | Salvar manifesto e ficha na pasta do app | Done | Cria só `app-hub.yaml` e `FICHA.md`; recusa sobrescrever arquivo que não é do Hub |
 | Aviso de duplicado | Done | Por palavras do nome, contra o catálogo e dentro do lote |
 
-## Prioridade atual (2026-09-30)
+## Prioridade atual (2026-10-01)
 
 Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep) antes de registrar mais apps.** Fase 4 para apps com janela e `.exe` feita e testada de verdade (2026-09-30). Ordem combinada depois da decisão do App Hub (ADR 005):
 1. ~~Atualização automática do Agente~~ Feita e testada de verdade (2026-09-30)
-2. **Fase 5:** ← próxima; histórico de mudanças no código e na ficha, e voltar atrás (junto com as execuções numa linha do tempo)
-3. Acabamento: tela da ficha com os campos da v0.2 (opções, várias escolhas, `depends_on`, `build`); barra lateral não vai até o fim em páginas compridas
+2. ~~**Fase 5:** histórico de mudanças no código e na ficha, e voltar atrás~~ Feita e testada de verdade no Files Prep (2026-10-01)
+3. **Acabamento:** ← próxima; tela da ficha com os campos da v0.2 (opções, várias escolhas, `depends_on`, `build`); barra lateral não vai até o fim em páginas compridas
 4. Rodar scripts: formulário automático e ambiente preparado sozinho
 5. App Hub: ícone perto do relógio, janela própria e instalador único (etapas 2 e 3), antes de o primeiro colega entrar
 6. Assinatura digital do App Hub (etapa 4), antes de vender
 7. Depois: retomar a Fase 2b (teste com mais 4 apps e MCP)
 
-**Para a próxima sessão (deixado em 2026-09-30):**
-- Começar pela **Fase 5** (histórico). Seguir o fluxo: desenho → plano → implementação.
+**Para a próxima sessão (deixado em 2026-10-01):**
+- Começar pelo **acabamento** (item 3). Seguir o fluxo: desenho → plano → implementação.
 - O Agente no PC do Henry está na **0.2.3** e se atualiza sozinho. O código do Hub também está na 0.2.3, e `dist/agent/AppHubAgente.exe` da pasta principal já é essa versão.
 - Para publicar um Agente novo: subir `agentproto.Version`, rodar `scripts/build-agent.sh` e reiniciar o Hub.
 - Nunca ligar um Hub de teste (com outro banco) na porta 8080: o Agente real fala com ele e esquece a conexão.
@@ -103,10 +103,11 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Versão 1 no registro + detecção de mudança na pasta | Pending | |
-| Histórico, comparação e voltar atrás | Pending | |
-| Histórico de mudanças na ficha | Pending | Quem mudou o quê e quando (pedido 2026-09-30) |
-| Linha do tempo única: código + ficha + execuções | Pending | Na página do app |
+| Versão 1 no registro + detecção de mudança na pasta | Done | Versão 1 na primeira conferência; conferência ao abrir a ficha e o histórico, antes de rodar e ao publicar. ADR 006 |
+| Histórico, comparação e voltar atrás | Done | Página da versão (O que mudou / Como estava); voltar com prévia, versão de segurança e lixeira. Testado de verdade no Files Prep (2026-10-01) |
+| Histórico de mudanças na ficha | Done | Campo por campo, só registrado (não se restaura) |
+| Linha do tempo única: código + ficha + execuções | Done | Seção Histórico na ficha, com filtro e "Carregar mais"; execução mostra a versão usada |
+| Sobras da Fase 5 | Pending | Manifesto do Files Prep não lista os `.zip` que o app baixa (entram no histórico como binários); limpar versões antigas; página da versão: respostas fora de ordem ao trocar de versão, erro esconde a página inteira, sem teste de quem vê Descrever/Voltar; leitura travada do OneDrive dentro da trava do app pode segurar a ficha; erro ao gravar a versão depois de voltar devolve um erro genérico |
 
 ## Fase 6 — Acesso e cofre (1.7)
 
