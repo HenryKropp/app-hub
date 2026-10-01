@@ -101,9 +101,10 @@ A numeração segue a especificação do produto.
 Pedido do Henry em 2026-09-30: o histórico de um app mostra três coisas, numa linha do tempo só: **mudanças no código**, **execuções** e **mudanças na ficha**.
 - Toda alteração publicada gera uma versão, com quem mudou, quando e um resumo.
 - Toda mudança na ficha (nome, resumo, responsável, entradas…) fica registrada com quem mudou e quando.
-- O Hub detecta quando o código da pasta mudou e oferece registrar a nova versão.
+- O Hub detecta quando o código da pasta mudou e registra a nova versão sozinho.
 - Botão para voltar a uma versão anterior. A restauração também vira uma versão.
 - Histórico de execuções ligado à versão usada.
+- **Construído (2026-10-01, ADR 006):** a versão nasce sozinha quando o Hub confere a pasta, sem perguntar. Descrever a mudança é opcional. Só o código-fonte tem cópia; do `.exe` fica só a impressão digital, e voltar a versão pede recompilar. A ficha só é registrada, não se restaura. Chaves no código aparecem mascaradas.
 
 ### 3.7 Acesso, permissões e cofre (1.7)
 - Cadastro de pessoas da empresa. Cada app tem quem pode usar e quem pode editar.

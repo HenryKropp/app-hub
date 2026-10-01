@@ -1,6 +1,6 @@
 # Fase 5: histórico e voltar atrás (desenho)
 
-**Data:** 2026-10-01 · **Status:** aprovado pelo Henry; plano em `docs/superpowers/plans/2026-10-01-fase-5-historico.md`
+**Data:** 2026-10-01 · **Status:** implementado e testado de verdade no Files Prep (2026-10-01); plano em `docs/superpowers/plans/2026-10-01-fase-5-historico.md`
 **Contexto:** PRD 3.6 (Versões e histórico) e fluxo C (Atualizar um app). Item 2 da ordem combinada depois da ADR 005.
 
 ## 1. Objetivo
