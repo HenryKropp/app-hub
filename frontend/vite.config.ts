@@ -19,5 +19,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test-setup.ts'],
+    // Screen tests are slow on WSL under load; 5 s timed out at random.
+    testTimeout: 15000,
   },
 })
