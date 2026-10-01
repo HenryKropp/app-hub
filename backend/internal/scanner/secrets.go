@@ -72,3 +72,25 @@ var nonEnv = regexp.MustCompile(`[^A-Z0-9]+`)
 func envName(s string) string {
 	return strings.Trim(nonEnv.ReplaceAllString(strings.ToUpper(foldAccents(s)), "_"), "_")
 }
+
+const secretMask = "••••"
+
+// MaskSecrets hides the values findSecrets would report, line by line, so code
+// can be shown on screen. Placeholders (os.getenv, ${X}…) stay as they are.
+func MaskSecrets(text string) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		ms := secretAssignment.FindAllStringSubmatchIndex(line, -1)
+		for k := len(ms) - 1; k >= 0; k-- {
+			s, e := ms[k][4], ms[k][5]
+			if !looksLikePlaceholder(line[s:e]) {
+				line = line[:s] + secretMask + line[e:]
+			}
+		}
+		for _, p := range secretTokenPatterns {
+			line = p.re.ReplaceAllString(line, secretMask)
+		}
+		lines[i] = line
+	}
+	return strings.Join(lines, "\n")
+}
