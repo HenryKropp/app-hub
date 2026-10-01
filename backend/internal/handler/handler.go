@@ -35,6 +35,9 @@ type Handler struct {
 	waitFolder time.Duration
 	tick       time.Duration
 
+	// Items per history page.
+	historyPage int
+
 	uploads *uploadHub
 
 	// One version check per app at a time.
@@ -51,8 +54,9 @@ func New(q *sqlc.Queries, cfg config.Config) *Handler {
 	return &Handler{
 		q: q, cfg: cfg,
 		waitNext: 25 * time.Second, waitFile: 60 * time.Second, waitFolder: 5 * time.Minute, tick: 300 * time.Millisecond,
-		uploads: newUploadHub(),
-		locks:   map[int64]*sync.Mutex{}, scans: map[int64]scanCache{},
+		historyPage: 50,
+		uploads:     newUploadHub(),
+		locks:       map[int64]*sync.Mutex{}, scans: map[int64]scanCache{},
 	}
 }
 
@@ -73,6 +77,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/scan", h.scan)
 	mux.HandleFunc("GET /api/apps", h.listApps)
 	mux.HandleFunc("GET /api/apps/{id}", h.getApp)
+	mux.HandleFunc("GET /api/apps/{id}/history", h.appHistory)
 	mux.HandleFunc("POST /api/apps", h.saveApp)
 	mux.HandleFunc("POST /api/apps/{id}/runs", h.startRun)
 	mux.HandleFunc("GET /api/apps/{id}/runs", h.listAppRuns)
