@@ -94,18 +94,24 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "connected computer", err)
 		return
 	}
-	v, _, err := h.checkVersion(ctx, a)
+	// Hold the app lock from the version check until the job is queued, so a
+	// restore cannot rewrite the folder between recording the version and the run.
+	unlock := h.lockApp(a.ID)
+	v, _, _, err := h.checkVersionLocked(ctx, a)
 	if err != nil {
 		slog.Error("version check", "app", a.ID, "err", err)
 	}
 	versionID := pgtype.Int8{Int64: v.ID, Valid: v.ID != 0}
 	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: me.ID, ComputerID: comp.ID, OutputFolder: out, VersionID: versionID})
 	if err != nil {
+		unlock()
 		internalError(w, "create run", err)
 		return
 	}
 	payload := agentproto.RunPayload{RunID: run.ID, AppFolder: appFolder, Exe: m.Entrypoint, OutputFolder: out}
-	if _, err := h.enqueue(ctx, comp.ID, &run.ID, agentproto.KindRun, payload); err != nil {
+	_, err = h.enqueue(ctx, comp.ID, &run.ID, agentproto.KindRun, payload)
+	unlock()
+	if err != nil {
 		internalError(w, "enqueue run", err)
 		return
 	}

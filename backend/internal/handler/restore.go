@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -16,6 +18,7 @@ type restoreJSON struct {
 	Number int32              `json:"number"`
 	Done   []string           `json:"done"`
 	Failed []versions.Failure `json:"failed"`
+	Error  string             `json:"error,omitempty"`
 }
 
 // prepareRestore runs the checks shared by preview and restore, with the app
@@ -82,20 +85,29 @@ func (h *Handler) restoreVersion(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ctx := r.Context()
-	plan := versions.PlanRestore(snap, targetSnap)
-	blob := func(sha string) ([]byte, error) { return h.q.GetCodeBlob(ctx, sha) }
-	folder := folderOf(a)
-	done, failed := versions.ApplyRestore(folder, plan, targetSnap, blob, versions.TrashFolder(time.Now()))
-
 	var m manifest.Manifest
 	if err := json.Unmarshal(a.Manifest, &m); err != nil {
 		internalError(w, "decode manifest", err)
 		return
 	}
+	// From here files change on disk: finish and record even if the client leaves.
+	ctx := context.WithoutCancel(r.Context())
+	plan := versions.PlanRestore(snap, targetSnap)
+	blob := func(sha string) ([]byte, error) { return h.q.GetCodeBlob(ctx, sha) }
+	folder := folderOf(a)
+	done, failed := versions.ApplyRestore(folder, plan, targetSnap, blob, versions.TrashFolder(time.Now()))
+	if done == nil {
+		done = []string{}
+	}
+	if failed == nil {
+		failed = []versions.Failure{}
+	}
+
 	after, contents, err := versions.Scan(folder, m.Outputs, snap)
 	if err != nil {
-		internalError(w, "scan after restore", err)
+		slog.Error("scan after restore", "app", a.ID, "err", err)
+		writeJSON(w, http.StatusConflict, restoreJSON{Done: done, Failed: failed,
+			Error: "Voltei parte do código, mas não consegui conferir a pasta depois. Abra a ficha de novo para registrar como ela ficou."})
 		return
 	}
 	v, err := h.insertVersion(ctx, a, snap, after, contents, "restore",
@@ -105,8 +117,5 @@ func (h *Handler) restoreVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.storeScan(a.ID, v.Number, after) // new number bypasses the old cache entry; keep it fresh anyway
-	if failed == nil {
-		failed = []versions.Failure{}
-	}
 	writeJSON(w, http.StatusOK, restoreJSON{Number: v.Number, Done: done, Failed: failed})
 }
