@@ -74,7 +74,9 @@ A numeração segue a especificação do produto.
 - **Apps com tela própria (web):** o Hub sobe o app e abre a tela dele.
 - **Apps de desktop e executáveis:** o Hub abre o app.
 - **Agente do Hub (Fase 4, 2026-09-30):** apps com janela abrem pelo Agente, um programa pequeno e invisível instalado no Windows de cada pessoa (ADR 004). A pessoa instala e conecta uma vez em **Meu computador**. O app sempre abre no computador de quem clicou em Rodar.
-  - **Onde salvar:** antes de abrir, o Hub pergunta onde salvar os resultados. O padrão é a pasta do app, e a pessoa pode escolher outra pela janela de pastas do Windows.
+  - **Rodar em poucos cliques (2026-10-01):** o botão Rodar fica também no cartão do catálogo. A pessoa continua na página onde estava e acompanha por uma **faixa de andamento** embaixo da tela ("Abrindo…", "aberto no seu computador", "terminou: N arquivos novos — Ver e baixar", erros com o próximo passo). A faixa vem do Hub: aparece igual depois de recarregar ou em outra aba, até a pessoa dispensar.
+  - **Onde salvar:** na primeira vez de cada pessoa em cada app, o Hub pergunta onde salvar os resultados. O padrão é a pasta do app, e a pessoa pode escolher outra pela janela de pastas do Windows. A caixinha **Lembrar esta pasta** (marcada) faz as próximas vezes abrirem direto, com um clique. Na ficha aparece "salva em … · trocar".
+  - **Minhas execuções:** item da barra lateral para todos, com o número de apps abertos agora. Lista as execuções da pessoa (o administrador pode ver as de todos), com Ver e baixar e **Rodar de novo** na mesma pasta.
   - **Resultado:** ao fechar a janela, o Hub mostra todo arquivo novo ou alterado, em grupos pelas saídas da ficha, mais "Outros arquivos".
   - **Downloads:** os arquivos ficam na pasta. Ao clicar em Baixar (um arquivo ou o grupo em .zip), o Agente envia na hora. Por isso é preciso que o computador esteja ligado.
   - **Quem vê:** até a Fase 6, só quem rodou e os administradores veem e baixam uma execução.
@@ -88,7 +90,7 @@ A numeração segue a especificação do produto.
 - Apps que não rodam pelo Hub (documentos, planilhas com macro, sistemas complexos) aparecem só com ficha.
 
 ### 3.4 Catálogo e descoberta (1.4)
-- Tela inicial com os apps em cartões: nome, resumo, responsável, status e último uso.
+- Tela inicial com os apps em cartões: nome, resumo, responsável, status e último uso. Apps que rodam pelo Hub têm o botão **Rodar** no próprio cartão.
 - Busca simples por nome, resumo e etiquetas.
 - Filtro por área (ex.: Investimentos, Operações, RI) e por status.
 - Favoritos por pessoa.

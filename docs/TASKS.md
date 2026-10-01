@@ -35,14 +35,19 @@ Status: Pending / In Progress / Done / Blocked
 Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep) antes de registrar mais apps.** Fase 4 para apps com janela e `.exe` feita e testada de verdade (2026-09-30). Ordem combinada depois da decisão do App Hub (ADR 005):
 1. ~~Atualização automática do Agente~~ Feita e testada de verdade (2026-09-30)
 2. ~~**Fase 5:** histórico de mudanças no código e na ficha, e voltar atrás~~ Feita e testada de verdade no Files Prep (2026-10-01)
-3. **Acabamento:** ← próxima; tela da ficha com os campos da v0.2 (opções, várias escolhas, `depends_on`, `build`); barra lateral não vai até o fim em páginas compridas
+3. **UX em 3 etapas** (desenho: `docs/superpowers/specs/2026-10-01-etapa-1-rodar-poucos-cliques-design.md`; protótipo: `2026-10-01-prototipo-ux.html`):
+   - **Etapa 1, rodar em poucos cliques:** código pronto e testado (2026-10-01), falta reiniciar o Hub, conferir as telas e o teste de verdade com o Henry. Ficha abre na hora, Rodar no cartão, pasta lembrada, faixa de andamento, Minhas execuções
+   - Etapa 2, ficha por perfil (abas Usar/Cuidar, editar por seção, campos da v0.2): ← próxima, desenho próprio
+   - Etapa 3, catálogo e primeiro uso (favoritos, filtro por área, status e "usado há…", guia do Agente): depois
 4. Rodar scripts: formulário automático e ambiente preparado sozinho
 5. App Hub: ícone perto do relógio, janela própria e instalador único (etapas 2 e 3), antes de o primeiro colega entrar
 6. Assinatura digital do App Hub (etapa 4), antes de vender
 7. Depois: retomar a Fase 2b (teste com mais 4 apps e MCP)
 
-**Para a próxima sessão (deixado em 2026-10-01):**
-- Começar pelo **acabamento** (item 3). Seguir o fluxo: desenho → plano → implementação.
+**Para a próxima sessão (deixado em 2026-10-01, à noite):**
+- A Etapa 1 foi feita sem o Henry por perto. Antes de tudo: **reiniciar o Hub da porta 8080** (o mesmo banco; a migração 006 entra sozinha) e conferir as telas no navegador: catálogo com Rodar, faixa embaixo, Minhas execuções, ficha com "salva em … · trocar", claro/escuro/celular, e se a barra lateral acompanha a rolagem numa página comprida.
+- Depois, o teste de verdade no Files Prep, um passo por vez: faixa vazia ao abrir (execuções antigas não aparecem); ficha abre na hora; Rodar no cartão → janela com "Lembrar esta pasta" → Abrir app; faixa "aberto…" e depois "terminou — Ver e baixar"; Rodar no cartão de novo abre direto; Minhas execuções → Rodar de novo.
+- Seguir o fluxo: desenho → plano → implementação para a Etapa 2.
 - O Agente no PC do Henry está na **0.2.3** e se atualiza sozinho. O código do Hub também está na 0.2.3, e `dist/agent/AppHubAgente.exe` da pasta principal já é essa versão.
 - Para publicar um Agente novo: subir `agentproto.Version`, rodar `scripts/build-agent.sh` e reiniciar o Hub.
 - Nunca ligar um Hub de teste (com outro banco) na porta 8080: o Agente real fala com ele e esquece a conexão.
@@ -74,7 +79,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Catálogo em cartões com busca e filtro por área/status | In Progress | Cartões e busca simples prontos; faltam filtros por área/status |
+| Catálogo em cartões com busca e filtro por área/status | In Progress | Cartões, busca simples e botão Rodar no cartão prontos (Etapa 1 da UX); faltam filtros por área/status (Etapa 3) |
 | Favoritos por pessoa | Pending | |
 | Ficha do app (visualização e edição) | In Progress | Visualização básica pronta; edição direto na ficha pendente (hoje: reanalisar a pasta e "Atualizar ficha") |
 
@@ -97,7 +102,8 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Formulário automático a partir do manifesto | Pending | Arquivo, data, número, texto, lista |
 | Progresso ao vivo e resultado (texto, tabela, downloads) | Pending | |
 | Apps web: subir e abrir; desktop/executável: abrir | Pending | |
-| Repetir execução | Pending | Registro já feito (acima); falta rodar de novo com as mesmas escolhas |
+| Repetir execução | In Progress | Apps com janela: **Rodar de novo** na mesma pasta, em Minhas execuções e na página da execução (Etapa 1 da UX). Scripts: falta repetir com as mesmas entradas |
+| Rodar em poucos cliques (Etapa 1 da UX) | In Progress | Feito: Rodar no cartão, pasta lembrada por pessoa e app ("Lembrar esta pasta"), faixa de andamento embaixo (sobrevive a recarregar), Minhas execuções (50 por vez, "De todos" para admin), ficha abre sem esperar a pasta (ADR 007). Falta: conferência visual e teste de verdade com o Henry |
 
 ## Fase 5 — Versões (1.6)
 
@@ -107,7 +113,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Histórico, comparação e voltar atrás | Done | Página da versão (O que mudou / Como estava); voltar com prévia, versão de segurança e lixeira. Testado de verdade no Files Prep (2026-10-01) |
 | Histórico de mudanças na ficha | Done | Campo por campo, só registrado (não se restaura) |
 | Linha do tempo única: código + ficha + execuções | Done | Seção Histórico na ficha, com filtro e "Carregar mais"; execução mostra a versão usada |
-| Sobras da Fase 5 | Pending | Manifesto do Files Prep não lista os `.zip` que o app baixa (entram no histórico como binários); limpar versões antigas; página da versão: respostas fora de ordem ao trocar de versão, erro esconde a página inteira, sem teste de quem vê Descrever/Voltar; leitura travada do OneDrive dentro da trava do app pode segurar a ficha; erro ao gravar a versão depois de voltar devolve um erro genérico; a máscara de chaves esconde um pouco a mais (ex.: `token = settings.TOKEN`); a ficha e o histórico conferem a pasta duas vezes seguidas; um arquivo que some no meio da conferência faz a conferência falhar; duas restaurações no mesmo segundo usam a mesma lixeira; a primeira conferência lê todos os arquivos, inclusive os que estão só na nuvem |
+| Sobras da Fase 5 | Pending | Manifesto do Files Prep não lista os `.zip` que o app baixa (entram no histórico como binários); limpar versões antigas; página da versão: respostas fora de ordem ao trocar de versão, erro esconde a página inteira, sem teste de quem vê Descrever/Voltar; leitura travada do OneDrive dentro da trava do app pode segurar a ficha; erro ao gravar a versão depois de voltar devolve um erro genérico; a máscara de chaves esconde um pouco a mais (ex.: `token = settings.TOKEN`); um arquivo que some no meio da conferência faz a conferência falhar; duas restaurações no mesmo segundo usam a mesma lixeira; a primeira conferência lê todos os arquivos, inclusive os que estão só na nuvem |
 
 ## Fase 6 — Acesso e cofre (1.7)
 
