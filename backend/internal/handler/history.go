@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -119,7 +120,7 @@ func (h *Handler) appHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	if r.URL.Query().Get("before") == "" {
-		if _, _, err := h.checkVersion(ctx, a); err != nil {
+		if _, _, err := h.checkVersion(context.WithoutCancel(ctx), a); err != nil {
 			slog.Error("version check", "app", a.ID, "err", err)
 		}
 	}
