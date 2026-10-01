@@ -38,7 +38,7 @@ describe("ReviewForm", () => {
 
   test("removing an input and publishing sends the edited manifest", async () => {
     const user = userEvent.setup()
-    const save = vi.spyOn(api, "saveApp").mockResolvedValue({ id: 9, folder_path: "", folder_display: "", owner_id: 1, backup_id: 2, manifest: manifest(), updated_at: "", can_run: false, version: null, folder_readable: true })
+    const save = vi.spyOn(api, "saveApp").mockResolvedValue({ id: 9, folder_path: "", folder_display: "", owner_id: 1, backup_id: 2, manifest: manifest(), updated_at: "", can_run: false, version: null, folder_readable: true, remembered_folder: "" })
     const onPublished = vi.fn()
     render(<ReviewForm item={scanItem()} people={[henry, ana]} me={henry} onPublished={onPublished} onSkip={() => {}} />)
 

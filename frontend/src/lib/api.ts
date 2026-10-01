@@ -77,6 +77,8 @@ export type AppSummary = {
   owner_name: string
   backup_id: number | null
   updated_at: string
+  can_run: boolean
+  remembered_folder: string
 }
 
 export type AppDetail = {
@@ -90,6 +92,7 @@ export type AppDetail = {
   can_run: boolean
   version: { number: number; created_at: string } | null
   folder_readable: boolean
+  remembered_folder: string
 }
 
 export type UpdateState = "" | "updating" | "updated" | "gave_up"
@@ -107,6 +110,16 @@ export type Run = {
   status: RunStatus; exit_code: number | null; error_message: string; app_version: string; version_number: number | null
   created_at: string; started_at: string | null; finished_at: string | null; groups: RunGroup[]
 }
+export type ActiveRun = {
+  id: number; app_id: number; app_name: string; status: RunStatus; error_message: string
+  file_count: number; created_at: string; finished_at: string | null
+}
+export type RunListItem = {
+  id: number; app_id: number; app_name: string; status: RunStatus; output_folder: string; person_name: string
+  created_at: string; started_at: string | null; finished_at: string | null; file_count: number
+}
+export type RunList = { items: RunListItem[]; more: boolean }
+export type AppCheck = { folder_readable: boolean; version: { number: number; created_at: string } | null }
 export type RunSummary = { id: number; status: RunStatus; person_name: string; created_at: string; started_at: string | null; finished_at: string | null; file_count: number }
 
 export type VersionSummary = { added: number; removed: number; modified: number; binaries: string[] | null }
@@ -170,7 +183,13 @@ export const api = {
   pairing: (code: string) => request<Pairing>("GET", `/api/pairings/${encodeURIComponent(code)}`),
   approvePairing: (code: string) => request<void>("POST", `/api/pairings/${encodeURIComponent(code)}/approve`),
   chooseFolder: (initial: string) => request<{ folder: string; canceled: boolean }>("POST", "/api/choose-folder", { initial }),
-  startRun: (appId: number, output_folder: string) => request<Run>("POST", `/api/apps/${appId}/runs`, { output_folder }),
+  startRun: (appId: number, output_folder: string, remember?: boolean) =>
+    request<Run>("POST", `/api/apps/${appId}/runs`, remember === undefined ? { output_folder } : { output_folder, remember }),
+  checkApp: (id: number | string) => request<AppCheck>("POST", `/api/apps/${id}/check`),
+  activeRuns: () => request<ActiveRun[]>("GET", "/api/runs/active"),
+  dismissRun: (id: number) => request<void>("POST", `/api/runs/${id}/dismiss`),
+  runs: (scope: "mine" | "all", before?: number) =>
+    request<RunList>("GET", `/api/runs?scope=${scope}${before ? `&before=${before}` : ""}`),
   appRuns: (appId: number | string) => request<RunSummary[]>("GET", `/api/apps/${appId}/runs`),
   history: (appId: number | string, filter: HistoryFilter, before?: string) =>
     request<History>("GET", `/api/apps/${appId}/history?type=${filter}${before ? `&before=${encodeURIComponent(before)}` : ""}`),
