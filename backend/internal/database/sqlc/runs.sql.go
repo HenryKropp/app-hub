@@ -39,6 +39,20 @@ func (q *Queries) AddRunFile(ctx context.Context, arg AddRunFileParams) error {
 	return err
 }
 
+const clearRunFolder = `-- name: ClearRunFolder :exec
+DELETE FROM run_folders WHERE person_id = $1 AND app_id = $2
+`
+
+type ClearRunFolderParams struct {
+	PersonID int64 `json:"person_id"`
+	AppID    int64 `json:"app_id"`
+}
+
+func (q *Queries) ClearRunFolder(ctx context.Context, arg ClearRunFolderParams) error {
+	_, err := q.db.Exec(ctx, clearRunFolder, arg.PersonID, arg.AppID)
+	return err
+}
+
 const createRun = `-- name: CreateRun :one
 INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id)
 VALUES ($1, $2, $3, $4, $5)
@@ -78,6 +92,24 @@ func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, erro
 		&i.VersionID,
 	)
 	return i, err
+}
+
+const dismissRun = `-- name: DismissRun :execrows
+UPDATE runs SET dismissed_at = now()
+WHERE id = $1 AND person_id = $2 AND dismissed_at IS NULL
+`
+
+type DismissRunParams struct {
+	ID       int64 `json:"id"`
+	PersonID int64 `json:"person_id"`
+}
+
+func (q *Queries) DismissRun(ctx context.Context, arg DismissRunParams) (int64, error) {
+	result, err := q.db.Exec(ctx, dismissRun, arg.ID, arg.PersonID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const finishRun = `-- name: FinishRun :exec
@@ -186,6 +218,72 @@ func (q *Queries) GetRunFile(ctx context.Context, arg GetRunFileParams) (RunFile
 	return i, err
 }
 
+const getRunFolder = `-- name: GetRunFolder :one
+SELECT folder FROM run_folders WHERE person_id = $1 AND app_id = $2
+`
+
+type GetRunFolderParams struct {
+	PersonID int64 `json:"person_id"`
+	AppID    int64 `json:"app_id"`
+}
+
+func (q *Queries) GetRunFolder(ctx context.Context, arg GetRunFolderParams) (string, error) {
+	row := q.db.QueryRow(ctx, getRunFolder, arg.PersonID, arg.AppID)
+	var folder string
+	err := row.Scan(&folder)
+	return folder, err
+}
+
+const listActiveRuns = `-- name: ListActiveRuns :many
+SELECT r.id, r.app_id, a.name AS app_name, r.status, r.error_message, r.created_at, r.finished_at,
+       (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count
+FROM runs r
+JOIN apps a ON a.id = r.app_id
+WHERE r.person_id = $1 AND r.dismissed_at IS NULL
+ORDER BY r.id DESC
+LIMIT 10
+`
+
+type ListActiveRunsRow struct {
+	ID           int64              `json:"id"`
+	AppID        int64              `json:"app_id"`
+	AppName      string             `json:"app_name"`
+	Status       string             `json:"status"`
+	ErrorMessage string             `json:"error_message"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
+	FileCount    int64              `json:"file_count"`
+}
+
+func (q *Queries) ListActiveRuns(ctx context.Context, personID int64) ([]ListActiveRunsRow, error) {
+	rows, err := q.db.Query(ctx, listActiveRuns, personID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveRunsRow
+	for rows.Next() {
+		var i ListActiveRunsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AppID,
+			&i.AppName,
+			&i.Status,
+			&i.ErrorMessage,
+			&i.CreatedAt,
+			&i.FinishedAt,
+			&i.FileCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAppRuns = `-- name: ListAppRuns :many
 SELECT r.id, r.status, r.created_at, r.started_at, r.finished_at, r.person_id, p.name AS person_name,
        (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count
@@ -273,6 +371,122 @@ func (q *Queries) ListRunFiles(ctx context.Context, runID int64) ([]RunFile, err
 		return nil, err
 	}
 	return items, nil
+}
+
+const listRunFolders = `-- name: ListRunFolders :many
+SELECT app_id, folder FROM run_folders WHERE person_id = $1
+`
+
+type ListRunFoldersRow struct {
+	AppID  int64  `json:"app_id"`
+	Folder string `json:"folder"`
+}
+
+func (q *Queries) ListRunFolders(ctx context.Context, personID int64) ([]ListRunFoldersRow, error) {
+	rows, err := q.db.Query(ctx, listRunFolders, personID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRunFoldersRow
+	for rows.Next() {
+		var i ListRunFoldersRow
+		if err := rows.Scan(&i.AppID, &i.Folder); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRuns = `-- name: ListRuns :many
+SELECT r.id, r.app_id, a.name AS app_name, r.status, r.output_folder, r.created_at, r.started_at, r.finished_at,
+       r.person_id, p.name AS person_name,
+       (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count
+FROM runs r
+JOIN apps a ON a.id = r.app_id
+JOIN people p ON p.id = r.person_id
+WHERE ($1::boolean OR r.person_id = $2)
+  AND ($3::bigint = 0 OR r.id < $3::bigint)
+ORDER BY r.id DESC
+LIMIT $4
+`
+
+type ListRunsParams struct {
+	SeeAll   bool  `json:"see_all"`
+	PersonID int64 `json:"person_id"`
+	Before   int64 `json:"before"`
+	Lim      int32 `json:"lim"`
+}
+
+type ListRunsRow struct {
+	ID           int64              `json:"id"`
+	AppID        int64              `json:"app_id"`
+	AppName      string             `json:"app_name"`
+	Status       string             `json:"status"`
+	OutputFolder string             `json:"output_folder"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	StartedAt    pgtype.Timestamptz `json:"started_at"`
+	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
+	PersonID     int64              `json:"person_id"`
+	PersonName   string             `json:"person_name"`
+	FileCount    int64              `json:"file_count"`
+}
+
+func (q *Queries) ListRuns(ctx context.Context, arg ListRunsParams) ([]ListRunsRow, error) {
+	rows, err := q.db.Query(ctx, listRuns,
+		arg.SeeAll,
+		arg.PersonID,
+		arg.Before,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRunsRow
+	for rows.Next() {
+		var i ListRunsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AppID,
+			&i.AppName,
+			&i.Status,
+			&i.OutputFolder,
+			&i.CreatedAt,
+			&i.StartedAt,
+			&i.FinishedAt,
+			&i.PersonID,
+			&i.PersonName,
+			&i.FileCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setRunFolder = `-- name: SetRunFolder :exec
+INSERT INTO run_folders (person_id, app_id, folder) VALUES ($1, $2, $3)
+ON CONFLICT (person_id, app_id) DO UPDATE SET folder = EXCLUDED.folder, updated_at = now()
+`
+
+type SetRunFolderParams struct {
+	PersonID int64  `json:"person_id"`
+	AppID    int64  `json:"app_id"`
+	Folder   string `json:"folder"`
+}
+
+func (q *Queries) SetRunFolder(ctx context.Context, arg SetRunFolderParams) error {
+	_, err := q.db.Exec(ctx, setRunFolder, arg.PersonID, arg.AppID, arg.Folder)
+	return err
 }
 
 const startRun = `-- name: StartRun :exec

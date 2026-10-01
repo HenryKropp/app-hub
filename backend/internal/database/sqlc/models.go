@@ -126,6 +126,13 @@ type RunFile struct {
 	GroupLabel string             `json:"group_label"`
 }
 
+type RunFolder struct {
+	PersonID  int64              `json:"person_id"`
+	AppID     int64              `json:"app_id"`
+	Folder    string             `json:"folder"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Session struct {
 	Token     string             `json:"token"`
 	PersonID  int64              `json:"person_id"`
