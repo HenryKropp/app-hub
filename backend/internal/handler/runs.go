@@ -97,11 +97,12 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 	// Hold the app lock from the version check until the job is queued, so a
 	// restore cannot rewrite the folder between recording the version and the run.
 	unlock := h.lockApp(a.ID)
-	v, _, _, err := h.checkVersionLocked(ctx, a)
+	v, _, readable, err := h.checkVersionLocked(ctx, a)
 	if err != nil {
 		slog.Error("version check", "app", a.ID, "err", err)
 	}
-	versionID := pgtype.Int8{Int64: v.ID, Valid: v.ID != 0}
+	// Only a version the Hub just confirmed in the folder is linked to the run.
+	versionID := pgtype.Int8{Int64: v.ID, Valid: readable && v.ID != 0}
 	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: me.ID, ComputerID: comp.ID, OutputFolder: out, VersionID: versionID})
 	if err != nil {
 		unlock()

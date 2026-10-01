@@ -46,3 +46,19 @@ test("409 with body shows the error and the lists", async () => {
   expect(screen.getByText("a.py")).toBeInTheDocument()
   expect(screen.getByText("b.py (travado)")).toBeInTheDocument()
 })
+
+test("explains files without a copy that go to the trash before coming back", async () => {
+  vi.spyOn(api, "restorePreview").mockResolvedValue({
+    plan: { rewrite: ["dados.json"], recreate: [], to_trash: ["dados.json"], binaries: [] }, current: 3,
+  })
+  render(<RestoreDialog appId={3} number={1} open onOpenChange={vi.fn()} onDone={vi.fn()} />)
+  expect(await screen.findByText("Arquivos que ainda não têm cópia no Hub vão para a lixeira antes de voltar.")).toBeInTheDocument()
+  expect(screen.getAllByText("dados.json")).toHaveLength(2)
+})
+
+test("no explanation when the trash only has extra files", async () => {
+  vi.spyOn(api, "restorePreview").mockResolvedValue({ plan, current: 3 })
+  render(<RestoreDialog appId={3} number={1} open onOpenChange={vi.fn()} onDone={vi.fn()} />)
+  await screen.findByText("Vão para a lixeira")
+  expect(screen.queryByText(/ainda não têm cópia/)).not.toBeInTheDocument()
+})

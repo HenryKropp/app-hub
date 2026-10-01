@@ -55,6 +55,18 @@ func (h *Handler) prepareRestore(w http.ResponseWriter, r *http.Request, a sqlc.
 	return cur, snap, true
 }
 
+// planRestore looks at the folder too, so files with no copy in the Hub are
+// listed for the trash before anything is written over them.
+func planRestore(w http.ResponseWriter, a sqlc.App, snap, targetSnap versions.Snapshot) (versions.RestorePlan, bool) {
+	plan, err := versions.PlanRestoreIn(folderOf(a), snap, targetSnap)
+	if err != nil {
+		slog.Error("plan restore", "app", a.ID, "err", err)
+		writeError(w, http.StatusConflict, "Não consegui ler a pasta do app. Confira se ela existe e se o OneDrive está sincronizado.")
+		return plan, false
+	}
+	return plan, true
+}
+
 func (h *Handler) restorePreview(w http.ResponseWriter, r *http.Request) {
 	if _, ok := h.requireRole(w, r, "admin", "criador"); !ok {
 		return
@@ -68,7 +80,11 @@ func (h *Handler) restorePreview(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"plan": versions.PlanRestore(snap, targetSnap), "current": cur.Number})
+	plan, ok := planRestore(w, a, snap, targetSnap)
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"plan": plan, "current": cur.Number})
 }
 
 func (h *Handler) restoreVersion(w http.ResponseWriter, r *http.Request) {
@@ -92,7 +108,10 @@ func (h *Handler) restoreVersion(w http.ResponseWriter, r *http.Request) {
 	}
 	// From here files change on disk: finish and record even if the client leaves.
 	ctx := context.WithoutCancel(r.Context())
-	plan := versions.PlanRestore(snap, targetSnap)
+	plan, ok := planRestore(w, a, snap, targetSnap)
+	if !ok {
+		return
+	}
 	blob := func(sha string) ([]byte, error) { return h.q.GetCodeBlob(ctx, sha) }
 	folder := folderOf(a)
 	done, failed := versions.ApplyRestore(folder, plan, targetSnap, blob, versions.TrashFolder(time.Now()))

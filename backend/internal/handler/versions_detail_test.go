@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -95,5 +98,29 @@ func TestDescribeVersion(t *testing.T) {
 	}
 	if code := c.do("PATCH", appPath(id, "/versions/1"), map[string]any{"description": strings.Repeat("x", 2001)}, nil); code != http.StatusBadRequest {
 		t.Fatalf("too long %d", code)
+	}
+}
+
+func TestVersionContentMasksEnvFile(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	id, dir := codeApp(t, c)
+	if err := os.WriteFile(filepath.Join(dir, ".env"), []byte("HOST=db.local\nDB_PASSWORD=Sup3rSecret99\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c.do("GET", appPath(id, ""), nil, nil)
+	var got struct{ Path, Text string }
+	if code := c.do("GET", appPath(id, "/versions/2/content?path="+url.QueryEscape(".env")), nil, &got); code != http.StatusOK {
+		t.Fatalf("content %d", code)
+	}
+	if got.Text != "HOST=••••\nDB_PASSWORD=••••\n" {
+		t.Fatalf("masked %q", got.Text)
+	}
+	var ch json.RawMessage
+	if code := c.do("GET", appPath(id, "/versions/2/changes"), nil, &ch); code != http.StatusOK {
+		t.Fatalf("changes %d", code)
+	}
+	if b := string(ch); !strings.Contains(b, ".env") || strings.Contains(b, "Sup3rSecret99") || strings.Contains(b, "db.local") {
+		t.Fatalf("changes must list .env without its values: %s", b)
 	}
 }

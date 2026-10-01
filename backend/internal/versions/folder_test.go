@@ -37,3 +37,23 @@ func TestLocalFolderRefusesEscapes(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestLocalFolderExists(t *testing.T) {
+	root := t.TempDir()
+	f := LocalFolder{Root: root}
+	if err := os.WriteFile(filepath.Join(root, "a.py"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "nowhere"), filepath.Join(root, "link.py")); err != nil {
+		t.Skip(err)
+	}
+	for rel, want := range map[string]bool{"a.py": true, "link.py": true, "b.py": false, "sub/c.py": false} {
+		got, err := f.Exists(rel)
+		if err != nil || got != want {
+			t.Errorf("Exists(%q) = %v, %v", rel, got, err)
+		}
+	}
+	if _, err := f.Exists("../x"); err == nil {
+		t.Error("Exists must refuse paths outside the folder")
+	}
+}

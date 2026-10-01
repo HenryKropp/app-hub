@@ -1,8 +1,10 @@
 package scanner
 
 import (
+	"path"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // SecretFinding points at a probable secret. The value itself is never kept.
@@ -26,7 +28,17 @@ var secretTokenPatterns = []struct {
 	{regexp.MustCompile(`hf_[A-Za-z0-9]{30,}`), "Token do Hugging Face"},
 }
 
-var secretAssignment = regexp.MustCompile(`(?i)(?:^|[^\w\-])([\w\-]*?(?:api[_\-]?key|apikey|secret|token|password|passwd|senha|pwd)[\w\-]*)["']?\s*[:=]\s*[fbrFBR]?["']([^"'\s]{8,})["']`)
+// secretName matches a variable or key name that holds a secret.
+const secretName = `[\w\-]*?(?:api[_\-]?key|apikey|secret|token|password|passwd|senha|pwd)[\w\-]*`
+
+var secretAssignment = regexp.MustCompile(`(?i)(?:^|[^\w\-])(` + secretName + `)["']?\s*[:=]\s*[fbrFBR]?["']([^"'\s]{8,})["']`)
+
+// unquotedSecret is a config-style line (NAME=value, name: value, export
+// NAME=value, a YAML list item) whose value has no quotes. Group 2 is the value.
+var unquotedSecret = regexp.MustCompile(`(?i)^(\s*(?:-\s+)?(?:export\s+)?["']?` + secretName + `["']?\s*[:=]\s*)([^\s"'#][^\s#]*)`)
+
+// envLine is any NAME=value line of a .env file. Group 2 is the value.
+var envLine = regexp.MustCompile(`^(\s*(?:export\s+)?[A-Za-z_][\w.\-]*\s*=\s*)(\S.*?)\s*$`)
 
 var placeholderWords = []string{"replace", "your", "seu_", "sua_", "xxxx", "example", "exemplo", "changeme", "<", "${", "{{", "os.environ", "getenv", "none", "null", "placeholder"}
 
@@ -75,11 +87,39 @@ func envName(s string) string {
 
 const secretMask = "••••"
 
+// isEnvFile reports whether a path is a .env file (.env, prod.env, .env.local…).
+func isEnvFile(rel string) bool {
+	base := path.Base(strings.ReplaceAll(rel, "\\", "/"))
+	return base == ".env" || strings.HasSuffix(base, ".env") || strings.HasPrefix(base, ".env.")
+}
+
+// MaskSecretsIn is MaskSecrets for a file at rel: in .env files every value
+// is hidden, whatever its name.
+func MaskSecretsIn(rel, text string) string {
+	if isEnvFile(rel) {
+		lines := strings.Split(text, "\n")
+		for i, line := range lines {
+			if m := envLine.FindStringSubmatchIndex(line); m != nil && utf8.RuneCountInString(line[m[4]:m[5]]) >= 4 {
+				lines[i] = line[:m[4]] + secretMask + line[m[5]:]
+			}
+		}
+		text = strings.Join(lines, "\n")
+	}
+	return MaskSecrets(text)
+}
+
 // MaskSecrets hides the values findSecrets would report, line by line, so code
-// can be shown on screen. Placeholders (os.getenv, ${X}…) stay as they are.
+// can be shown on screen, plus unquoted values of secret-named keys in
+// config-style lines. Placeholders (os.getenv, ${X}…) stay as they are.
 func MaskSecrets(text string) string {
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
+		if m := unquotedSecret.FindStringSubmatchIndex(line); m != nil {
+			v := line[m[4]:m[5]]
+			if utf8.RuneCountInString(v) >= 4 && !strings.Contains(v, "(") && !looksLikePlaceholder(v) {
+				line = line[:m[4]] + secretMask + line[m[5]:]
+			}
+		}
 		ms := secretAssignment.FindAllStringSubmatchIndex(line, -1)
 		for k := len(ms) - 1; k >= 0; k-- {
 			s, e := ms[k][4], ms[k][5]

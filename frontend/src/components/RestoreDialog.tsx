@@ -54,6 +54,8 @@ export function RestoreDialog({ appId, number, open, onOpenChange, onDone }: {
   }
 
   const nothing = plan && plan.rewrite.length + plan.recreate.length + plan.to_trash.length === 0
+  // A path in the trash list and in a "voltam" list has no copy in the Hub yet.
+  const trashedFirst = plan ? plan.to_trash.some((p) => plan.rewrite.includes(p) || plan.recreate.includes(p)) : false
 
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
@@ -71,6 +73,9 @@ export function RestoreDialog({ appId, number, open, onOpenChange, onDone }: {
             <Files title="Voltam ao que eram" list={plan.rewrite} />
             <Files title="Voltam a existir" list={plan.recreate} />
             <Files title="Vão para a lixeira" list={plan.to_trash} />
+            {trashedFirst && (
+              <p className="text-muted-foreground">Arquivos que ainda não têm cópia no Hub vão para a lixeira antes de voltar.</p>
+            )}
             {plan.binaries.length > 0 && (
               <p className="flex gap-2 text-warn">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" />
