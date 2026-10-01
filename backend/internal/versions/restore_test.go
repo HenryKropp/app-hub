@@ -4,8 +4,11 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 )
 
 func TestPlanRestore(t *testing.T) {
@@ -109,5 +112,152 @@ func TestApplyRestoreWriteFailureLeavesOtherFilesAlone(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "ro", "a.py"+tempSuffix)); !os.IsNotExist(err) {
 		t.Fatal("no temp file may be left behind")
+	}
+}
+
+func readRel(t *testing.T, root, rel string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+
+// A file that is binary now (too big) has no copy in the Hub: it goes to the
+// trash before the target text is written over it.
+func TestRestoreTrashesFileThatIsBinaryNow(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "dados.json", "{\"v\":1}\n")
+	f := LocalFolder{Root: root}
+	v1, contents, err := Scan(f, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	big := strings.Repeat("x", MaxCodeSize+10)
+	write(t, root, "dados.json", big)
+	cur, _, _ := Scan(f, nil, v1)
+	if cur[0].Kind != KindBinary {
+		t.Fatalf("setup: %+v", cur[0])
+	}
+	plan, err := PlanRestoreIn(f, cur, v1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Rewrite) != 1 || len(plan.ToTrash) != 1 || plan.ToTrash[0] != "dados.json" {
+		t.Fatalf("plan %+v", plan)
+	}
+	trash := TrashFolder(time.Now())
+	done, failed := ApplyRestore(f, plan, v1, func(sha string) ([]byte, error) { return contents[sha], nil }, trash)
+	if len(failed) != 0 || len(done) != 1 {
+		t.Fatalf("done %v failed %v", done, failed)
+	}
+	if readRel(t, root, "dados.json") != "{\"v\":1}\n" || readRel(t, root, trash+"/dados.json") != big {
+		t.Fatal("big content must be in the trash and the target text in place")
+	}
+}
+
+// A file excluded from the scan (now an output) but still on disk is moved
+// to the trash before it comes back; a symlink too.
+func TestRestoreTrashesFileOnDiskButNotInSnapshot(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "config/report.json", "{\"a\":1}\n")
+	write(t, root, "link.py", "print(1)\n")
+	write(t, root, "elsewhere.txt", "alvo\n")
+	f := LocalFolder{Root: root}
+	v1, contents, err := Scan(f, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	write(t, root, "config/report.json", "{\"gerado\":true}\n")
+	os.Remove(filepath.Join(root, "link.py"))
+	if err := os.Symlink("elsewhere.txt", filepath.Join(root, "link.py")); err != nil {
+		t.Skip(err)
+	}
+	outs := []manifest.Output{{Label: "Relatórios", Pattern: "*.json"}}
+	cur, _, err := Scan(f, outs, v1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := PlanRestoreIn(f, cur, v1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Recreate) != 2 {
+		t.Fatalf("plan %+v", plan)
+	}
+	inTrash := map[string]bool{}
+	for _, p := range plan.ToTrash {
+		inTrash[p] = true
+	}
+	if !inTrash["config/report.json"] || !inTrash["link.py"] {
+		t.Fatalf("preview must list them in to_trash: %+v", plan)
+	}
+	trash := TrashFolder(time.Now())
+	done, failed := ApplyRestore(f, plan, v1, func(sha string) ([]byte, error) { return contents[sha], nil }, trash)
+	if len(failed) != 0 {
+		t.Fatalf("done %v failed %v", done, failed)
+	}
+	if readRel(t, root, "config/report.json") != "{\"a\":1}\n" || readRel(t, root, trash+"/config/report.json") != "{\"gerado\":true}\n" {
+		t.Fatal("excluded file must be trashed, then restored")
+	}
+	if fi, err := os.Lstat(filepath.Join(root, "link.py")); err != nil || fi.Mode()&os.ModeSymlink != 0 || readRel(t, root, "link.py") != "print(1)\n" {
+		t.Fatal("link.py must be the restored regular file")
+	}
+	if l, err := os.Readlink(filepath.Join(root, filepath.FromSlash(trash), "link.py")); err != nil || l != "elsewhere.txt" {
+		t.Fatalf("the symlink must be in the trash: %q %v", l, err)
+	}
+	if readRel(t, root, "elsewhere.txt") != "alvo\n" {
+		t.Fatal("link target untouched")
+	}
+}
+
+// A code file that changed is already saved in the safety version: no trash.
+func TestRestoreCodeRewriteDoesNotTrash(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "a.py", "v1\n")
+	f := LocalFolder{Root: root}
+	v1, contents, _ := Scan(f, nil, nil)
+	write(t, root, "a.py", "v2\n")
+	cur, _, _ := Scan(f, nil, v1)
+	plan, err := PlanRestoreIn(f, cur, v1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Rewrite) != 1 || len(plan.ToTrash) != 0 {
+		t.Fatalf("plan %+v", plan)
+	}
+	trash := TrashFolder(time.Now())
+	if _, failed := ApplyRestore(f, plan, v1, func(sha string) ([]byte, error) { return contents[sha], nil }, trash); len(failed) != 0 {
+		t.Fatal(failed)
+	}
+	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(trash))); !os.IsNotExist(err) {
+		t.Fatal("no trash folder for a plain code rewrite")
+	}
+}
+
+// If moving the unsaved file to the trash fails, it is not overwritten.
+func TestRestoreMoveFailureKeepsUnsavedFile(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "ro/dados.json", "{}\n")
+	f := LocalFolder{Root: root}
+	v1, contents, _ := Scan(f, nil, nil)
+	big := strings.Repeat("y", MaxCodeSize+1)
+	write(t, root, "ro/dados.json", big)
+	cur, _, _ := Scan(f, nil, v1)
+	plan, err := PlanRestoreIn(f, cur, v1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(filepath.Join(root, "ro"), 0o555); err != nil {
+		t.Skip(err)
+	}
+	defer os.Chmod(filepath.Join(root, "ro"), 0o755)
+	done, failed := ApplyRestore(f, plan, v1, func(sha string) ([]byte, error) { return contents[sha], nil }, TrashFolder(time.Now()))
+	if len(done) != 0 || len(failed) != 1 || failed[0].Path != "ro/dados.json" {
+		t.Fatalf("done %v failed %+v", done, failed)
+	}
+	if readRel(t, root, "ro/dados.json") != big {
+		t.Fatal("file must stay as it was")
 	}
 }

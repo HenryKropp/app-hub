@@ -3,9 +3,11 @@ package versions
 import (
 	"errors"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -23,6 +25,8 @@ type Folder interface {
 	Write(rel string, data []byte) error
 	// Move renames a file, creating the destination's parent folders.
 	Move(from, to string) error
+	// Exists reports whether anything (file, folder or symlink) is at rel.
+	Exists(rel string) (bool, error)
 }
 
 type LocalFolder struct{ Root string }
@@ -74,6 +78,21 @@ func (f LocalFolder) Write(rel string, data []byte) error {
 		return err
 	}
 	return nil
+}
+
+func (f LocalFolder) Exists(rel string) (bool, error) {
+	p, err := f.abs(rel)
+	if err != nil {
+		return false, err
+	}
+	_, err = os.Lstat(p)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENOTDIR) {
+		return false, nil
+	}
+	return false, err
 }
 
 func (f LocalFolder) Move(from, to string) error {

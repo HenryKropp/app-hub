@@ -174,3 +174,26 @@ func TestFichaChangesRecorded(t *testing.T) {
 		t.Fatalf("%+v %+v", first, second)
 	}
 }
+
+// A folder the Hub cannot read gives no confirmed version: the run has none.
+func TestRunWithUnreadableFolderHasNoVersion(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "Ferramenta CVM.exe"), []byte("MZ"), 0o644)
+	m := filesPrepManifest()
+	m.Area = "Research"
+	var d appDetail
+	if code := c.do("POST", "/api/apps", map[string]any{"folder_path": dir, "owner_id": 1, "manifest": m}, &d); code != http.StatusCreated {
+		t.Fatalf("publish %d", code)
+	}
+	pairComputer(t, c, "PC")
+	os.RemoveAll(dir)
+	var run runJSON
+	if code := c.do("POST", appPath(d.ID, "/runs"), map[string]string{"output_folder": `D:\Saídas`}, &run); code != http.StatusCreated {
+		t.Fatalf("run %d", code)
+	}
+	if run.VersionNumber != nil {
+		t.Fatalf("run must not claim version %d", *run.VersionNumber)
+	}
+}

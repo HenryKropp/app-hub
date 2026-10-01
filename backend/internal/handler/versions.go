@@ -209,7 +209,7 @@ func (h *Handler) codeText(r *http.Request, f *versions.File) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return scanner.MaskSecrets(string(data)), nil
+	return scanner.MaskSecretsIn(f.Path, string(data)), nil
 }
 
 func (h *Handler) versionChanges(w http.ResponseWriter, r *http.Request) {

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/HenryKropp/app-hub/backend/internal/versions"
@@ -142,5 +143,38 @@ func TestRestoreFolderMissing(t *testing.T) {
 	var e map[string]string
 	if code := c.do("POST", appPath(id, "/versions/1/restore"), nil, &e); code != http.StatusConflict {
 		t.Fatalf("%d %v", code, e)
+	}
+}
+
+// A file whose current content is saved nowhere (too big now) is listed for
+// the trash in the preview and moved there before the old text comes back.
+func TestRestoreTrashesUnsavedFileFirst(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	id, dir := codeApp(t, c)
+	big := "#" + strings.Repeat("x", versions.MaxCodeSize) + "\n"
+	editFile(t, dir, "src/main.py", big)
+	var prev struct {
+		Plan versions.RestorePlan `json:"plan"`
+	}
+	if code := c.do("GET", appPath(id, "/versions/1/restore-preview"), nil, &prev); code != http.StatusOK {
+		t.Fatalf("preview %d", code)
+	}
+	if len(prev.Plan.Rewrite) != 1 || len(prev.Plan.ToTrash) != 1 || prev.Plan.ToTrash[0] != "src/main.py" {
+		t.Fatalf("%+v", prev.Plan)
+	}
+	var res restoreJSON
+	if code := c.do("POST", appPath(id, "/versions/1/restore"), nil, &res); code != http.StatusOK || len(res.Failed) != 0 {
+		t.Fatalf("restore %d %+v", code, res)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "src", "main.py")); string(b) != "print('v1')\n" {
+		t.Fatalf("main.py = %q", b)
+	}
+	matches, _ := filepath.Glob(filepath.Join(dir, ".app-hub-lixeira", "*", "src", "main.py"))
+	if len(matches) != 1 {
+		t.Fatal("the big main.py must be in the trash")
+	}
+	if b, _ := os.ReadFile(matches[0]); string(b) != big {
+		t.Fatal("trash copy must keep the big content")
 	}
 }
