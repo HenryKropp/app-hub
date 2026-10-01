@@ -107,7 +107,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Histórico, comparação e voltar atrás | Done | Página da versão (O que mudou / Como estava); voltar com prévia, versão de segurança e lixeira. Testado de verdade no Files Prep (2026-10-01) |
 | Histórico de mudanças na ficha | Done | Campo por campo, só registrado (não se restaura) |
 | Linha do tempo única: código + ficha + execuções | Done | Seção Histórico na ficha, com filtro e "Carregar mais"; execução mostra a versão usada |
-| Sobras da Fase 5 | Pending | Manifesto do Files Prep não lista os `.zip` que o app baixa (entram no histórico como binários); limpar versões antigas; página da versão: respostas fora de ordem ao trocar de versão, erro esconde a página inteira, sem teste de quem vê Descrever/Voltar; leitura travada do OneDrive dentro da trava do app pode segurar a ficha; erro ao gravar a versão depois de voltar devolve um erro genérico |
+| Sobras da Fase 5 | Pending | Manifesto do Files Prep não lista os `.zip` que o app baixa (entram no histórico como binários); limpar versões antigas; página da versão: respostas fora de ordem ao trocar de versão, erro esconde a página inteira, sem teste de quem vê Descrever/Voltar; leitura travada do OneDrive dentro da trava do app pode segurar a ficha; erro ao gravar a versão depois de voltar devolve um erro genérico; a máscara de chaves esconde um pouco a mais (ex.: `token = settings.TOKEN`); a ficha e o histórico conferem a pasta duas vezes seguidas; um arquivo que some no meio da conferência faz a conferência falhar; duas restaurações no mesmo segundo usam a mesma lixeira; a primeira conferência lê todos os arquivos, inclusive os que estão só na nuvem |
 
 ## Fase 6 — Acesso e cofre (1.7)
 

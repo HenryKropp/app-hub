@@ -9,7 +9,7 @@ A Fase 5 (PRD 3.6) pede um histórico de cada app: mudanças no código, execuç
 - O Hub guarda o histórico no próprio banco. Cada versão tem a lista de arquivos (caminho, tamanho, data, SHA-256, código ou binário) num campo JSON. O conteúdo dos arquivos de código fica em `code_blobs`, guardado uma vez só por SHA-256.
 - Só o código-fonte tem cópia (texto até 1 MB). De binários, como o `.exe`, o Hub guarda só a impressão digital. As saídas do manifesto e as pastas de lixo (`.venv`, `node_modules`…) ficam de fora.
 - A conferência compara tamanho e data. Só lê o arquivo quando um dos dois mudou, para não baixar arquivos "só na nuvem".
-- Para voltar uma versão, o Hub reescreve os arquivos de código na pasta. Antes disso, guarda o estado atual como versão de segurança. Arquivos a mais vão para `.app-hub-lixeira`, nunca são apagados.
+- Para voltar uma versão, o Hub reescreve os arquivos de código na pasta. Antes disso, guarda o estado atual como versão de segurança. Arquivos a mais vão para `.app-hub-lixeira`, nunca são apagados. Um arquivo que vai ser reescrito, mas cujo conteúdo atual não tem cópia no Hub (virou binário, ou ficou de fora da conferência), também vai para a lixeira antes.
 - Todo acesso à pasta passa pela interface `versions.Folder`. Quando o Hub for para o servidor central, o Agente implementa a mesma interface.
 - No Linux, a varredura abre cada pasta pelo nome relativo à pasta de cima, não pelo caminho inteiro. No `/mnt/c` do WSL, cada busca pelo caminho inteiro custa uns 10 ms. Com essa mudança, abrir a ficha do Files Prep caiu de 7–9 s para cerca de 2 s.
 
