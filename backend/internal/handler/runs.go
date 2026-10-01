@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"net/url"
@@ -93,7 +94,12 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "connected computer", err)
 		return
 	}
-	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: me.ID, ComputerID: comp.ID, OutputFolder: out, VersionID: pgtype.Int8{}})
+	v, _, err := h.checkVersion(ctx, a)
+	if err != nil {
+		slog.Error("version check", "app", a.ID, "err", err)
+	}
+	versionID := pgtype.Int8{Int64: v.ID, Valid: v.ID != 0}
+	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: me.ID, ComputerID: comp.ID, OutputFolder: out, VersionID: versionID})
 	if err != nil {
 		internalError(w, "create run", err)
 		return
@@ -177,6 +183,9 @@ func (h *Handler) toRunJSON(ctx context.Context, row sqlc.GetRunRow) (runJSON, e
 	}
 	if row.ExitCode.Valid {
 		j.ExitCode = &row.ExitCode.Int32
+	}
+	if row.VersionNumber.Valid {
+		j.VersionNumber = &row.VersionNumber.Int32
 	}
 	var m manifest.Manifest
 	if err := json.Unmarshal(row.AppManifest, &m); err != nil {
@@ -325,20 +334,21 @@ type runGroupJSON struct {
 	Files []runFileJSON `json:"files"`
 }
 type runJSON struct {
-	ID           int64          `json:"id"`
-	AppID        int64          `json:"app_id"`
-	AppName      string         `json:"app_name"`
-	PersonName   string         `json:"person_name"`
-	ComputerName string         `json:"computer_name"`
-	OutputFolder string         `json:"output_folder"`
-	Status       string         `json:"status"`
-	ExitCode     *int32         `json:"exit_code"`
-	ErrorMessage string         `json:"error_message"`
-	AppVersion   string         `json:"app_version"`
-	CreatedAt    time.Time      `json:"created_at"`
-	StartedAt    *time.Time     `json:"started_at"`
-	FinishedAt   *time.Time     `json:"finished_at"`
-	Groups       []runGroupJSON `json:"groups"`
+	ID            int64          `json:"id"`
+	AppID         int64          `json:"app_id"`
+	AppName       string         `json:"app_name"`
+	PersonName    string         `json:"person_name"`
+	ComputerName  string         `json:"computer_name"`
+	OutputFolder  string         `json:"output_folder"`
+	Status        string         `json:"status"`
+	ExitCode      *int32         `json:"exit_code"`
+	ErrorMessage  string         `json:"error_message"`
+	AppVersion    string         `json:"app_version"`
+	VersionNumber *int32         `json:"version_number"`
+	CreatedAt     time.Time      `json:"created_at"`
+	StartedAt     *time.Time     `json:"started_at"`
+	FinishedAt    *time.Time     `json:"finished_at"`
+	Groups        []runGroupJSON `json:"groups"`
 }
 type runSummaryJSON struct {
 	ID         int64      `json:"id"`
