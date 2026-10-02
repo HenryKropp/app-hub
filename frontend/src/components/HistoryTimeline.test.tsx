@@ -79,3 +79,13 @@ test("versionLine sums up the original state and shortens long binary lists", as
   expect(versionLine(v({ summary: { added: 0, removed: 0, modified: 1, binaries: ["a/x.ico", "y.exe", "b/z.zip", "w.zip"] } })))
     .toBe("1 arquivo mudou · x.ico mudou · y.exe mudou · mais 2 arquivos que não são código mudaram")
 })
+
+test("preview shows the newest items and opens the rest on request", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "history").mockResolvedValue({ items, more: false, next_before: "" })
+  render(<MemoryRouter><HistoryTimeline appId={3} canEdit preview={2} /></MemoryRouter>)
+  const list = await screen.findByRole("list", { name: "Histórico" })
+  expect(within(list).getAllByRole("listitem")).toHaveLength(2)
+  await user.click(screen.getByRole("button", { name: "Ver histórico completo" }))
+  expect(within(list).getAllByRole("listitem")).toHaveLength(4)
+})

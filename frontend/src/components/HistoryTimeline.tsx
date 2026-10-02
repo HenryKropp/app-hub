@@ -41,6 +41,8 @@ export function versionOrigin(v: VersionInfo): string {
   return "Mudança na pasta"
 }
 
+const ACT = "inline-flex items-center gap-1 font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+
 function VersionRow({ appId, v, canEdit, onChanged }: { appId: number; v: VersionInfo; canEdit: boolean; onChanged: () => void }) {
   const [describe, setDescribe] = useState(false)
   const [restore, setRestore] = useState(false)
@@ -52,21 +54,20 @@ function VersionRow({ appId, v, canEdit, onChanged }: { appId: number; v: Versio
           Versão {v.number} <span className="font-normal text-muted-foreground">· {versionOrigin(v)}{v.current && " · atual"}</span>
         </p>
         <p className="text-muted-foreground">
-          {formatWhen(v.created_at)} · {v.author_probable ? `provável: ${v.author_name}` : v.author_name || "autor não informado"}
+          {formatWhen(v.created_at)} · {v.author_probable ? `provável: ${v.author_name}` : v.author_name || "autor não informado"} · {versionLine(v)}
         </p>
         {v.description && <p className="mt-1">{v.description}</p>}
-        <p className="mt-1 text-muted-foreground">{versionLine(v)}</p>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          <Link to={`/apps/${appId}/versoes/${v.number}`} className="underline underline-offset-4">Ver mudanças</Link>
-          <Link to={`/apps/${appId}/versoes/${v.number}?ver=arquivos`} className="underline underline-offset-4">Ver como estava</Link>
+        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          <Link to={`/apps/${appId}/versoes/${v.number}`} className={ACT}>Ver mudanças</Link>
+          <Link to={`/apps/${appId}/versoes/${v.number}?ver=arquivos`} className={ACT}>Ver como estava</Link>
           {canEdit && (
-            <button type="button" onClick={() => setDescribe(true)} className="inline-flex items-center gap-1 underline underline-offset-4">
-              <PencilLine className="size-3.5" /> Descrever
+            <button type="button" onClick={() => setDescribe(true)} className={ACT}>
+              <PencilLine className="size-3" /> Descrever
             </button>
           )}
           {canEdit && !v.current && (
-            <button type="button" onClick={() => setRestore(true)} className="inline-flex items-center gap-1 font-medium underline underline-offset-4">
-              <RotateCcw className="size-3.5" /> Voltar o código para esta versão
+            <button type="button" onClick={() => setRestore(true)} className={ACT}>
+              <RotateCcw className="size-3" /> Voltar o código para esta versão
             </button>
           )}
         </div>
@@ -114,8 +115,10 @@ function Row({ appId, item, canEdit, onChanged }: { appId: number; item: History
 const itemKey = (it: HistoryItem) =>
   it.version ? `version-${it.version.number}` : it.run ? `run-${it.run.id}` : `ficha-${it.at}`
 
-export function HistoryTimeline({ appId, canEdit, onChanged, reloadKey = 0 }: { appId: number; canEdit: boolean; onChanged?: () => void; reloadKey?: number }) {
+// preview shows only the newest few until the person asks for the rest.
+export function HistoryTimeline({ appId, canEdit, onChanged, reloadKey = 0, preview }: { appId: number; canEdit: boolean; onChanged?: () => void; reloadKey?: number; preview?: number }) {
   const [filter, setFilter] = useState<HistoryFilter>("all")
+  const [expanded, setExpanded] = useState(!preview)
   const [items, setItems] = useState<HistoryItem[] | null>(null)
   const [more, setMore] = useState(false)
   const [next, setNext] = useState("")
@@ -150,18 +153,19 @@ export function HistoryTimeline({ appId, canEdit, onChanged, reloadKey = 0 }: { 
 
   return (
     <div>
-      <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Filtrar histórico">
+      <div className="mb-2 inline-flex flex-wrap gap-0.5 rounded-lg bg-muted p-0.5" role="group" aria-label="Filtrar histórico">
         {FILTERS.map((f) => (
-          <Button key={f.value} size="sm" variant={filter === f.value ? "default" : "outline"} aria-pressed={filter === f.value} onClick={() => setFilter(f.value)}>
+          <button key={f.value} type="button" aria-pressed={filter === f.value} onClick={() => setFilter(f.value)}
+            className="rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-xs">
             {f.label}
-          </Button>
+          </button>
         ))}
       </div>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {items && items.length === 0 && <p className="text-sm text-muted-foreground">Nada por aqui ainda.</p>}
       {items && items.length > 0 && (
         <ul aria-label="Histórico" className="flex flex-col divide-y divide-border text-sm">
-          {items.map((it) => (
+          {(expanded ? items : items.slice(0, preview)).map((it) => (
             <li key={itemKey(it)} className="py-3">
               <Row appId={appId} item={it} canEdit={canEdit} onChanged={() => {
                 load(filter)
@@ -171,7 +175,10 @@ export function HistoryTimeline({ appId, canEdit, onChanged, reloadKey = 0 }: { 
           ))}
         </ul>
       )}
-      {more && (
+      {!expanded && items && (items.length > preview! || more) && (
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => setExpanded(true)}>Ver histórico completo</Button>
+      )}
+      {expanded && more && (
         <Button variant="outline" size="sm" className="mt-3" onClick={loadMore}>Carregar mais</Button>
       )}
     </div>

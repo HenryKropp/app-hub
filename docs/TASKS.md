@@ -46,6 +46,7 @@ Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep)
      3. Mensagens: "sem arquivos novos" neutro (não vermelho) e com explicação; erros do sistema em português claro; "Tentar de novo" quando o catálogo não carrega
      4. Saídas: Cancelar na janela, Parar no app aberto, lembrete depois de "ocultar"
      5. Acabamento: selo "Janela" e legendas da barra lateral pequenos demais; vermelho do título um pouco abaixo do contraste; nome no campo de busca; "Fechar" em vez de "Close"; mesma capitalização nos botões; esconder "Em breve" para quem só usa; "Limpar busca"; contador "em andamento" sem vermelho de alerta; menu do celular cortado
+   - Ficha mais limpa (2026-10-02, pedido do Henry): quadro de 5 caixas virou uma linha discreta abaixo do resumo; entradas dizem uma vez de onde vêm ("Você preenche tudo na janela do app"); saídas sem o padrão técnico (fica no passar o mouse); pontos de atenção mostram 3 e "Ver mais N"; histórico mostra os 5 mais novos e "Ver histórico completo", com filtro em abas pequenas e ações das versões discretas; pasta sem fonte de código
    - Etapa 2, ficha por perfil (abas Usar/Cuidar, editar por seção, campos da v0.2): depois do acabamento, desenho próprio
    - Etapa 3, catálogo e primeiro uso (favoritos, filtro por área, status e "usado há…", guia do Agente): depois
 4. Rodar scripts: formulário automático e ambiente preparado sozinho
