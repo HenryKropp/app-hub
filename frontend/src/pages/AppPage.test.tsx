@@ -37,7 +37,7 @@ test("ficha shows before the folder check answers", async () => {
   vi.spyOn(api, "checkApp").mockReturnValue(new Promise(() => {})) // nunca responde
   renderAt()
   expect(await screen.findByRole("heading", { name: "Eq. Research Files Prep" })).toBeInTheDocument()
-  expect(screen.getByText(/versão 2 ·/)).toBeInTheDocument()
+  expect(screen.getByText("versão 2")).toBeInTheDocument()
   expect(screen.queryByRole("alert")).not.toBeInTheDocument()
 })
 
@@ -48,8 +48,8 @@ test("check finding a new version updates the field and reloads history", async 
     () => new Promise((r) => setTimeout(() => r({ folder_readable: true, version: { number: 3, created_at: "2026-10-01T15:00:00Z" } }), 50)),
   )
   renderAt()
-  expect(await screen.findByText(/versão 2 ·/)).toBeInTheDocument()
-  expect(await screen.findByText(/versão 3 ·/)).toBeInTheDocument()
+  expect(await screen.findByText("versão 2")).toBeInTheDocument()
+  expect(await screen.findByText("versão 3")).toBeInTheDocument()
   await vi.waitFor(() => expect(api.history).toHaveBeenCalledTimes(2))
 })
 
@@ -68,7 +68,7 @@ test("unreadable folder warning appears after the check", async () => {
   vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: false, version: null })
   renderAt()
   expect(await screen.findByRole("alert")).toHaveTextContent("Não consegui ler a pasta do app agora.")
-  expect(screen.getByText(/versão 2 ·/)).toBeInTheDocument()
+  expect(screen.getByText("versão 2")).toBeInTheDocument()
 })
 
 test("failed check keeps the ficha and shows the folder warning", async () => {

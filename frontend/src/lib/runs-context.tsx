@@ -47,11 +47,12 @@ export function RunsProvider({ children }: { children: ReactNode }) {
     api.activeRuns().then((rs) => setActive(rs.filter((r) => !dismissed.current.has(r.id))), () => {})
   }, [])
 
-  // Hand over from "Abrindo…" to the server's card without a gap.
+  // Hand over from "Abrindo…" to the server's card without a gap, whichever
+  // arrives first: the server listing the run or the notice learning its id.
   useEffect(() => {
     const ids = new Set(active.map((r) => r.id))
-    setNotices((ns) => (ns.some((n) => n.runId !== undefined && ids.has(n.runId)) ? ns.filter((n) => n.runId === undefined || !ids.has(n.runId)) : ns))
-  }, [active])
+    if (notices.some((n) => n.runId !== undefined && ids.has(n.runId))) setNotices((ns) => ns.filter((n) => n.runId === undefined || !ids.has(n.runId)))
+  }, [active, notices])
 
   const live = active.some((r) => isLive(r.status)) || notices.some((n) => n.kind === "starting")
   useEffect(() => {

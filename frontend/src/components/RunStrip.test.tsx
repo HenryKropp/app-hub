@@ -33,7 +33,7 @@ test("open app shows the hint and can be hidden", async () => {
   vi.spyOn(api, "activeRuns").mockResolvedValue([activeRun({ status: "running" })])
   mount()
   expect(await screen.findByText(/aberto no seu computador/)).toBeInTheDocument()
-  await user.click(screen.getByRole("button", { name: "ocultar" }))
+  await user.click(screen.getByRole("button", { name: "Ocultar" }))
   expect(screen.queryByText(/aberto no seu computador/)).not.toBeInTheDocument()
 })
 
@@ -102,7 +102,7 @@ test("other start error offers trocar pasta, which opens the dialog", async () =
   vi.spyOn(api, "startRun").mockRejectedValue(new ApiError(400, "Informe a pasta completa, começando pela letra do disco."))
   mount()
   await user.click(screen.getByText("go"))
-  await user.click(await screen.findByRole("button", { name: "trocar pasta" }))
+  await user.click(await screen.findByRole("button", { name: "Trocar pasta" }))
   expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("D:\\Saídas")
 })
 
@@ -122,7 +122,7 @@ test("trocar pasta only for folder errors", async () => {
   ])
   mount()
   await screen.findByText(/O Windows não abriu o app/)
-  expect(screen.getAllByRole("button", { name: "trocar pasta" })).toHaveLength(1)
+  expect(screen.getAllByRole("button", { name: "Trocar pasta" })).toHaveLength(1)
 })
 
 test("request error not about the folder has no trocar pasta", async () => {
@@ -132,5 +132,5 @@ test("request error not about the folder has no trocar pasta", async () => {
   mount()
   await user.click(screen.getByText("go"))
   await screen.findByText(/ainda não pode rodar/)
-  expect(screen.queryByRole("button", { name: "trocar pasta" })).not.toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Trocar pasta" })).not.toBeInTheDocument()
 })

@@ -3,14 +3,16 @@ import { Link } from "react-router-dom"
 import { Play, Search } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { EmptyState, KindTab, PageHeader } from "@/components/bits"
+import { EmptyState, KindTab, PageHeader, Playing } from "@/components/bits"
 import { api, type AppSummary } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
+import { isLive } from "@/lib/runs"
 
 export function CatalogPage() {
   const { person } = useAuth()
-  const { run, busy } = useRuns()
+  const { run, busy, active } = useRuns()
+  const playing = useMemo(() => new Set(active.filter((r) => isLive(r.status)).map((r) => r.app_id)), [active])
   const [apps, setApps] = useState<AppSummary[] | null>(null)
   const [error, setError] = useState("")
   const [q, setQ] = useState("")
@@ -29,11 +31,11 @@ export function CatalogPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Catálogo" title="Apps da empresa">
+      <PageHeader title="Apps da empresa">
         {apps && apps.length > 0 && (
           <div className="relative w-full md:w-72">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome, área, pessoa…" className="h-9 bg-card pl-8" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome, área, pessoa…" className="h-9 rounded-lg bg-card pl-8" />
           </div>
         )}
       </PageHeader>
@@ -43,7 +45,7 @@ export function CatalogPage() {
 
       {apps?.length === 0 && (
         <EmptyState
-          title="O fichário ainda está vazio"
+          title="O catálogo ainda está vazio"
           action={
             canRegister && (
               <Link to="/registrar" className={buttonVariants({ size: "lg", className: "mt-2 h-10 px-4" })}>
@@ -58,39 +60,49 @@ export function CatalogPage() {
 
       {apps && apps.length > 0 && shown.length === 0 && <p className="text-muted-foreground">Nenhum app encontrado para “{q}”.</p>}
 
-      <ul className="grid gap-x-5 gap-y-8 sm:grid-cols-2 xl:grid-cols-3">
-        {shown.map((a, i) => (
-          <li key={a.id} className="rise" style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}>
-            {/* The title link covers the card (after:inset-0); Rodar sits above it. */}
-            <div className="group">
-              <KindTab kind={a.kind} className="ml-4" />
-              <div className="relative flex min-h-40 flex-col rounded-lg border border-border bg-card p-5 shadow-card transition-transform group-hover:-translate-y-0.5">
-                <h2 className="font-heading text-xl leading-snug group-hover:text-stamp">
-                  <Link to={`/apps/${a.id}`} className="after:absolute after:inset-0 after:rounded-lg focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring">
+      <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {shown.map((a) => {
+          const live = playing.has(a.id)
+          return (
+            <li key={a.id}>
+              {/* The title link covers the card (after:inset-0); Rodar sits above it. */}
+              <div className="group relative flex h-full min-h-44 flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-input hover:bg-[color-mix(in_oklch,var(--card),var(--foreground)_1.5%)]">
+                <h2 className="font-heading text-[1.05rem] leading-snug">
+                  <Link to={`/apps/${a.id}`} className="after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring">
                     {a.name}
                   </Link>
                 </h2>
-                <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{a.summary || "Sem resumo ainda."}</p>
-                <div className="mt-auto flex items-center justify-between gap-3 border-t border-dashed border-border pt-3 text-xs text-muted-foreground">
-                  <span className="min-w-0 truncate">
-                    {a.area || "Sem área"} · <span className="font-medium text-foreground/80">{a.owner_name}</span>
+                <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{a.summary || "Sem resumo ainda."}</p>
+                <div className="mt-auto flex items-end justify-between gap-3 pt-5 text-xs text-muted-foreground">
+                  <span className="flex min-w-0 flex-col items-start gap-2">
+                    <KindTab kind={a.kind} />
+                    <span className="max-w-full truncate">
+                      {a.area || "Sem área"} · <span className="text-foreground/80">{a.owner_name}</span>
+                    </span>
                   </span>
-                  {a.can_run && (
+                  <span className="flex shrink-0 flex-col items-end gap-2">
+                    {live && (
+                      <span className="inline-flex items-center gap-1.5 font-medium text-brand">
+                        <Playing /> aberto agora
+                      </span>
+                    )}
+                    {a.can_run && (
                     <Button
-                      size="sm"
+                      variant="run"
                       aria-label={`Rodar ${a.name}`}
                       disabled={busy.has(a.id)}
-                      className="relative z-10 h-7 shrink-0 gap-1.5 px-2.5"
+                      className="relative z-10 h-8 shrink-0 gap-1.5 pr-3.5 pl-3"
                       onClick={() => run({ id: a.id, name: a.name, folder_display: a.folder_display, remembered_folder: a.remembered_folder })}
                     >
                       <Play className="size-3.5" /> Rodar
                     </Button>
-                  )}
+                    )}
+                  </span>
                 </div>
               </div>
-            </div>
-          </li>
-        ))}
+            </li>
+          )
+        })}
       </ul>
     </>
   )

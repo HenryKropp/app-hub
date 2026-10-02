@@ -1,6 +1,7 @@
 import type { ComponentProps, ReactNode } from "react"
-import { Monitor, Moon, Sun } from "lucide-react"
-import type { Kind } from "@/lib/api"
+import { AppWindow, Box, CalendarClock, CircleCheck, FileCode2, FileText, Globe, Info, Monitor, Moon, Network, Sun, TriangleAlert, type LucideIcon } from "lucide-react"
+import type { Kind, RunStatus } from "@/lib/api"
+import { STATUS } from "@/lib/runs"
 import { kindInfo } from "@/lib/kinds"
 import { useTheme, type ThemePref } from "@/lib/theme"
 import { cn } from "@/lib/utils"
@@ -8,28 +9,44 @@ import { cn } from "@/lib/utils"
 export function Logo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
-      <path d="M4 9h9l2-3h13v20H4z" fill="currentColor" opacity="0.18" />
-      <path d="M4 11h24v17H4z" fill="none" stroke="currentColor" strokeWidth="2" />
-      <path d="M4 11V8h9l2-3h7" fill="none" stroke="currentColor" strokeWidth="2" />
-      <circle cx="22" cy="21" r="3.5" fill="var(--stamp)" />
-      <path d="M8 17h8M8 21h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <rect width="32" height="32" rx="8" fill="var(--brand)" />
+      <rect x="7" y="7" width="8" height="8" rx="2" fill="#fff" />
+      <rect x="17" y="7" width="8" height="8" rx="2" fill="#fff" opacity="0.6" />
+      <rect x="7" y="17" width="8" height="8" rx="2" fill="#fff" opacity="0.6" />
+      <path d="M18 17.4v7.2a.6.6 0 0 0 .9.5l6-3.6a.6.6 0 0 0 0-1l-6-3.6a.6.6 0 0 0-.9.5z" fill="#fff" />
     </svg>
   )
 }
 
-/** The colored folder tab that marks each app's kind. */
+const KIND_ICON: Record<Kind, LucideIcon> = {
+  script: FileCode2,
+  web: Globe,
+  desktop: AppWindow,
+  scheduled: CalendarClock,
+  executable: Box,
+  reference: FileText,
+  system: Network,
+}
+
+/** A quiet gray pill that names the app's kind. Kinds are never colored: color is for Rodar and what is running. */
 export function KindTab({ kind, className }: { kind: Kind; className?: string }) {
   const k = kindInfo(kind)
+  const Icon = KIND_ICON[kind] ?? FileCode2
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-t-md rounded-b-sm px-2 py-0.5 font-mono text-[0.68rem] font-medium tracking-wide uppercase",
-        className,
-      )}
-      style={{ background: `color-mix(in oklch, ${k.color} 22%, transparent)`, color: `color-mix(in oklch, ${k.color} 70%, var(--foreground))` }}
-    >
-      <span className="size-1.5 rounded-full" style={{ background: k.color }} />
+    <span className={cn("inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground", className)}>
+      <Icon className="size-3.5" />
       {k.short}
+    </span>
+  )
+}
+
+/** The "playing now" bars: the signature mark for whatever is open on someone's computer. */
+export function Playing({ className, label }: { className?: string; label?: string }) {
+  return (
+    <span className={cn("playing text-brand", className)} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+      <i />
+      <i />
+      <i />
     </span>
   )
 }
@@ -49,7 +66,7 @@ export function NativeSelect({ className, ...props }: ComponentProps<"select">) 
 export function Field({ label, hint, htmlFor, children, className }: { label: ReactNode; hint?: ReactNode; htmlFor?: string; children: ReactNode; className?: string }) {
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      <label htmlFor={htmlFor} className="text-[0.8rem] font-semibold tracking-wide text-foreground/85">
+      <label htmlFor={htmlFor} className="text-sm font-medium text-foreground">
         {label}
       </label>
       {children}
@@ -58,13 +75,10 @@ export function Field({ label, hint, htmlFor, children, className }: { label: Re
   )
 }
 
-export function PageHeader({ eyebrow, title, children }: { eyebrow?: string; title: string; children?: ReactNode }) {
+export function PageHeader({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <header className="rise mb-8 flex flex-col gap-3 border-b border-border pb-6 md:flex-row md:items-end md:justify-between">
-      <div>
-        {eyebrow && <p className="mb-2 font-mono text-xs tracking-[0.18em] text-stamp uppercase">{eyebrow}</p>}
-        <h1 className="font-heading text-3xl leading-tight md:text-4xl">{title}</h1>
-      </div>
+    <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <h1 className="font-heading text-2xl leading-tight md:text-[1.75rem]">{title}</h1>
       {children}
     </header>
   )
@@ -79,7 +93,7 @@ const THEME_OPTIONS: { value: ThemePref; label: string; icon: typeof Sun }[] = [
 export function ThemeToggle() {
   const { pref, setPref } = useTheme()
   return (
-    <div className="flex rounded-md bg-white/5 p-0.5" role="radiogroup" aria-label="Tema">
+    <div className="flex rounded-lg bg-secondary p-0.5" role="radiogroup" aria-label="Tema">
       {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
         <button
           key={value}
@@ -89,8 +103,8 @@ export function ThemeToggle() {
           title={label}
           onClick={() => setPref(value)}
           className={cn(
-            "flex flex-1 items-center justify-center gap-1 rounded px-2 py-1 text-[0.7rem] transition-colors",
-            pref === value ? "bg-ink-foreground/15 text-ink-foreground" : "text-ink-foreground/55 hover:text-ink-foreground",
+            "flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
+            pref === value ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
           )}
         >
           <Icon className="size-3.5" />
@@ -103,10 +117,33 @@ export function ThemeToggle() {
 
 export function EmptyState({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="rise paper flex flex-col items-start gap-3 rounded-lg border border-dashed border-border bg-card/60 py-12 pr-8 pl-20">
-      <h2 className="font-heading text-2xl">{title}</h2>
+    <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-input px-8 py-12">
+      <h2 className="font-heading text-xl">{title}</h2>
       {children && <div className="max-w-prose text-muted-foreground">{children}</div>}
       {action}
     </div>
+  )
+}
+
+/** A run's state as icon plus words. Only a live run is violet; the rest stay quiet. */
+export function RunState({ status, className }: { status: RunStatus; className?: string }) {
+  const st = STATUS[status]
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 font-medium",
+        st.tone === "live" && "text-brand",
+        st.tone === "ok" && "text-ok",
+        st.tone === "muted" && "text-muted-foreground",
+        st.tone === "bad" && "text-destructive",
+        className,
+      )}
+    >
+      {st.tone === "live" && <Playing />}
+      {st.tone === "ok" && <CircleCheck className="size-4" />}
+      {st.tone === "muted" && <Info className="size-4" />}
+      {st.tone === "bad" && <TriangleAlert className="size-4" />}
+      {st.label}
+    </span>
   )
 }

@@ -37,12 +37,13 @@ export function ComputerPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Agente do Hub" title="Meu computador">
+      <PageHeader title="Meu computador" />
+      <p className="-mt-5 mb-8 max-w-[68ch] text-muted-foreground">
         O Agente é um programa pequeno que fica no seu Windows, sem ícone. É ele que abre os apps quando você clica em Rodar.
-      </PageHeader>
+      </p>
 
       {info.computers.length === 0 ? (
-        <section className="paper rounded-lg border border-border bg-card p-8 shadow-card">
+        <section className="rounded-xl border border-border bg-card p-8">
           <h2 className="font-heading text-2xl">Nenhum computador conectado</h2>
           <ol className="mt-4 flex list-decimal flex-col gap-2 pl-5 text-sm">
             <li>Baixe o Agente pelo botão abaixo.</li>
@@ -54,8 +55,8 @@ export function ComputerPage() {
       ) : (
         <ul className="flex flex-col gap-4">
           {info.computers.map((c) => (
-            <li key={c.id} className="paper flex flex-wrap items-center gap-4 rounded-lg border border-border bg-card p-6 shadow-card">
-              <Laptop className="size-8 text-stamp" />
+            <li key={c.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-card p-6">
+              <Laptop className="size-8 text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <p className="font-heading text-xl">{c.name}</p>
                 <p className="text-sm text-muted-foreground">

@@ -15,7 +15,7 @@ Status: Pending / In Progress / Done / Blocked
 | Tarefa | Status | Notas |
 |---|---|---|
 | Esqueleto Go + React + Postgres local | Done | Banco `app-hub-db` na porta 5433; Dockerfile pronto |
-| Layout base, identidade visual, navegação | Done | Visual de fichário; claro/escuro/sistema; Painel e Cofre marcados "em breve" |
+| Layout base, identidade visual, navegação | Done | Estilo novo (2026-10-02): limpo e neutro como Notion/Vercel, um violeta vivo só no Rodar e no que está aberto agora; claro por padrão, com escuro; Painel e Cofre marcados "em breve" |
 | Cadastro de pessoas e login simples (protótipo) | Done | ADR 003. Primeiro acesso cria o administrador; perfis admin/criador/usuário |
 
 ## Fase 2 — Manifesto e registro (1.1, 1.5)
@@ -37,8 +37,8 @@ Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep)
 2. ~~**Fase 5:** histórico de mudanças no código e na ficha, e voltar atrás~~ Feita e testada de verdade no Files Prep (2026-10-01)
 3. **UX em 3 etapas** (desenho: `docs/superpowers/specs/2026-10-01-etapa-1-rodar-poucos-cliques-design.md`; protótipo: `2026-10-01-prototipo-ux.html`):
    - **Etapa 1, rodar em poucos cliques:** **feita** (código 2026-10-01; telas e teste de verdade com o Henry 2026-10-02). Ficha abre na hora, Rodar no cartão, pasta lembrada, faixa de andamento, Minhas execuções
-   - **Estilo visual novo do zero** ← próxima (pedido do Henry, 2026-10-02). Trocar o visual atual (papel creme, tinta, carimbo vermelho, abas por tipo) por um estilo novo, pelo fluxo do Impeccable: direções visuais para o Henry escolher, redesenho das telas, `DESIGN.md` no fim. Para começar, numa sessão nova: `/impeccable:impeccable quero um estilo visual novo do zero para o Hub`. Manter o que é do produto (`PRODUCT.md`): textos, funções, perfis, português simples
-   - **Acabamento da Etapa 1** (avaliação Impeccable do catálogo em 2026-10-02, nota 25/40; relatório em `.impeccable/critique/`): logo depois do estilo novo, já feito nele. O Henry escolheu corrigir tudo o que foi achado, começando por "onde ficam os arquivos":
+   - ~~**Estilo visual novo do zero**~~ **feito** (2026-10-02). O Henry escolheu, depois de dois sorteios, o padrão Notion/Vercel com um violeta vivo de destaque (como o verde do Spotify). Letra Geist; barra lateral clara; Rodar como botão violeta arredondado; barrinhas violeta animadas no que está aberto agora; tipos de app em etiqueta cinza. Todas as telas trocadas; no celular, menu da conta (tema e Sair) no avatar. `DESIGN.md` gravado. De quebra: o aviso "Abrindo…" às vezes ficava até 3 s junto com o cartão da execução; corrigido. Decisão em `docs/adr/008-estilo-visual-neutro-com-violeta.md`
+   - **Acabamento da Etapa 1** (avaliação Impeccable do catálogo em 2026-10-02, nota 25/40; relatório em `.impeccable/critique/`): ← próxima, já no estilo novo. O Henry escolheu corrigir tudo o que foi achado, começando por "onde ficam os arquivos":
      1. Onde ficam os arquivos: mostrar "Salva em: …" com "trocar" no cartão e na faixa, e o caminho legível na janela. **Decisão do Henry:** sem pasta padrão; na 1ª vez sempre perguntar a pasta, e depois lembrar
      2. Faixa: ordenar (erro > terminou > sem arquivos > aberto) antes de cortar em 3; avisos anunciados por leitor de tela (erro como alerta); "Ver e baixar" legível no modo escuro
      3. Mensagens: "sem arquivos novos" neutro (não vermelho) e com explicação; erros do sistema em português claro; "Tentar de novo" quando o catálogo não carrega

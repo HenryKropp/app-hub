@@ -14,7 +14,7 @@ function readPref(): ThemePref {
   } catch {
     /* storage unavailable */
   }
-  return "system"
+  return "light"
 }
 
 function systemDark() {

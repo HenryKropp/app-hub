@@ -17,7 +17,7 @@ O App Hub transforma "um script na pasta de alguém" em "uma ferramenta da empre
 Sucesso, com o mesmo peso: o analista **resolve rápido e sozinho** (achou, rodou, pegou os arquivos sem pedir ajuda) e **confia no resultado** (sabe que rodou a versão certa e que os arquivos são os certos).
 
 ## Positioning
-Primeiro para a Alis; depois para vender a outras pequenas empresas sem TI. O Hub é genérico: qualquer app entra pelo mesmo caminho, o **manifesto** (`app-hub.yaml`, salvo ao lado do app). A partir dele o app ganha ficha, botão Rodar e histórico. Os apps da Alis são o primeiro caso real e servem para testar essa generalidade, não para moldar o Hub.
+Produto próprio do Henry, não da Alis. A Alis é o cliente zero; depois, vender a outras pequenas empresas sem TI. A marca e o visual são do App Hub, não precisam combinar com a Alis. O Hub é genérico: qualquer app entra pelo mesmo caminho, o **manifesto** (`app-hub.yaml`, salvo ao lado do app). A partir dele o app ganha ficha, botão Rodar e histórico. Os apps da Alis são o primeiro caso real e servem para testar essa generalidade, não para moldar o Hub.
 
 ## Operating Context
 - Piloto local no computador do Henry (Windows, Hub em WSL). Apps reais ficam numa pasta do OneDrive.
@@ -35,6 +35,7 @@ Primeiro para a Alis; depois para vender a outras pequenas empresas sem TI. O Hu
 ## Brand Commitments
 - Nome: **App Hub**.
 - Voz: português simples e direto, frases curtas, sem jargão; quando algo dá errado, dizer o próximo passo.
+- Visual (escolha do Henry, 2026-10-02): limpo e neutro como Notion e Vercel, com uma só cor forte de destaque (violeta vivo), usada como o Spotify usa o verde. Sensação ágil e direta. Claro por padrão, com modo escuro.
 
 ## Evidence on Hand
 - Um app real rodando de ponta a ponta: **Eq. Research Files Prep** (pasta "2026 06 23 - Henry Files Prep").

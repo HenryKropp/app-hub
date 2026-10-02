@@ -47,7 +47,7 @@ function AsItWas({ appId, n, files }: { appId: string; n: string; files: Version
         {files.map((f) => (
           <li key={f.path}>
             <button type="button" disabled={f.kind === "binary"} onClick={() => show(f.path)}
-              className={`w-full truncate text-left font-mono text-xs ${open?.path === f.path ? "text-stamp" : ""} disabled:text-muted-foreground`}
+              className={`w-full truncate text-left font-mono text-xs ${open?.path === f.path ? "text-brand" : ""} disabled:text-muted-foreground`}
               title={f.kind === "binary" ? "Programa pronto: o Hub guarda só o tamanho e a data" : f.path}>
               {f.path}
             </button>
@@ -94,11 +94,11 @@ export function VersionPage() {
   if (!info) return <p className="text-muted-foreground">Carregando…</p>
 
   return (
-    <article className="rise">
+    <article>
       <Link to={`/apps/${id}`} className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> Ficha do app
       </Link>
-      <div className="paper rounded-lg border border-border bg-card p-8 shadow-card">
+      <div className="rounded-xl border border-border bg-card p-8">
         <h1 className="font-heading text-3xl">Versão {info.number}{info.current && <span className="ml-2 text-base text-muted-foreground">(atual)</span>}</h1>
         <p className="mt-2 text-muted-foreground">
           {versionOrigin(info)} · {formatWhen(info.created_at)} · {info.author_probable ? `provável: ${info.author_name}` : info.author_name || "autor não informado"}

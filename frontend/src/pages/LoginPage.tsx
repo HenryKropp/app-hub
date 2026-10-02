@@ -35,40 +35,27 @@ export function LoginPage() {
 
   return (
     <div className="grid min-h-svh md:grid-cols-[1.1fr_1fr]">
-      <section className="grain relative hidden overflow-hidden bg-ink p-12 text-ink-foreground md:flex md:flex-col">
-        <div className="flex items-center gap-3">
-          <Logo className="size-10" />
-          <span className="font-heading text-2xl">App Hub</span>
+      <section className="relative hidden overflow-hidden border-r border-sidebar-border bg-sidebar p-12 md:flex md:flex-col">
+        <div className="flex items-center gap-2.5">
+          <Logo className="size-8" />
+          <span className="text-lg font-semibold tracking-[-0.01em]">App Hub</span>
         </div>
-        <div className="relative mt-auto max-w-md">
-          {/* Stacked index cards, each tab one kind of app. */}
-          <div className="relative mb-12 h-44">
-            {["var(--kind-reference)", "var(--kind-desktop)", "var(--kind-web)", "var(--kind-script)"].map((c, i) => (
-              <div
-                key={c}
-                className="rise absolute inset-x-0 h-32 rounded-md border border-ink-foreground/10 bg-ink-foreground/[0.06] backdrop-blur-sm"
-                style={{ top: i * 14, left: i * 18, right: -i * 6, animationDelay: `${i * 90}ms` }}
-              >
-                <span className="absolute -top-3 left-6 h-3 w-16 rounded-t-md" style={{ left: 24 + i * 58, background: c }} />
-              </div>
-            ))}
-          </div>
-          <h1 className="font-heading text-4xl leading-tight">Todo app da empresa, com ficha, dono e botão de usar.</h1>
-          <p className="mt-4 text-ink-foreground/65">
+        <div className="mt-auto max-w-md">
+          <h1 className="font-heading text-[2.5rem] leading-[1.1] text-balance">Todo app da empresa, com ficha, dono e botão de usar.</h1>
+          <p className="mt-4 text-muted-foreground">
             Registre os scripts e ferramentas que estão espalhados em pastas. O Hub descobre como cada um funciona e deixa pronto para qualquer
             pessoa usar.
           </p>
         </div>
       </section>
 
-      <section className="paper flex items-center justify-center px-4 py-12">
-        <form onSubmit={submit} className="rise w-full max-w-sm rounded-lg border border-border bg-card p-8 shadow-card">
+      <section className="flex items-center justify-center px-4 py-12">
+        <form onSubmit={submit} className="w-full max-w-sm">
           <div className="mb-6 flex items-center gap-2 md:hidden">
             <Logo className="size-8" />
-            <span className="font-heading text-xl">App Hub</span>
+            <span className="text-lg font-semibold">App Hub</span>
           </div>
-          <p className="font-mono text-xs tracking-[0.18em] text-stamp uppercase">{needsSetup ? "Primeiro acesso" : "Entrar"}</p>
-          <h2 className="mt-2 font-heading text-2xl">{needsSetup ? "Crie a conta de administrador" : "Bem-vindo de volta"}</h2>
+          <h2 className="font-heading text-2xl">{needsSetup ? "Crie a conta de administrador" : "Bem-vindo de volta"}</h2>
           {needsSetup && <p className="mt-2 text-sm text-muted-foreground">Você será o administrador. Depois pode cadastrar as outras pessoas da empresa.</p>}
 
           <div className="mt-6 flex flex-col gap-4">

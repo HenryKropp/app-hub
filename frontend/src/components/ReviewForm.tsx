@@ -19,7 +19,7 @@ type Props = {
 function Block({ title, icon, children, id }: { title: string; icon?: ReactNode; children: ReactNode; id?: string }) {
   return (
     <section id={id} className="border-t border-border py-6 first:border-t-0 first:pt-0">
-      <h3 className="mb-4 flex items-center gap-2 font-mono text-xs tracking-[0.16em] text-muted-foreground uppercase">
+      <h3 className="mb-4 flex items-center gap-2 text-sm font-semibold">
         {icon}
         {title}
       </h3>
@@ -30,7 +30,7 @@ function Block({ title, icon, children, id }: { title: string; icon?: ReactNode;
 
 function Confirm({ on }: { on: boolean }) {
   if (!on) return null
-  return <span className="ml-1.5 rounded-sm bg-warn-soft px-1.5 py-px align-middle font-mono text-[0.6rem] tracking-wide text-warn uppercase">confirmar</span>
+  return <span className="ml-1.5 rounded-full bg-warn-soft px-2 py-px align-middle text-[0.7rem] font-medium text-warn">confirmar</span>
 }
 
 function personIdFor(people: Person[], email?: string) {
@@ -87,7 +87,7 @@ export function ReviewForm({ item, people, me, onPublished, onSkip }: Props) {
   }
 
   return (
-    <div className="rise flex flex-col" data-testid="review-form">
+    <div className="flex flex-col" data-testid="review-form">
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <KindTab kind={m.kind} />
@@ -280,8 +280,8 @@ export function ReviewForm({ item, people, me, onPublished, onSkip }: Props) {
       )}
 
       {(item.secrets ?? []).length > 0 && (
-        <Block title="Chaves e senhas no código" icon={<KeyRound className="size-3.5 text-stamp" />}>
-          <div className="rounded-md border border-stamp/30 bg-stamp-soft/50 p-4 text-sm">
+        <Block title="Chaves e senhas no código" icon={<KeyRound className="size-3.5 text-destructive" />}>
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
             <p>Encontrei chaves ou senhas escritas nestes lugares. O valor não é mostrado nem copiado para o Hub.</p>
             <ul className="mt-3 flex flex-col gap-1 font-mono text-xs">
               {item.secrets!.map((s, i) => (
@@ -314,7 +314,7 @@ export function ReviewForm({ item, people, me, onPublished, onSkip }: Props) {
         </Block>
       )}
 
-      <div className="sticky bottom-0 -mx-6 mt-4 border-t border-border bg-card/95 px-6 py-4 backdrop-blur">
+      <div className="sticky bottom-0 -mx-6 mt-4 border-t border-border bg-card px-6 py-4">
         {error && (
           <p role="alert" className="mb-3 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}
