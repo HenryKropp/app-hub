@@ -36,7 +36,7 @@ Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep)
 1. ~~Atualização automática do Agente~~ Feita e testada de verdade (2026-09-30)
 2. ~~**Fase 5:** histórico de mudanças no código e na ficha, e voltar atrás~~ Feita e testada de verdade no Files Prep (2026-10-01)
 3. **UX em 3 etapas** (desenho: `docs/superpowers/specs/2026-10-01-etapa-1-rodar-poucos-cliques-design.md`; protótipo: `2026-10-01-prototipo-ux.html`):
-   - **Etapa 1, rodar em poucos cliques:** código pronto e testado (2026-10-01), falta reiniciar o Hub, conferir as telas e o teste de verdade com o Henry. Ficha abre na hora, Rodar no cartão, pasta lembrada, faixa de andamento, Minhas execuções
+   - **Etapa 1, rodar em poucos cliques:** **feita** (código 2026-10-01; telas e teste de verdade com o Henry 2026-10-02). Ficha abre na hora, Rodar no cartão, pasta lembrada, faixa de andamento, Minhas execuções
    - Etapa 2, ficha por perfil (abas Usar/Cuidar, editar por seção, campos da v0.2): ← próxima, desenho próprio
    - Etapa 3, catálogo e primeiro uso (favoritos, filtro por área, status e "usado há…", guia do Agente): depois
 4. Rodar scripts: formulário automático e ambiente preparado sozinho
@@ -46,7 +46,8 @@ Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep)
 
 **Para a próxima sessão (deixado em 2026-10-01, à noite):**
 - Etapa 1: Hub da 8080 reiniciado em 2026-10-02 (migração 006 aplicada, `DEV_MODE=1`, registro em `backend/hub.log`). Telas conferidas com `e2e/etapa1.mjs` (só leitura; faixa e pasta lembrada simuladas): catálogo com Rodar, janela com "Lembrar esta pasta", faixa, Minhas execuções e "De todos", ficha com "salva em … · trocar", claro/escuro/celular. A barra lateral acompanha a rolagem. Sobras visuais: no celular, 3 cartões na faixa cobrem quase meia tela; o espaço embaixo da página (`pb-32`) é menor que a faixa com 3 cartões.
-- Depois, o teste de verdade no Files Prep, um passo por vez: faixa vazia ao abrir (execuções antigas não aparecem); ficha abre na hora; Rodar no cartão → janela com "Lembrar esta pasta" → Abrir app; faixa "aberto…" e depois "terminou — Ver e baixar"; Rodar no cartão de novo abre direto; Minhas execuções → Rodar de novo.
+- Teste de verdade no Files Prep com o Henry (2026-10-02), conferido nos dados do Hub: sem faixa ao abrir; 1ª vez pela janela com "Lembrar esta pasta" (pasta gravada); dispensar com ✕ não volta no F5; 2ª vez direto do cartão, sem janela; Rodar de novo por Minhas execuções; "terminou: 4 arquivos novos" → Ver e baixar abre a página e tira a faixa. Execuções 3 a 5 deram "sem arquivos novos" porque o app foi fechado antes de baixar algo novo (comportamento certo).
+- Observar: na 1ª tentativa o ✕ sumiu com a faixa, mas a dispensa não chegou ao Hub (não se repetiu). A faixa "sem arquivos novos" usa o ícone vermelho de alerta, que parece erro para um resultado normal.
 - Seguir o fluxo: desenho → plano → implementação para a Etapa 2.
 - O Agente no PC do Henry está na **0.2.3** e se atualiza sozinho. O código do Hub também está na 0.2.3, e `dist/agent/AppHubAgente.exe` da pasta principal já é essa versão.
 - Para publicar um Agente novo: subir `agentproto.Version`, rodar `scripts/build-agent.sh` e reiniciar o Hub.
@@ -103,7 +104,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Progresso ao vivo e resultado (texto, tabela, downloads) | Pending | |
 | Apps web: subir e abrir; desktop/executável: abrir | Pending | |
 | Repetir execução | In Progress | Apps com janela: **Rodar de novo** na mesma pasta, em Minhas execuções e na página da execução (Etapa 1 da UX). Scripts: falta repetir com as mesmas entradas |
-| Rodar em poucos cliques (Etapa 1 da UX) | In Progress | Feito: Rodar no cartão, pasta lembrada por pessoa e app ("Lembrar esta pasta"), faixa de andamento embaixo (sobrevive a recarregar), Minhas execuções (50 por vez, "De todos" para admin), ficha abre sem esperar a pasta (ADR 007). Falta: conferência visual e teste de verdade com o Henry |
+| Rodar em poucos cliques (Etapa 1 da UX) | Done | Feito: Rodar no cartão, pasta lembrada por pessoa e app ("Lembrar esta pasta"), faixa de andamento embaixo (sobrevive a recarregar), Minhas execuções (50 por vez, "De todos" para admin), ficha abre sem esperar a pasta (ADR 007). Telas e teste de verdade com o Henry feitos em 2026-10-02 |
 
 ## Fase 5 — Versões (1.6)
 
