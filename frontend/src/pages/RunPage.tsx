@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, Download, LoaderCircle, Play, X } from "lucide-react"
+import { ArrowLeft, Download, Play, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
+import { RunState } from "@/components/bits"
 import { api, fileUrl, groupZipUrl, selectedUrl, type Run, type RunGroup } from "@/lib/api"
 import { useRuns } from "@/lib/runs-context"
-import { formatDuration, formatSize, formatWhen, isLive, STATUS } from "@/lib/runs"
+import { formatDuration, formatSize, formatWhen, isLive } from "@/lib/runs"
 import { cn } from "@/lib/utils"
 
 const SHOWN = 10
 
-const CHECK = "size-4 shrink-0 cursor-pointer accent-[var(--stamp)]"
+const CHECK = "size-4 shrink-0 cursor-pointer accent-[var(--brand)]"
 
 function Group({ run, g, selected, toggle }: { run: Run; g: RunGroup; selected: Set<number>; toggle: (ids: number[], on: boolean) => void }) {
   const [all, setAll] = useState(false)
@@ -27,7 +28,7 @@ function Group({ run, g, selected, toggle }: { run: Run; g: RunGroup; selected: 
               onChange={(e) => toggle(g.files.map((f) => f.id), e.target.checked)}
             />
           )}
-          <h2 className="font-mono text-xs tracking-[0.16em] text-muted-foreground uppercase">{g.label} ({g.files.length})</h2>
+          <h2 className="text-sm font-semibold">{g.label} <span className="font-normal text-muted-foreground">({g.files.length})</span></h2>
         </div>
         {g.files.length > 0 && (
           <a href={groupZipUrl(run.id, g.index)} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-2")}>
@@ -59,7 +60,7 @@ function Group({ run, g, selected, toggle }: { run: Run; g: RunGroup; selected: 
           ))}
           {!all && g.files.length > SHOWN && (
             <li>
-              <button type="button" onClick={() => setAll(true)} className="text-sm text-stamp underline-offset-4 hover:underline">
+              <button type="button" onClick={() => setAll(true)} className="text-sm font-medium underline underline-offset-4">
                 … mais {g.files.length - SHOWN}
               </button>
             </li>
@@ -113,57 +114,57 @@ export function RunPage() {
 
   if (error) return <p role="alert" className="text-destructive">{error}</p>
   if (!run) return <p className="text-muted-foreground">Carregando…</p>
-  const st = STATUS[run.status]
 
   return (
-    <article className="rise">
+    <article>
       <Link to="/execucoes" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> Minhas execuções
       </Link>
-      <div className="paper rounded-lg border border-border bg-card py-8 pr-8 pl-20 shadow-card">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <p className="font-mono text-xs tracking-[0.16em] text-stamp uppercase">
-            Execução ·{" "}
+      <header className="flex flex-col gap-4 pb-6 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
+          <h1 className="font-heading text-2xl leading-tight md:text-3xl">
             <Link to={`/apps/${run.app_id}`} className="underline-offset-4 hover:underline">
               {run.app_name}
             </Link>
+          </h1>
+          <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            <RunState status={run.status} />
+            <span>· <span className="font-mono text-[0.8rem]">{formatWhen(run.created_at)}</span> · <span className="font-mono text-[0.8rem]">{formatDuration(run.started_at, run.finished_at)}</span></span>
+            <span className="whitespace-nowrap">· {run.person_name}</span>
           </p>
-          {!isLive(run.status) && (
-            <Button
-              size="sm"
-              className="gap-1.5"
-              disabled={busy.has(run.app_id)}
-              onClick={() => runApp({ id: run.app_id, name: run.app_name, folder_display: run.output_folder, remembered_folder: "" }, { folder: run.output_folder })}
-            >
-              <Play className="size-3.5" /> Rodar de novo
-            </Button>
-          )}
         </div>
-        <h1 className="mt-2 font-heading text-3xl">{formatWhen(run.created_at)} · {formatDuration(run.started_at, run.finished_at)} · {run.person_name}</h1>
-        <p className={cn("mt-3 inline-flex items-center gap-2 font-medium", st.tone === "bad" && "text-destructive", st.tone === "ok" && "text-ok", st.tone === "live" && "text-stamp")}>
-          {isLive(run.status) && <LoaderCircle className="size-4 animate-spin" />}
-          {st.label}
-        </p>
+        {!isLive(run.status) && (
+          <Button
+            variant="run"
+            className="h-9 shrink-0 gap-1.5 pr-4 pl-3.5"
+            disabled={busy.has(run.app_id)}
+            onClick={() => runApp({ id: run.app_id, name: run.app_name, folder_display: run.output_folder, remembered_folder: "" }, { folder: run.output_folder })}
+          >
+            <Play className="size-3.5" /> Rodar de novo
+          </Button>
+        )}
+      </header>
+      <div>
         {run.status === "running" && <p className="mt-2 text-muted-foreground">Rodando: a janela está aberta no seu computador. Quando você fechar, os arquivos aparecem aqui.</p>}
         {run.status === "waiting" && <p className="mt-2 text-muted-foreground">Esperando o computador {run.computer_name} abrir o app…</p>}
         {(run.status === "error" || run.status === "interrupted") && run.error_message && (
           <p role="alert" className="mt-2 text-destructive">{run.error_message}</p>
         )}
-        <dl className="mt-6 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-3">
-          <div><dt className="text-muted-foreground">Pasta</dt><dd className="font-mono text-xs break-all">{run.output_folder}</dd></div>
-          <div><dt className="text-muted-foreground">Computador</dt><dd className="font-medium">{run.computer_name}</dd></div>
-          <div><dt className="text-muted-foreground">Versão do app</dt><dd className="font-medium">{run.version_number ? `versão ${run.version_number}` : run.app_version || "—"}</dd></div>
+        <dl className="mt-5 grid overflow-hidden rounded-xl border border-border text-sm sm:grid-cols-[2fr_1fr_1fr]">
+          <div className="px-4 py-3 max-sm:border-b sm:border-r"><dt className="text-xs text-muted-foreground">Salva em</dt><dd className="mt-0.5 font-mono text-xs break-all">{run.output_folder}</dd></div>
+          <div className="px-4 py-3 max-sm:border-b sm:border-r"><dt className="text-xs text-muted-foreground">Computador</dt><dd className="mt-0.5 font-medium">{run.computer_name}</dd></div>
+          <div className="px-4 py-3"><dt className="text-xs text-muted-foreground">Versão do app</dt><dd className="mt-0.5 font-mono text-[0.8rem]">{run.version_number ? `versão ${run.version_number}` : run.app_version || "—"}</dd></div>
         </dl>
         {!isLive(run.status) && run.groups.length > 0 && (
           <div className="mt-6">
-            <p className="text-sm text-muted-foreground">Clique num arquivo para baixar só ele, ou marque os que quiser e baixe de uma vez.</p>
+            <p className="mb-2 text-sm text-muted-foreground">Clique num arquivo para baixar só ele, ou marque os que quiser e baixe de uma vez.</p>
             {run.groups.map((g) => (
               <Group key={`${g.index}-${g.label}`} run={run} g={g} selected={selected} toggle={toggle} />
             ))}
           </div>
         )}
         {selected.size > 0 && (
-          <div className="rise sticky bottom-4 z-10 mt-4 flex flex-wrap items-center justify-end gap-3 rounded-lg border border-border bg-card/95 p-3 shadow-card backdrop-blur">
+          <div className="sticky bottom-4 z-10 mt-4 flex flex-wrap items-center justify-end gap-3 shadow-pop rounded-xl border border-border bg-popover p-3">
             <button type="button" onClick={() => setSelected(new Set())} className="inline-flex cursor-pointer items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
               <X className="size-4" /> Limpar
             </button>

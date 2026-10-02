@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { Check, LoaderCircle, TriangleAlert, X } from "lucide-react"
+import { CircleCheck, Info, TriangleAlert, X } from "lucide-react"
+import { Playing } from "./bits"
 import type { ActiveRun } from "@/lib/api"
 import { useRuns } from "@/lib/runs-context"
 import { isLive } from "@/lib/runs"
-import { cn } from "@/lib/utils"
 
 const MAX = 3
 
@@ -30,15 +30,19 @@ function text(r: ActiveRun): ReactNode {
 // Folder problems (from the Hub or the Agente) mention "pasta"; only those get "trocar pasta".
 const aboutFolder = (msg = "") => /pasta/i.test(msg)
 
-const ACTION = "rounded-md bg-ink-foreground/12 px-2.5 py-1 text-xs font-medium text-ink-foreground transition-colors hover:bg-ink-foreground/20"
+const ACTION = "rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+const PRIMARY = "rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/85"
 
-function Card({ tone, children, actions }: { tone: "live" | "ok" | "bad"; children: ReactNode; actions: ReactNode }) {
+function Card({ tone, children, actions }: { tone: "live" | "ok" | "muted" | "bad"; children: ReactNode; actions: ReactNode }) {
   return (
-    <div role="status" className="pointer-events-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg bg-ink px-4 py-3 text-sm text-ink-foreground shadow-lg ring-1 ring-ink-foreground/10">
+    <div role="status" className="shadow-pop pointer-events-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 md:flex-nowrap rounded-xl border border-border bg-popover px-4 py-3 text-sm text-popover-foreground">
       <span className="flex min-w-0 items-start gap-2.5">
-        {tone === "live" && <LoaderCircle className="mt-0.5 size-4 shrink-0 animate-spin text-ink-foreground/70" />}
-        {tone === "ok" && <Check className="mt-0.5 size-4 shrink-0 text-ok" />}
-        {tone === "bad" && <TriangleAlert className="mt-0.5 size-4 shrink-0 text-stamp" />}
+        <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
+          {tone === "live" && <Playing />}
+          {tone === "ok" && <CircleCheck className="size-4 text-ok" />}
+          {tone === "muted" && <Info className="size-4 text-muted-foreground" />}
+          {tone === "bad" && <TriangleAlert className="size-4 text-destructive" />}
+        </span>
         <span className="min-w-0 break-words">{children}</span>
       </span>
       <span className="ml-auto flex shrink-0 items-center gap-1.5">{actions}</span>
@@ -48,7 +52,7 @@ function Card({ tone, children, actions }: { tone: "live" | "ok" | "bad"; childr
 
 function Dismiss({ onClick }: { onClick: () => void }) {
   return (
-    <button type="button" aria-label="Dispensar" onClick={onClick} className="rounded p-1 text-ink-foreground/60 hover:bg-ink-foreground/10 hover:text-ink-foreground">
+    <button type="button" aria-label="Dispensar" onClick={onClick} className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
       <X className="size-4" />
     </button>
   )
@@ -84,7 +88,7 @@ export function RunStrip() {
               ) : (
                 n.target && aboutFolder(n.message) && (
                   <button type="button" className={ACTION} onClick={() => { dropNotice(n.key); run(n.target!, { ask: true }) }}>
-                    trocar pasta
+                    Trocar pasta
                   </button>
                 )
               )}
@@ -103,11 +107,11 @@ export function RunStrip() {
         return (
           <Card
             key={r.id}
-            tone={live ? "live" : r.status === "done" ? "ok" : "bad"}
+            tone={live ? "live" : r.status === "done" ? "ok" : r.status === "no_files" ? "muted" : "bad"}
             actions={
               live ? (
                 <button type="button" className={ACTION} onClick={() => setHidden((h) => new Set(h).add(r.id))}>
-                  ocultar
+                  Ocultar
                 </button>
               ) : (
                 <>
@@ -119,10 +123,10 @@ export function RunStrip() {
                   {r.status === "error" && aboutFolder(r.error_message) && (
                     <button type="button" className={ACTION}
                       onClick={() => { dismiss(r.id); run({ id: r.app_id, name: r.app_name, folder_display: r.app_folder_display, remembered_folder: "" }, { ask: true }) }}>
-                      trocar pasta
+                      Trocar pasta
                     </button>
                   )}
-                  <button type="button" className={cn(ACTION, r.status === "done" && "bg-ok/90 text-white hover:bg-ok")} onClick={() => open(r.id)}>
+                  <button type="button" className={r.status === "done" ? PRIMARY : ACTION} onClick={() => open(r.id)}>
                     {r.status === "done" ? "Ver e baixar" : "Ver detalhes"}
                   </button>
                   <Dismiss onClick={() => dismiss(r.id)} />
@@ -138,10 +142,10 @@ export function RunStrip() {
   if (items.length === 0) return null
   const extra = items.length - MAX
   return (
-    <div className="pointer-events-none fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-3xl flex-col gap-2 md:left-[calc(16rem+3rem)] md:right-12">
+    <div className="pointer-events-none fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-3xl flex-col gap-2 md:left-[calc(15rem+3rem)] md:right-12">
       {items.slice(0, MAX)}
       {extra > 0 && (
-        <Link to="/execucoes" className="pointer-events-auto self-end rounded-md bg-ink px-3 py-1.5 text-xs text-ink-foreground shadow-lg underline-offset-4 hover:underline">
+        <Link to="/execucoes" className="shadow-pop pointer-events-auto self-end rounded-md border border-border bg-popover px-3 py-1.5 text-xs font-medium underline-offset-4 hover:underline">
           +{extra} em Minhas execuções
         </Link>
       )}

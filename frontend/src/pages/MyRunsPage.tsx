@@ -2,11 +2,11 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { Play } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
-import { EmptyState, PageHeader } from "@/components/bits"
+import { EmptyState, PageHeader, RunState } from "@/components/bits"
 import { api, type RunListItem } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
-import { formatDuration, formatWhen, isLive, STATUS } from "@/lib/runs"
+import { formatDuration, formatWhen, isLive } from "@/lib/runs"
 import { cn } from "@/lib/utils"
 
 export function MyRunsPage() {
@@ -48,16 +48,16 @@ export function MyRunsPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Minhas execuções" title={scope === "all" ? "O que todos rodaram" : "O que você rodou"}>
+      <PageHeader title={scope === "all" ? "O que todos rodaram" : "O que você rodou"}>
         {person?.role === "admin" && (
-          <div className="flex gap-1 rounded-md border border-border bg-card p-1 text-sm">
+          <div className="flex gap-0.5 rounded-lg bg-secondary p-0.5 text-sm">
             {(["mine", "all"] as const).map((s) => (
               <button
                 key={s}
                 type="button"
                 aria-pressed={scope === s}
                 onClick={() => setScope(s)}
-                className={cn("rounded px-3 py-1", scope === s ? "bg-ink text-ink-foreground" : "text-muted-foreground hover:text-foreground")}
+                className={cn("rounded-md px-3 py-1", scope === s ? "bg-background font-medium text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground")}
               >
                 {s === "mine" ? "Minhas" : "De todos"}
               </button>
@@ -73,20 +73,17 @@ export function MyRunsPage() {
         </EmptyState>
       )}
       {items && items.length > 0 && (
-        <ul className="rise divide-y divide-border rounded-lg border border-border bg-card shadow-card">
+        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
           {items.map((r) => {
-            const st = STATUS[r.status]
             return (
-              <li key={r.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-4">
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-3.5 transition-colors hover:bg-muted/50">
                 <div className="min-w-0">
-                  <Link to={`/apps/${r.app_id}`} className="font-heading text-lg leading-snug hover:text-stamp">
+                  <Link to={`/apps/${r.app_id}`} className="font-medium leading-snug hover:underline">
                     {r.app_name}
                   </Link>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    {formatWhen(r.created_at)} · {formatDuration(r.started_at, r.finished_at)} ·{" "}
-                    <span className={cn("font-medium", st.tone === "bad" && "text-destructive", st.tone === "ok" && "text-ok", st.tone === "live" && "text-stamp")}>
-                      {st.label}
-                    </span>
+                  <p className="mt-1 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
+                    <RunState status={r.status} />
+                    <span>· <span className="font-mono text-[0.8rem]">{formatWhen(r.created_at)}</span> · <span className="font-mono text-[0.8rem]">{formatDuration(r.started_at, r.finished_at)}</span></span>
                     {!isLive(r.status) && ` · ${r.file_count} ${r.file_count === 1 ? "arquivo" : "arquivos"}`}
                     {scope === "all" && ` · ${r.person_name}`}
                   </p>
@@ -99,7 +96,8 @@ export function MyRunsPage() {
                   {r.person_id === person?.id && (
                     <Button
                       size="sm"
-                      className="gap-1.5"
+                      variant="outline"
+                      className="gap-1.5 [&_svg]:fill-current [&_svg]:text-brand"
                       disabled={busy.has(r.app_id)}
                       onClick={() => run({ id: r.app_id, name: r.app_name, folder_display: r.output_folder, remembered_folder: "" }, { folder: r.output_folder })}
                     >

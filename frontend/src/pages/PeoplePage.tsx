@@ -38,12 +38,12 @@ export function PeoplePage() {
 
   return (
     <>
-      <PageHeader eyebrow="Pessoas" title="Quem usa e mantém os apps" />
+      <PageHeader title="Quem usa e mantém os apps" />
       <div className="grid gap-10 lg:grid-cols-[1fr_22rem]">
-        <ul className="rise divide-y divide-border rounded-lg border border-border bg-card shadow-card">
+        <ul className="h-fit divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
           {people.map((p) => (
             <li key={p.id} className="flex items-center gap-4 px-5 py-3.5">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary font-heading text-sm">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold">
                 {p.name.slice(0, 1).toUpperCase()}
               </span>
               <div className="min-w-0 flex-1">
@@ -52,13 +52,13 @@ export function PeoplePage() {
                 </p>
                 <p className="truncate text-sm text-muted-foreground">{p.email}</p>
               </div>
-              <span className="rounded-sm border border-border px-2 py-0.5 font-mono text-[0.68rem] tracking-wide uppercase">{roleLabel(p.role)}</span>
+              <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground">{roleLabel(p.role)}</span>
             </li>
           ))}
         </ul>
 
         {isAdmin ? (
-          <form onSubmit={submit} className="rise flex h-fit flex-col gap-4 rounded-lg border border-border bg-card p-6 shadow-card" style={{ animationDelay: "80ms" }}>
+          <form onSubmit={submit} className="flex h-fit flex-col gap-4 rounded-xl border border-border bg-card p-6">
             <h2 className="font-heading text-xl">Cadastrar pessoa</h2>
             <Field label="Nome" htmlFor="p-name">
               <Input id="p-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />

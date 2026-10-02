@@ -1,0 +1,577 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-02T18:46:55+00:00",
+  "title": "Design System: App Hub",
+  "extensions": {
+    "colorMeta": {
+      "run-violet": {
+        "role": "primary",
+        "displayName": "Run Violet",
+        "canonical": "oklch(0.53 0.25 293)",
+        "tonalRamp": [
+          "oklch(0.15 0.25 293)",
+          "oklch(0.26 0.25 293)",
+          "oklch(0.37 0.25 293)",
+          "oklch(0.48 0.25 293)",
+          "oklch(0.60 0.25 293)",
+          "oklch(0.72 0.25 293)",
+          "oklch(0.84 0.25 293)",
+          "oklch(0.95 0.25 293)"
+        ]
+      },
+      "run-violet-night": {
+        "role": "primary",
+        "displayName": "Run Violet Night",
+        "canonical": "oklch(0.62 0.22 293)",
+        "tonalRamp": [
+          "oklch(0.15 0.22 293)",
+          "oklch(0.26 0.22 293)",
+          "oklch(0.37 0.22 293)",
+          "oklch(0.48 0.22 293)",
+          "oklch(0.60 0.22 293)",
+          "oklch(0.72 0.22 293)",
+          "oklch(0.84 0.22 293)",
+          "oklch(0.95 0.22 293)"
+        ]
+      },
+      "violet-wash": {
+        "role": "primary",
+        "displayName": "Violet Wash",
+        "canonical": "oklch(0.955 0.03 293)",
+        "tonalRamp": [
+          "oklch(0.15 0.03 293)",
+          "oklch(0.26 0.03 293)",
+          "oklch(0.37 0.03 293)",
+          "oklch(0.48 0.03 293)",
+          "oklch(0.60 0.03 293)",
+          "oklch(0.72 0.03 293)",
+          "oklch(0.84 0.03 293)",
+          "oklch(0.95 0.03 293)"
+        ]
+      },
+      "violet-wash-night": {
+        "role": "primary",
+        "displayName": "Violet Wash Night",
+        "canonical": "oklch(0.27 0.07 293)",
+        "tonalRamp": [
+          "oklch(0.15 0.07 293)",
+          "oklch(0.26 0.07 293)",
+          "oklch(0.37 0.07 293)",
+          "oklch(0.48 0.07 293)",
+          "oklch(0.60 0.07 293)",
+          "oklch(0.72 0.07 293)",
+          "oklch(0.84 0.07 293)",
+          "oklch(0.95 0.07 293)"
+        ]
+      },
+      "focus-violet": {
+        "role": "primary",
+        "displayName": "Focus Violet",
+        "canonical": "oklch(0.56 0.24 293)",
+        "tonalRamp": [
+          "oklch(0.15 0.24 293)",
+          "oklch(0.26 0.24 293)",
+          "oklch(0.37 0.24 293)",
+          "oklch(0.48 0.24 293)",
+          "oklch(0.60 0.24 293)",
+          "oklch(0.72 0.24 293)",
+          "oklch(0.84 0.24 293)",
+          "oklch(0.95 0.24 293)"
+        ]
+      },
+      "focus-violet-night": {
+        "role": "primary",
+        "displayName": "Focus Violet Night",
+        "canonical": "oklch(0.7 0.18 293)",
+        "tonalRamp": [
+          "oklch(0.15 0.18 293)",
+          "oklch(0.26 0.18 293)",
+          "oklch(0.37 0.18 293)",
+          "oklch(0.48 0.18 293)",
+          "oklch(0.60 0.18 293)",
+          "oklch(0.72 0.18 293)",
+          "oklch(0.84 0.18 293)",
+          "oklch(0.95 0.18 293)"
+        ]
+      },
+      "paper-white": {
+        "role": "neutral",
+        "displayName": "Paper White",
+        "canonical": "oklch(1 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.37 0 0)",
+          "oklch(0.48 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.72 0 0)",
+          "oklch(0.84 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "sidebar-mist": {
+        "role": "neutral",
+        "displayName": "Sidebar Mist",
+        "canonical": "oklch(0.982 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.37 0 0)",
+          "oklch(0.48 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.72 0 0)",
+          "oklch(0.84 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "oklch(0.205 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.37 0 0)",
+          "oklch(0.48 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.72 0 0)",
+          "oklch(0.84 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "quiet-gray": {
+        "role": "neutral",
+        "displayName": "Quiet Gray",
+        "canonical": "oklch(0.5 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.37 0 0)",
+          "oklch(0.48 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.72 0 0)",
+          "oklch(0.84 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "pill-gray": {
+        "role": "neutral",
+        "displayName": "Pill Gray",
+        "canonical": "oklch(0.965 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.37 0 0)",
+          "oklch(0.48 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.72 0 0)",
+          "oklch(0.84 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "hover-gray": {
+        "role": "neutral",
+        "displayName": "Hover Gray",
+        "canonical": "oklch(0.955 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.37 0 0)",
+          "oklch(0.48 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.72 0 0)",
+          "oklch(0.84 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(0.925 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.37 0 0)",
+          "oklch(0.48 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.72 0 0)",
+          "oklch(0.84 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "field-stroke": {
+        "role": "neutral",
+        "displayName": "Field Stroke",
+        "canonical": "oklch(0.88 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.37 0 0)",
+          "oklch(0.48 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.72 0 0)",
+          "oklch(0.84 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "night-ground": {
+        "role": "neutral",
+        "displayName": "Night Ground",
+        "canonical": "oklch(0.145 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.37 0 0)",
+          "oklch(0.48 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.72 0 0)",
+          "oklch(0.84 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "night-sidebar": {
+        "role": "neutral",
+        "displayName": "Night Sidebar",
+        "canonical": "oklch(0.165 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.37 0 0)",
+          "oklch(0.48 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.72 0 0)",
+          "oklch(0.84 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "night-surface": {
+        "role": "neutral",
+        "displayName": "Night Surface",
+        "canonical": "oklch(0.18 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.37 0 0)",
+          "oklch(0.48 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.72 0 0)",
+          "oklch(0.84 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "night-ink": {
+        "role": "neutral",
+        "displayName": "Night Ink",
+        "canonical": "oklch(0.94 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.37 0 0)",
+          "oklch(0.48 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.72 0 0)",
+          "oklch(0.84 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "night-quiet": {
+        "role": "neutral",
+        "displayName": "Night Quiet",
+        "canonical": "oklch(0.7 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.37 0 0)",
+          "oklch(0.48 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.72 0 0)",
+          "oklch(0.84 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "night-hairline": {
+        "role": "neutral",
+        "displayName": "Night Hairline",
+        "canonical": "oklch(0.27 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.26 0 0)",
+          "oklch(0.37 0 0)",
+          "oklch(0.48 0 0)",
+          "oklch(0.60 0 0)",
+          "oklch(0.72 0 0)",
+          "oklch(0.84 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "ok-green": {
+        "role": "status",
+        "displayName": "OK Green",
+        "canonical": "oklch(0.52 0.13 150)",
+        "tonalRamp": [
+          "oklch(0.15 0.13 150)",
+          "oklch(0.26 0.13 150)",
+          "oklch(0.37 0.13 150)",
+          "oklch(0.48 0.13 150)",
+          "oklch(0.60 0.13 150)",
+          "oklch(0.72 0.13 150)",
+          "oklch(0.84 0.13 150)",
+          "oklch(0.95 0.13 150)"
+        ]
+      },
+      "error-red": {
+        "role": "status",
+        "displayName": "Error Red",
+        "canonical": "oklch(0.55 0.21 27)",
+        "tonalRamp": [
+          "oklch(0.15 0.21 27)",
+          "oklch(0.26 0.21 27)",
+          "oklch(0.37 0.21 27)",
+          "oklch(0.48 0.21 27)",
+          "oklch(0.60 0.21 27)",
+          "oklch(0.72 0.21 27)",
+          "oklch(0.84 0.21 27)",
+          "oklch(0.95 0.21 27)"
+        ]
+      },
+      "attention-amber": {
+        "role": "status",
+        "displayName": "Attention Amber",
+        "canonical": "oklch(0.55 0.13 65)",
+        "tonalRamp": [
+          "oklch(0.15 0.13 65)",
+          "oklch(0.26 0.13 65)",
+          "oklch(0.37 0.13 65)",
+          "oklch(0.48 0.13 65)",
+          "oklch(0.60 0.13 65)",
+          "oklch(0.72 0.13 65)",
+          "oklch(0.84 0.13 65)",
+          "oklch(0.95 0.13 65)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "App name at the top of an app's page."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page titles in the shared page header."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "App name on catalog cards."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Descriptions, list rows, form text."
+      },
+      "body-lead": {
+        "displayName": "Body Lead",
+        "purpose": "Summary under the app name on its page, max 68ch."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Hints, meta lines, kind pills, strip actions, field captions."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Paths, file names, versions, dates and durations only; separators stay in sans."
+      }
+    },
+    "shadows": [
+      {
+        "name": "pop",
+        "value": "0 1px 2px oklch(0 0 0 / 0.04), 0 8px 24px -6px oklch(0 0 0 / 0.12)",
+        "purpose": "Light mode: only on floating run-strip cards and the overflow link."
+      },
+      {
+        "name": "pop-dark",
+        "value": "0 1px 2px oklch(0 0 0 / 0.4), 0 12px 32px -8px oklch(0 0 0 / 0.7)",
+        "purpose": "Dark mode value of pop."
+      },
+      {
+        "name": "focus-ring",
+        "value": "0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent)",
+        "purpose": "Focus on buttons and fields; Rodar uses the brand at 40%."
+      }
+    ],
+    "motion": [
+      {
+        "name": "playing",
+        "value": "scaleY 0.3 to 1, 1s ease-in-out infinite, delays 0 / -0.35s / -0.7s",
+        "purpose": "Violet equalizer bars on live runs; static heights (0.55, 1, 0.75) under reduced motion."
+      },
+      {
+        "name": "state-transition",
+        "value": "Tailwind transition-colors / transition-all, 150ms default",
+        "purpose": "Hover and focus color changes."
+      },
+      {
+        "name": "dialog",
+        "value": "fade and zoom-in-95, 100ms",
+        "purpose": "Dialog open and close."
+      },
+      {
+        "name": "press",
+        "value": "translateY(1px)",
+        "purpose": "Button active state."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Rodar Button",
+      "kind": "button",
+      "refersTo": "button-run",
+      "description": "The run pill: the only fully round, violet-filled button. Starts an app.",
+      "html": "<button class=\"ds-run\"><svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M6 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 6 4.5z\"/></svg> Rodar</button>",
+      "css": ".ds-run{font-family:'Geist Variable',ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 14px 0 12px;border:1px solid transparent;border-radius:9999px;background:var(--brand,oklch(0.53 0.25 293));color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;outline:none}.ds-run:hover{background:color-mix(in oklch,var(--brand,oklch(0.53 0.25 293)),black 12%)}.ds-run:focus-visible{box-shadow:0 0 0 3px color-mix(in oklch,var(--brand,oklch(0.53 0.25 293)) 40%,transparent)}.ds-run:active{transform:translateY(1px)}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Neutral ink button for non-run main actions such as Ver e baixar.",
+      "html": "<button class=\"ds-btn\">Ver e baixar</button>",
+      "css": ".ds-btn{font-family:'Geist Variable',ui-sans-serif,system-ui,sans-serif;height:32px;padding:0 10px;border:1px solid transparent;border-radius:8px;background:oklch(0.205 0 0);color:oklch(0.985 0 0);font-size:14px;font-weight:500;cursor:pointer;transition:all .15s;outline:none}.ds-btn:hover{background:color-mix(in oklch,oklch(0.205 0 0) 80%,transparent)}.ds-btn:focus-visible{border-color:oklch(0.56 0.24 293);box-shadow:0 0 0 3px color-mix(in oklch,oklch(0.56 0.24 293) 50%,transparent)}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Hairline secondary action; Rodar de novo adds a violet play icon.",
+      "html": "<button class=\"ds-outline\"><span class=\"ds-outline-icon\"><svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M6 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 6 4.5z\"/></svg></span> Rodar de novo</button>",
+      "css": ".ds-outline{font-family:'Geist Variable',ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:1px solid oklch(0.925 0 0);border-radius:6.4px;background:#fff;color:oklch(0.205 0 0);font-size:12.8px;font-weight:500;cursor:pointer;transition:all .15s;outline:none}.ds-outline:hover{background:oklch(0.97 0 0)}.ds-outline:focus-visible{border-color:oklch(0.56 0.24 293);box-shadow:0 0 0 3px color-mix(in oklch,oklch(0.56 0.24 293) 50%,transparent)}.ds-outline-icon{display:inline-flex;color:oklch(0.53 0.25 293)}"
+    },
+    {
+      "name": "Kind Pill",
+      "kind": "chip",
+      "refersTo": "kind-pill",
+      "description": "Gray pill with an icon naming the app kind. Never colored.",
+      "html": "<span class=\"ds-kind\"><svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"2\" y=\"4\" width=\"20\" height=\"16\" rx=\"2\"/><path d=\"M10 4v4M2 8h20M6 4v4\"/></svg>Janela</span>",
+      "css": ".ds-kind{font-family:'Geist Variable',ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:9999px;background:oklch(0.965 0 0);color:oklch(0.5 0 0);font-size:12px;font-weight:500}"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Hairline field with violet focus ring and caret.",
+      "html": "<input class=\"ds-input\" placeholder=\"Buscar por nome, área, pessoa…\">",
+      "css": ".ds-input{font-family:'Geist Variable',ui-sans-serif,system-ui,sans-serif;height:36px;width:288px;padding:4px 10px;border:1px solid oklch(0.88 0 0);border-radius:8px;background:#fff;color:oklch(0.205 0 0);font-size:14px;caret-color:oklch(0.53 0.25 293);outline:none;transition:border-color .15s}.ds-input::placeholder{color:oklch(0.5 0 0)}.ds-input:focus-visible{border-color:oklch(0.56 0.24 293);box-shadow:0 0 0 3px color-mix(in oklch,oklch(0.56 0.24 293) 50%,transparent)}"
+    },
+    {
+      "name": "Sidebar Nav",
+      "kind": "nav",
+      "refersTo": "nav-item-active",
+      "description": "Gray rows; the active row fills gray and only its icon turns violet; live runs show bars and a count.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-active\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" class=\"ds-nav-icon\" aria-hidden=\"true\"><path d=\"m16 6 4 14M12 6v14M8 8v12M4 4v16\"/></svg>Catálogo</a><a class=\"ds-nav-item\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\"/><path d=\"M3 3v5h5M12 7v5l4 2\"/></svg>Minhas execuções<span class=\"ds-count\"><span class=\"ds-playing\"><i></i><i></i><i></i></span>1</span></a></nav>",
+      "css": ".ds-nav{font-family:'Geist Variable',ui-sans-serif,system-ui,sans-serif;display:flex;flex-direction:column;gap:2px;width:216px;padding:12px;background:oklch(0.982 0 0)}.ds-nav-item{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6.4px;color:oklch(0.5 0 0);font-size:14px;text-decoration:none;transition:background .15s,color .15s}.ds-nav-item:hover{background:color-mix(in oklch,oklch(0.955 0 0) 70%,transparent);color:oklch(0.205 0 0)}.ds-nav-item:focus-visible{outline:2px solid color-mix(in oklch,oklch(0.56 0.24 293) 50%,transparent)}.ds-active{background:oklch(0.955 0 0);color:oklch(0.205 0 0);font-weight:500}.ds-active .ds-nav-icon{color:oklch(0.53 0.25 293)}.ds-count{margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:oklch(0.53 0.25 293)}.ds-playing{display:inline-flex;align-items:flex-end;gap:2px;height:.85em}.ds-playing i{display:block;width:3px;height:100%;border-radius:1px;background:currentColor;transform-origin:bottom;animation:ds-play 1s ease-in-out infinite}.ds-playing i:nth-child(2){animation-delay:-.35s}.ds-playing i:nth-child(3){animation-delay:-.7s}@keyframes ds-play{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}@media (prefers-reduced-motion:reduce){.ds-playing i{animation:none}.ds-playing i:nth-child(1){transform:scaleY(.55)}.ds-playing i:nth-child(3){transform:scaleY(.75)}}"
+    },
+    {
+      "name": "App Card",
+      "kind": "card",
+      "refersTo": "app-card",
+      "description": "Catalog card: name, two-line description, kind pill and area · owner, live mark and Rodar.",
+      "html": "<div class=\"ds-card\"><h2 class=\"ds-card-title\">Eq. Research Files Prep</h2><p class=\"ds-card-desc\">Baixa da CVM os documentos de uma empresa aberta e junta os que você escolher num único arquivo de texto.</p><div class=\"ds-card-foot\"><span class=\"ds-card-meta\"><span class=\"ds-kind\">Janela</span><span>Research · <span class=\"ds-owner\">Henry Kropp</span></span></span><span class=\"ds-card-act\"><span class=\"ds-live\"><span class=\"ds-playing\"><i></i><i></i><i></i></span> aberto agora</span><button class=\"ds-run\"><svg viewBox=\"0 0 24 24\" width=\"14\" height=\"14\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M6 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 6 4.5z\"/></svg> Rodar</button></span></div></div>",
+      "css": ".ds-card{font-family:'Geist Variable',ui-sans-serif,system-ui,sans-serif;display:flex;flex-direction:column;min-height:176px;width:300px;padding:20px;border:1px solid oklch(0.925 0 0);border-radius:11.2px;background:#fff;color:oklch(0.205 0 0);transition:border-color .15s,background .15s}.ds-card:hover{border-color:oklch(0.88 0 0);background:color-mix(in oklch,#fff,oklch(0.205 0 0) 1.5%)}.ds-card-title{margin:0;font-size:16.8px;font-weight:600;letter-spacing:-.02em;line-height:1.375}.ds-card-desc{margin:6px 0 0;font-size:14px;line-height:1.625;color:oklch(0.5 0 0);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.ds-card-foot{margin-top:auto;padding-top:20px;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;font-size:12px;color:oklch(0.5 0 0)}.ds-card-meta{display:flex;flex-direction:column;align-items:flex-start;gap:8px}.ds-owner{color:color-mix(in oklch,oklch(0.205 0 0) 80%,transparent)}.ds-card-act{display:flex;flex-direction:column;align-items:flex-end;gap:8px}.ds-live{display:inline-flex;align-items:center;gap:6px;font-weight:500;color:oklch(0.53 0.25 293)}.ds-kind{display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;background:oklch(0.965 0 0);font-weight:500}.ds-run{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 14px 0 12px;border:0;border-radius:9999px;background:oklch(0.53 0.25 293);color:#fff;font:inherit;font-size:14px;font-weight:600;cursor:pointer}.ds-run:hover{background:color-mix(in oklch,oklch(0.53 0.25 293),black 12%)}.ds-run:focus-visible{outline:none;box-shadow:0 0 0 3px color-mix(in oklch,oklch(0.53 0.25 293) 40%,transparent)}.ds-playing{display:inline-flex;align-items:flex-end;gap:2px;height:.85em}.ds-playing i{display:block;width:3px;height:100%;border-radius:1px;background:currentColor;transform-origin:bottom;animation:ds-play 1s ease-in-out infinite}.ds-playing i:nth-child(2){animation-delay:-.35s}.ds-playing i:nth-child(3){animation-delay:-.7s}@keyframes ds-play{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}@media (prefers-reduced-motion:reduce){.ds-playing i{animation:none}}"
+    },
+    {
+      "name": "Run Strip Card",
+      "kind": "custom",
+      "refersTo": "run-strip-card",
+      "description": "Floating card narrating a run: status mark, plain sentence, small actions. The only shadowed surface.",
+      "html": "<div class=\"ds-strip\"><span class=\"ds-strip-msg\"><svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" fill=\"none\" stroke=\"oklch(0.52 0.13 150)\" stroke-width=\"2\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"m9 12 2 2 4-4\"/></svg><span><b>Eq. Research Files Prep</b> terminou: 4 arquivos novos</span></span><span class=\"ds-strip-act\"><button class=\"ds-strip-primary\">Ver e baixar</button><button class=\"ds-strip-x\" aria-label=\"Dispensar\">×</button></span></div>",
+      "css": ".ds-strip{font-family:'Geist Variable',ui-sans-serif,system-ui,sans-serif;display:flex;align-items:center;justify-content:space-between;gap:16px;width:560px;padding:12px 16px;border:1px solid oklch(0.925 0 0);border-radius:11.2px;background:#fff;color:oklch(0.205 0 0);font-size:14px;box-shadow:0 1px 2px oklch(0 0 0 / .04),0 8px 24px -6px oklch(0 0 0 / .12)}.ds-strip-msg{display:flex;align-items:center;gap:10px}.ds-strip-msg b{font-weight:600}.ds-strip-act{display:flex;align-items:center;gap:6px}.ds-strip-primary{font:inherit;font-size:12px;font-weight:500;padding:4px 10px;border:0;border-radius:6.4px;background:oklch(0.205 0 0);color:oklch(0.985 0 0);cursor:pointer}.ds-strip-primary:hover{background:color-mix(in oklch,oklch(0.205 0 0) 85%,transparent)}.ds-strip-primary:focus-visible,.ds-strip-x:focus-visible{outline:2px solid color-mix(in oklch,oklch(0.56 0.24 293) 50%,transparent)}.ds-strip-x{padding:2px 7px;border:0;border-radius:6.4px;background:transparent;color:oklch(0.5 0 0);font-size:16px;cursor:pointer}.ds-strip-x:hover{background:oklch(0.955 0 0);color:oklch(0.205 0 0)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Play Button in a Quiet Room",
+    "overview": "App Hub is the category standard played straight: the clean, neutral work tool people already know from Notion and Vercel. White ground, a faintly gray sidebar, one-pixel hairlines, near-black text, gray secondary text, and Geist everywhere. Nothing decorates. The density is that of a tool used in a hurry between other tasks: cards with three lines of meaning, a page title, a search field, and the button you came for.\n\nInto that quiet room goes exactly one vivid color, used the way Spotify uses its green. Violet marks only two things: what you can start (the Rodar pill) and what is running right now (the animated \"playing\" bars). Because nothing else is colored, the eye finds Rodar and the live run without searching. Identity comes from that violet and from the bars, not from the layout, which is intentionally familiar.\n\nLight is the default theme; dark is a full peer, not an afterthought, with a lighter violet so the accent keeps its punch on near-black. The system rejects the Hub's previous archive look (cream paper, serif, red stamp, a different color per app kind) and rejects rainbow status chips.",
+    "keyCharacteristics": [
+      "Neutral white, gray and near-black surfaces; one vivid violet accent.",
+      "Violet only on Rodar, the active nav icon, focus and selection, and live runs.",
+      "Status is always icon plus words, never a colored chip.",
+      "App kinds are gray pills with an icon, never colored.",
+      "Geist for all text; Geist Mono only for paths, versions, dates and durations.",
+      "Flat surfaces with hairline borders; one soft shadow, reserved for floating things.",
+      "Light by default, dark available."
+    ],
+    "rules": [
+      {
+        "name": "The One Voice Rule",
+        "body": "Violet appears only on Rodar and other run-starting actions, the active nav icon, focus and selection, and live runs. If something violet is neither startable, focused, selected nor running, it is wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The No Rainbow Rule",
+        "body": "Kinds, areas, people and categories are never color-coded. Green, red and amber appear only as small status icons and the words beside them (soft tints are allowed only for diff lines and review notices), never as filled chips that compete with Rodar.",
+        "section": "colors"
+      },
+      {
+        "name": "The Light First Rule",
+        "body": "Light is the default theme on first visit. Dark is offered in the sidebar toggle (Claro, Escuro, Sistema) and must keep every rule above.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono Is Data Rule",
+        "body": "Geist Mono is used only for paths, versions, dates and durations. Separators and the words around them (the \" · \" between facts, \"salva em\", \"trocar\") stay in Geist sans: wrap only the value in mono, as the run lists do.",
+        "section": "typography"
+      },
+      {
+        "name": "The No Kicker Rule",
+        "body": "No eyebrow or kicker labels above titles. A page opens with its h1; small gray labels exist only as field captions directly above their value.",
+        "section": "typography"
+      },
+      {
+        "name": "The Float Only Rule",
+        "body": "A shadow means \"this is floating over the page\". Cards, tables and panels that sit in the flow get a hairline, never a shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The No Glass Rule",
+        "body": "No decorative blur, glass, gradients or glows. Scrims are plain translucent black.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep every surface white, gray or near-black, and spend violet only on Rodar, the active nav icon, focus and selection, and live runs.",
+      "Do make Rodar the only fully round, violet-filled button on a screen.",
+      "Do show status as an icon plus words: green check for ok, red triangle for errors, gray info for no files, violet bars for live.",
+      "Do show app kinds as gray pills with their icon.",
+      "Do set paths, versions, dates and durations in Geist Mono, and keep the separators and words around them in Geist sans.",
+      "Do always show which version ran and where the files were saved (\"salva em\").",
+      "Do open the app in light mode by default and keep dark mode as a full peer with the lighter violet.",
+      "Do write all UI copy in plain Brazilian Portuguese, in short, direct sentences.",
+      "Do keep the playing bars static under reduced motion."
+    ],
+    "donts": [
+      "Don't color app kinds, areas or people, or use colored status chips.",
+      "Don't use violet for decoration, headings, links, illustrations or backgrounds.",
+      "Don't put eyebrow or kicker labels above titles.",
+      "Don't use decorative blur, glass, gradients or glows.",
+      "Don't ship placeholder, sample or fake content. Show a real empty state that says what to do.",
+      "Don't add shadows to cards or panels that sit in the page flow.",
+      "Don't bring back the archive look: cream paper, serif type, stamps or per-kind colored tabs."
+    ]
+  }
+}

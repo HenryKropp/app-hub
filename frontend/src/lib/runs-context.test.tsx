@@ -133,18 +133,19 @@ function Cards() {
 
 test("the starting notice stays until the server lists the run, then the run replaces it", async () => {
   const user = userEvent.setup()
-  let resolveActive: (v: ReturnType<typeof activeRun>[]) => void = () => {}
+  const pending: ((v: ReturnType<typeof activeRun>[]) => void)[] = []
   const active = vi.spyOn(api, "activeRuns").mockResolvedValueOnce([])
   vi.spyOn(api, "startRun").mockResolvedValue(runFx({ id: 7, status: "waiting" }))
   mount(<><Probe t={target("D:\\Saídas")} /><Cards /></>)
   await vi.waitFor(() => expect(active).toHaveBeenCalledTimes(1))
-  active.mockImplementation(() => new Promise((r) => (resolveActive = r)))
+  active.mockImplementation(() => new Promise((r) => void pending.push(r)))
   await user.click(screen.getByText("go"))
   // Request done, refresh in flight: the card must not disappear.
   expect(await screen.findByText("notice:starting")).toBeInTheDocument()
-  resolveActive([activeRun({ id: 7, status: "waiting" })])
+  await vi.waitFor(() => expect(pending.length).toBeGreaterThan(0))
+  for (const r of pending) r([activeRun({ id: 7, status: "waiting" })])
   expect(await screen.findByText("run:7:waiting")).toBeInTheDocument()
-  expect(screen.queryByText("notice:starting")).not.toBeInTheDocument()
+  await vi.waitFor(() => expect(screen.queryByText("notice:starting")).not.toBeInTheDocument())
 })
 
 test("a poll in flight does not bring back a dismissed run", async () => {

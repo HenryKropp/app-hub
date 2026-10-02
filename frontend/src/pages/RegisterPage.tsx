@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
-import { Archive, CircleHelp, Copy, FolderSearch, KeyRound } from "lucide-react"
+import { Archive, Check, CircleHelp, Copy, FolderSearch, KeyRound } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { KindTab, PageHeader } from "@/components/bits"
@@ -86,9 +86,9 @@ export function RegisterPage() {
 
   return (
     <>
-      <PageHeader eyebrow="Registrar apps" title="Traga os apps para o fichário" />
+      <PageHeader title="Traga os apps para o catálogo" />
 
-      <form onSubmit={scan} className="rise mb-10 rounded-lg border border-border bg-card p-5 shadow-card md:p-6">
+      <form onSubmit={scan} className="mb-10 rounded-xl border border-border bg-card p-5 md:p-6">
         <label htmlFor="scan-path" className="text-sm font-semibold">
           Onde estão os apps?
         </label>
@@ -138,7 +138,7 @@ export function RegisterPage() {
 
       {result && items.length > 0 && me && (
         <>
-          <div className="rise mb-5 flex flex-wrap items-baseline gap-x-6 gap-y-2">
+          <div className="mb-5 flex flex-wrap items-baseline gap-x-6 gap-y-2">
             <p className="font-heading text-xl">
               {items.length} {items.length === 1 ? "app encontrado" : "apps encontrados"}
             </p>
@@ -146,7 +146,7 @@ export function RegisterPage() {
               {counts.published} no catálogo · {counts.pending} para revisar · {counts.skipped} pulados
             </p>
             {counts.pending === 0 && (
-              <Link to="/" className="text-sm font-medium text-stamp underline-offset-4 hover:underline">
+              <Link to="/" className="text-sm font-medium underline underline-offset-4">
                 Ver o catálogo →
               </Link>
             )}
@@ -164,7 +164,7 @@ export function RegisterPage() {
                       aria-current={i === selected}
                       className={cn(
                         "relative w-full rounded-md border px-3 py-2.5 text-left transition-colors",
-                        i === selected ? "border-foreground/25 bg-card shadow-card" : "border-transparent hover:bg-card/60",
+                        i === selected ? "border-foreground/25 bg-card" : "border-transparent hover:bg-card/60",
                         s === "skipped" && "opacity-55",
                       )}
                     >
@@ -177,7 +177,7 @@ export function RegisterPage() {
                               {it.questions!.length}
                             </span>
                           )}
-                          {(it.secrets ?? []).length > 0 && <KeyRound className="size-3.5 text-stamp" aria-label="Tem chaves no código" />}
+                          {(it.secrets ?? []).length > 0 && <KeyRound className="size-3.5 text-destructive" aria-label="Tem chaves no código" />}
                           {it.similar.length > 0 && <Copy className="size-3.5" aria-label="Parecido com outro app" />}
                           {it.suggest_skip && <Archive className="size-3.5" aria-label="Parece material antigo" />}
                         </span>
@@ -185,8 +185,8 @@ export function RegisterPage() {
                       <p className="mt-1 truncate font-medium">{it.manifest.name}</p>
                       <p className="truncate font-mono text-[0.68rem] text-muted-foreground">{it.folder_name}</p>
                       {s === "published" && (
-                        <span className="stamp-in absolute top-2 right-2 rounded-sm border-2 border-ok px-1.5 font-mono text-[0.6rem] font-bold tracking-widest text-ok uppercase">
-                          no catálogo
+                        <span className="absolute top-2 right-2 inline-flex items-center gap-1 rounded-full bg-ok-soft px-2 py-0.5 text-[0.7rem] font-medium text-ok">
+                          <Check className="size-3" /> no catálogo
                         </span>
                       )}
                     </button>
@@ -195,7 +195,7 @@ export function RegisterPage() {
               })}
             </ol>
 
-            <div className="min-w-0 rounded-lg border border-border bg-card px-6 pt-6 shadow-card">
+            <div className="min-w-0 rounded-xl border border-border bg-card px-6 pt-6">
               {current && status[current.folder_path] === "published" && (
                 <p className="mb-5 rounded-md bg-ok-soft px-4 py-3 text-sm">
                   Este app já está no catálogo.{" "}

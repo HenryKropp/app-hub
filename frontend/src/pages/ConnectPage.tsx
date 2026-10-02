@@ -28,8 +28,8 @@ export function ConnectPage() {
   }
 
   return (
-    <section className="paper mx-auto mt-10 max-w-lg rounded-lg border border-border bg-card p-8 text-center shadow-card">
-      <Laptop className="mx-auto size-10 text-stamp" />
+    <section className="mx-auto mt-10 max-w-lg rounded-xl border border-border bg-card p-8 text-center">
+      <Laptop className="mx-auto size-10 text-muted-foreground" />
       {error ? (
         <p role="alert" className="mt-4 text-destructive">{error}</p>
       ) : !pairing ? (

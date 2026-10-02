@@ -46,7 +46,7 @@ function VersionRow({ appId, v, canEdit, onChanged }: { appId: number; v: Versio
   const [restore, setRestore] = useState(false)
   return (
     <div className="flex gap-3">
-      <FileCode2 className="mt-0.5 size-4 shrink-0 text-stamp" />
+      <FileCode2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
         <p className="font-medium">
           Versão {v.number} <span className="font-normal text-muted-foreground">· {versionOrigin(v)}{v.current && " · atual"}</span>
@@ -65,7 +65,7 @@ function VersionRow({ appId, v, canEdit, onChanged }: { appId: number; v: Versio
             </button>
           )}
           {canEdit && !v.current && (
-            <button type="button" onClick={() => setRestore(true)} className="inline-flex items-center gap-1 text-stamp underline underline-offset-4">
+            <button type="button" onClick={() => setRestore(true)} className="inline-flex items-center gap-1 font-medium underline underline-offset-4">
               <RotateCcw className="size-3.5" /> Voltar o código para esta versão
             </button>
           )}

@@ -21,6 +21,8 @@ for (const [theme, viewport, tag] of [
   ["light", { width: 375, height: 812 }, "mobile"],
 ]) {
   const ctx = await browser.newContext({ viewport, colorScheme: theme })
+  // The Hub opens light by default; dark shots pick dark explicitly.
+  await ctx.addInitScript((t) => localStorage.setItem("apphub-theme", t), theme)
   const page = await ctx.newPage()
   await page.request.post(`${BASE}/api/dev/login`, { data: {} })
   const apps = await (await page.request.get(`${BASE}/api/apps`)).json()

@@ -12,9 +12,9 @@ import { INPUT_SOURCES, INPUT_TYPES, kindInfo } from "@/lib/kinds"
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="border-t border-border py-5">
-      <h2 className="mb-3 font-mono text-xs tracking-[0.16em] text-muted-foreground uppercase">{title}</h2>
-      {children}
+    <section className="grid gap-x-10 gap-y-3 border-t border-border py-6 md:grid-cols-[12rem_1fr]">
+      <h2 className="text-sm font-semibold">{title}</h2>
+      <div className="min-w-0">{children}</div>
     </section>
   )
 }
@@ -65,22 +65,22 @@ export function AppPage() {
   const saved = rememberedFor(target)
 
   return (
-    <article className="rise">
+    <article>
       <Link to="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> Catálogo
       </Link>
-      <KindTab kind={m.kind} className="ml-6" />
-      <div className="paper rounded-lg border border-border bg-card py-8 pr-8 pl-20 shadow-card">
-        <p className="font-mono text-xs tracking-[0.16em] text-stamp uppercase">{kindInfo(m.kind).label}</p>
-        <h1 className="mt-2 font-heading text-4xl">{m.name}</h1>
-        <p className="mt-3 max-w-prose text-lg text-muted-foreground">{m.summary || "Sem resumo ainda."}</p>
+      <header className="flex flex-col gap-5 pb-8 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0">
+          <h1 className="font-heading text-3xl leading-tight md:text-4xl">{m.name}</h1>
+          <p className="mt-3 max-w-[68ch] text-base leading-relaxed text-muted-foreground">{m.summary || "Sem resumo ainda."}</p>
+        </div>
         {app.can_run && (
-          <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
-            <Button onClick={() => run(target)} disabled={busy.has(app.id)} className="gap-2">
+          <div className="flex shrink-0 flex-col items-start gap-2 lg:items-end">
+            <Button variant="run" onClick={() => run(target)} disabled={busy.has(app.id)} className="h-11 gap-2 pr-6 pl-5 text-[0.95rem]">
               <Play className="size-4" /> Rodar
             </Button>
             {saved && (
-              <span className="min-w-0 text-sm text-muted-foreground">
+              <span className="max-w-sm min-w-0 text-sm text-muted-foreground lg:text-right">
                 salva em <code className="font-mono text-xs break-all text-foreground/80">{saved}</code> ·{" "}
                 <button type="button" onClick={() => run(target, { ask: true })} className="underline underline-offset-4 hover:text-foreground">
                   trocar
@@ -89,32 +89,29 @@ export function AppPage() {
             )}
           </div>
         )}
+      </header>
 
-        <dl className="mt-6 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-4">
-          <div>
-            <dt className="text-muted-foreground">Área</dt>
-            <dd className="font-medium">{m.area || "—"}</dd>
+      <dl className="grid grid-cols-2 overflow-hidden rounded-xl border border-border text-sm lg:grid-cols-5">
+        {[
+          ["Tipo", <span key="t" className="inline-flex flex-wrap items-center gap-1.5"><KindTab kind={m.kind} /><span className="font-normal text-muted-foreground">{kindInfo(m.kind).label}</span></span>],
+          ["Área", m.area || "—"],
+          ["Responsável", m.owner?.name ?? "—"],
+          ["Reserva", m.backup?.name ?? <span key="r" className="text-warn">ninguém ainda</span>],
+          ["Versão", app.version ? <span key="v"><span className="font-mono text-[0.8rem]">versão {app.version.number}</span> · <span className="font-mono text-[0.8rem]">{formatWhen(app.version.created_at)}</span></span> : "—"],
+        ].map(([k, v], i) => (
+          <div key={i} className="border-border px-4 py-3 max-lg:odd:border-r max-lg:not-last:border-b lg:not-last:border-r max-lg:first:col-span-2 max-lg:first:border-r-0">
+            <dt className="text-xs text-muted-foreground">{k}</dt>
+            <dd className="mt-0.5 font-medium">{v}</dd>
           </div>
-          <div>
-            <dt className="text-muted-foreground">Responsável</dt>
-            <dd className="font-medium">{m.owner?.name ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Reserva</dt>
-            <dd className="font-medium">{m.backup?.name ?? <span className="text-warn">ninguém ainda</span>}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Versão</dt>
-            <dd className="font-medium">{app.version ? `versão ${app.version.number} · ${formatWhen(app.version.created_at)}` : "—"}</dd>
-          </div>
-        </dl>
+        ))}
+      </dl>
         {!readable && (
           <p role="alert" className="mt-4 flex gap-2 text-sm text-warn">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" /> Não consegui ler a pasta do app agora. O histórico continua aqui, mas mudanças novas no código não são registradas e não dá para voltar versões.
           </p>
         )}
 
-        <div className="mt-6">
+        <div className="mt-8">
           <Section title="O que ele recebe">
             {(m.inputs ?? []).length === 0 ? (
               <p className="text-sm text-muted-foreground">Nada. É só rodar.</p>
@@ -158,7 +155,7 @@ export function AppPage() {
           {(m.secrets ?? []).length > 0 && (
             <Section title="Chaves e senhas">
               <p className="flex gap-2 text-sm">
-                <KeyRound className="mt-0.5 size-4 shrink-0 text-stamp" />
+                <KeyRound className="mt-0.5 size-4 shrink-0 text-destructive" />
                 Usa {m.secrets!.length} chave(s) ou senha(s) escritas no código. Os valores nunca aparecem no Hub.
               </p>
             </Section>
@@ -176,7 +173,6 @@ export function AppPage() {
             </p>
           </Section>
         </div>
-      </div>
     </article>
   )
 }

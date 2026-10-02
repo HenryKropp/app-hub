@@ -52,7 +52,7 @@ export function RunDialog({ target, onCancel, onConfirm }: { target: RunTarget |
           </div>
         </Field>
         <label className="flex w-fit cursor-pointer items-center gap-2 text-sm">
-          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="size-4 shrink-0 cursor-pointer accent-[var(--stamp)]" />
+          <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="size-4 shrink-0 cursor-pointer accent-[var(--foreground)]" />
           Lembrar esta pasta
         </label>
         {choosing && <p className="text-sm text-muted-foreground">A janela de pastas abriu no seu computador.</p>}
@@ -62,7 +62,7 @@ export function RunDialog({ target, onCancel, onConfirm }: { target: RunTarget |
           </p>
         )}
         <DialogFooter>
-          <Button onClick={() => onConfirm(folder.trim(), remember)} disabled={choosing || folder.trim() === ""}>
+          <Button variant="run" className="pr-4 pl-4" onClick={() => onConfirm(folder.trim(), remember)} disabled={choosing || folder.trim() === ""}>
             Abrir app
           </Button>
         </DialogFooter>
