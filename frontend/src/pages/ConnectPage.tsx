@@ -20,7 +20,7 @@ export function ConnectPage() {
     setBusy(true)
     try {
       await api.approvePairing(code)
-      navigate("/meu-computador")
+      navigate("/configuracoes")
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível conectar.")
       setBusy(false)

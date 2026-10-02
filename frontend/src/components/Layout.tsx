@@ -1,22 +1,19 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom"
-import { FolderSearch, Gauge, History, KeyRound, Laptop, LibraryBig, LogOut, Users } from "lucide-react"
+import { FolderSearch, Gauge, History, KeyRound, LibraryBig, LogOut, Settings, Users } from "lucide-react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { roleLabel } from "@/lib/kinds"
 import { RunsProvider, useRuns } from "@/lib/runs-context"
 import { isLive } from "@/lib/runs"
 import { cn } from "@/lib/utils"
-import { Logo, Playing, ThemeToggle } from "./bits"
+import { Logo, Playing } from "./bits"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
-import { useTheme, type ThemePref } from "@/lib/theme"
 import { RunStrip } from "./RunStrip"
 
 const NAV = [
@@ -24,8 +21,11 @@ const NAV = [
   { to: "/execucoes", label: "Minhas execuções", icon: History, roles: ["admin", "criador", "usuario"] },
   { to: "/registrar", label: "Registrar apps", icon: FolderSearch, roles: ["admin", "criador"] },
   { to: "/pessoas", label: "Pessoas", icon: Users, roles: ["admin", "criador", "usuario"] },
-  { to: "/meu-computador", label: "Meu computador", icon: Laptop, roles: ["admin", "criador", "usuario"] },
 ]
+
+const NAV_ITEM = "flex shrink-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors"
+const NAV_ON = "bg-accent font-medium text-foreground"
+const NAV_OFF = "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
 
 const SOON = [
   { label: "Painel", icon: Gauge },
@@ -48,7 +48,6 @@ const initials = (name: string) =>
 function Shell() {
   const { person, setPerson } = useAuth()
   const navigate = useNavigate()
-  const { pref, setPref } = useTheme()
   const openCount = useRuns().active.filter((r) => isLive(r.status)).length
   if (!person) return null
 
@@ -77,11 +76,9 @@ function Shell() {
                 <p className="text-xs text-muted-foreground">{roleLabel(person.role)}</p>
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuRadioGroup value={pref} onValueChange={(v) => setPref(v as ThemePref)}>
-                <DropdownMenuRadioItem value="light">Claro</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="dark">Escuro</DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value="system">Igual ao sistema</DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
+              <DropdownMenuItem onClick={() => navigate("/configuracoes")}>
+                <Settings className="size-4" /> Configurações
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout}>
                 <LogOut className="size-4" /> Sair
@@ -96,12 +93,7 @@ function Shell() {
               key={to}
               to={to}
               end={to === "/"}
-              className={({ isActive }) =>
-                cn(
-                  "flex shrink-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors",
-                  isActive ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:bg-accent/70 hover:text-foreground",
-                )
-              }
+              className={({ isActive }) => cn(NAV_ITEM, isActive ? NAV_ON : NAV_OFF)}
             >
               {({ isActive }) => (
                 <>
@@ -128,21 +120,30 @@ function Shell() {
           </div>
         </nav>
 
-        <div className="mt-auto hidden flex-col gap-3 border-t border-sidebar-border p-3 md:flex">
-          <div className="flex items-center justify-between gap-2 px-1">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">{initials(person.name)}</span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{person.name}</p>
-                <p className="text-xs text-muted-foreground">{roleLabel(person.role)}</p>
+        <div className="mt-auto hidden flex-col gap-2 p-3 md:flex">
+          <NavLink to="/configuracoes" className={({ isActive }) => cn(NAV_ITEM, isActive ? NAV_ON : NAV_OFF)}>
+            {({ isActive }) => (
+              <>
+                <Settings className={cn("size-4", isActive && "text-brand")} />
+                Configurações
+              </>
+            )}
+          </NavLink>
+          <div className="border-t border-sidebar-border pt-3">
+            <div className="flex items-center justify-between gap-2 px-1">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">{initials(person.name)}</span>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{person.name}</p>
+                  <p className="text-xs text-muted-foreground">{roleLabel(person.role)}</p>
+                </div>
               </div>
+              <button type="button" onClick={logout} title="Sair" className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
+                <LogOut className="size-4" />
+                <span className="sr-only">Sair</span>
+              </button>
             </div>
-            <button type="button" onClick={logout} title="Sair" className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">
-              <LogOut className="size-4" />
-              <span className="sr-only">Sair</span>
-            </button>
           </div>
-          <ThemeToggle />
         </div>
       </aside>
 

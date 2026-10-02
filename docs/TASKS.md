@@ -16,6 +16,7 @@ Status: Pending / In Progress / Done / Blocked
 |---|---|---|
 | Esqueleto Go + React + Postgres local | Done | Banco `app-hub-db` na porta 5433; Dockerfile pronto |
 | Layout base, identidade visual, navegação | Done | Estilo novo (2026-10-02): limpo e neutro como Notion/Vercel, um violeta vivo só no Rodar e no que está aberto agora; claro por padrão, com escuro; Painel e Cofre marcados "em breve" |
+| Configurações | Done | 2026-10-02, pedido do Henry: item no pé da barra lateral (no celular, no menu do avatar) com Meu computador e Aparência (claro, escuro, igual ao sistema). O endereço antigo `/meu-computador` leva para lá |
 | Cadastro de pessoas e login simples (protótipo) | Done | ADR 003. Primeiro acesso cria o administrador; perfis admin/criador/usuário |
 
 ## Fase 2 — Manifesto e registro (1.1, 1.5)

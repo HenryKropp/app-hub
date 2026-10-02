@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { Download, Laptop, RefreshCw, TriangleAlert } from "lucide-react"
-import { PageHeader } from "@/components/bits"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { AGENT_DOWNLOAD_URL, api, type ComputersInfo } from "@/lib/api"
 import { formatWhen } from "@/lib/runs"
 import { cn } from "@/lib/utils"
 
-export function ComputerPage() {
+export function ComputerSection() {
   const [info, setInfo] = useState<ComputersInfo | null>(null)
   const [error, setError] = useState("")
 
@@ -36,29 +35,29 @@ export function ComputerPage() {
   )
 
   return (
-    <>
-      <PageHeader title="Meu computador" />
-      <p className="-mt-5 mb-8 max-w-[68ch] text-muted-foreground">
+    <section aria-labelledby="computador">
+      <h2 id="computador" className="font-heading text-lg">Meu computador</h2>
+      <p className="mt-1 mb-5 max-w-[68ch] text-muted-foreground">
         O Agente é um programa pequeno que fica no seu Windows, sem ícone. É ele que abre os apps quando você clica em Rodar.
       </p>
 
       {info.computers.length === 0 ? (
-        <section className="rounded-xl border border-border bg-card p-8">
-          <h2 className="font-heading text-2xl">Nenhum computador conectado</h2>
+        <div className="rounded-xl border border-border bg-card p-6">
+          <h3 className="font-heading text-lg">Nenhum computador conectado</h3>
           <ol className="mt-4 flex list-decimal flex-col gap-2 pl-5 text-sm">
             <li>Baixe o Agente pelo botão abaixo.</li>
             <li>Abra o arquivo baixado (AppHubAgente.exe). Se o Windows perguntar, confirme que quer abrir.</li>
             <li>O navegador vai abrir uma página do Hub. Clique em <strong>Conectar</strong>.</li>
           </ol>
           <div className="mt-6">{install}</div>
-        </section>
+        </div>
       ) : (
         <ul className="flex flex-col gap-4">
           {info.computers.map((c) => (
             <li key={c.id} className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-card p-6">
-              <Laptop className="size-8 text-muted-foreground" />
+              <Laptop className="size-6 text-muted-foreground" />
               <div className="min-w-0 flex-1">
-                <p className="font-heading text-xl">{c.name}</p>
+                <p className="font-heading text-base">{c.name}</p>
                 <p className="text-sm text-muted-foreground">
                   <span className={c.connected ? "font-medium text-ok" : "font-medium text-warn"}>{c.connected ? "Conectado" : "Desligado ou sem internet"}</span>
                   {c.last_seen_at && ` · visto pela última vez em ${formatWhen(c.last_seen_at)}`}
@@ -88,6 +87,6 @@ export function ComputerPage() {
           <li className="pt-2">{install}</li>
         </ul>
       )}
-    </>
+    </section>
   )
 }

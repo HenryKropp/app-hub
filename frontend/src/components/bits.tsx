@@ -87,10 +87,10 @@ export function PageHeader({ title, children }: { title: string; children?: Reac
 const THEME_OPTIONS: { value: ThemePref; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Claro", icon: Sun },
   { value: "dark", label: "Escuro", icon: Moon },
-  { value: "system", label: "Sistema", icon: Monitor },
+  { value: "system", label: "Igual ao sistema", icon: Monitor },
 ]
 
-export function ThemeToggle() {
+export function ThemeToggle({ size = "sm" }: { size?: "sm" | "lg" }) {
   const { pref, setPref } = useTheme()
   return (
     <div className="flex rounded-lg bg-secondary p-0.5" role="radiogroup" aria-label="Tema">
@@ -100,15 +100,15 @@ export function ThemeToggle() {
           type="button"
           role="radio"
           aria-checked={pref === value}
-          title={label}
           onClick={() => setPref(value)}
           className={cn(
-            "flex flex-1 items-center justify-center gap-1 rounded-md px-2 py-1 text-xs transition-colors",
+            "flex flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-md transition-colors",
+            size === "lg" ? "px-3 py-1.5 text-sm" : "px-2 py-1 text-xs",
             pref === value ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground",
           )}
         >
-          <Icon className="size-3.5" />
-          <span className="sr-only md:not-sr-only">{label}</span>
+          <Icon className={size === "lg" ? "size-4" : "size-3.5"} />
+          {label}
         </button>
       ))}
     </div>

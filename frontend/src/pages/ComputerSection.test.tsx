@@ -4,10 +4,10 @@ import { MemoryRouter } from "react-router-dom"
 import { afterEach, expect, test, vi } from "vitest"
 import { api, type Computer } from "@/lib/api"
 import { computer } from "@/test/fixtures"
-import { ComputerPage } from "./ComputerPage"
+import { ComputerSection } from "./ComputerSection"
 
 afterEach(() => vi.restoreAllMocks())
-const renderPage = () => render(<MemoryRouter><ComputerPage /></MemoryRouter>)
+const renderPage = () => render(<MemoryRouter><ComputerSection /></MemoryRouter>)
 
 test("no computer: shows how to install", async () => {
   vi.spyOn(api, "computers").mockResolvedValue({ computers: [], expected_version: "0.1.0", agent_available: true })

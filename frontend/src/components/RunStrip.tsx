@@ -82,7 +82,7 @@ export function RunStrip() {
           actions={
             <>
               {n.offline ? (
-                <button type="button" className={ACTION} onClick={() => { dropNotice(n.key); navigate("/meu-computador") }}>
+                <button type="button" className={ACTION} onClick={() => { dropNotice(n.key); navigate("/configuracoes") }}>
                   Ver Meu computador
                 </button>
               ) : (
@@ -116,7 +116,7 @@ export function RunStrip() {
               ) : (
                 <>
                   {r.status === "interrupted" && (
-                    <button type="button" className={ACTION} onClick={() => { dismiss(r.id); navigate("/meu-computador") }}>
+                    <button type="button" className={ACTION} onClick={() => { dismiss(r.id); navigate("/configuracoes") }}>
                       Ver Meu computador
                     </button>
                   )}
