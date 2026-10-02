@@ -45,7 +45,7 @@ Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep)
 7. Depois: retomar a Fase 2b (teste com mais 4 apps e MCP)
 
 **Para a próxima sessão (deixado em 2026-10-01, à noite):**
-- A Etapa 1 foi feita sem o Henry por perto. Antes de tudo: **reiniciar o Hub da porta 8080** (o mesmo banco; a migração 006 entra sozinha) e conferir as telas no navegador: catálogo com Rodar, faixa embaixo, Minhas execuções, ficha com "salva em … · trocar", claro/escuro/celular, e se a barra lateral acompanha a rolagem numa página comprida.
+- Etapa 1: Hub da 8080 reiniciado em 2026-10-02 (migração 006 aplicada, `DEV_MODE=1`, registro em `backend/hub.log`). Telas conferidas com `e2e/etapa1.mjs` (só leitura; faixa e pasta lembrada simuladas): catálogo com Rodar, janela com "Lembrar esta pasta", faixa, Minhas execuções e "De todos", ficha com "salva em … · trocar", claro/escuro/celular. A barra lateral acompanha a rolagem. Sobras visuais: no celular, 3 cartões na faixa cobrem quase meia tela; o espaço embaixo da página (`pb-32`) é menor que a faixa com 3 cartões.
 - Depois, o teste de verdade no Files Prep, um passo por vez: faixa vazia ao abrir (execuções antigas não aparecem); ficha abre na hora; Rodar no cartão → janela com "Lembrar esta pasta" → Abrir app; faixa "aberto…" e depois "terminou — Ver e baixar"; Rodar no cartão de novo abre direto; Minhas execuções → Rodar de novo.
 - Seguir o fluxo: desenho → plano → implementação para a Etapa 2.
 - O Agente no PC do Henry está na **0.2.3** e se atualiza sozinho. O código do Hub também está na 0.2.3, e `dist/agent/AppHubAgente.exe` da pasta principal já é essa versão.
