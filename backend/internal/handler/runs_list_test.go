@@ -38,10 +38,10 @@ func TestActiveRunsAndDismiss(t *testing.T) {
 	token := pairComputer(t, c, "PC")
 
 	var run runJSON
-	c.do("POST", appPath(app, "/runs"), map[string]string{}, &run)
+	c.do("POST", appPath(app, "/runs"), map[string]string{"output_folder": `D:\Saida`}, &run)
 	var active []activeRunJSON
 	c.do("GET", "/api/runs/active", nil, &active)
-	if len(active) != 1 || active[0].ID != run.ID || active[0].Status != "waiting" || active[0].AppName != "Eq. Research Files Prep" || active[0].AppFolder != `C:\apps\files-prep` {
+	if len(active) != 1 || active[0].ID != run.ID || active[0].Status != "waiting" || active[0].AppName != "Eq. Research Files Prep" || active[0].AppFolder != `C:\apps\files-prep` || active[0].OutputFolder != `D:\Saida` {
 		t.Fatalf("ativa %+v", active)
 	}
 	finishRun(t, c, token)

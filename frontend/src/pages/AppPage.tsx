@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom"
 import { ArrowLeft, FileText, FolderOpen, KeyRound, Play, TriangleAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { HistoryTimeline } from "@/components/HistoryTimeline"
-import { KindTab } from "@/components/bits"
+import { KindTab, SavedIn } from "@/components/bits"
 import { api, type AppDetail } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
@@ -79,14 +79,7 @@ export function AppPage() {
             <Button variant="run" onClick={() => run(target)} disabled={busy.has(app.id)} className="h-11 gap-2 pr-6 pl-5 text-[0.95rem]">
               <Play className="size-4" /> Rodar
             </Button>
-            {saved && (
-              <span className="max-w-sm min-w-0 text-sm text-muted-foreground lg:text-right">
-                salva em <code className="font-mono text-xs break-all text-foreground/80">{saved}</code> ·{" "}
-                <button type="button" onClick={() => run(target, { ask: true })} className="underline underline-offset-4 hover:text-foreground">
-                  trocar
-                </button>
-              </span>
-            )}
+            {saved && <SavedIn folder={saved} full onChange={() => run(target, { ask: true })} className="max-w-sm text-sm lg:text-right" />}
           </div>
         )}
       </header>

@@ -7,7 +7,7 @@ export type RunTarget = { id: number; name: string; folder_display: string; reme
 // folder: run right away in this folder (Rodar de novo); ask: always open the dialog ("trocar").
 export type RunOptions = { folder?: string; ask?: boolean }
 // runId: the request succeeded; the notice stays until the server lists that run.
-export type LocalNotice = { key: string; app_name: string; kind: "starting" | "error"; message?: string; offline?: boolean; target?: RunTarget; runId?: number }
+export type LocalNotice = { key: string; app_name: string; kind: "starting" | "error"; folder?: string; message?: string; offline?: boolean; target?: RunTarget; runId?: number }
 
 type Ctx = {
   active: ActiveRun[]
@@ -66,7 +66,7 @@ export function RunsProvider({ children }: { children: ReactNode }) {
   const send = useCallback(
     (t: RunTarget, folder: string, remember?: boolean) => {
       const key = `n${++seq}`
-      setNotices((ns) => [...ns, { key, app_name: t.name, kind: "starting" }])
+      setNotices((ns) => [...ns, { key, app_name: t.name, kind: "starting", folder }])
       setBusy((b) => new Set(b).add(t.id))
       api
         .startRun(t.id, folder, remember)

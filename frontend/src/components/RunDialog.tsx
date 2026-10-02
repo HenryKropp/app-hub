@@ -8,7 +8,8 @@ import { api } from "@/lib/api"
 import type { RunTarget } from "@/lib/runs-context"
 
 // RunDialog asks where to save the results. The RunsProvider opens it and runs
-// the app with the answer.
+// the app with the answer. There is no default folder: the first time, the
+// person picks one (Henry's call, 2026-10-02).
 export function RunDialog({ target, onCancel, onConfirm }: { target: RunTarget | null; onCancel: () => void; onConfirm: (folder: string, remember: boolean) => void }) {
   const [folder, setFolder] = useState("")
   const [remember, setRemember] = useState(true)
@@ -17,7 +18,7 @@ export function RunDialog({ target, onCancel, onConfirm }: { target: RunTarget |
 
   useEffect(() => {
     if (target) {
-      setFolder(target.remembered_folder || target.folder_display)
+      setFolder(target.remembered_folder)
       setRemember(true)
       setError("")
     }
@@ -43,13 +44,15 @@ export function RunDialog({ target, onCancel, onConfirm }: { target: RunTarget |
           <DialogTitle>Rodar {target?.name}</DialogTitle>
           <DialogDescription>O app vai abrir no seu computador. Use a janela normalmente e feche quando terminar. O Hub mostra os arquivos que ele gerou.</DialogDescription>
         </DialogHeader>
-        <Field label="Onde salvar os resultados?" htmlFor="run-folder" hint="Por padrão, a própria pasta do app.">
+        <Field label="Onde salvar os resultados?" htmlFor="run-folder" hint="O Hub mostra para baixar os arquivos novos que o app criar nesta pasta.">
           <div className="flex gap-2">
-            <Input id="run-folder" value={folder} onChange={(e) => setFolder(e.target.value)} className="font-mono text-xs" />
-            <Button type="button" variant="outline" onClick={choose} disabled={choosing} className="shrink-0 gap-2">
-              <FolderOpen className="size-4" /> Escolher outra…
+            <Input id="run-folder" value={folder} onChange={(e) => setFolder(e.target.value)} placeholder="Escolha uma pasta" title={folder} />
+            <Button type="button" variant={folder.trim() ? "outline" : "default"} onClick={choose} disabled={choosing} className="shrink-0 gap-2">
+              <FolderOpen className="size-4" /> {folder.trim() ? "Escolher outra…" : "Escolher pasta…"}
             </Button>
           </div>
+          {/* Long OneDrive paths don't fit the field; spell them out in full. */}
+          {folder.trim().length > 40 && <p className="text-sm break-all text-foreground/80">{folder.trim()}</p>}
         </Field>
         <label className="flex w-fit cursor-pointer items-center gap-2 text-sm">
           <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="size-4 shrink-0 cursor-pointer accent-[var(--foreground)]" />

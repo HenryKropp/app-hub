@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { CircleCheck, Info, TriangleAlert, X } from "lucide-react"
-import { Playing } from "./bits"
+import { Playing, SavedIn } from "./bits"
 import type { ActiveRun } from "@/lib/api"
 import { useRuns } from "@/lib/runs-context"
 import { isLive } from "@/lib/runs"
@@ -33,7 +33,7 @@ const aboutFolder = (msg = "") => /pasta/i.test(msg)
 const ACTION = "rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
 const PRIMARY = "rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/85"
 
-function Card({ tone, children, actions }: { tone: "live" | "ok" | "muted" | "bad"; children: ReactNode; actions: ReactNode }) {
+function Card({ tone, children, folder, actions }: { tone: "live" | "ok" | "muted" | "bad"; children: ReactNode; folder?: string; actions: ReactNode }) {
   return (
     <div role="status" className="shadow-pop pointer-events-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 md:flex-nowrap rounded-xl border border-border bg-popover px-4 py-3 text-sm text-popover-foreground">
       <span className="flex min-w-0 items-start gap-2.5">
@@ -43,7 +43,10 @@ function Card({ tone, children, actions }: { tone: "live" | "ok" | "muted" | "ba
           {tone === "muted" && <Info className="size-4 text-muted-foreground" />}
           {tone === "bad" && <TriangleAlert className="size-4 text-destructive" />}
         </span>
-        <span className="min-w-0 break-words">{children}</span>
+        <span className="flex min-w-0 flex-col gap-0.5 break-words">
+          <span>{children}</span>
+          {folder && <SavedIn folder={folder} className="text-xs" />}
+        </span>
       </span>
       <span className="ml-auto flex shrink-0 items-center gap-1.5">{actions}</span>
     </div>
@@ -72,7 +75,7 @@ export function RunStrip() {
   const items: ReactNode[] = [
     ...notices.map((n) =>
       n.kind === "starting" ? (
-        <Card key={n.key} tone="live" actions={null}>
+        <Card key={n.key} tone="live" folder={n.folder} actions={null}>
           Abrindo <b className="font-semibold">{n.app_name}</b> no seu computador…
         </Card>
       ) : (
@@ -108,6 +111,7 @@ export function RunStrip() {
           <Card
             key={r.id}
             tone={live ? "live" : r.status === "done" ? "ok" : r.status === "no_files" ? "muted" : "bad"}
+            folder={live || r.status === "done" || r.status === "no_files" ? r.output_folder : undefined}
             actions={
               live ? (
                 <button type="button" className={ACTION} onClick={() => setHidden((h) => new Set(h).add(r.id))}>

@@ -49,7 +49,20 @@ test("Rodar on the card the first time asks where to save", async () => {
   vi.spyOn(api, "apps").mockResolvedValue([appSummary()])
   mount()
   await user.click(await screen.findByRole("button", { name: "Rodar Eq. Research Files Prep" }))
-  expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("C:\\apps\\fp")
+  expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("")
+  expect(screen.queryByText(/Salva em/)).not.toBeInTheDocument()
+})
+
+test("card shows where the files go, and trocar asks again", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "apps").mockResolvedValue([appSummary({ remembered_folder: "D:\\Saídas\\CVM" })])
+  const start = vi.spyOn(api, "startRun")
+  mount()
+  expect(await screen.findByText("CVM")).toHaveAttribute("title", "D:\\Saídas\\CVM")
+  await user.click(screen.getByRole("button", { name: "trocar" }))
+  expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("D:\\Saídas\\CVM")
+  expect(start).not.toHaveBeenCalled()
+  expect(screen.queryByText("ficha")).not.toBeInTheDocument()
 })
 
 test("clicking the card name still opens the ficha", async () => {
