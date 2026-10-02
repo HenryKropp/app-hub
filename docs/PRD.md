@@ -72,6 +72,12 @@ A numeração segue a especificação do produto.
 - Todo app que pode rodar ganha um botão **Rodar**.
 - **Scripts:** o Hub gera um formulário a partir das entradas do manifesto (upload de arquivo, data, número, texto, lista de opções). O usuário preenche e roda.
 - **Apps com tela própria (web):** o Hub sobe o app e abre a tela dele.
+- **Apps para vários ao mesmo tempo (em aberto, anotado em 2026-10-02):** alguns apps (ex.: Sistema Alis, Research Platform) são usados por várias pessoas juntas e precisam dos mesmos dados. Esses não podem abrir uma cópia no computador de cada um. Ideia a decidir:
+  - Opção no manifesto: **pessoal** (abre no computador de quem clicou, como hoje) ou **compartilhado** (um só para todos).
+  - O app compartilhado roda no servidor central (ADR 005). Todos abrem o mesmo endereço pelo navegador, e o Hub mantém o app no ar e mostra o link na ficha.
+  - Um banco de dados só, ao lado do app, com a senha no cofre (3.7).
+  - Aviso no diagnóstico quando um app compartilhado guarda dados em arquivo solto (planilha, CSV): duas pessoas gravando juntas podem perder dados.
+  - No piloto, o servidor central é o PC do Henry: só funciona com ele ligado e na rede. De verdade, fica na nuvem (Módulo 2) ou num computador do cliente sempre ligado.
 - **Apps de desktop e executáveis:** o Hub abre o app.
 - **Agente do Hub (Fase 4, 2026-09-30):** apps com janela abrem pelo Agente, um programa pequeno e invisível instalado no Windows de cada pessoa (ADR 004). A pessoa instala e conecta uma vez em **Meu computador**. O app sempre abre no computador de quem clicou em Rodar.
   - **Rodar em poucos cliques (2026-10-01):** o botão Rodar fica também no cartão do catálogo. A pessoa continua na página onde estava e acompanha por uma **faixa de andamento** embaixo da tela ("Abrindo…", "aberto no seu computador", "terminou: N arquivos novos — Ver e baixar", erros com o próximo passo). A faixa vem do Hub: aparece igual depois de recarregar ou em outra aba, até a pessoa dispensar.
