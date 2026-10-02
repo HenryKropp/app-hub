@@ -152,3 +152,38 @@ test("no Salva em on an error card", async () => {
   expect(await screen.findByText(/deu ruim/)).toBeInTheDocument()
   expect(screen.queryByText("Salva em")).not.toBeInTheDocument()
 })
+
+test("problems and results come first, so live runs are the ones cut into +N", async () => {
+  vi.spyOn(api, "activeRuns").mockResolvedValue([
+    activeRun({ id: 1, status: "running" }),
+    activeRun({ id: 2, status: "running" }),
+    activeRun({ id: 3, status: "no_files" }),
+    activeRun({ id: 4, status: "done", file_count: 2 }),
+    activeRun({ id: 5, status: "error", error_message: "deu ruim" }),
+  ])
+  mount()
+  const err = await screen.findByText(/deu ruim/)
+  const done = screen.getByText(/terminou: 2 arquivos/)
+  const none = screen.getByText(/sem arquivos novos/)
+  expect(err.compareDocumentPosition(done) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(done.compareDocumentPosition(none) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  expect(screen.queryByText(/aberto no seu computador/)).not.toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "+2 em Minhas execuções" })).toBeInTheDocument()
+})
+
+test("the strip is a live region even before any card", async () => {
+  const active = vi.spyOn(api, "activeRuns").mockResolvedValue([])
+  const { container } = mount()
+  await vi.waitFor(() => expect(active).toHaveBeenCalled())
+  expect(container.querySelector('[aria-live="polite"]')).toBeInTheDocument()
+})
+
+test("error cards are alerts, the others are not", async () => {
+  vi.spyOn(api, "activeRuns").mockResolvedValue([
+    activeRun({ id: 1, status: "done" }),
+    activeRun({ id: 2, status: "error", error_message: "deu ruim" }),
+  ])
+  mount()
+  expect(await screen.findByRole("alert")).toHaveTextContent("deu ruim")
+  expect(screen.getAllByRole("alert")).toHaveLength(1)
+})
