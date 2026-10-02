@@ -22,7 +22,7 @@ const mount = () =>
           <Route path="/" element={<><Starter /><RunStrip /></>} />
           <Route path="/execucoes/:id" element={<p>página da execução</p>} />
           <Route path="/execucoes" element={<p>minhas execuções</p>} />
-          <Route path="/meu-computador" element={<p>meu computador</p>} />
+          <Route path="/configuracoes" element={<p>meu computador</p>} />
         </Routes>
       </RunsProvider>
     </MemoryRouter>,

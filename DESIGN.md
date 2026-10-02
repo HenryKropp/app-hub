@@ -221,7 +221,7 @@ A grayscale world with a single saturated violet and three small status hues. Al
 
 ## Layout
 
-A two-zone shell. On desktop (md, 768px and up) a 240px sticky sidebar runs full height on the left: logo and wordmark at top, nav, then account and theme toggle pinned to the bottom behind a hairline. Main content sits right with 48px side padding (32px at sm, 16px on phones), 40px top padding, and a centered max width of 72rem. Bottom padding is generous (160px) so the run strip never covers the last row.
+A two-zone shell. On desktop (md, 768px and up) a 240px sticky sidebar runs full height on the left: logo and wordmark at top, nav, then a Configurações link and the account row pinned to the bottom, the account behind a hairline. The theme choice (Claro, Escuro, Igual ao sistema) lives on the Configurações page, below Meu computador; on phones, Configurações is in the avatar menu. Main content sits right with 48px side padding (32px at sm, 16px on phones), 40px top padding, and a centered max width of 72rem. Bottom padding is generous (160px) so the run strip never covers the last row.
 
 On mobile the sidebar becomes a top bar: logo, wordmark and an avatar menu (theme and Sair live in that menu), with the nav as a horizontally scrolling row that fades out at the right edge.
 

@@ -5,13 +5,13 @@ import { AuthProvider, useAuth } from "@/lib/auth"
 import { ThemeProvider } from "@/lib/theme"
 import { AppPage } from "@/pages/AppPage"
 import { CatalogPage } from "@/pages/CatalogPage"
-import { ComputerPage } from "@/pages/ComputerPage"
 import { ConnectPage } from "@/pages/ConnectPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { PeoplePage } from "@/pages/PeoplePage"
 import { RegisterPage } from "@/pages/RegisterPage"
 import { MyRunsPage } from "@/pages/MyRunsPage"
 import { RunPage } from "@/pages/RunPage"
+import { SettingsPage } from "@/pages/SettingsPage"
 import { VersionPage } from "@/pages/VersionPage"
 
 function Protected() {
@@ -47,7 +47,8 @@ function Routed() {
           }
         />
         <Route path="pessoas" element={<PeoplePage />} />
-        <Route path="meu-computador" element={<ComputerPage />} />
+        <Route path="configuracoes" element={<SettingsPage />} />
+        <Route path="meu-computador" element={<Navigate to="/configuracoes" replace />} />
         <Route path="conectar" element={<ConnectPage />} />
         <Route path="execucoes" element={<MyRunsPage />} />
         <Route path="execucoes/:id" element={<RunPage />} />

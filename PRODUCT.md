@@ -21,7 +21,7 @@ Produto próprio do Henry, não da Alis. A Alis é o cliente zero; depois, vende
 
 ## Operating Context
 - Piloto local no computador do Henry (Windows, Hub em WSL). Apps reais ficam numa pasta do OneDrive.
-- Apps com janela abrem no Windows de quem clicou, pelo **Agente do Hub**, um programa pequeno instalado em cada computador e conectado em **Meu computador**. Rodar = abrir o app, esperar fechar, mostrar os arquivos novos ou alterados para baixar.
+- Apps com janela abrem no Windows de quem clicou, pelo **Agente do Hub**, um programa pequeno instalado em cada computador e conectado em **Configurações › Meu computador**. Rodar = abrir o app, esperar fechar, mostrar os arquivos novos ou alterados para baixar.
 - Tipos de app encontrados: script com arquivo fixo, script com janela de seleção, app web próprio, app de desktop, tarefa agendada, executável pronto, sistema complexo (só ficha) e documento (só catálogo).
 - Rodar em poucos cliques: Rodar no cartão do catálogo, pasta lembrada por pessoa e app, faixa de andamento embaixo da tela, Minhas execuções.
 

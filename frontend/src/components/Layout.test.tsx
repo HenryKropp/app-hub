@@ -34,3 +34,11 @@ test("no counter when nothing is open", async () => {
   await vi.waitFor(() => expect(active).toHaveBeenCalled())
   expect(screen.queryByLabelText(/aberto agora/)).not.toBeInTheDocument()
 })
+
+test("Configurações sits at the foot of the sidebar; Meu computador moved into it", async () => {
+  vi.spyOn(api, "activeRuns").mockResolvedValue([])
+  mount({ ...henry, role: "usuario" })
+  expect(screen.getByRole("link", { name: "Configurações" })).toHaveAttribute("href", "/configuracoes")
+  expect(screen.queryByRole("link", { name: "Meu computador" })).not.toBeInTheDocument()
+  expect(screen.queryByRole("radiogroup", { name: "Tema" })).not.toBeInTheDocument()
+})

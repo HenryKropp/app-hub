@@ -11,7 +11,7 @@ const renderAt = (url: string) =>
     <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route path="/conectar" element={<ConnectPage />} />
-        <Route path="/meu-computador" element={<p>página do computador</p>} />
+        <Route path="/configuracoes" element={<p>página do computador</p>} />
       </Routes>
     </MemoryRouter>,
   )
