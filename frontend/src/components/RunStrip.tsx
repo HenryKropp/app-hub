@@ -8,6 +8,10 @@ import { isLive } from "@/lib/runs"
 
 const MAX = 3
 
+type Tone = "live" | "ok" | "muted" | "bad"
+// What needs the person first: problems, then results, then runs still going.
+const RANK: Record<Tone, number> = { bad: 0, ok: 1, muted: 2, live: 3 }
+
 function text(r: ActiveRun): ReactNode {
   const n = r.file_count
   const app = <b className="font-semibold">{r.app_name}</b>
@@ -33,9 +37,9 @@ const aboutFolder = (msg = "") => /pasta/i.test(msg)
 const ACTION = "rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
 const PRIMARY = "rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/85"
 
-function Card({ tone, children, folder, actions }: { tone: "live" | "ok" | "muted" | "bad"; children: ReactNode; folder?: string; actions: ReactNode }) {
+function Card({ tone, children, folder, actions }: { tone: Tone; children: ReactNode; folder?: string; actions: ReactNode }) {
   return (
-    <div role="status" className="shadow-pop pointer-events-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 md:flex-nowrap rounded-xl border border-border bg-popover px-4 py-3 text-sm text-popover-foreground">
+    <div role={tone === "bad" ? "alert" : undefined} className="shadow-pop pointer-events-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-2 md:flex-nowrap rounded-xl border border-border bg-popover px-4 py-3 text-sm text-popover-foreground">
       <span className="flex min-w-0 items-start gap-2.5">
         <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
           {tone === "live" && <Playing />}
@@ -72,8 +76,8 @@ export function RunStrip() {
     navigate(`/execucoes/${id}`)
   }
 
-  const items: ReactNode[] = [
-    ...notices.map((n) =>
+  const cards: { tone: Tone; node: ReactNode }[] = [
+    ...notices.map((n) => ({ tone: (n.kind === "starting" ? "live" : "bad") as Tone, node:
       n.kind === "starting" ? (
         <Card key={n.key} tone="live" folder={n.folder} actions={null}>
           Abrindo <b className="font-semibold">{n.app_name}</b> no seu computador…
@@ -101,16 +105,16 @@ export function RunStrip() {
         >
           Não deu para abrir o <b className="font-semibold">{n.app_name}</b>: {n.message}
         </Card>
-      ),
-    ),
+      ) })),
     ...active
       .filter((r) => !(isLive(r.status) && hidden.has(r.id)))
       .map((r) => {
         const live = isLive(r.status)
-        return (
+        const tone: Tone = live ? "live" : r.status === "done" ? "ok" : r.status === "no_files" ? "muted" : "bad"
+        return { tone, node: (
           <Card
             key={r.id}
-            tone={live ? "live" : r.status === "done" ? "ok" : r.status === "no_files" ? "muted" : "bad"}
+            tone={tone}
             folder={live || r.status === "done" || r.status === "no_files" ? r.output_folder : undefined}
             actions={
               live ? (
@@ -140,13 +144,14 @@ export function RunStrip() {
           >
             {text(r)}
           </Card>
-        )
+        ) }
       }),
   ]
-  if (items.length === 0) return null
+  const items = cards.sort((a, b) => RANK[a.tone] - RANK[b.tone]).map((c) => c.node)
   const extra = items.length - MAX
+  // The region stays mounted even when empty so screen readers announce cards as they arrive.
   return (
-    <div className="pointer-events-none fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-3xl flex-col gap-2 md:left-[calc(15rem+3rem)] md:right-12">
+    <div aria-live="polite" className="pointer-events-none fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-3xl flex-col gap-2 md:left-[calc(15rem+3rem)] md:right-12">
       {items.slice(0, MAX)}
       {extra > 0 && (
         <Link to="/execucoes" className="shadow-pop pointer-events-auto self-end rounded-md border border-border bg-popover px-3 py-1.5 text-xs font-medium underline-offset-4 hover:underline">
