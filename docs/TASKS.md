@@ -37,7 +37,13 @@ Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep)
 2. ~~**Fase 5:** histórico de mudanças no código e na ficha, e voltar atrás~~ Feita e testada de verdade no Files Prep (2026-10-01)
 3. **UX em 3 etapas** (desenho: `docs/superpowers/specs/2026-10-01-etapa-1-rodar-poucos-cliques-design.md`; protótipo: `2026-10-01-prototipo-ux.html`):
    - **Etapa 1, rodar em poucos cliques:** **feita** (código 2026-10-01; telas e teste de verdade com o Henry 2026-10-02). Ficha abre na hora, Rodar no cartão, pasta lembrada, faixa de andamento, Minhas execuções
-   - Etapa 2, ficha por perfil (abas Usar/Cuidar, editar por seção, campos da v0.2): ← próxima, desenho próprio
+   - **Acabamento da Etapa 1** (avaliação Impeccable do catálogo em 2026-10-02, nota 25/40; relatório em `.impeccable/critique/`): ← próxima. O Henry escolheu corrigir tudo o que foi achado, começando por "onde ficam os arquivos":
+     1. Onde ficam os arquivos: mostrar "Salva em: …" com "trocar" no cartão e na faixa, e o caminho legível na janela. **Decisão do Henry:** sem pasta padrão; na 1ª vez sempre perguntar a pasta, e depois lembrar
+     2. Faixa: ordenar (erro > terminou > sem arquivos > aberto) antes de cortar em 3; avisos anunciados por leitor de tela (erro como alerta); "Ver e baixar" legível no modo escuro
+     3. Mensagens: "sem arquivos novos" neutro (não vermelho) e com explicação; erros do sistema em português claro; "Tentar de novo" quando o catálogo não carrega
+     4. Saídas: Cancelar na janela, Parar no app aberto, lembrete depois de "ocultar"
+     5. Acabamento: selo "Janela" e legendas da barra lateral pequenos demais; vermelho do título um pouco abaixo do contraste; nome no campo de busca; "Fechar" em vez de "Close"; mesma capitalização nos botões; esconder "Em breve" para quem só usa; "Limpar busca"; contador "em andamento" sem vermelho de alerta; menu do celular cortado
+   - Etapa 2, ficha por perfil (abas Usar/Cuidar, editar por seção, campos da v0.2): depois do acabamento, desenho próprio
    - Etapa 3, catálogo e primeiro uso (favoritos, filtro por área, status e "usado há…", guia do Agente): depois
 4. Rodar scripts: formulário automático e ambiente preparado sozinho
 5. App Hub: ícone perto do relógio, janela própria e instalador único (etapas 2 e 3), antes de o primeiro colega entrar
