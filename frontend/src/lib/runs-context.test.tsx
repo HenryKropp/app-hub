@@ -25,16 +25,27 @@ function Probe({ t, folder, ask }: { t: RunTarget; folder?: string; ask?: boolea
 
 const mount = (ui: React.ReactNode) => render(<RunsProvider>{ui}</RunsProvider>)
 
-test("first time asks with Lembrar checked and sends remember", async () => {
+test("first time asks with no default folder and Lembrar checked, and sends remember", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "activeRuns").mockResolvedValue([])
   const start = vi.spyOn(api, "startRun").mockResolvedValue(runFx({ status: "waiting" }))
   mount(<Probe t={target()} />)
   await user.click(screen.getByText("go"))
-  expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("C:\\apps\\fp")
+  expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("")
+  expect(screen.getByRole("button", { name: "Abrir app" })).toBeDisabled()
   expect(screen.getByLabelText("Lembrar esta pasta")).toBeChecked()
+  await user.type(screen.getByLabelText("Onde salvar os resultados?"), "D:\\Saídas")
   await user.click(screen.getByRole("button", { name: "Abrir app" }))
-  expect(start).toHaveBeenCalledWith(3, "C:\\apps\\fp", true)
+  expect(start).toHaveBeenCalledWith(3, "D:\\Saídas", true)
+})
+
+test("a long path is spelled out in full under the field", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "activeRuns").mockResolvedValue([])
+  const long = "C:\\Users\\Henry\\OneDrive - Alis\\ALIS\\5. Operacional\\Saídas"
+  mount(<Probe t={target(long)} ask />)
+  await user.click(screen.getByText("go"))
+  expect(screen.getByText(long, { selector: "p" })).toBeInTheDocument()
 })
 
 test("unchecking Lembrar sends remember false", async () => {
@@ -43,9 +54,10 @@ test("unchecking Lembrar sends remember false", async () => {
   const start = vi.spyOn(api, "startRun").mockResolvedValue(runFx())
   mount(<Probe t={target()} />)
   await user.click(screen.getByText("go"))
+  await user.type(screen.getByLabelText("Onde salvar os resultados?"), "D:\\Saídas")
   await user.click(screen.getByLabelText("Lembrar esta pasta"))
   await user.click(screen.getByRole("button", { name: "Abrir app" }))
-  expect(start).toHaveBeenCalledWith(3, "C:\\apps\\fp", false)
+  expect(start).toHaveBeenCalledWith(3, "D:\\Saídas", false)
 })
 
 test("remembered folder runs in one click without remember", async () => {
@@ -81,9 +93,10 @@ test("after remembering, the next click runs directly", async () => {
   const start = vi.spyOn(api, "startRun").mockResolvedValue(runFx())
   mount(<Probe t={target()} />)
   await user.click(screen.getByText("go"))
+  await user.type(screen.getByLabelText("Onde salvar os resultados?"), "D:\\Saídas")
   await user.click(screen.getByRole("button", { name: "Abrir app" }))
   await user.click(await screen.findByText("go"))
-  expect(start).toHaveBeenLastCalledWith(3, "C:\\apps\\fp", undefined)
+  expect(start).toHaveBeenLastCalledWith(3, "D:\\Saídas", undefined)
   expect(screen.queryByLabelText("Onde salvar os resultados?")).not.toBeInTheDocument()
 })
 
@@ -108,14 +121,15 @@ test("button is disabled while the request is going out", async () => {
   expect(start).toHaveBeenCalledTimes(1)
 })
 
-test("Escolher outra fills the field", async () => {
+test("Escolher pasta fills the field", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "activeRuns").mockResolvedValue([])
   vi.spyOn(api, "chooseFolder").mockResolvedValue({ folder: "D:\\Saídas", canceled: false })
   mount(<Probe t={target()} />)
   await user.click(screen.getByText("go"))
-  await user.click(screen.getByRole("button", { name: "Escolher outra…" }))
+  await user.click(screen.getByRole("button", { name: "Escolher pasta…" }))
   expect(await screen.findByDisplayValue("D:\\Saídas")).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "Escolher outra…" })).toBeInTheDocument()
 })
 
 function Cards() {

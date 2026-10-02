@@ -80,7 +80,7 @@ test("failed check keeps the ficha and shows the folder warning", async () => {
   expect(screen.queryByText("boom")).not.toBeInTheDocument()
 })
 
-test("Rodar with a remembered folder shows 'salva em' and runs directly; trocar asks", async () => {
+test("Rodar with a remembered folder shows 'Salva em' and runs directly; trocar asks", async () => {
   const user = userEvent.setup()
   base({ ...detail(true), remembered_folder: "D:\\Saídas" })
   vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: true, version: null })
@@ -93,16 +93,17 @@ test("Rodar with a remembered folder shows 'salva em' and runs directly; trocar 
   expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("D:\\Saídas")
 })
 
-test("Rodar without a remembered folder asks, and then shows 'salva em'", async () => {
+test("Rodar without a remembered folder asks, and then shows 'Salva em'", async () => {
   const user = userEvent.setup()
   base(detail(true))
   vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: true, version: null })
   vi.spyOn(api, "startRun").mockResolvedValue(run({ status: "waiting" }))
   renderAt()
   await user.click(await screen.findByRole("button", { name: "Rodar" }))
-  expect(screen.queryByText(/salva em/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/Salva em/)).not.toBeInTheDocument()
+  await user.type(screen.getByLabelText("Onde salvar os resultados?"), "E:\\Resultados")
   await user.click(screen.getByRole("button", { name: "Abrir app" }))
-  expect(await screen.findByText(/salva em/)).toHaveTextContent("salva em C:\\apps\\fp")
+  expect(await screen.findByText(/Salva em/)).toHaveTextContent("Salva em E:\\Resultados · trocar")
 })
 
 test("apps that cannot run have no Rodar button", async () => {

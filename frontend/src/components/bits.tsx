@@ -75,6 +75,35 @@ export function Field({ label, hint, htmlFor, children, className }: { label: Re
   )
 }
 
+// folderName is the last part of a Windows path: D:\Saídas\CVM → CVM.
+// eslint-disable-next-line react-refresh/only-export-components
+export const folderName = (p: string) => p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p
+
+// SavedIn says where a run's files go. The short form shows the folder's name
+// (whole path on hover) and stays on one line; full shows the whole path.
+// onChange adds "trocar".
+export function SavedIn({ folder, full, onChange, className }: { folder: string; full?: boolean; onChange?: () => void; className?: string }) {
+  const change = onChange && (
+    <button type="button" onClick={onChange} className="relative z-10 shrink-0 underline underline-offset-4 hover:text-foreground">
+      trocar
+    </button>
+  )
+  if (full)
+    return (
+      <span className={cn("min-w-0 text-muted-foreground", className)}>
+        Salva em <span className="font-medium break-all text-foreground/80">{folder}</span>
+        {change && <> · {change}</>}
+      </span>
+    )
+  return (
+    <span className={cn("flex min-w-0 items-baseline gap-1 text-muted-foreground", className)}>
+      <span className="shrink-0">Salva em</span>
+      <span title={folder} className="truncate font-medium text-foreground/80">{folderName(folder)}</span>
+      {change && <><span aria-hidden="true">·</span>{change}</>}
+    </span>
+  )
+}
+
 export function PageHeader({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

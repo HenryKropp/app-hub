@@ -68,7 +68,7 @@ export function run(over: Partial<Run> = {}): Run {
 
 export function activeRun(over: Partial<ActiveRun> = {}): ActiveRun {
   return { id: 7, app_id: 3, app_name: "Eq. Research Files Prep", app_folder_display: "C:\\apps\\fp", status: "running", error_message: "",
-    file_count: 0, created_at: "2026-10-01T14:00:00Z", finished_at: null, ...over }
+    output_folder: "D:\\Saídas\\CVM", file_count: 0, created_at: "2026-10-01T14:00:00Z", finished_at: null, ...over }
 }
 
 export function appSummary(over: Partial<AppSummary> = {}): AppSummary {

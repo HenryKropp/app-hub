@@ -3,7 +3,7 @@ import { Link } from "react-router-dom"
 import { Play, Search } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { EmptyState, KindTab, PageHeader, Playing } from "@/components/bits"
+import { EmptyState, KindTab, PageHeader, Playing, SavedIn } from "@/components/bits"
 import { api, type AppSummary } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
@@ -11,7 +11,7 @@ import { isLive } from "@/lib/runs"
 
 export function CatalogPage() {
   const { person } = useAuth()
-  const { run, busy, active } = useRuns()
+  const { run, busy, active, rememberedFor } = useRuns()
   const playing = useMemo(() => new Set(active.filter((r) => isLive(r.status)).map((r) => r.app_id)), [active])
   const [apps, setApps] = useState<AppSummary[] | null>(null)
   const [error, setError] = useState("")
@@ -63,6 +63,8 @@ export function CatalogPage() {
       <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {shown.map((a) => {
           const live = playing.has(a.id)
+          const target = { id: a.id, name: a.name, folder_display: a.folder_display, remembered_folder: a.remembered_folder }
+          const saved = a.can_run ? rememberedFor(target) : ""
           return (
             <li key={a.id}>
               {/* The title link covers the card (after:inset-0); Rodar sits above it. */}
@@ -87,18 +89,19 @@ export function CatalogPage() {
                       </span>
                     )}
                     {a.can_run && (
-                    <Button
-                      variant="run"
-                      aria-label={`Rodar ${a.name}`}
-                      disabled={busy.has(a.id)}
-                      className="relative z-10 h-8 shrink-0 gap-1.5 pr-3.5 pl-3"
-                      onClick={() => run({ id: a.id, name: a.name, folder_display: a.folder_display, remembered_folder: a.remembered_folder })}
-                    >
-                      <Play className="size-3.5" /> Rodar
-                    </Button>
+                      <Button
+                        variant="run"
+                        aria-label={`Rodar ${a.name}`}
+                        disabled={busy.has(a.id)}
+                        className="relative z-10 h-8 shrink-0 gap-1.5 pr-3.5 pl-3"
+                        onClick={() => run(target)}
+                      >
+                        <Play className="size-3.5" /> Rodar
+                      </Button>
                     )}
                   </span>
                 </div>
+                {saved && <SavedIn folder={saved} onChange={() => run(target, { ask: true })} className="mt-3 border-t border-border pt-3 text-xs" />}
               </div>
             </li>
           )
