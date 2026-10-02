@@ -191,7 +191,7 @@ A grayscale world with a single saturated violet and three small status hues. Al
 - A run with no new files is plain Quiet Gray with an info icon.
 
 ### Named Rules
-**The One Voice Rule.** Violet appears only on Rodar and other run-starting actions, the active nav icon, focus and selection, and live runs. If something violet is neither startable, focused, selected nor running, it is wrong.
+**The One Voice Rule.** Violet appears only on Rodar and other run-starting actions, the active nav icon, focus and selection, and live runs. If something violet is neither startable, focused, selected nor running, it is wrong. One exception, Henry's call (2026-10-02): the catalog's "+ Registrar apps" is violet too, but square-cornered (8px) so it never reads as a Rodar pill.
 
 **The No Rainbow Rule.** Kinds, areas, people and categories are never color-coded. Green, red and amber appear only as small status icons and the words beside them (soft tints are allowed only for diff lines and review notices), never as filled chips that compete with Rodar.
 

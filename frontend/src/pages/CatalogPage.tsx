@@ -44,7 +44,7 @@ export function CatalogPage() {
                 to="/registrar"
                 aria-label="Registrar apps"
                 title="Registrar apps"
-                className={cn(buttonVariants({ variant: "outline" }), "size-9 gap-1.5 border-input bg-card sm:w-auto sm:px-3")}
+                className={cn(buttonVariants({ variant: "run" }), "size-9 gap-1.5 rounded-lg sm:w-auto sm:px-3 [&_svg]:fill-none")}
               >
                 <Plus className="size-4" />
                 <span className="hidden sm:inline">Registrar apps</span>
