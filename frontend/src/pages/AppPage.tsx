@@ -1,14 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, FileText, FolderOpen, KeyRound, Play, TriangleAlert } from "lucide-react"
+import { ArrowLeft, FolderOpen, KeyRound, Play, TriangleAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { HistoryTimeline } from "@/components/HistoryTimeline"
 import { KindTab, SavedIn } from "@/components/bits"
-import { api, type AppDetail } from "@/lib/api"
+import { api, type AppDetail, type Input } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
 import { formatWhen } from "@/lib/runs"
-import { INPUT_SOURCES, INPUT_TYPES, kindInfo } from "@/lib/kinds"
+import { INPUT_SOURCES, kindInfo } from "@/lib/kinds"
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -16,6 +16,43 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <h2 className="text-sm font-semibold">{title}</h2>
       <div className="min-w-0">{children}</div>
     </section>
+  )
+}
+
+// Most apps take every input in their own window; then saying it once is enough.
+function InputList({ inputs }: { inputs: Input[] }) {
+  const same = inputs.every((i) => i.source === inputs[0].source)
+  return (
+    <>
+      {same && <p className="mb-2 text-sm text-muted-foreground">{inputs[0].source === "window" ? "Você preenche tudo na janela do app:" : `Tudo via ${INPUT_SOURCES[inputs[0].source]}:`}</p>}
+      <ul className="flex list-disc flex-col gap-1 pl-5 text-sm marker:text-border">
+        {inputs.map((i) => (
+          <li key={i.id}>
+            {i.label}
+            {!same && <span className="text-muted-foreground"> · {INPUT_SOURCES[i.source]}</span>}
+          </li>
+        ))}
+      </ul>
+    </>
+  )
+}
+
+const NOTES_SHOWN = 3
+
+function Notes({ notes }: { notes: string[] }) {
+  const [all, setAll] = useState(false)
+  const shown = all ? notes : notes.slice(0, NOTES_SHOWN)
+  return (
+    <>
+      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm marker:text-warn">
+        {shown.map((n) => <li key={n}>{n}</li>)}
+      </ul>
+      {notes.length > NOTES_SHOWN && (
+        <button type="button" onClick={() => setAll(!all)} className="mt-3 text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+          {all ? "Mostrar menos" : `Ver mais ${notes.length - NOTES_SHOWN}`}
+        </button>
+      )}
+    </>
   )
 }
 
@@ -73,6 +110,17 @@ export function AppPage() {
         <div className="min-w-0">
           <h1 className="font-heading text-3xl leading-tight md:text-4xl">{m.name}</h1>
           <p className="mt-3 max-w-[68ch] text-base leading-relaxed text-muted-foreground">{m.summary || "Sem resumo ainda."}</p>
+          <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+            <span title={kindInfo(m.kind).label}><KindTab kind={m.kind} /></span>
+            {[
+              m.area,
+              m.owner && <>Responsável <span className="text-foreground">{m.owner.name}</span></>,
+              m.backup ? <>Reserva <span className="text-foreground">{m.backup.name}</span></> : <span className="text-warn">Sem reserva</span>,
+              app.version && <span className="inline-flex gap-1"><span>versão {app.version.number}</span><span>de {formatWhen(app.version.created_at)}</span></span>,
+            ].filter(Boolean).map((part, i) => (
+              <span key={i} className="inline-flex items-center gap-2"><span aria-hidden className="text-muted-foreground/50">·</span>{part}</span>
+            ))}
+          </p>
         </div>
         {app.can_run && (
           <div className="flex shrink-0 flex-col items-start gap-2 lg:items-end">
@@ -84,20 +132,6 @@ export function AppPage() {
         )}
       </header>
 
-      <dl className="grid grid-cols-2 overflow-hidden rounded-xl border border-border text-sm lg:grid-cols-5">
-        {[
-          ["Tipo", <span key="t" className="inline-flex flex-wrap items-center gap-1.5"><KindTab kind={m.kind} /><span className="font-normal text-muted-foreground">{kindInfo(m.kind).label}</span></span>],
-          ["Área", m.area || "—"],
-          ["Responsável", m.owner?.name ?? "—"],
-          ["Reserva", m.backup?.name ?? <span key="r" className="text-warn">ninguém ainda</span>],
-          ["Versão", app.version ? <span key="v"><span className="font-mono text-[0.8rem]">versão {app.version.number}</span> · <span className="font-mono text-[0.8rem]">{formatWhen(app.version.created_at)}</span></span> : "—"],
-        ].map(([k, v], i) => (
-          <div key={i} className="border-border px-4 py-3 max-lg:odd:border-r max-lg:not-last:border-b lg:not-last:border-r max-lg:first:col-span-2 max-lg:first:border-r-0">
-            <dt className="text-xs text-muted-foreground">{k}</dt>
-            <dd className="mt-0.5 font-medium">{v}</dd>
-          </div>
-        ))}
-      </dl>
         {!readable && (
           <p role="alert" className="mt-4 flex gap-2 text-sm text-warn">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" /> Não consegui ler a pasta do app agora. O histórico continua aqui, mas mudanças novas no código não são registradas e não dá para voltar versões.
@@ -109,16 +143,7 @@ export function AppPage() {
             {(m.inputs ?? []).length === 0 ? (
               <p className="text-sm text-muted-foreground">Nada. É só rodar.</p>
             ) : (
-              <ul className="flex flex-col gap-1.5 text-sm">
-                {m.inputs!.map((i) => (
-                  <li key={i.id}>
-                    <span className="font-medium">{i.label}</span>{" "}
-                    <span className="text-muted-foreground">
-                      ({INPUT_TYPES.find((t) => t.value === i.type)?.label.toLowerCase()}, via {INPUT_SOURCES[i.source]})
-                    </span>
-                  </li>
-                ))}
-              </ul>
+              <InputList inputs={m.inputs!} />
             )}
           </Section>
           <Section title="O que ele devolve">
@@ -127,22 +152,14 @@ export function AppPage() {
             ) : (
               <ul className="flex flex-col gap-1.5 text-sm">
                 {m.outputs!.map((o) => (
-                  <li key={o.pattern}>
-                    {o.label} <code className="font-mono text-xs text-muted-foreground">{o.pattern}</code>
-                  </li>
+                  <li key={o.pattern} title={o.pattern}>{o.label}</li>
                 ))}
               </ul>
             )}
           </Section>
           {(m.notes ?? []).length > 0 && (
             <Section title="Pontos de atenção">
-              <ul className="flex flex-col gap-2 text-sm">
-                {m.notes!.map((n) => (
-                  <li key={n} className="flex gap-2">
-                    <TriangleAlert className="mt-0.5 size-4 shrink-0 text-warn" /> {n}
-                  </li>
-                ))}
-              </ul>
+              <Notes notes={m.notes!} />
             </Section>
           )}
           {(m.secrets ?? []).length > 0 && (
@@ -154,16 +171,14 @@ export function AppPage() {
             </Section>
           )}
           <Section title="Histórico">
-            <HistoryTimeline appId={app.id} canEdit={canEdit} reloadKey={historyKey} onChanged={() => void api.app(app.id).then(setApp, () => {})} />
+            <HistoryTimeline preview={5} appId={app.id} canEdit={canEdit} reloadKey={historyKey} onChanged={() => void api.app(app.id).then(setApp, () => {})} />
           </Section>
           <Section title="Onde está">
             <p className="flex items-start gap-2 text-sm">
               <FolderOpen className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <code className="font-mono text-xs break-all">{app.folder_display}</code>
+              <span className="[overflow-wrap:anywhere]">{app.folder_display}</span>
             </p>
-            <p className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
-              <FileText className="mt-0.5 size-4 shrink-0" />A ficha e o manifesto (app-hub.yaml) também estão salvos dentro dessa pasta.
-            </p>
+            <p className="mt-1.5 pl-6 text-xs text-muted-foreground">A ficha também fica salva nessa pasta.</p>
           </Section>
         </div>
     </article>

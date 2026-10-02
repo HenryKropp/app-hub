@@ -125,3 +125,21 @@ test("shows the history timeline", async () => {
   renderAt()
   expect(await screen.findByRole("link", { name: /Concluída/ })).toHaveAttribute("href", "/execucoes/7")
 })
+
+test("ficha says once where inputs come from, shows 3 notes and the rest on request", async () => {
+  const user = userEvent.setup()
+  const d = detail(true)
+  d.manifest = { ...d.manifest, inputs: [
+    { id: "a", label: "Nome da empresa", type: "text", source: "window" },
+    { id: "b", label: "Anos", type: "number", source: "window" },
+  ], notes: ["n1", "n2", "n3", "n4", "n5"] } as AppDetail["manifest"]
+  base(d)
+  vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: true, version: null })
+  renderAt()
+  expect(await screen.findByText("Você preenche tudo na janela do app:")).toBeInTheDocument()
+  expect(screen.getByText("Nome da empresa")).toHaveTextContent(/^Nome da empresa$/)
+  expect(screen.queryByText("n4")).not.toBeInTheDocument()
+  await user.click(screen.getByRole("button", { name: "Ver mais 2" }))
+  expect(screen.getByText("n5")).toBeInTheDocument()
+  expect(screen.getByText("Sem reserva")).toBeInTheDocument()
+})
