@@ -40,5 +40,6 @@ test("Configurações sits at the foot of the sidebar; Meu computador moved into
   mount({ ...henry, role: "usuario" })
   expect(screen.getByRole("link", { name: "Configurações" })).toHaveAttribute("href", "/configuracoes")
   expect(screen.queryByRole("link", { name: "Meu computador" })).not.toBeInTheDocument()
+  expect(screen.queryByRole("link", { name: "Registrar apps" })).not.toBeInTheDocument()
   expect(screen.queryByRole("radiogroup", { name: "Tema" })).not.toBeInTheDocument()
 })

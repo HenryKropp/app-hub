@@ -72,3 +72,14 @@ test("clicking the card name still opens the ficha", async () => {
   await user.click(await screen.findByRole("link", { name: "Eq. Research Files Prep" }))
   expect(await screen.findByText("ficha")).toBeInTheDocument()
 })
+
+test("the + Registrar apps sits in the catalog for creators, not for usuários", async () => {
+  vi.spyOn(api, "apps").mockResolvedValue([appSummary()])
+  const { unmount } = mount()
+  expect(await screen.findByRole("link", { name: "Registrar apps" })).toHaveAttribute("href", "/registrar")
+  unmount()
+  vi.spyOn(auth, "useAuth").mockReturnValue({ loading: false, needsSetup: false, person: { ...henry, role: "usuario" }, refresh: async () => {}, setPerson: () => {} })
+  mount()
+  await screen.findByText("Eq. Research Files Prep")
+  expect(screen.queryByRole("link", { name: "Registrar apps" })).not.toBeInTheDocument()
+})

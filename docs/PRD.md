@@ -153,7 +153,7 @@ Pedido do Henry em 2026-09-30: registrar apps de dentro do Claude, sem preencher
 ## 4. Fluxos principais
 
 **A. Registrar os apps existentes (criador)**
-1. Abre o Hub e clica em "Registrar apps".
+1. Abre o Hub e, no catálogo, clica em "+ Registrar apps".
 2. Escolhe a pasta de programação.
 3. O Hub mostra a lista de apps encontrados, cada um com o diagnóstico.
 4. Para cada app, confirma o que ficou incerto, define área, responsável e reserva.
