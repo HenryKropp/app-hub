@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
-import { Archive, Check, CircleHelp, Copy, FolderSearch, KeyRound } from "lucide-react"
+import { Archive, ArrowLeft, Check, CircleHelp, Copy, FolderSearch, KeyRound } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { KindTab, PageHeader } from "@/components/bits"
@@ -86,6 +86,9 @@ export function RegisterPage() {
 
   return (
     <>
+      <Link to="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="size-4" /> Catálogo
+      </Link>
       <PageHeader title="Traga os apps para o catálogo" />
 
       <form onSubmit={scan} className="mb-10 rounded-xl border border-border bg-card p-5 md:p-6">

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { Play, Search } from "lucide-react"
+import { Play, Plus, Search } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState, KindTab, PageHeader, Playing, SavedIn } from "@/components/bits"
@@ -8,6 +8,7 @@ import { api, type AppSummary } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
 import { isLive } from "@/lib/runs"
+import { cn } from "@/lib/utils"
 
 export function CatalogPage() {
   const { person } = useAuth()
@@ -33,9 +34,22 @@ export function CatalogPage() {
     <>
       <PageHeader title="Apps da empresa">
         {apps && apps.length > 0 && (
-          <div className="relative w-full md:w-72">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome, área, pessoa…" className="h-9 rounded-lg bg-card pl-8" />
+          <div className="flex w-full items-center gap-2 md:w-auto">
+            <div className="relative flex-1 md:w-72 md:flex-none">
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome, área, pessoa…" className="h-9 rounded-lg bg-card pl-8" />
+            </div>
+            {canRegister && (
+              <Link
+                to="/registrar"
+                aria-label="Registrar apps"
+                title="Registrar apps"
+                className={cn(buttonVariants({ variant: "outline" }), "size-9 gap-1.5 border-input bg-card sm:w-auto sm:px-3")}
+              >
+                <Plus className="size-4" />
+                <span className="hidden sm:inline">Registrar apps</span>
+              </Link>
+            )}
           </div>
         )}
       </PageHeader>

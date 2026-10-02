@@ -1,5 +1,5 @@
-import { NavLink, Outlet, useNavigate } from "react-router-dom"
-import { FolderSearch, Gauge, History, KeyRound, LibraryBig, LogOut, Settings, Users } from "lucide-react"
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
+import { Gauge, History, KeyRound, LibraryBig, LogOut, Settings, Users } from "lucide-react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { roleLabel } from "@/lib/kinds"
@@ -19,7 +19,6 @@ import { RunStrip } from "./RunStrip"
 const NAV = [
   { to: "/", label: "Catálogo", icon: LibraryBig, roles: ["admin", "criador", "usuario"] },
   { to: "/execucoes", label: "Minhas execuções", icon: History, roles: ["admin", "criador", "usuario"] },
-  { to: "/registrar", label: "Registrar apps", icon: FolderSearch, roles: ["admin", "criador"] },
   { to: "/pessoas", label: "Pessoas", icon: Users, roles: ["admin", "criador", "usuario"] },
 ]
 
@@ -48,6 +47,8 @@ const initials = (name: string) =>
 function Shell() {
   const { person, setPerson } = useAuth()
   const navigate = useNavigate()
+  // Registrar apps opens from the catalog's +, so it counts as the catalog.
+  const inCatalog = useLocation().pathname.startsWith("/registrar")
   const openCount = useRuns().active.filter((r) => isLive(r.status)).length
   if (!person) return null
 
@@ -93,11 +94,11 @@ function Shell() {
               key={to}
               to={to}
               end={to === "/"}
-              className={({ isActive }) => cn(NAV_ITEM, isActive ? NAV_ON : NAV_OFF)}
+              className={({ isActive }) => cn(NAV_ITEM, isActive || (to === "/" && inCatalog) ? NAV_ON : NAV_OFF)}
             >
               {({ isActive }) => (
                 <>
-                  <Icon className={cn("size-4", isActive && "text-brand")} />
+                  <Icon className={cn("size-4", (isActive || (to === "/" && inCatalog)) && "text-brand")} />
                   {label}
                   {to === "/execucoes" && openCount > 0 && (
                     <span aria-label={`${openCount} aberto agora`} className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-brand">
