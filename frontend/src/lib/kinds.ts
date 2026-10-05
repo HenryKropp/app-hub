@@ -30,5 +30,3 @@ export const INPUT_SOURCES: Record<Input["source"], string> = {
   argument: "parâmetro",
   window: "campo na janela do app",
 }
-
-export const AREAS = ["Investimentos", "Operações", "Relações com Investidores", "Research", "Compliance", "Administrativo"]
