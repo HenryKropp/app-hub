@@ -68,15 +68,6 @@ func (h *Handler) personOut(ctx context.Context, p sqlc.Person) (personJSON, err
 	return out, nil
 }
 
-// roleKey is temporary (removed in Task 3): the built-in key of the person's role.
-func (h *Handler) roleKey(ctx context.Context, p sqlc.Person) string {
-	role, err := h.q.GetRole(ctx, p.RoleID)
-	if err != nil || !role.Key.Valid {
-		return ""
-	}
-	return role.Key.String
-}
-
 // loadAccess gathers everything access.Person needs about me, in a few queries.
 func (h *Handler) loadAccess(ctx context.Context, me sqlc.Person) (*access.Person, error) {
 	role, err := h.q.GetRole(ctx, me.RoleID)
@@ -163,17 +154,18 @@ func (h *Handler) appFor(w http.ResponseWriter, r *http.Request) (sqlc.App, sqlc
 	}
 	a, ok := h.appFromPath(w, r)
 	if !ok {
-		return a, me, nil, access.Can{}, false
+		return sqlc.App{}, me, nil, access.Can{}, false
 	}
 	acc, err := h.loadAccess(r.Context(), me)
 	if err != nil {
 		internalError(w, "load access", err)
-		return a, me, nil, access.Can{}, false
+		return sqlc.App{}, me, nil, access.Can{}, false
 	}
 	can := acc.For(appRef(a))
 	if !can.View {
+		// Zero values, so a careless caller cannot leak the hidden app.
 		writeError(w, http.StatusNotFound, "App não encontrado.")
-		return a, me, acc, can, false
+		return sqlc.App{}, me, nil, access.Can{}, false
 	}
 	return a, me, acc, can, true
 }

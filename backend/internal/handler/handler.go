@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/HenryKropp/app-hub/backend/internal/access"
 	"github.com/HenryKropp/app-hub/backend/internal/config"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 )
@@ -157,21 +158,6 @@ func (h *Handler) currentPerson(w http.ResponseWriter, r *http.Request) (sqlc.Pe
 	}
 	writeError(w, http.StatusUnauthorized, "Entre no Hub para continuar.")
 	return sqlc.Person{}, false
-}
-
-// requireRole checks that the logged-in person has one of the roles.
-func (h *Handler) requireRole(w http.ResponseWriter, r *http.Request, roles ...string) (sqlc.Person, bool) {
-	p, ok := h.currentPerson(w, r)
-	if !ok {
-		return p, false
-	}
-	for _, role := range roles {
-		if h.roleKey(r.Context(), p) == role {
-			return p, true
-		}
-	}
-	writeError(w, http.StatusForbidden, "Você não tem permissão para isso.")
-	return p, false
 }
 
 func (h *Handler) startSession(w http.ResponseWriter, r *http.Request, personID int64) error {
@@ -382,7 +368,7 @@ func (h *Handler) listPeople(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) createPerson(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.requireRole(w, r, "admin"); !ok {
+	if _, _, ok := h.requirePerm(w, r, access.ManagePeople); !ok {
 		return
 	}
 	var c credentials

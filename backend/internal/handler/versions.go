@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/HenryKropp/app-hub/backend/internal/access"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 	"github.com/HenryKropp/app-hub/backend/internal/scanner"
@@ -154,29 +155,44 @@ type versionFileJSON struct {
 	Modified time.Time `json:"modified"`
 }
 
-func (h *Handler) versionFromPath(w http.ResponseWriter, r *http.Request) (sqlc.App, sqlc.GetAppVersionRow, versions.Snapshot, bool) {
-	a, ok := h.appFromPath(w, r)
+// versionFromPath loads the app and version in the URL (404 when me cannot see
+// the app) and what me can do with the app. Each caller checks the right it needs.
+func (h *Handler) versionFromPath(w http.ResponseWriter, r *http.Request) (sqlc.App, access.Can, sqlc.GetAppVersionRow, versions.Snapshot, bool) {
+	a, _, _, can, ok := h.appFor(w, r)
 	if !ok {
-		return a, sqlc.GetAppVersionRow{}, nil, false
+		return sqlc.App{}, access.Can{}, sqlc.GetAppVersionRow{}, nil, false
 	}
 	n, err := strconv.ParseInt(r.PathValue("n"), 10, 32)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "Versão não encontrada.")
-		return a, sqlc.GetAppVersionRow{}, nil, false
+		return a, can, sqlc.GetAppVersionRow{}, nil, false
 	}
 	v, err := h.q.GetAppVersion(r.Context(), sqlc.GetAppVersionParams{AppID: a.ID, Number: int32(n)})
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "Versão não encontrada.")
-		return a, v, nil, false
+		return a, can, v, nil, false
 	}
 	if err != nil {
 		internalError(w, "get version", err)
-		return a, v, nil, false
+		return a, can, v, nil, false
 	}
 	var snap versions.Snapshot
 	if err := json.Unmarshal(v.Files, &snap); err != nil {
 		internalError(w, "decode version files", err)
-		return a, v, nil, false
+		return a, can, v, nil, false
+	}
+	return a, can, v, snap, true
+}
+
+// techVersion is versionFromPath for the code views, which need the technical part.
+func (h *Handler) techVersion(w http.ResponseWriter, r *http.Request) (sqlc.App, sqlc.GetAppVersionRow, versions.Snapshot, bool) {
+	a, can, v, snap, ok := h.versionFromPath(w, r)
+	if !ok {
+		return a, v, snap, false
+	}
+	if !can.Tech {
+		writeError(w, http.StatusForbidden, "Você não pode ver o código deste app.")
+		return sqlc.App{}, sqlc.GetAppVersionRow{}, nil, false
 	}
 	return a, v, snap, true
 }
@@ -190,10 +206,7 @@ func (h *Handler) versionItemOf(r *http.Request, a sqlc.App, v sqlc.GetAppVersio
 }
 
 func (h *Handler) getVersion(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.currentPerson(w, r); !ok {
-		return
-	}
-	a, v, _, ok := h.versionFromPath(w, r)
+	a, v, _, ok := h.techVersion(w, r)
 	if !ok {
 		return
 	}
@@ -213,10 +226,7 @@ func (h *Handler) codeText(r *http.Request, f *versions.File) (string, error) {
 }
 
 func (h *Handler) versionChanges(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.currentPerson(w, r); !ok {
-		return
-	}
-	a, v, snap, ok := h.versionFromPath(w, r)
+	a, v, snap, ok := h.techVersion(w, r)
 	if !ok {
 		return
 	}
@@ -260,10 +270,7 @@ func (h *Handler) versionChanges(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) versionFiles(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.currentPerson(w, r); !ok {
-		return
-	}
-	_, _, snap, ok := h.versionFromPath(w, r)
+	_, _, snap, ok := h.techVersion(w, r)
 	if !ok {
 		return
 	}
@@ -277,10 +284,7 @@ func (h *Handler) versionFiles(w http.ResponseWriter, r *http.Request) {
 // versionContent only serves paths listed in the version, from the stored
 // copy; it never reads the disk.
 func (h *Handler) versionContent(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.currentPerson(w, r); !ok {
-		return
-	}
-	_, _, snap, ok := h.versionFromPath(w, r)
+	_, _, snap, ok := h.techVersion(w, r)
 	if !ok {
 		return
 	}
@@ -305,7 +309,15 @@ func (h *Handler) versionContent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) describeVersion(w http.ResponseWriter, r *http.Request) {
-	me, ok := h.requireRole(w, r, "admin", "criador")
+	a, can, v, _, ok := h.versionFromPath(w, r)
+	if !ok {
+		return
+	}
+	if !can.Edit {
+		writeError(w, http.StatusForbidden, "Você não pode mudar este app.")
+		return
+	}
+	me, ok := h.currentPerson(w, r)
 	if !ok {
 		return
 	}
@@ -319,10 +331,6 @@ func (h *Handler) describeVersion(w http.ResponseWriter, r *http.Request) {
 	desc := strings.TrimSpace(body.Description)
 	if len([]rune(desc)) > 2000 {
 		writeError(w, http.StatusBadRequest, "A descrição pode ter até 2000 caracteres.")
-		return
-	}
-	a, v, _, ok := h.versionFromPath(w, r)
-	if !ok {
 		return
 	}
 	author := pgtype.Int8{}

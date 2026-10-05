@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/HenryKropp/app-hub/backend/internal/access"
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 )
@@ -229,13 +230,24 @@ func (h *Handler) revokeComputer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c, err := h.q.GetComputer(r.Context(), id)
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && c.PersonID != me.ID && h.roleKey(r.Context(), me) != "admin") {
+	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "Computador não encontrado.")
 		return
 	}
 	if err != nil {
 		internalError(w, "get computer", err)
 		return
+	}
+	if c.PersonID != me.ID {
+		acc, err := h.loadAccess(r.Context(), me)
+		if err != nil {
+			internalError(w, "load access", err)
+			return
+		}
+		if !acc.Has(access.ManagePeople) {
+			writeError(w, http.StatusNotFound, "Computador não encontrado.")
+			return
+		}
 	}
 	if err := h.q.RevokeComputer(r.Context(), id); err != nil {
 		internalError(w, "revoke computer", err)

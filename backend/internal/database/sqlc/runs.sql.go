@@ -413,17 +413,18 @@ SELECT r.id, r.app_id, a.name AS app_name, r.status, r.output_folder, r.created_
 FROM runs r
 JOIN apps a ON a.id = r.app_id
 JOIN people p ON p.id = r.person_id
-WHERE ($1::boolean OR r.person_id = $2)
-  AND ($3::bigint = 0 OR r.id < $3::bigint)
+WHERE ($1::boolean OR r.person_id = $2 OR r.app_id = ANY($3::bigint[]))
+  AND ($4::bigint = 0 OR r.id < $4::bigint)
 ORDER BY r.id DESC
-LIMIT $4
+LIMIT $5
 `
 
 type ListRunsParams struct {
-	SeeAll   bool  `json:"see_all"`
-	PersonID int64 `json:"person_id"`
-	Before   int64 `json:"before"`
-	Lim      int32 `json:"lim"`
+	SeeAll   bool    `json:"see_all"`
+	PersonID int64   `json:"person_id"`
+	AppIds   []int64 `json:"app_ids"`
+	Before   int64   `json:"before"`
+	Lim      int32   `json:"lim"`
 }
 
 type ListRunsRow struct {
@@ -444,6 +445,7 @@ func (q *Queries) ListRuns(ctx context.Context, arg ListRunsParams) ([]ListRunsR
 	rows, err := q.db.Query(ctx, listRuns,
 		arg.SeeAll,
 		arg.PersonID,
+		arg.AppIds,
 		arg.Before,
 		arg.Lim,
 	)

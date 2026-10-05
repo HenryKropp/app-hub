@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/HenryKropp/app-hub/backend/internal/access"
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/hostpath"
@@ -44,13 +45,8 @@ func tsPtr(t pgtype.Timestamptz) *time.Time {
 }
 
 func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
-	me, ok := h.currentPerson(w, r)
+	a, me, _, _, ok := h.appFor(w, r)
 	if !ok {
-		return
-	}
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "App não encontrado.")
 		return
 	}
 	var body struct {
@@ -61,15 +57,6 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	a, err := h.q.GetApp(ctx, id)
-	if errors.Is(err, pgx.ErrNoRows) {
-		writeError(w, http.StatusNotFound, "App não encontrado.")
-		return
-	}
-	if err != nil {
-		internalError(w, "get app", err)
-		return
-	}
 	var m manifest.Manifest
 	if err := json.Unmarshal(a.Manifest, &m); err != nil {
 		internalError(w, "decode manifest", err)
@@ -250,7 +237,8 @@ func (h *Handler) toRunJSON(ctx context.Context, row sqlc.GetRunRow) (runJSON, e
 	return j, nil
 }
 
-// runForPerson loads the run in the path; only its person and admins see it.
+// runForPerson loads the run in the path. It is visible to its own person and
+// to whoever can see that app and everyone's runs of it; otherwise 404.
 func (h *Handler) runForPerson(w http.ResponseWriter, r *http.Request) (sqlc.GetRunRow, sqlc.Person, bool) {
 	me, ok := h.currentPerson(w, r)
 	if !ok {
@@ -263,7 +251,17 @@ func (h *Handler) runForPerson(w http.ResponseWriter, r *http.Request) (sqlc.Get
 			return sqlc.GetRunRow{}, me, false
 		}
 		row, err := h.q.GetRun(r.Context(), id)
-		if err == nil && (row.PersonID == me.ID || h.roleKey(r.Context(), me) == "admin") {
+		if err == nil && row.PersonID != me.ID {
+			acc, aerr := h.loadAccess(r.Context(), me)
+			app, gerr := h.q.GetApp(r.Context(), row.AppID)
+			if aerr != nil || gerr != nil {
+				internalError(w, "run access", errors.Join(aerr, gerr))
+				return sqlc.GetRunRow{}, me, false
+			}
+			if c := acc.For(appRef(app)); c.View && c.Runs {
+				return row, me, true
+			}
+		} else if err == nil {
 			return row, me, true
 		}
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -289,20 +287,15 @@ func (h *Handler) getRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) listAppRuns(w http.ResponseWriter, r *http.Request) {
-	me, ok := h.currentPerson(w, r)
+	a, me, _, can, ok := h.appFor(w, r)
 	if !ok {
-		return
-	}
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		writeError(w, http.StatusNotFound, "App não encontrado.")
 		return
 	}
 	if err := h.q.ExpireStaleRuns(r.Context()); err != nil {
 		internalError(w, "expire runs", err)
 		return
 	}
-	rows, err := h.q.ListAppRuns(r.Context(), sqlc.ListAppRunsParams{AppID: id, SeeAll: h.roleKey(r.Context(), me) == "admin", PersonID: me.ID})
+	rows, err := h.q.ListAppRuns(r.Context(), sqlc.ListAppRunsParams{AppID: a.ID, SeeAll: can.Runs, PersonID: me.ID})
 	if err != nil {
 		internalError(w, "list runs", err)
 		return
@@ -678,16 +671,40 @@ func (h *Handler) dismissRun(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// listRuns is Minhas execuções: the person's runs, or everyone's for admins.
+// listRuns is Minhas execuções: the person's runs; with scope=all also the
+// runs of others in the apps whose runs the person may see.
 func (h *Handler) listRuns(w http.ResponseWriter, r *http.Request) {
 	me, ok := h.currentPerson(w, r)
 	if !ok {
 		return
 	}
 	all := r.URL.Query().Get("scope") == "all"
-	if all && h.roleKey(r.Context(), me) != "admin" {
-		writeError(w, http.StatusForbidden, "Só administradores veem as execuções de todos.")
-		return
+	seeAll, appIDs := false, []int64{}
+	if all {
+		acc, err := h.loadAccess(r.Context(), me)
+		if err != nil {
+			internalError(w, "load access", err)
+			return
+		}
+		if acc.Has(access.SeeAllRuns) {
+			seeAll = true
+		} else {
+			links, err := h.q.ListAppLinks(r.Context())
+			if err != nil {
+				internalError(w, "list app links", err)
+				return
+			}
+			for _, l := range links {
+				c := acc.For(access.App{ID: l.ID, AreaID: l.AreaID, OwnerID: l.OwnerID, BackupID: l.BackupID.Int64, Restricted: l.Restricted})
+				if c.View && c.Runs {
+					appIDs = append(appIDs, l.ID)
+				}
+			}
+			if len(appIDs) == 0 {
+				writeError(w, http.StatusForbidden, "Você não pode ver as execuções dos outros.")
+				return
+			}
+		}
 	}
 	var before int64
 	if s := r.URL.Query().Get("before"); s != "" {
@@ -701,7 +718,7 @@ func (h *Handler) listRuns(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "expire runs", err)
 		return
 	}
-	rows, err := h.q.ListRuns(r.Context(), sqlc.ListRunsParams{SeeAll: all, PersonID: me.ID, Before: before, Lim: int32(h.runsPage + 1)})
+	rows, err := h.q.ListRuns(r.Context(), sqlc.ListRunsParams{SeeAll: seeAll, PersonID: me.ID, AppIds: appIDs, Before: before, Lim: int32(h.runsPage + 1)})
 	if err != nil {
 		internalError(w, "list runs", err)
 		return
