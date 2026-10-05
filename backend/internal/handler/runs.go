@@ -184,15 +184,28 @@ func (h *Handler) onRunResult(ctx context.Context, j sqlc.AgentJob, res agentpro
 		}
 		return h.finishJob(ctx, j.ID, "done", res)
 	default: // failed
-		msg := res.Error
-		if msg == "" {
-			msg = "O Agente não conseguiu abrir o app."
-		}
+		msg := plainRunError(runID, res.Error)
 		if err := h.q.FinishRun(ctx, sqlc.FinishRunParams{ID: runID, Status: "error", ErrorMessage: msg}); err != nil {
 			return err
 		}
 		return h.finishJob(ctx, j.ID, "failed", res)
 	}
+}
+
+// The Agente passes Windows' own error along when it can't start the app; that
+// text is English and technical, so the person reads a plain sentence and the
+// detail goes to the log.
+const openFailPrefix = "Não consegui abrir o app: "
+
+func plainRunError(runID int64, msg string) string {
+	switch {
+	case msg == "":
+		return "O Agente não conseguiu abrir o app."
+	case strings.HasPrefix(msg, openFailPrefix):
+		slog.Warn("app did not start", "run", runID, "detail", strings.TrimPrefix(msg, openFailPrefix))
+		return "O Windows não deixou abrir o app. Confira se o arquivo do app ainda existe e se o antivírus não o bloqueou, e tente de novo."
+	}
+	return msg
 }
 
 func (h *Handler) toRunJSON(ctx context.Context, row sqlc.GetRunRow) (runJSON, error) {

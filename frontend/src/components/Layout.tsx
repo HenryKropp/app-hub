@@ -60,6 +60,9 @@ function Shell() {
 
   return (
     <div className="flex min-h-svh flex-col md:flex-row">
+      <a href="#conteudo" className="sr-only z-50 rounded-md bg-background px-3 py-2 text-sm font-medium shadow-pop focus:not-sr-only focus:fixed focus:top-3 focus:left-3">
+        Pular para o conteúdo
+      </a>
       <aside className="relative z-10 flex shrink-0 flex-col border-b border-sidebar-border bg-sidebar md:sticky md:top-0 md:h-svh md:w-60 md:border-r md:border-b-0">
         <div className="flex items-center gap-2.5 px-5 pt-4 pb-3 md:pt-5 md:pb-6">
           <Logo className="size-7" />
@@ -101,7 +104,7 @@ function Shell() {
                   <Icon className={cn("size-4", (isActive || (to === "/" && inCatalog)) && "text-brand")} />
                   {label}
                   {to === "/execucoes" && openCount > 0 && (
-                    <span aria-label={`${openCount} aberto agora`} className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-brand">
+                    <span aria-label={`${openCount} ${openCount === 1 ? "aberto" : "abertos"} agora`} className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-brand">
                       <Playing />
                       {openCount}
                     </span>
@@ -110,7 +113,7 @@ function Shell() {
               )}
             </NavLink>
           ))}
-          <div className="hidden md:mt-6 md:block">
+          {person.role !== "usuario" && <div className="hidden md:mt-6 md:block">
             <p className="px-2.5 pb-1 text-xs text-muted-foreground">Em breve</p>
             {SOON.map(({ label, icon: Icon }) => (
               <div key={label} aria-disabled="true" className="flex items-center gap-2.5 px-2.5 py-1.5 text-sm text-muted-foreground/60">
@@ -118,7 +121,7 @@ function Shell() {
                 {label}
               </div>
             ))}
-          </div>
+          </div>}
         </nav>
 
         <div className="mt-auto hidden flex-col gap-2 p-3 md:flex">
@@ -148,7 +151,7 @@ function Shell() {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 px-4 pt-8 pb-40 sm:px-8 md:px-12 md:pt-10">
+      <main id="conteudo" tabIndex={-1} className="min-w-0 outline-none flex-1 px-4 pt-8 pb-40 sm:px-8 md:px-12 md:pt-10">
         <div className="mx-auto max-w-6xl">
           <Outlet />
         </div>

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { Play } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
-import { EmptyState, PageHeader, RunState } from "@/components/bits"
+import { EmptyState, LoadError, PageHeader, RunState } from "@/components/bits"
 import { api, type RunListItem } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
@@ -16,6 +16,7 @@ export function MyRunsPage() {
   const [items, setItems] = useState<RunListItem[] | null>(null)
   const [more, setMore] = useState(false)
   const [error, setError] = useState("")
+  const [tries, setTries] = useState(0)
 
   // Reload when the filter changes and when a run in the strip changes situation.
   const signal = active.map((r) => `${r.id}:${r.status}`).join(",")
@@ -32,7 +33,7 @@ export function MyRunsPage() {
     return () => {
       gone = true
     }
-  }, [scope, signal])
+  }, [scope, signal, tries])
 
   const loadMore = () => {
     const last = items?.[items.length - 1]
@@ -65,7 +66,7 @@ export function MyRunsPage() {
           </div>
         )}
       </PageHeader>
-      {error && <p className="text-destructive">{error}</p>}
+      {error && <LoadError message={error} onRetry={() => { setError(""); setTries((n) => n + 1) }} />}
       {items === null && !error && <p className="text-muted-foreground">Carregando…</p>}
       {items?.length === 0 && (
         <EmptyState title={scope === "all" ? "Ninguém rodou nenhum app ainda" : "Você ainda não rodou nenhum app"}>

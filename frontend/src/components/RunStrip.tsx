@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react"
+import { useEffect, useState, type ReactNode } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { CircleCheck, Info, TriangleAlert, X } from "lucide-react"
 import { Playing, SavedIn } from "./bits"
@@ -6,7 +6,22 @@ import type { ActiveRun } from "@/lib/api"
 import { useRuns } from "@/lib/runs-context"
 import { isLive } from "@/lib/runs"
 
+// Three cards on a desk; on a phone one already takes a third of the screen.
 const MAX = 3
+const PHONE = "(max-width: 639px)"
+const onPhone = () => typeof window !== "undefined" && !!window.matchMedia?.(PHONE).matches
+
+function useMax() {
+  const [phone, setPhone] = useState(onPhone)
+  useEffect(() => {
+    const mq = window.matchMedia?.(PHONE)
+    if (!mq) return
+    const on = () => setPhone(mq.matches)
+    mq.addEventListener("change", on)
+    return () => mq.removeEventListener("change", on)
+  }, [])
+  return phone ? 1 : MAX
+}
 
 type Tone = "live" | "ok" | "muted" | "bad"
 // What needs the person first: problems, then results, then runs still going.
@@ -23,7 +38,7 @@ function text(r: ActiveRun): ReactNode {
     case "done":
       return <>{app} terminou: {n} {n === 1 ? "arquivo novo" : "arquivos novos"}</>
     case "no_files":
-      return <>{app} terminou sem arquivos novos</>
+      return <>{app} terminou sem arquivos novos. Se esperava algum, confira se o app salvou nesta pasta.</>
     case "interrupted":
       return <>{app} foi interrompido: o computador parou de responder</>
     default:
@@ -35,6 +50,7 @@ function text(r: ActiveRun): ReactNode {
 const aboutFolder = (msg = "") => /pasta/i.test(msg)
 
 const ACTION = "rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+const PILL = "shadow-pop pointer-events-auto rounded-md border border-border bg-popover px-3 py-1.5 text-xs font-medium"
 const PRIMARY = "rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/85"
 
 function Card({ tone, children, folder, actions }: { tone: Tone; children: ReactNode; folder?: string; actions: ReactNode }) {
@@ -71,6 +87,7 @@ export function RunStrip() {
   const { active, notices, dismiss, dropNotice, run } = useRuns()
   const [hidden, setHidden] = useState<Set<number>>(new Set())
   const navigate = useNavigate()
+  const max = useMax()
   const open = (id: number) => {
     dismiss(id)
     navigate(`/execucoes/${id}`)
@@ -118,9 +135,14 @@ export function RunStrip() {
             folder={live || r.status === "done" || r.status === "no_files" ? r.output_folder : undefined}
             actions={
               live ? (
-                <button type="button" className={ACTION} onClick={() => setHidden((h) => new Set(h).add(r.id))}>
-                  Ocultar
-                </button>
+                <>
+                  <button type="button" className={ACTION} onClick={() => navigate(`/execucoes/${r.id}`)}>
+                    Ver
+                  </button>
+                  <button type="button" className={ACTION} onClick={() => setHidden((h) => new Set(h).add(r.id))}>
+                    Ocultar
+                  </button>
+                </>
               ) : (
                 <>
                   {r.status === "interrupted" && (
@@ -148,15 +170,26 @@ export function RunStrip() {
       }),
   ]
   const items = cards.sort((a, b) => RANK[a.tone] - RANK[b.tone]).map((c) => c.node)
-  const extra = items.length - MAX
+  const extra = items.length - max
+  // Hidden runs still count: a small reminder brings them back.
+  const hiddenLive = active.filter((r) => isLive(r.status) && hidden.has(r.id)).length
   // The region stays mounted even when empty so screen readers announce cards as they arrive.
   return (
     <div aria-live="polite" className="pointer-events-none fixed inset-x-4 bottom-4 z-40 mx-auto flex max-w-3xl flex-col gap-2 md:left-[calc(15rem+3rem)] md:right-12">
-      {items.slice(0, MAX)}
-      {extra > 0 && (
-        <Link to="/execucoes" className="shadow-pop pointer-events-auto self-end rounded-md border border-border bg-popover px-3 py-1.5 text-xs font-medium underline-offset-4 hover:underline">
-          +{extra} em Minhas execuções
-        </Link>
+      {items.slice(0, max)}
+      {(extra > 0 || hiddenLive > 0) && (
+        <span className="flex items-center gap-2 self-end">
+          {hiddenLive > 0 && (
+            <button type="button" onClick={() => setHidden(new Set())} className={`${PILL} inline-flex items-center gap-1.5`}>
+              <Playing /> {hiddenLive} {hiddenLive === 1 ? "aberto oculto" : "abertos ocultos"} · Mostrar
+            </button>
+          )}
+          {extra > 0 && (
+            <Link to="/execucoes" className={`${PILL} underline-offset-4 hover:underline`}>
+              +{extra} em Minhas execuções
+            </Link>
+          )}
+        </span>
       )}
     </div>
   )

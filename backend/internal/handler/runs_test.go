@@ -545,3 +545,15 @@ func TestRememberedFolderIsPerPerson(t *testing.T) {
 		t.Fatalf("lista da Ana %+v", list)
 	}
 }
+
+func TestPlainRunError(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"", "O Agente não conseguiu abrir o app."},
+		{"Já existe um Ferramenta CVM.exe nessa pasta.", "Já existe um Ferramenta CVM.exe nessa pasta."},
+		{"Não consegui abrir o app: fork/exec C:\\x.exe: Access is denied.", "O Windows não deixou abrir o app. Confira se o arquivo do app ainda existe e se o antivírus não o bloqueou, e tente de novo."},
+	} {
+		if got := plainRunError(1, tc.in); got != tc.want {
+			t.Errorf("%q: got %q", tc.in, got)
+		}
+	}
+}

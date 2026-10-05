@@ -153,16 +153,25 @@ export class ApiError extends Error {
   }
 }
 
+// The browser's own errors ("Failed to fetch") are English and say nothing; these say what to do.
+export const OFFLINE = "Não consegui falar com o Hub. Confira sua internet e tente de novo."
+const DOWN = "O Hub não respondeu. Espere um pouco e tente de novo."
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(path, {
-    method,
-    credentials: "same-origin",
-    headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
+  let res: Response
+  try {
+    res = await fetch(path, {
+      method,
+      credentials: "same-origin",
+      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    })
+  } catch {
+    throw new ApiError(0, OFFLINE)
+  }
   if (res.status === 204) return undefined as T
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new ApiError(res.status, data?.error || "Não foi possível completar a ação.", data)
+  if (!res.ok) throw new ApiError(res.status, data?.error || (res.status >= 500 ? DOWN : "Não foi possível completar a ação."), data)
   return data as T
 }
 

@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { Play, Plus, Search } from "lucide-react"
+import { Play, Plus, Search, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { EmptyState, KindTab, PageHeader, Playing, SavedIn } from "@/components/bits"
+import { EmptyState, KindTab, LoadError, PageHeader, Playing, SavedIn } from "@/components/bits"
 import { api, type AppSummary } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
@@ -17,10 +17,15 @@ export function CatalogPage() {
   const [apps, setApps] = useState<AppSummary[] | null>(null)
   const [error, setError] = useState("")
   const [q, setQ] = useState("")
+  const [tries, setTries] = useState(0)
 
   useEffect(() => {
     api.apps().then(setApps, (e: Error) => setError(e.message))
-  }, [])
+  }, [tries])
+  const retry = () => {
+    setError("")
+    setTries((n) => n + 1)
+  }
 
   const shown = useMemo(() => {
     const term = q.trim().toLowerCase()
@@ -37,7 +42,20 @@ export function CatalogPage() {
           <div className="flex w-full items-center gap-2 md:w-auto">
             <div className="relative flex-1 md:w-72 md:flex-none">
               <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por nome, área, pessoa…" className="h-9 rounded-lg bg-card pl-8" />
+              <Input
+                type="search"
+                aria-label="Buscar apps"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                onKeyDown={(e) => e.key === "Escape" && setQ("")}
+                placeholder="Buscar por nome, área, pessoa…"
+                className="h-9 rounded-lg bg-card pr-8 pl-8 [&::-webkit-search-cancel-button]:hidden"
+              />
+              {q && (
+                <button type="button" aria-label="Limpar busca" title="Limpar busca" onClick={() => setQ("")} className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
+                  <X className="size-3.5" />
+                </button>
+              )}
             </div>
             {canRegister && (
               <Link
@@ -54,7 +72,7 @@ export function CatalogPage() {
         )}
       </PageHeader>
 
-      {error && <p className="text-destructive">{error}</p>}
+      {error && <LoadError message={error} onRetry={retry} />}
       {apps === null && !error && <p className="text-muted-foreground">Carregando…</p>}
 
       {apps?.length === 0 && (
@@ -68,11 +86,20 @@ export function CatalogPage() {
             )
           }
         >
-          Aponte a pasta onde ficam os apps da empresa. O Hub analisa cada um e prepara a ficha para você revisar.
+          {canRegister
+            ? "Aponte a pasta onde ficam os apps da empresa. O Hub analisa cada um e prepara a ficha para você revisar."
+            : "Quando alguém registrar os apps da empresa, eles aparecem aqui para você rodar."}
         </EmptyState>
       )}
 
-      {apps && apps.length > 0 && shown.length === 0 && <p className="text-muted-foreground">Nenhum app encontrado para “{q}”.</p>}
+      {apps && apps.length > 0 && shown.length === 0 && (
+        <p className="text-muted-foreground">
+          Nenhum app encontrado para “{q}”.{" "}
+          <button type="button" onClick={() => setQ("")} className="font-medium text-foreground underline underline-offset-4">
+            Limpar busca
+          </button>
+        </p>
+      )}
 
       <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {shown.map((a) => {

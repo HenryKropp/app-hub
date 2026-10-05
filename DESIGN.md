@@ -227,7 +227,7 @@ On mobile the sidebar becomes a top bar: logo, wordmark and an avatar menu (them
 
 The catalog is a grid of cards: one column on phones, two from sm, three from xl, 16px gaps. Page headers put the h1 left and the search (288px) right on desktop, stacked on mobile, with 32px below. The app page puts the name and summary left and the large Rodar right, then a bordered facts row (five columns on lg, two below), then label-and-value sections split by hairlines.
 
-The run strip floats at the bottom of the viewport, aligned to the content column (max 48rem), stacking up to three cards with 8px gaps and a "+N em Minhas execuções" link beyond that.
+The run strip floats at the bottom of the viewport, aligned to the content column (max 48rem), stacking up to three cards (one on phones) with 8px gaps and a "+N em Minhas execuções" link beyond that.
 
 Spacing rhythm is small and even: 2px, 6px and 10px inside controls; 16px and 20px for card and grid spacing; 32px between page header and content; 48px page gutters.
 
@@ -283,7 +283,10 @@ Icon plus words, always. Live: violet playing bars and violet text. Concluída: 
 Sidebar rows are 14px text with a 16px icon, 6px by 10px padding, medium radius. Inactive rows are Quiet Gray and fill Hover Gray at 70% on hover; the active row fills Hover Gray, turns Ink and medium weight, and its icon alone turns violet. "Minhas execuções" shows violet playing bars and a count when runs are live. On mobile the nav is a scrolling row in the top bar.
 
 ### Run Strip (signature)
-The bottom-of-screen stack that narrates each run: a floating card per run (Paper White or Night popover, hairline, extra-large radius, Pop shadow, 12px by 16px padding). Left is the status mark (playing bars, green check, gray info, red triangle), then a plain Portuguese sentence with the app name in semibold. Right are small 6px-radius actions: "Ocultar" while live; "Ver e baixar" as the neutral primary when done; "Ver detalhes", "Trocar pasta" or "Ver Meu computador" as outline actions; and a dismiss X.
+The bottom-of-screen stack that narrates each run: a floating card per run (Paper White or Night popover, hairline, extra-large radius, Pop shadow, 12px by 16px padding). Left is the status mark (playing bars, green check, gray info, red triangle), then a plain Portuguese sentence with the app name in semibold. Right are small 6px-radius actions: "Ver" and "Ocultar" while live; "Ver e baixar" as the neutral primary when done; "Ver detalhes", "Trocar pasta" or "Ver Meu computador" as outline actions; and a dismiss X. Cards are sorted problems first, then results, then live runs. Desktop shows up to three, phones one; the rest go into a "+N em Minhas execuções" pill, and hidden live runs into a "N aberto oculto · Mostrar" pill beside it.
+
+### Load Error
+A page that didn't load shows a red warning triangle with the reason in plain Portuguese and an outline "Tentar de novo" button below. The browser's own English errors never reach the screen.
 
 ### Playing Bars (signature)
 Three 3px violet bars, 2px apart and 0.85em tall, scaling between 30% and 100% height over 1s with staggered delays, like a music player's equalizer. They appear only on what is open on someone's computer right now: the strip, the catalog card ("aberto agora"), the nav count and the live status. With reduced motion they freeze at three different static heights.
