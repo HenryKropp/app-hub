@@ -6,8 +6,8 @@ import { DescribeDialog } from "@/components/DescribeDialog"
 import { DiffView } from "@/components/DiffView"
 import { RestoreDialog } from "@/components/RestoreDialog"
 import { versionLine, versionOrigin } from "@/components/HistoryTimeline"
-import { api, type FileChange, type VersionFile, type VersionInfo } from "@/lib/api"
-import { useAuth } from "@/lib/auth"
+import { api, type AppDetail, type FileChange, type VersionFile, type VersionInfo } from "@/lib/api"
+import { LoadError } from "@/components/bits"
 import { formatSize, formatWhen } from "@/lib/runs"
 
 const STATUS_LABEL: Record<FileChange["status"], string> = { added: "novo", removed: "removido", modified: "alterado" }
@@ -70,8 +70,10 @@ export function VersionPage() {
   const { id = "", n = "" } = useParams()
   const [params, setParams] = useSearchParams()
   const view = params.get("ver") === "arquivos" ? "arquivos" : "mudancas"
-  const { person } = useAuth()
-  const canEdit = person?.role === "admin" || person?.role === "criador"
+  const [app, setApp] = useState<AppDetail | null>(null)
+  const canEdit = app?.can.edit ?? false
+  const canRestore = app?.can.restore ?? false
+  const [tries, setTries] = useState(0)
   const [info, setInfo] = useState<VersionInfo | null>(null)
   const [changes, setChanges] = useState<FileChange[] | null>(null)
   const [files, setFiles] = useState<VersionFile[] | null>(null)
@@ -82,15 +84,16 @@ export function VersionPage() {
 
   useEffect(() => {
     setError("")
+    api.app(id).then(setApp, (e: Error) => setError(e.message))
     if (view === "mudancas") {
       api.versionChanges(id, n).then((r) => { setInfo(r.version); setChanges(r.files) }, (e: Error) => setError(e.message))
     } else {
       api.version(id, n).then(setInfo, (e: Error) => setError(e.message))
       api.versionFiles(id, n).then(setFiles, (e: Error) => setError(e.message))
     }
-  }, [id, n, view, reload])
+  }, [id, n, view, reload, tries])
 
-  if (error) return <p className="text-destructive">{error}</p>
+  if (error) return <LoadError message={error} onRetry={() => setTries((x) => x + 1)} />
   if (!info) return <p className="text-muted-foreground">Carregando…</p>
 
   return (
@@ -105,10 +108,10 @@ export function VersionPage() {
         </p>
         {info.description && <p className="mt-2">{info.description}</p>}
         <p className="mt-1 text-sm text-muted-foreground">{versionLine(info)}</p>
-        {canEdit && (
+        {(canEdit || canRestore) && (
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="outline" className="gap-2" onClick={() => setDescribe(true)}><PencilLine className="size-4" /> Descrever</Button>
-            {!info.current && (
+            {canEdit && <Button variant="outline" className="gap-2" onClick={() => setDescribe(true)}><PencilLine className="size-4" /> Descrever</Button>}
+            {canRestore && !info.current && (
               <Button className="gap-2" onClick={() => setRestore(true)}><RotateCcw className="size-4" /> Voltar o código para esta versão</Button>
             )}
             <DescribeDialog appId={Number(id)} version={info} open={describe} onOpenChange={setDescribe} onSaved={() => setReload((x) => x + 1)} />

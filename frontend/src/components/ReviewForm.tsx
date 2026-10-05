@@ -4,13 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Field, KindTab, NativeSelect } from "@/components/bits"
-import { api, ApiError, type AppDetail, type Input as AppInput, type Manifest, type Person, type ScanItem } from "@/lib/api"
+import { api, ApiError, type AppDetail, type Input as AppInput, type Manifest, type Person, type PersonRow, type ScanItem } from "@/lib/api"
 import { AREAS, INPUT_SOURCES, INPUT_TYPES, KINDS, RUNNABLE } from "@/lib/kinds"
 import { cn } from "@/lib/utils"
 
 type Props = {
   item: ScanItem
-  people: Person[]
+  people: PersonRow[]
   me: Person
   onPublished: (app: AppDetail) => void
   onSkip: () => void
@@ -33,7 +33,7 @@ function Confirm({ on }: { on: boolean }) {
   return <span className="ml-1.5 rounded-full bg-warn-soft px-2 py-px align-middle text-[0.7rem] font-medium text-warn">confirmar</span>
 }
 
-function personIdFor(people: Person[], email?: string) {
+function personIdFor(people: PersonRow[], email?: string) {
   return people.find((p) => p.email === email)?.id ?? 0
 }
 

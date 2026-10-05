@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { HistoryTimeline } from "@/components/HistoryTimeline"
 import { KindTab, LoadError, SavedIn } from "@/components/bits"
 import { api, type AppDetail, type Input } from "@/lib/api"
-import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
 import { formatWhen } from "@/lib/runs"
 import { INPUT_SOURCES, kindInfo } from "@/lib/kinds"
@@ -60,8 +59,8 @@ export function AppPage() {
   const { id } = useParams()
   const [app, setApp] = useState<AppDetail | null>(null)
   const [error, setError] = useState("")
-  const { person } = useAuth()
-  const canEdit = person?.role === "admin" || person?.role === "criador"
+  const canEdit = app?.can.edit ?? false
+  const canRestore = app?.can.restore ?? false
   const [readable, setReadable] = useState(true)
   const [historyKey, setHistoryKey] = useState(0)
   const [tries, setTries] = useState(0)
@@ -172,7 +171,7 @@ export function AppPage() {
             </Section>
           )}
           <Section title="Histórico">
-            <HistoryTimeline preview={5} appId={app.id} canEdit={canEdit} reloadKey={historyKey} onChanged={() => void api.app(app.id).then(setApp, () => {})} />
+            <HistoryTimeline preview={5} appId={app.id} canEdit={canEdit} canRestore={canRestore} reloadKey={historyKey} onChanged={() => void api.app(app.id).then(setApp, () => {})} />
           </Section>
           <Section title="Onde está">
             <p className="flex items-start gap-2 text-sm">

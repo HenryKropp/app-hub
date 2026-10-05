@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, expect, test, vi } from "vitest"
 import { api, type VersionInfo } from "@/lib/api"
-import { ana, henry } from "@/test/fixtures"
+import { ana, henry, row } from "@/test/fixtures"
 import { DescribeDialog } from "./DescribeDialog"
 
 afterEach(() => vi.restoreAllMocks())
@@ -13,7 +13,7 @@ const version: VersionInfo = {
 }
 
 test("preselects the author and sends author_id null for Não sei", async () => {
-  vi.spyOn(api, "people").mockResolvedValue([henry, ana])
+  vi.spyOn(api, "people").mockResolvedValue([row(henry), row(ana)])
   const save = vi.spyOn(api, "describeVersion").mockResolvedValue(version)
   const user = userEvent.setup()
   render(<DescribeDialog appId={3} version={version} open onOpenChange={() => {}} onSaved={() => {}} />)

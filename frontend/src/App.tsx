@@ -7,6 +7,7 @@ import { AppPage } from "@/pages/AppPage"
 import { CatalogPage } from "@/pages/CatalogPage"
 import { ConnectPage } from "@/pages/ConnectPage"
 import { LoginPage } from "@/pages/LoginPage"
+import { canRegister } from "@/lib/permissions"
 import { PeoplePage } from "@/pages/PeoplePage"
 import { RegisterPage } from "@/pages/RegisterPage"
 import { MyRunsPage } from "@/pages/MyRunsPage"
@@ -24,7 +25,7 @@ function Protected() {
 
 function CreatorsOnly({ children }: { children: React.ReactNode }) {
   const { person } = useAuth()
-  if (person?.role === "usuario") return <Navigate to="/" replace />
+  if (!canRegister(person)) return <Navigate to="/" replace />
   return children
 }
 
@@ -46,7 +47,8 @@ function Routed() {
             </CreatorsOnly>
           }
         />
-        <Route path="pessoas" element={<PeoplePage />} />
+        <Route path="equipe" element={<PeoplePage />} />
+        <Route path="pessoas" element={<Navigate to="/equipe" replace />} />
         <Route path="configuracoes" element={<SettingsPage />} />
         <Route path="meu-computador" element={<Navigate to="/configuracoes" replace />} />
         <Route path="conectar" element={<ConnectPage />} />

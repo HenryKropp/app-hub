@@ -43,7 +43,7 @@ export function versionOrigin(v: VersionInfo): string {
 
 const ACT = "inline-flex items-center gap-1 font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
 
-function VersionRow({ appId, v, canEdit, onChanged }: { appId: number; v: VersionInfo; canEdit: boolean; onChanged: () => void }) {
+function VersionRow({ appId, v, canEdit, canRestore, onChanged }: { appId: number; v: VersionInfo; canEdit: boolean; canRestore: boolean; onChanged: () => void }) {
   const [describe, setDescribe] = useState(false)
   const [restore, setRestore] = useState(false)
   return (
@@ -65,21 +65,21 @@ function VersionRow({ appId, v, canEdit, onChanged }: { appId: number; v: Versio
               <PencilLine className="size-3" /> Descrever
             </button>
           )}
-          {canEdit && !v.current && (
+          {canRestore && !v.current && (
             <button type="button" onClick={() => setRestore(true)} className={ACT}>
               <RotateCcw className="size-3" /> Voltar o código para esta versão
             </button>
           )}
         </div>
         {canEdit && <DescribeDialog appId={appId} version={v} open={describe} onOpenChange={setDescribe} onSaved={onChanged} />}
-        {canEdit && <RestoreDialog appId={appId} number={v.number} open={restore} onOpenChange={setRestore} onDone={onChanged} />}
+        {canRestore && <RestoreDialog appId={appId} number={v.number} open={restore} onOpenChange={setRestore} onDone={onChanged} />}
       </div>
     </div>
   )
 }
 
-function Row({ appId, item, canEdit, onChanged }: { appId: number; item: HistoryItem; canEdit: boolean; onChanged: () => void }) {
-  if (item.version) return <VersionRow appId={appId} v={item.version} canEdit={canEdit} onChanged={onChanged} />
+function Row({ appId, item, canEdit, canRestore, onChanged }: { appId: number; item: HistoryItem; canEdit: boolean; canRestore: boolean; onChanged: () => void }) {
+  if (item.version) return <VersionRow appId={appId} v={item.version} canEdit={canEdit} canRestore={canRestore} onChanged={onChanged} />
   if (item.run) {
     const r = item.run
     return (
@@ -116,7 +116,7 @@ const itemKey = (it: HistoryItem) =>
   it.version ? `version-${it.version.number}` : it.run ? `run-${it.run.id}` : `ficha-${it.at}`
 
 // preview shows only the newest few until the person asks for the rest.
-export function HistoryTimeline({ appId, canEdit, onChanged, reloadKey = 0, preview }: { appId: number; canEdit: boolean; onChanged?: () => void; reloadKey?: number; preview?: number }) {
+export function HistoryTimeline({ appId, canEdit, canRestore, onChanged, reloadKey = 0, preview }: { appId: number; canEdit: boolean; canRestore: boolean; onChanged?: () => void; reloadKey?: number; preview?: number }) {
   const [filter, setFilter] = useState<HistoryFilter>("all")
   const [expanded, setExpanded] = useState(!preview)
   const [items, setItems] = useState<HistoryItem[] | null>(null)
@@ -167,7 +167,7 @@ export function HistoryTimeline({ appId, canEdit, onChanged, reloadKey = 0, prev
         <ul aria-label="Histórico" className="flex flex-col divide-y divide-border text-sm">
           {(expanded ? items : items.slice(0, preview)).map((it) => (
             <li key={itemKey(it)} className="py-3">
-              <Row appId={appId} item={it} canEdit={canEdit} onChanged={() => {
+              <Row appId={appId} item={it} canEdit={canEdit} canRestore={canRestore} onChanged={() => {
                 load(filter)
                 onChanged?.()
               }} />

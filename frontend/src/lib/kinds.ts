@@ -1,4 +1,4 @@
-import type { Input, Kind, Role } from "./api"
+import type { Input, Kind } from "./api"
 
 export const KINDS: { value: Kind; label: string; short: string; color: string }[] = [
   { value: "script", label: "Script: roda e entrega um resultado", short: "Script", color: "var(--kind-script)" },
@@ -30,13 +30,5 @@ export const INPUT_SOURCES: Record<Input["source"], string> = {
   argument: "parâmetro",
   window: "campo na janela do app",
 }
-
-export const ROLES: { value: Role; label: string; hint: string }[] = [
-  { value: "admin", label: "Administrador", hint: "Cadastra pessoas e vê tudo" },
-  { value: "criador", label: "Criador", hint: "Registra e mantém apps" },
-  { value: "usuario", label: "Usuário", hint: "Encontra e usa apps" },
-]
-
-export const roleLabel = (r: Role) => ROLES.find((x) => x.value === r)?.label ?? r
 
 export const AREAS = ["Investimentos", "Operações", "Relações com Investidores", "Research", "Compliance", "Administrativo"]

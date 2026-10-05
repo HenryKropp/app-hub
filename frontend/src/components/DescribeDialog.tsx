@@ -3,13 +3,13 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Field, NativeSelect } from "@/components/bits"
-import { api, type Person, type VersionInfo } from "@/lib/api"
+import { api, type PersonRow, type VersionInfo } from "@/lib/api"
 
 export function DescribeDialog({ appId, version, open, onOpenChange, onSaved }: {
   appId: number; version: VersionInfo; open: boolean; onOpenChange: (v: boolean) => void; onSaved: () => void
 }) {
   const [text, setText] = useState(version.description)
-  const [people, setPeople] = useState<Person[]>([])
+  const [people, setPeople] = useState<PersonRow[]>([])
   const [author, setAuthor] = useState<number | null>(null)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)

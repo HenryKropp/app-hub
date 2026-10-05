@@ -23,7 +23,7 @@ const items: HistoryItem[] = [
 const renderIt = (canEdit = true) =>
   render(
     <MemoryRouter>
-      <HistoryTimeline appId={3} canEdit={canEdit} />
+      <HistoryTimeline appId={3} canEdit={canEdit} canRestore={canEdit} />
     </MemoryRouter>,
   )
 
@@ -83,7 +83,7 @@ test("versionLine sums up the original state and shortens long binary lists", as
 test("preview shows the newest items and opens the rest on request", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "history").mockResolvedValue({ items, more: false, next_before: "" })
-  render(<MemoryRouter><HistoryTimeline appId={3} canEdit preview={2} /></MemoryRouter>)
+  render(<MemoryRouter><HistoryTimeline appId={3} canEdit canRestore preview={2} /></MemoryRouter>)
   const list = await screen.findByRole("list", { name: "Histórico" })
   expect(within(list).getAllByRole("listitem")).toHaveLength(2)
   await user.click(screen.getByRole("button", { name: "Ver histórico completo" }))

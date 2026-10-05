@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { api } from "@/lib/api"
 import * as auth from "@/lib/auth"
 import { RunsProvider } from "@/lib/runs-context"
-import { appSummary, henry, run } from "@/test/fixtures"
+import { appSummary, bia, henry, run } from "@/test/fixtures"
 import { CatalogPage } from "./CatalogPage"
 
 beforeEach(() => {
@@ -78,7 +78,7 @@ test("the + Registrar apps sits in the catalog for creators, not for usuários",
   const { unmount } = mount()
   expect(await screen.findByRole("link", { name: "Registrar apps" })).toHaveAttribute("href", "/registrar")
   unmount()
-  vi.spyOn(auth, "useAuth").mockReturnValue({ loading: false, needsSetup: false, person: { ...henry, role: "usuario" }, refresh: async () => {}, setPerson: () => {} })
+  vi.spyOn(auth, "useAuth").mockReturnValue({ loading: false, needsSetup: false, person: bia, refresh: async () => {}, setPerson: () => {} })
   mount()
   await screen.findByText("Eq. Research Files Prep")
   expect(screen.queryByRole("link", { name: "Registrar apps" })).not.toBeInTheDocument()
@@ -117,7 +117,7 @@ test("the run window has Cancelar", async () => {
 })
 
 test("an empty catalog tells a usuário what to expect, not how to register", async () => {
-  vi.spyOn(auth, "useAuth").mockReturnValue({ loading: false, needsSetup: false, person: { ...henry, role: "usuario" }, refresh: async () => {}, setPerson: () => {} })
+  vi.spyOn(auth, "useAuth").mockReturnValue({ loading: false, needsSetup: false, person: bia, refresh: async () => {}, setPerson: () => {} })
   vi.spyOn(api, "apps").mockResolvedValue([])
   mount()
   expect(await screen.findByText(/Quando alguém registrar os apps/)).toBeInTheDocument()

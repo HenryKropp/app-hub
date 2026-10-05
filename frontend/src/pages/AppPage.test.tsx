@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, expect, test, vi } from "vitest"
 import { api, type AppDetail } from "@/lib/api"
 import { RunsProvider } from "@/lib/runs-context"
-import { manifest, run } from "@/test/fixtures"
+import { ALL_CAN, manifest, run } from "@/test/fixtures"
 import { AppPage } from "./AppPage"
 
 afterEach(() => vi.restoreAllMocks())
@@ -13,6 +13,7 @@ const detail = (can_run: boolean): AppDetail => ({
   id: 3, folder_path: "/mnt/c/apps/fp", folder_display: "C:\\apps\\fp", owner_id: 1, backup_id: null, updated_at: "2026-09-30T10:00:00Z",
   manifest: manifest({ kind: "desktop", entrypoint: "Ferramenta CVM.exe", name: "Eq. Research Files Prep" }), can_run,
   version: { number: 2, created_at: "2026-09-30T10:00:00Z" }, folder_readable: true, remembered_folder: "",
+  area_id: 1, restricted: false, can: ALL_CAN,
 })
 
 const renderAt = () =>

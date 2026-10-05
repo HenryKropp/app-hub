@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { Play, Plus, Search, X } from "lucide-react"
+import { Lock, Play, Plus, Search, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState, KindTab, LoadError, PageHeader, Playing, SavedIn } from "@/components/bits"
 import { api, type AppSummary } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
+import { canRegister } from "@/lib/permissions"
 import { useRuns } from "@/lib/runs-context"
 import { isLive } from "@/lib/runs"
 import { cn } from "@/lib/utils"
@@ -33,7 +34,7 @@ export function CatalogPage() {
     return apps.filter((a) => [a.name, a.summary, a.area, a.owner_name].some((s) => s.toLowerCase().includes(term)))
   }, [apps, q])
 
-  const canRegister = person?.role === "admin" || person?.role === "criador"
+  const canReg = canRegister(person)
 
   return (
     <>
@@ -57,7 +58,7 @@ export function CatalogPage() {
                 </button>
               )}
             </div>
-            {canRegister && (
+            {canReg && (
               <Link
                 to="/registrar"
                 aria-label="Registrar apps"
@@ -79,14 +80,14 @@ export function CatalogPage() {
         <EmptyState
           title="O catálogo ainda está vazio"
           action={
-            canRegister && (
+            canReg && (
               <Link to="/registrar" className={buttonVariants({ size: "lg", className: "mt-2 h-10 px-4" })}>
                 Registrar os primeiros apps
               </Link>
             )
           }
         >
-          {canRegister
+          {canReg
             ? "Aponte a pasta onde ficam os apps da empresa. O Hub analisa cada um e prepara a ficha para você revisar."
             : "Quando alguém registrar os apps da empresa, eles aparecem aqui para você rodar."}
         </EmptyState>
@@ -114,6 +115,7 @@ export function CatalogPage() {
                   <Link to={`/apps/${a.id}`} className="after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring">
                     {a.name}
                   </Link>
+                  {a.restricted && <Lock aria-label="Restrito" className="ml-1.5 inline size-3.5 align-[-1px] text-muted-foreground" />}
                 </h2>
                 <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{a.summary || "Sem resumo ainda."}</p>
                 <div className="mt-auto flex items-end justify-between gap-3 pt-5 text-xs text-muted-foreground">

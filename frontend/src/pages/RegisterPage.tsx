@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { KindTab, PageHeader } from "@/components/bits"
 import { ReviewForm } from "@/components/ReviewForm"
-import { api, type Person, type ScanItem, type ScanResult } from "@/lib/api"
+import { api, type PersonRow, type ScanItem, type ScanResult } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
@@ -31,7 +31,7 @@ export function RegisterPage() {
   const [status, setStatus] = useState<Record<string, Status>>({})
   const [published, setPublished] = useState<Record<string, number>>({})
   const [selected, setSelected] = useState(0)
-  const [people, setPeople] = useState<Person[]>([])
+  const [people, setPeople] = useState<PersonRow[]>([])
 
   useEffect(() => {
     api.people().then(setPeople, () => {})
