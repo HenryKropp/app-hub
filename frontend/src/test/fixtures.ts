@@ -1,4 +1,4 @@
-import type { ActiveRun, AppSummary, Can, PersonRow, Computer, Manifest, Person, Run, ScanItem } from "@/lib/api"
+import type { ActiveRun, AppDetail, AppSummary, Can, PersonRow, Computer, Manifest, Person, Run, ScanItem } from "@/lib/api"
 
 const ALL = ["register_apps", "edit_any_app", "restore_any_app", "see_tech_any_app", "see_all_runs", "see_all_apps", "manage_people", "manage_areas", "manage_roles"]
 export const henry: Person = { id: 1, name: "Henry", email: "henry@alis.com", role_id: 1, role_name: "Administrador", permissions: ALL, leads: [], areas: [], sees_others_runs: true }
@@ -82,4 +82,13 @@ export function appSummary(over: Partial<AppSummary> = {}): AppSummary {
     language: "python", area: "Research", folder_path: "/mnt/c/apps/fp", folder_display: "C:\\apps\\fp",
     owner_id: 1, owner_name: "Henry", backup_id: null, updated_at: "2026-09-30T10:00:00Z",
     can_run: true, remembered_folder: "", area_id: 1, restricted: false, can: ALL_CAN, ...over }
+}
+
+export function detail(over: Partial<AppDetail> = {}): AppDetail {
+  return {
+    id: 3, folder_path: "/mnt/c/apps/fp", folder_display: "C:\\apps\\fp", owner_id: 1, backup_id: null, updated_at: "2026-09-30T10:00:00Z",
+    manifest: manifest({ kind: "desktop", entrypoint: "Ferramenta CVM.exe", name: "Eq. Research Files Prep" }), can_run: true,
+    version: { number: 2, created_at: "2026-09-30T10:00:00Z" }, folder_readable: true, remembered_folder: "",
+    area_id: 1, restricted: false, can: ALL_CAN, depends_on_apps: [], used_by: [], ...over,
+  }
 }
