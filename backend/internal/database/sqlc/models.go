@@ -36,6 +36,8 @@ type App struct {
 	CreatedBy  int64              `json:"created_by"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	AreaID     int64              `json:"area_id"`
+	Restricted bool               `json:"restricted"`
 }
 
 type AppChange struct {
@@ -44,6 +46,12 @@ type AppChange struct {
 	PersonID  int64              `json:"person_id"`
 	Changes   []byte             `json:"changes"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type AppGrant struct {
+	AppID      int64  `json:"app_id"`
+	PersonID   int64  `json:"person_id"`
+	Permission string `json:"permission"`
 }
 
 type AppVersion struct {
@@ -61,6 +69,35 @@ type AppVersion struct {
 	Summary        []byte             `json:"summary"`
 	FilesChangedAt pgtype.Timestamptz `json:"files_changed_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type AppViewer struct {
+	ID       int64       `json:"id"`
+	AppID    int64       `json:"app_id"`
+	AreaID   pgtype.Int8 `json:"area_id"`
+	PersonID pgtype.Int8 `json:"person_id"`
+}
+
+type Area struct {
+	ID        int64              `json:"id"`
+	Name      string             `json:"name"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type AreaGrant struct {
+	AreaID     int64  `json:"area_id"`
+	PersonID   int64  `json:"person_id"`
+	Permission string `json:"permission"`
+}
+
+type AreaLeader struct {
+	AreaID   int64 `json:"area_id"`
+	PersonID int64 `json:"person_id"`
+}
+
+type AreaMember struct {
+	AreaID   int64 `json:"area_id"`
+	PersonID int64 `json:"person_id"`
 }
 
 type CodeBlob struct {
@@ -95,8 +132,16 @@ type Person struct {
 	Name         string             `json:"name"`
 	Email        string             `json:"email"`
 	PasswordHash string             `json:"password_hash"`
-	Role         string             `json:"role"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	RoleID       int64              `json:"role_id"`
+}
+
+type Role struct {
+	ID          int64              `json:"id"`
+	Key         pgtype.Text        `json:"key"`
+	Name        string             `json:"name"`
+	Permissions []string           `json:"permissions"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type Run struct {

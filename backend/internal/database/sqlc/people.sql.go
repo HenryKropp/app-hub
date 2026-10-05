@@ -23,16 +23,16 @@ func (q *Queries) CountPeople(ctx context.Context) (int64, error) {
 }
 
 const createPerson = `-- name: CreatePerson :one
-INSERT INTO people (name, email, password_hash, role)
+INSERT INTO people (name, email, password_hash, role_id)
 VALUES ($1, $2, $3, $4)
-RETURNING id, name, email, password_hash, role, created_at
+RETURNING id, name, email, password_hash, created_at, role_id
 `
 
 type CreatePersonParams struct {
 	Name         string `json:"name"`
 	Email        string `json:"email"`
 	PasswordHash string `json:"password_hash"`
-	Role         string `json:"role"`
+	RoleID       int64  `json:"role_id"`
 }
 
 func (q *Queries) CreatePerson(ctx context.Context, arg CreatePersonParams) (Person, error) {
@@ -40,7 +40,7 @@ func (q *Queries) CreatePerson(ctx context.Context, arg CreatePersonParams) (Per
 		arg.Name,
 		arg.Email,
 		arg.PasswordHash,
-		arg.Role,
+		arg.RoleID,
 	)
 	var i Person
 	err := row.Scan(
@@ -48,8 +48,8 @@ func (q *Queries) CreatePerson(ctx context.Context, arg CreatePersonParams) (Per
 		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
-		&i.Role,
 		&i.CreatedAt,
+		&i.RoleID,
 	)
 	return i, err
 }
@@ -79,7 +79,7 @@ func (q *Queries) DeleteSession(ctx context.Context, token string) error {
 }
 
 const getPerson = `-- name: GetPerson :one
-SELECT id, name, email, password_hash, role, created_at FROM people WHERE id = $1
+SELECT id, name, email, password_hash, created_at, role_id FROM people WHERE id = $1
 `
 
 func (q *Queries) GetPerson(ctx context.Context, id int64) (Person, error) {
@@ -90,14 +90,14 @@ func (q *Queries) GetPerson(ctx context.Context, id int64) (Person, error) {
 		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
-		&i.Role,
 		&i.CreatedAt,
+		&i.RoleID,
 	)
 	return i, err
 }
 
 const getPersonByEmail = `-- name: GetPersonByEmail :one
-SELECT id, name, email, password_hash, role, created_at FROM people WHERE email = $1
+SELECT id, name, email, password_hash, created_at, role_id FROM people WHERE email = $1
 `
 
 func (q *Queries) GetPersonByEmail(ctx context.Context, email string) (Person, error) {
@@ -108,14 +108,14 @@ func (q *Queries) GetPersonByEmail(ctx context.Context, email string) (Person, e
 		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
-		&i.Role,
 		&i.CreatedAt,
+		&i.RoleID,
 	)
 	return i, err
 }
 
 const getSessionPerson = `-- name: GetSessionPerson :one
-SELECT p.id, p.name, p.email, p.password_hash, p.role, p.created_at FROM sessions s
+SELECT p.id, p.name, p.email, p.password_hash, p.created_at, p.role_id FROM sessions s
 JOIN people p ON p.id = s.person_id
 WHERE s.token = $1 AND s.expires_at > now()
 `
@@ -128,22 +128,28 @@ func (q *Queries) GetSessionPerson(ctx context.Context, token string) (Person, e
 		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
-		&i.Role,
 		&i.CreatedAt,
+		&i.RoleID,
 	)
 	return i, err
 }
 
 const listPeople = `-- name: ListPeople :many
-SELECT id, name, email, role, created_at FROM people ORDER BY name
+SELECT p.id, p.name, p.email, p.role_id, r.name AS role_name, p.created_at,
+       COALESCE((SELECT array_agg(m.area_id ORDER BY m.area_id) FROM area_members m WHERE m.person_id = p.id), '{}')::bigint[] AS area_ids
+FROM people p
+JOIN roles r ON r.id = p.role_id
+ORDER BY p.name
 `
 
 type ListPeopleRow struct {
 	ID        int64              `json:"id"`
 	Name      string             `json:"name"`
 	Email     string             `json:"email"`
-	Role      string             `json:"role"`
+	RoleID    int64              `json:"role_id"`
+	RoleName  string             `json:"role_name"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	AreaIds   []int64            `json:"area_ids"`
 }
 
 func (q *Queries) ListPeople(ctx context.Context) ([]ListPeopleRow, error) {
@@ -159,8 +165,10 @@ func (q *Queries) ListPeople(ctx context.Context) ([]ListPeopleRow, error) {
 			&i.ID,
 			&i.Name,
 			&i.Email,
-			&i.Role,
+			&i.RoleID,
+			&i.RoleName,
 			&i.CreatedAt,
+			&i.AreaIds,
 		); err != nil {
 			return nil, err
 		}
@@ -172,11 +180,25 @@ func (q *Queries) ListPeople(ctx context.Context) ([]ListPeopleRow, error) {
 	return items, nil
 }
 
+const setPersonRole = `-- name: SetPersonRole :exec
+UPDATE people SET role_id = $2 WHERE id = $1
+`
+
+type SetPersonRoleParams struct {
+	ID     int64 `json:"id"`
+	RoleID int64 `json:"role_id"`
+}
+
+func (q *Queries) SetPersonRole(ctx context.Context, arg SetPersonRoleParams) error {
+	_, err := q.db.Exec(ctx, setPersonRole, arg.ID, arg.RoleID)
+	return err
+}
+
 const upsertDevPerson = `-- name: UpsertDevPerson :one
-INSERT INTO people (name, email, password_hash, role)
-VALUES ($1, $2, '', 'admin')
+INSERT INTO people (name, email, password_hash, role_id)
+VALUES ($1, $2, '', (SELECT id FROM roles WHERE key = 'admin'))
 ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
-RETURNING id, name, email, password_hash, role, created_at
+RETURNING id, name, email, password_hash, created_at, role_id
 `
 
 type UpsertDevPersonParams struct {
@@ -192,8 +214,8 @@ func (q *Queries) UpsertDevPerson(ctx context.Context, arg UpsertDevPersonParams
 		&i.Name,
 		&i.Email,
 		&i.PasswordHash,
-		&i.Role,
 		&i.CreatedAt,
+		&i.RoleID,
 	)
 	return i, err
 }

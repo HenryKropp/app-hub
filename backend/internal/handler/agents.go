@@ -229,7 +229,7 @@ func (h *Handler) revokeComputer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	c, err := h.q.GetComputer(r.Context(), id)
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && c.PersonID != me.ID && me.Role != "admin") {
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && c.PersonID != me.ID && h.roleKey(r.Context(), me) != "admin") {
 		writeError(w, http.StatusNotFound, "Computador não encontrado.")
 		return
 	}

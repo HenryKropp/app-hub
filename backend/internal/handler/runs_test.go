@@ -32,8 +32,8 @@ func insertApp(t *testing.T, m manifest.Manifest) int64 {
 	raw, _ := json.Marshal(m)
 	var id int64
 	err := testPool.QueryRow(context.Background(),
-		`INSERT INTO apps (slug, name, kind, folder_path, owner_id, manifest, created_by)
-		 VALUES ($1, $2, $3, '/mnt/c/apps/files-prep', 1, $4, 1) RETURNING id`,
+		`INSERT INTO apps (slug, name, kind, area, area_id, folder_path, owner_id, manifest, created_by)
+		 VALUES ($1, $2, $3, 'Research', 1, '/mnt/c/apps/' || $1, 1, $4, 1) RETURNING id`, // one folder per slug, so a test can insert several apps
 		m.ID, m.Name, m.Kind, raw).Scan(&id)
 	if err != nil {
 		t.Fatal(err)
@@ -80,7 +80,7 @@ func TestRunLifecycle(t *testing.T) {
 	if code := c.do("POST", appPath(app, "/runs"), map[string]string{}, &run); code != http.StatusCreated {
 		t.Fatalf("create run %d", code)
 	}
-	if run.Status != "waiting" || run.OutputFolder != `C:\apps\files-prep` {
+	if run.Status != "waiting" || run.OutputFolder != `C:\apps\eq-research-files-prep` {
 		t.Fatalf("run %+v", run)
 	}
 
@@ -88,7 +88,7 @@ func TestRunLifecycle(t *testing.T) {
 	c.agent("GET", "/api/agent/next", token, nil, &job)
 	var p agentproto.RunPayload
 	_ = json.Unmarshal(job.Payload, &p)
-	if job.Kind != agentproto.KindRun || p.RunID != run.ID || p.Exe != "Ferramenta CVM.exe" || p.AppFolder != `C:\apps\files-prep` {
+	if job.Kind != agentproto.KindRun || p.RunID != run.ID || p.Exe != "Ferramenta CVM.exe" || p.AppFolder != `C:\apps\eq-research-files-prep` {
 		t.Fatalf("job %+v payload %+v", job, p)
 	}
 	jobPath := "/api/agent/jobs/" + strconv.FormatInt(job.ID, 10) + "/result"

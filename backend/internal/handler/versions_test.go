@@ -118,7 +118,7 @@ func TestConcurrentChecksCreateOneVersion(t *testing.T) {
 func TestGetAppWithMissingFolder(t *testing.T) {
 	c, _ := newPoolClient(t)
 	setupAdmin(t, c)
-	app := insertApp(t, filesPrepManifest()) // folder /mnt/c/apps/files-prep does not exist
+	app := insertApp(t, filesPrepManifest()) // folder /mnt/c/apps/<slug> does not exist
 	var d appDetail
 	if code := c.do("GET", appPath(app, ""), nil, &d); code != http.StatusOK || d.Version != nil {
 		t.Fatalf("ficha must open: %d %+v", code, d)
@@ -154,7 +154,7 @@ func TestFichaChangesRecorded(t *testing.T) {
 	c, _ := newPoolClient(t)
 	setupAdmin(t, c)
 	id, dir := codeApp(t, c)
-	m := manifest.Manifest{Name: "App Teste", Summary: "Teste", Kind: manifest.KindScript, Language: "python", Entrypoint: "src/main.py", Area: "Equity"}
+	m := manifest.Manifest{Name: "App Teste", Summary: "Teste", Kind: manifest.KindScript, Language: "python", Entrypoint: "src/main.py", Area: "Investimentos"}
 	c.do("POST", "/api/apps", map[string]any{"folder_path": dir, "owner_id": 1, "manifest": m}, nil)
 	c.do("POST", "/api/apps", map[string]any{"folder_path": dir, "owner_id": 1, "manifest": m}, nil) // no change
 	rows, _ := testPool.Query(context.Background(), `SELECT changes FROM app_changes WHERE app_id=$1 ORDER BY id`, id)
@@ -170,7 +170,7 @@ func TestFichaChangesRecorded(t *testing.T) {
 	var first, second []manifest.Change
 	json.Unmarshal([]byte(all[0]), &first)
 	json.Unmarshal([]byte(all[1]), &second)
-	if first[0].Field != "created" || len(second) != 1 || second[0].Field != "area" || second[0].After != "Equity" {
+	if first[0].Field != "created" || len(second) != 1 || second[0].Field != "area" || second[0].After != "Investimentos" {
 		t.Fatalf("%+v %+v", first, second)
 	}
 }

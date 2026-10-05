@@ -12,7 +12,7 @@ import (
 )
 
 const getApp = `-- name: GetApp :one
-SELECT id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at FROM apps WHERE id = $1
+SELECT id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted FROM apps WHERE id = $1
 `
 
 func (q *Queries) GetApp(ctx context.Context, id int64) (App, error) {
@@ -33,12 +33,14 @@ func (q *Queries) GetApp(ctx context.Context, id int64) (App, error) {
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AreaID,
+		&i.Restricted,
 	)
 	return i, err
 }
 
 const getAppByFolder = `-- name: GetAppByFolder :one
-SELECT id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at FROM apps WHERE folder_path = $1
+SELECT id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted FROM apps WHERE folder_path = $1
 `
 
 func (q *Queries) GetAppByFolder(ctx context.Context, folderPath string) (App, error) {
@@ -59,6 +61,8 @@ func (q *Queries) GetAppByFolder(ctx context.Context, folderPath string) (App, e
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AreaID,
+		&i.Restricted,
 	)
 	return i, err
 }
@@ -101,8 +105,54 @@ func (q *Queries) ListAppIdentities(ctx context.Context) ([]ListAppIdentitiesRow
 	return items, nil
 }
 
+const listAppLinks = `-- name: ListAppLinks :many
+SELECT id, slug, name, area_id, owner_id, backup_id, restricted,
+       COALESCE(manifest->'depends_on', '[]'::jsonb) AS depends_on
+FROM apps ORDER BY name
+`
+
+type ListAppLinksRow struct {
+	ID         int64       `json:"id"`
+	Slug       string      `json:"slug"`
+	Name       string      `json:"name"`
+	AreaID     int64       `json:"area_id"`
+	OwnerID    int64       `json:"owner_id"`
+	BackupID   pgtype.Int8 `json:"backup_id"`
+	Restricted bool        `json:"restricted"`
+	DependsOn  interface{} `json:"depends_on"`
+}
+
+func (q *Queries) ListAppLinks(ctx context.Context) ([]ListAppLinksRow, error) {
+	rows, err := q.db.Query(ctx, listAppLinks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAppLinksRow
+	for rows.Next() {
+		var i ListAppLinksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Name,
+			&i.AreaID,
+			&i.OwnerID,
+			&i.BackupID,
+			&i.Restricted,
+			&i.DependsOn,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listApps = `-- name: ListApps :many
-SELECT a.id, a.slug, a.name, a.summary, a.kind, a.language, a.area, a.folder_path,
+SELECT a.id, a.slug, a.name, a.summary, a.kind, a.language, a.area, a.area_id, a.restricted, a.folder_path,
        a.owner_id, o.name AS owner_name, a.backup_id, a.created_at, a.updated_at,
        COALESCE(a.manifest->>'entrypoint', '')::text AS entrypoint
 FROM apps a
@@ -118,6 +168,8 @@ type ListAppsRow struct {
 	Kind       string             `json:"kind"`
 	Language   string             `json:"language"`
 	Area       string             `json:"area"`
+	AreaID     int64              `json:"area_id"`
+	Restricted bool               `json:"restricted"`
 	FolderPath string             `json:"folder_path"`
 	OwnerID    int64              `json:"owner_id"`
 	OwnerName  string             `json:"owner_name"`
@@ -144,6 +196,8 @@ func (q *Queries) ListApps(ctx context.Context) ([]ListAppsRow, error) {
 			&i.Kind,
 			&i.Language,
 			&i.Area,
+			&i.AreaID,
+			&i.Restricted,
 			&i.FolderPath,
 			&i.OwnerID,
 			&i.OwnerName,
@@ -179,19 +233,20 @@ func (q *Queries) SlugExists(ctx context.Context, arg SlugExistsParams) (bool, e
 }
 
 const upsertApp = `-- name: UpsertApp :one
-INSERT INTO apps (slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO apps (slug, name, summary, kind, language, area, area_id, folder_path, owner_id, backup_id, manifest, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 ON CONFLICT (folder_path) DO UPDATE SET
     name = EXCLUDED.name,
     summary = EXCLUDED.summary,
     kind = EXCLUDED.kind,
     language = EXCLUDED.language,
     area = EXCLUDED.area,
+    area_id = EXCLUDED.area_id,
     owner_id = EXCLUDED.owner_id,
     backup_id = EXCLUDED.backup_id,
     manifest = EXCLUDED.manifest,
     updated_at = now()
-RETURNING id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at
+RETURNING id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted
 `
 
 type UpsertAppParams struct {
@@ -201,6 +256,7 @@ type UpsertAppParams struct {
 	Kind       string      `json:"kind"`
 	Language   string      `json:"language"`
 	Area       string      `json:"area"`
+	AreaID     int64       `json:"area_id"`
 	FolderPath string      `json:"folder_path"`
 	OwnerID    int64       `json:"owner_id"`
 	BackupID   pgtype.Int8 `json:"backup_id"`
@@ -216,6 +272,7 @@ func (q *Queries) UpsertApp(ctx context.Context, arg UpsertAppParams) (App, erro
 		arg.Kind,
 		arg.Language,
 		arg.Area,
+		arg.AreaID,
 		arg.FolderPath,
 		arg.OwnerID,
 		arg.BackupID,
@@ -238,6 +295,8 @@ func (q *Queries) UpsertApp(ctx context.Context, arg UpsertAppParams) (App, erro
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AreaID,
+		&i.Restricted,
 	)
 	return i, err
 }
