@@ -55,3 +55,22 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	}
 	return nil
 }
+
+// MigrationFiles returns the embedded migrations in order as name -> SQL pairs,
+// for tests that need to apply them to a scratch schema.
+func MigrationFiles() (names []string, sql map[string]string, err error) {
+	names, err = fs.Glob(migrations, "migrations/*.sql")
+	if err != nil {
+		return nil, nil, err
+	}
+	sort.Strings(names)
+	sql = map[string]string{}
+	for _, n := range names {
+		b, err := migrations.ReadFile(n)
+		if err != nil {
+			return nil, nil, err
+		}
+		sql[n] = string(b)
+	}
+	return names, sql, nil
+}
