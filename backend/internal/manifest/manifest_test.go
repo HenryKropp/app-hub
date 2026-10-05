@@ -124,3 +124,17 @@ func TestProtocolV02Fields(t *testing.T) {
 		t.Errorf("want 3 errors, got %v", errs)
 	}
 }
+
+func TestChoiceNeedsOptions(t *testing.T) {
+	m := valid()
+	m.Inputs = []Input{{ID: "docs", Label: "Quais documentos", Type: "choice", Source: "window", Required: true}}
+	errs := m.Validate()
+	if len(errs) == 0 || errs[0] != `Escreva ao menos uma opção para "Quais documentos".` {
+		t.Fatalf("errs = %v", errs)
+	}
+	m.Inputs[0].Options = []string{"FRE"}
+	m.Inputs[0].Multiple = true
+	if errs := m.Validate(); len(errs) != 0 {
+		t.Fatalf("valid choice: %v", errs)
+	}
+}

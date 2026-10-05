@@ -8,7 +8,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -178,6 +180,15 @@ type appDetail struct {
 	AreaID           int64              `json:"area_id"`
 	Restricted       bool               `json:"restricted"`
 	Can              access.Can         `json:"can"`
+	DependsOn        []appLink          `json:"depends_on_apps,omitempty"`
+	UsedBy           []appLink          `json:"used_by,omitempty"`
+}
+
+type appLink struct {
+	ID      int64  `json:"id"`
+	Slug    string `json:"slug"`
+	Name    string `json:"name"`
+	Visible bool   `json:"visible"`
 }
 
 func toAppDetail(a sqlc.App) (appDetail, error) {
@@ -192,16 +203,21 @@ func toAppDetail(a sqlc.App) (appDetail, error) {
 }
 
 func (h *Handler) getApp(w http.ResponseWriter, r *http.Request) {
-	a, me, _, can, ok := h.appFor(w, r)
+	a, me, _, _, ok := h.appFor(w, r)
 	if !ok {
 		return
 	}
+	h.writeDetail(w, r, me, a, http.StatusOK)
+}
+
+// writeDetail answers with the full ficha of a: version, remembered folder,
+// what me can do and, for whoever sees the technical part, the links to other apps.
+func (h *Handler) writeDetail(w http.ResponseWriter, r *http.Request, me sqlc.Person, a sqlc.App, status int) {
 	d, err := toAppDetail(a)
 	if err != nil {
 		internalError(w, "decode manifest", err)
 		return
 	}
-	d.Can = can
 	d.FolderReadable = true // known only after POST /check
 	if v, err := h.q.LatestAppVersion(r.Context(), a.ID); err == nil {
 		d.Version = &versionRef{Number: v.Number, CreatedAt: v.CreatedAt.Time}
@@ -215,7 +231,54 @@ func (h *Handler) getApp(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "run folder", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, d)
+	acc, err := h.loadAccess(r.Context(), me)
+	if err != nil {
+		internalError(w, "load access", err)
+		return
+	}
+	d.Can = acc.For(appRef(a))
+	if d.Can.Tech {
+		if d.DependsOn, d.UsedBy, err = h.appLinks(r.Context(), acc, a, d.Manifest); err != nil {
+			internalError(w, "app links", err)
+			return
+		}
+	}
+	writeJSON(w, status, d)
+}
+
+// appLinks resolves depends_on ids to catalog apps and finds who depends on a.
+// Apps the person cannot see keep their name but lose the link (Visible false).
+func (h *Handler) appLinks(ctx context.Context, acc *access.Person, a sqlc.App, m manifest.Manifest) ([]appLink, []appLink, error) {
+	rows, err := h.q.ListAppLinks(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	bySlug := map[string]sqlc.ListAppLinksRow{}
+	for _, x := range rows {
+		bySlug[x.Slug] = x
+	}
+	visible := func(x sqlc.ListAppLinksRow) bool {
+		return acc.For(access.App{ID: x.ID, AreaID: x.AreaID, OwnerID: x.OwnerID, BackupID: x.BackupID.Int64, Restricted: x.Restricted}).View
+	}
+	deps := []appLink{}
+	for _, slug := range m.DependsOn {
+		if x, ok := bySlug[slug]; ok {
+			deps = append(deps, appLink{ID: x.ID, Slug: x.Slug, Name: x.Name, Visible: visible(x)})
+		} else {
+			deps = append(deps, appLink{Slug: slug, Name: slug})
+		}
+	}
+	usedBy := []appLink{}
+	for _, x := range rows {
+		var ids []string
+		if raw, err := json.Marshal(x.DependsOn); err == nil {
+			_ = json.Unmarshal(raw, &ids)
+		}
+		if x.ID != a.ID && slices.Contains(ids, a.Slug) {
+			usedBy = append(usedBy, appLink{ID: x.ID, Slug: x.Slug, Name: x.Name, Visible: visible(x)})
+		}
+	}
+	return deps, usedBy, nil
 }
 
 // checkApp compares the app folder with its latest version (ADR 006). The ficha
@@ -251,12 +314,7 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "load access", err)
 		return
 	}
-	var body struct {
-		FolderPath string            `json:"folder_path"`
-		OwnerID    int64             `json:"owner_id"`
-		BackupID   *int64            `json:"backup_id"`
-		Manifest   manifest.Manifest `json:"manifest"`
-	}
+	var body appBody
 	if !readJSON(w, r, &body) {
 		return
 	}
@@ -280,6 +338,67 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "A pasta do app não foi encontrada.")
 		return
 	}
+	var oldPtr *sqlc.App
+	if oldErr == nil {
+		oldPtr = &old
+	}
+	a, ok := h.writeApp(w, r, me, folder, body, oldPtr)
+	if !ok {
+		return
+	}
+	d, err := toAppDetail(a)
+	if err != nil {
+		internalError(w, "decode manifest", err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, d)
+}
+
+// updateApp saves one part of the ficha (the frontend sends the whole manifest
+// with only that part changed). updated_at guards against a second, stale save.
+func (h *Handler) updateApp(w http.ResponseWriter, r *http.Request) {
+	a, me, _, can, ok := h.appFor(w, r)
+	if !ok {
+		return
+	}
+	if !can.Edit {
+		writeError(w, http.StatusForbidden, "Você não pode mudar este app.")
+		return
+	}
+	var body struct {
+		appBody
+		UpdatedAt time.Time `json:"updated_at"`
+	}
+	if !readJSON(w, r, &body) {
+		return
+	}
+	if !body.UpdatedAt.Equal(a.UpdatedAt.Time) {
+		writeError(w, http.StatusConflict, "Alguém mudou esta ficha agora há pouco. Recarregue para ver a versão nova.")
+		return
+	}
+	if info, err := os.Stat(a.FolderPath); err != nil || !info.IsDir() {
+		writeError(w, http.StatusConflict, "Não consegui ler a pasta do app agora. Nada foi salvo. Confira se o OneDrive está sincronizado e tente de novo.")
+		return
+	}
+	saved, ok := h.writeApp(w, r, me, a.FolderPath, body.appBody, &a)
+	if !ok {
+		return
+	}
+	h.writeDetail(w, r, me, saved, http.StatusOK)
+}
+
+type appBody struct {
+	FolderPath string            `json:"folder_path"`
+	OwnerID    int64             `json:"owner_id"`
+	BackupID   *int64            `json:"backup_id"`
+	Manifest   manifest.Manifest `json:"manifest"`
+}
+
+// writeApp is the one way an app reaches the catalog: it validates, writes
+// app-hub.yaml and FICHA.md into the folder (never touching code), records the
+// app and what changed in the ficha. old is the app being updated, or nil.
+// On failure it has already answered and returns false.
+func (h *Handler) writeApp(w http.ResponseWriter, r *http.Request, me sqlc.Person, folder string, body appBody, old *sqlc.App) (sqlc.App, bool) {
 	m := body.Manifest
 	m.ManifestVersion = manifest.Version
 	m.Name = strings.TrimSpace(m.Name)
@@ -291,7 +410,7 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 		owner, err := h.q.GetPerson(r.Context(), body.OwnerID)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			internalError(w, "get owner", err)
-			return
+			return sqlc.App{}, false
 		}
 		if err == nil {
 			m.Owner = &manifest.PersonRef{Name: owner.Name, Email: owner.Email}
@@ -302,7 +421,7 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 		backup, err := h.q.GetPerson(r.Context(), *body.BackupID)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			internalError(w, "get backup", err)
-			return
+			return sqlc.App{}, false
 		}
 		if err == nil {
 			m.Backup = &manifest.PersonRef{Name: backup.Name, Email: backup.Email}
@@ -311,17 +430,17 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 	}
 	if errs := m.Validate(); len(errs) > 0 {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": errs[0], "errors": errs})
-		return
+		return sqlc.App{}, false
 	}
 
 	area, err := h.q.GetAreaByName(r.Context(), m.Area)
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusBadRequest, "Escolha a área do app na lista.")
-		return
+		return sqlc.App{}, false
 	}
 	if err != nil {
 		internalError(w, "get area", err)
-		return
+		return sqlc.App{}, false
 	}
 
 	base := m.ID
@@ -329,11 +448,14 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 		base = manifest.Slugify(m.Name)
 	}
 	m.ID = base
-	for i := 2; ; i++ {
+	if old != nil {
+		m.ID = old.Slug // an edit never renames the slug
+	}
+	for i := 2; old == nil; i++ {
 		taken, err := h.q.SlugExists(r.Context(), sqlc.SlugExistsParams{Slug: m.ID, FolderPath: folder})
 		if err != nil {
 			internalError(w, "slug", err)
-			return
+			return sqlc.App{}, false
 		}
 		if !taken {
 			break
@@ -344,15 +466,15 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 	if err := manifest.WriteToFolder(folder, m); err != nil {
 		if errors.Is(err, manifest.ErrForeignFile) {
 			writeError(w, http.StatusConflict, "Não salvei: "+err.Error()+". Renomeie esse arquivo na pasta do app e tente de novo.")
-			return
+			return sqlc.App{}, false
 		}
 		internalError(w, "write manifest", err)
-		return
+		return sqlc.App{}, false
 	}
 	manifestJSON, err := json.Marshal(m)
 	if err != nil {
 		internalError(w, "encode manifest", err)
-		return
+		return sqlc.App{}, false
 	}
 	a, err := h.q.UpsertApp(r.Context(), sqlc.UpsertAppParams{
 		Slug: m.ID, Name: m.Name, Summary: m.Summary, Kind: m.Kind, Language: m.Language, Area: m.Area, AreaID: area.ID,
@@ -360,14 +482,14 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		internalError(w, "upsert app", err)
-		return
+		return sqlc.App{}, false
 	}
 	changes := manifest.Created()
-	if oldErr == nil {
+	if old != nil {
 		var oldM manifest.Manifest
 		if err := json.Unmarshal(old.Manifest, &oldM); err != nil {
 			internalError(w, "decode old manifest", err)
-			return
+			return sqlc.App{}, false
 		}
 		changes = manifest.Diff(oldM, m)
 	}
@@ -375,17 +497,12 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 		raw, _ := json.Marshal(changes)
 		if err := h.q.InsertAppChange(r.Context(), sqlc.InsertAppChangeParams{AppID: a.ID, PersonID: me.ID, Changes: raw}); err != nil {
 			internalError(w, "insert app change", err)
-			return
+			return sqlc.App{}, false
 		}
 	}
 	// Ficha change is recorded before the check, so "Ficha criada" precedes versão 1.
 	if _, _, err := h.checkVersion(context.WithoutCancel(r.Context()), a); err != nil {
 		slog.Error("version check", "app", a.ID, "err", err)
 	}
-	d, err := toAppDetail(a)
-	if err != nil {
-		internalError(w, "decode manifest", err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, d)
+	return a, true
 }

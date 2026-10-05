@@ -80,6 +80,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/scan", h.scan)
 	mux.HandleFunc("GET /api/apps", h.listApps)
 	mux.HandleFunc("GET /api/apps/{id}", h.getApp)
+	mux.HandleFunc("PUT /api/apps/{id}", h.updateApp)
 	mux.HandleFunc("POST /api/apps/{id}/check", h.checkApp)
 	mux.HandleFunc("GET /api/apps/{id}/history", h.appHistory)
 	mux.HandleFunc("GET /api/apps/{id}/versions/{n}", h.getVersion)
