@@ -122,3 +122,51 @@ func TestDependsLinks(t *testing.T) {
 		t.Fatal("someone without tech must not get the links")
 	}
 }
+
+func TestUpdateAppKeepsSlug(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	id, _ := codeApp(t, c)
+	d := detailOf(t, c, id)
+	slug := d.Manifest.ID
+	d.Manifest.ID = "outro-id"
+	d.Manifest.DependsOn = []string{slug}
+	code, out := putApp(c, id, d)
+	if code != http.StatusBadRequest || out["error"] != "O app não pode depender dele mesmo." {
+		t.Fatalf("disguised self dependency %d %v", code, out)
+	}
+	d.Manifest.DependsOn = nil
+	d.Manifest.Name = "Nome novo"
+	if code, out := putApp(c, id, d); code != http.StatusOK {
+		t.Fatalf("put %d %v", code, out)
+	}
+	if got := detailOf(t, c, id); got.Manifest.ID != slug {
+		t.Fatalf("slug changed: %q -> %q", slug, got.Manifest.ID)
+	}
+}
+
+func TestDependsLinksHideRestricted(t *testing.T) {
+	admin, ana, _, fp := team(t)
+	id, _ := codeApp(t, admin)
+	d := detailOf(t, admin, id)
+	d.Manifest.DependsOn = []string{"eq-research-files-prep"}
+	if code, out := putApp(admin, id, d); code != http.StatusOK {
+		t.Fatalf("put %d %v", code, out)
+	}
+	ownerOf(t, id, 2) // Ana owns the depending app: she sees its technical part
+	restrict(t, fp)   // ...but cannot see the app it depends on
+	got := detailOf(t, ana, id)
+	if len(got.DependsOn) != 1 || got.DependsOn[0].Visible {
+		t.Fatalf("restricted target must be Visible=false: %+v", got.DependsOn)
+	}
+	// Reverse: Ana owns the target, the dependent app is restricted.
+	ownerOf(t, fp, 2)
+	exec(t, "UPDATE apps SET restricted = false WHERE id = $1", fp)
+	ownerOf(t, id, 1)
+	restrict(t, id)
+	var other appDetail
+	ana.do("GET", appPath(fp, ""), nil, &other)
+	if len(other.UsedBy) != 1 || other.UsedBy[0].Visible {
+		t.Fatalf("restricted dependent must be Visible=false: %+v", other.UsedBy)
+	}
+}
