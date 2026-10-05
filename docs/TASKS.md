@@ -51,8 +51,9 @@ Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep)
    - ~~**Etapa 2, cargos, permissões e ficha editável**~~ **feita** (2026-10-05; desenho: `docs/superpowers/specs/2026-10-05-etapa-2-permissoes-e-ficha-design.md`; ADR 009). As abas Usar/Cuidar foram descartadas; a ficha ficou no desenho B:
      1. **Done:** cargos personalizáveis (Administrador, Criador, Usuário prontos) com 9 permissões; áreas com líderes e membros; acessos extras por app ou área; app aberto ou restrito (quem não vê recebe "App não encontrado"); regra única em `internal/access`; migração 007
      2. **Done:** tela Equipe (Pessoas, Áreas, Cargos); ficha no desenho B com bloco recolhido "Para quem cuida do app" e "Editar" por parte, inclusive os campos do formato v0.2 (opções, "pode marcar mais de uma", outros apps, código-fonte); registro com os mesmos editores; fotos em `e2e/etapa2.mjs` (só leitura)
-     3. **Pending:** teste de verdade com o Henry (criar área com líder, restringir um app e conferir com um usuário de teste que ele some do catálogo)
-     4. **Pending (fora desta etapa):** **Parar** um app aberto (Agente 0.2.4); visibilidade por time como conta separada; aprovação antes de publicar; código de acesso pessoal e MCP
+     3. **Done:** correções da revisão final (2026-10-05): ninguém cadastra com cargo maior que o seu nem muda o cargo de quem tem mais; cargos da empresa toda não revelam app restrito sem "ver todos os apps"; só quem cuida do acesso troca responsável, reserva e área; acessos de app e de área não se apagam; Equipe mais clara no celular
+     4. **Pending:** teste de verdade com o Henry (criar área com líder, restringir um app e conferir com um usuário de teste que ele some do catálogo)
+     5. **Pending (fora desta etapa):** **Parar** um app aberto (Agente 0.2.4); visibilidade por time como conta separada; aprovação antes de publicar; código de acesso pessoal e MCP
    - Etapa 3, catálogo e primeiro uso (favoritos, filtro por área, status e "usado há…", guia do Agente): **Pending**, depois da Etapa 2
 4. Rodar scripts: formulário automático e ambiente preparado sozinho
 5. App Hub: ícone perto do relógio, janela própria e instalador único (etapas 2 e 3), antes de o primeiro colega entrar
