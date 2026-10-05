@@ -1,8 +1,8 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
 import { Gauge, History, KeyRound, LibraryBig, LogOut, Settings, Users } from "lucide-react"
-import { api } from "@/lib/api"
+import { api, type Person } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
-import { roleLabel } from "@/lib/kinds"
+import { canRegister, canSeeTeam } from "@/lib/permissions"
 import { RunsProvider, useRuns } from "@/lib/runs-context"
 import { isLive } from "@/lib/runs"
 import { cn } from "@/lib/utils"
@@ -17,9 +17,9 @@ import {
 import { RunStrip } from "./RunStrip"
 
 const NAV = [
-  { to: "/", label: "Catálogo", icon: LibraryBig, roles: ["admin", "criador", "usuario"] },
-  { to: "/execucoes", label: "Minhas execuções", icon: History, roles: ["admin", "criador", "usuario"] },
-  { to: "/pessoas", label: "Pessoas", icon: Users, roles: ["admin", "criador", "usuario"] },
+  { to: "/", label: "Catálogo", icon: LibraryBig, show: (_p: Person) => true },
+  { to: "/execucoes", label: "Minhas execuções", icon: History, show: (_p: Person) => true },
+  { to: "/equipe", label: "Equipe", icon: Users, show: canSeeTeam },
 ]
 
 const NAV_ITEM = "flex shrink-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors"
@@ -77,7 +77,7 @@ function Shell() {
             <DropdownMenuContent align="end" className="w-56">
               <div className="px-1.5 py-1.5">
                 <p className="truncate text-sm font-medium">{person.name}</p>
-                <p className="text-xs text-muted-foreground">{roleLabel(person.role)}</p>
+                <p className="text-xs text-muted-foreground">{person.role_name}</p>
               </div>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate("/configuracoes")}>
@@ -92,7 +92,7 @@ function Shell() {
         </div>
 
         <nav className="flex gap-0.5 overflow-x-auto px-3 pb-3 [mask-image:linear-gradient(to_right,black_85%,transparent)] md:flex-col md:overflow-visible md:pb-0 md:[mask-image:none]">
-          {NAV.filter((n) => n.roles.includes(person.role)).map(({ to, label, icon: Icon }) => (
+          {NAV.filter((n) => n.show(person)).map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -113,7 +113,7 @@ function Shell() {
               )}
             </NavLink>
           ))}
-          {person.role !== "usuario" && <div className="hidden md:mt-6 md:block">
+          {(canRegister(person) || canSeeTeam(person)) && <div className="hidden md:mt-6 md:block">
             <p className="px-2.5 pb-1 text-xs text-muted-foreground">Em breve</p>
             {SOON.map(({ label, icon: Icon }) => (
               <div key={label} aria-disabled="true" className="flex items-center gap-2.5 px-2.5 py-1.5 text-sm text-muted-foreground/60">
@@ -139,7 +139,7 @@ function Shell() {
                 <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold">{initials(person.name)}</span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{person.name}</p>
-                  <p className="text-xs text-muted-foreground">{roleLabel(person.role)}</p>
+                  <p className="text-xs text-muted-foreground">{person.role_name}</p>
                 </div>
               </div>
               <button type="button" onClick={logout} title="Sair" className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground">

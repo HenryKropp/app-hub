@@ -1,6 +1,16 @@
-export type Role = "admin" | "criador" | "usuario"
-
-export type Person = { id: number; name: string; email: string; role: Role }
+export type Person = {
+  id: number; name: string; email: string
+  role_id: number; role_name: string; permissions: string[]
+  leads: number[]; areas: number[]; sees_others_runs: boolean
+}
+export type PersonRow = { id: number; name: string; email: string; role_id: number; role_name: string; area_ids: number[] }
+export type Can = { view: boolean; edit: boolean; restore: boolean; tech: boolean; runs: boolean; access: boolean; grants: boolean }
+export type RoleInfo = { id: number; key: string; name: string; permissions: string[]; people_count: number }
+export type NameRef = { id: number; name: string }
+export type Area = { id: number; name: string; app_count: number; leaders: NameRef[]; members: NameRef[] }
+export type Grant = { person_id: number; name: string; permissions: string[] }
+export type AppAccess = { restricted: boolean; areas: NameRef[]; people: NameRef[]; grants: Grant[]; area_grants: Grant[] }
+export type AppLink = { id: number; slug: string; name: string; visible: boolean }
 
 export type Kind = "script" | "web" | "desktop" | "scheduled" | "executable" | "reference" | "system"
 
@@ -79,6 +89,9 @@ export type AppSummary = {
   updated_at: string
   can_run: boolean
   remembered_folder: string
+  area_id: number
+  restricted: boolean
+  can: Can
 }
 
 export type AppDetail = {
@@ -93,6 +106,11 @@ export type AppDetail = {
   version: { number: number; created_at: string } | null
   folder_readable: boolean
   remembered_folder: string
+  area_id: number
+  restricted: boolean
+  can: Can
+  depends_on_apps?: AppLink[]
+  used_by?: AppLink[]
 }
 
 export type UpdateState = "" | "updating" | "updated" | "gave_up"
@@ -170,7 +188,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     throw new ApiError(0, OFFLINE)
   }
   if (res.status === 204) return undefined as T
-  const data = await res.json().catch(() => ({}))
+  const text = await res.text().catch(() => "")
+  if (res.ok && text === "") return undefined as T
+  const data = (() => { try { return text ? JSON.parse(text) : {} } catch { return {} } })()
   if (!res.ok) throw new ApiError(res.status, data?.error || (res.status >= 500 ? DOWN : "Não foi possível completar a ação."), data)
   return data as T
 }
@@ -180,13 +200,31 @@ export const api = {
   setup: (b: { name: string; email: string; password: string }) => request<Person>("POST", "/api/auth/setup", b),
   login: (b: { email: string; password: string }) => request<Person>("POST", "/api/auth/login", b),
   logout: () => request<void>("POST", "/api/auth/logout"),
-  people: () => request<Person[]>("GET", "/api/people"),
-  createPerson: (b: { name: string; email: string; password: string; role: Role }) => request<Person>("POST", "/api/people", b),
+  people: () => request<PersonRow[]>("GET", "/api/people"),
+  createPerson: (b: { name: string; email: string; password: string; role_id: number }) => request<PersonRow>("POST", "/api/people", b),
   scan: (path: string, mode: "batch" | "single") => request<ScanResult>("POST", "/api/scan", { path, mode }),
   apps: () => request<AppSummary[]>("GET", "/api/apps"),
   app: (id: number | string) => request<AppDetail>("GET", `/api/apps/${id}`),
   saveApp: (b: { folder_path: string; owner_id: number; backup_id: number | null; manifest: Manifest }) =>
     request<AppDetail>("POST", "/api/apps", b),
+  updateApp: (id: number, b: { owner_id: number; backup_id: number | null; manifest: Manifest; updated_at: string }) =>
+    request<AppDetail>("PUT", `/api/apps/${id}`, b),
+  setPersonRole: (id: number, role_id: number) => request<PersonRow>("PUT", `/api/people/${id}`, { role_id }),
+  roles: () => request<RoleInfo[]>("GET", "/api/roles"),
+  createRole: (b: { name: string; permissions: string[] }) => request<RoleInfo>("POST", "/api/roles", b),
+  updateRole: (id: number, b: { name: string; permissions: string[] }) => request<RoleInfo>("PUT", `/api/roles/${id}`, b),
+  deleteRole: (id: number) => request<void>("DELETE", `/api/roles/${id}`),
+  areas: () => request<Area[]>("GET", "/api/areas"),
+  createArea: (name: string) => request<Area>("POST", "/api/areas", { name }),
+  renameArea: (id: number, name: string) => request<Area>("PUT", `/api/areas/${id}`, { name }),
+  deleteArea: (id: number) => request<void>("DELETE", `/api/areas/${id}`),
+  setAreaLeaders: (id: number, person_ids: number[]) => request<void>("PUT", `/api/areas/${id}/leaders`, { person_ids }),
+  setAreaMembers: (id: number, person_ids: number[]) => request<void>("PUT", `/api/areas/${id}/members`, { person_ids }),
+  appAccess: (id: number) => request<AppAccess>("GET", `/api/apps/${id}/access`),
+  setAppAccess: (id: number, b: { restricted: boolean; area_ids: number[]; person_ids: number[] }) =>
+    request<AppAccess>("PUT", `/api/apps/${id}/access`, b),
+  setGrants: (id: number, b: { person_id: number; permissions: string[]; whole_area: boolean }) =>
+    request<AppAccess>("PUT", `/api/apps/${id}/grants`, b),
   computers: () => request<ComputersInfo>("GET", "/api/computers/me"),
   disconnect: (id: number) => request<void>("DELETE", `/api/computers/${id}`),
   pairing: (code: string) => request<Pairing>("GET", `/api/pairings/${encodeURIComponent(code)}`),

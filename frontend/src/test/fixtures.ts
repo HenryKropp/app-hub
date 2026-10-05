@@ -1,7 +1,13 @@
-import type { ActiveRun, AppSummary, Computer, Manifest, Person, Run, ScanItem } from "@/lib/api"
+import type { ActiveRun, AppSummary, Can, PersonRow, Computer, Manifest, Person, Run, ScanItem } from "@/lib/api"
 
-export const henry: Person = { id: 1, name: "Henry", email: "henry@alis.com", role: "admin" }
-export const ana: Person = { id: 2, name: "Ana", email: "ana@alis.com", role: "criador" }
+const ALL = ["register_apps", "edit_any_app", "restore_any_app", "see_tech_any_app", "see_all_runs", "see_all_apps", "manage_people", "manage_areas", "manage_roles"]
+export const henry: Person = { id: 1, name: "Henry", email: "henry@alis.com", role_id: 1, role_name: "Administrador", permissions: ALL, leads: [], areas: [], sees_others_runs: true }
+export const ana: Person = { id: 2, name: "Ana", email: "ana@alis.com", role_id: 2, role_name: "Criador", permissions: ["register_apps"], leads: [], areas: [1], sees_others_runs: false }
+export const bia: Person = { id: 3, name: "Bia", email: "bia@alis.com", role_id: 3, role_name: "Usuário", permissions: [], leads: [], areas: [2], sees_others_runs: false }
+export const ALL_CAN: Can = { view: true, edit: true, restore: true, tech: true, runs: true, access: true, grants: true }
+export const VIEW_ONLY: Can = { view: true, edit: false, restore: false, tech: false, runs: false, access: false, grants: false }
+
+export const row = (p: Person): PersonRow => ({ id: p.id, name: p.name, email: p.email, role_id: p.role_id, role_name: p.role_name, area_ids: p.areas })
 
 export function manifest(over: Partial<Manifest> = {}): Manifest {
   return {
@@ -18,7 +24,7 @@ export function manifest(over: Partial<Manifest> = {}): Manifest {
     outputs: [{ label: "Planilha gerada", pattern: "rentabilidade_*.xlsx" }],
     secrets: null,
     schedule: "",
-    area: "",
+    area: "Research",
     owner: null,
     backup: null,
     tags: null,
@@ -75,5 +81,5 @@ export function appSummary(over: Partial<AppSummary> = {}): AppSummary {
   return { id: 3, slug: "files-prep", name: "Eq. Research Files Prep", summary: "Baixa da CVM", kind: "desktop",
     language: "python", area: "Research", folder_path: "/mnt/c/apps/fp", folder_display: "C:\\apps\\fp",
     owner_id: 1, owner_name: "Henry", backup_id: null, updated_at: "2026-09-30T10:00:00Z",
-    can_run: true, remembered_folder: "", ...over }
+    can_run: true, remembered_folder: "", area_id: 1, restricted: false, can: ALL_CAN, ...over }
 }

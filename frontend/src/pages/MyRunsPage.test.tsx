@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { api, type Person, type RunListItem } from "@/lib/api"
 import * as auth from "@/lib/auth"
 import { RunsProvider } from "@/lib/runs-context"
-import { activeRun, henry, run } from "@/test/fixtures"
+import { activeRun, bia, henry, run } from "@/test/fixtures"
 import { MyRunsPage } from "./MyRunsPage"
 
 beforeEach(() => vi.spyOn(api, "activeRuns").mockResolvedValue([]))
@@ -15,8 +15,6 @@ const item = (over: Partial<RunListItem> = {}): RunListItem => ({
   id: 9, app_id: 3, app_name: "Eq. Research Files Prep", status: "done", output_folder: "E:\\Velha", person_id: 1, person_name: "Henry",
   created_at: "2026-09-30T13:42:00Z", started_at: "2026-09-30T13:42:00Z", finished_at: "2026-09-30T13:43:00Z", file_count: 4, ...over,
 })
-
-const bia: Person = { id: 3, name: "Bia", email: "bia@alis.com", role: "usuario" }
 
 const mount = (person: Person = henry) => {
   vi.spyOn(auth, "useAuth").mockReturnValue({ loading: false, needsSetup: false, person, refresh: async () => {}, setPerson: () => {} })

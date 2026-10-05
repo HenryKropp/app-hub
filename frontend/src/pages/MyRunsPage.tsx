@@ -50,7 +50,7 @@ export function MyRunsPage() {
   return (
     <>
       <PageHeader title={scope === "all" ? "O que todos rodaram" : "O que você rodou"}>
-        {person?.role === "admin" && (
+        {person?.sees_others_runs && (
           <div className="flex gap-0.5 rounded-lg bg-secondary p-0.5 text-sm">
             {(["mine", "all"] as const).map((s) => (
               <button
