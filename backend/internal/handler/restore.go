@@ -67,11 +67,22 @@ func planRestore(w http.ResponseWriter, a sqlc.App, snap, targetSnap versions.Sn
 	return plan, true
 }
 
-func (h *Handler) restorePreview(w http.ResponseWriter, r *http.Request) {
-	if _, ok := h.requireRole(w, r, "admin", "criador"); !ok {
-		return
+// restoreTarget loads the app and version in the URL for a restore; the
+// person needs the right to go back versions of this app.
+func (h *Handler) restoreTarget(w http.ResponseWriter, r *http.Request) (sqlc.App, sqlc.GetAppVersionRow, versions.Snapshot, bool) {
+	a, can, v, snap, ok := h.versionFromPath(w, r)
+	if !ok {
+		return a, v, snap, false
 	}
-	a, target, targetSnap, ok := h.versionFromPath(w, r)
+	if !can.Restore {
+		writeError(w, http.StatusForbidden, "Você não pode voltar versões deste app.")
+		return sqlc.App{}, sqlc.GetAppVersionRow{}, nil, false
+	}
+	return a, v, snap, true
+}
+
+func (h *Handler) restorePreview(w http.ResponseWriter, r *http.Request) {
+	a, target, targetSnap, ok := h.restoreTarget(w, r)
 	if !ok {
 		return
 	}
@@ -88,11 +99,11 @@ func (h *Handler) restorePreview(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) restoreVersion(w http.ResponseWriter, r *http.Request) {
-	me, ok := h.requireRole(w, r, "admin", "criador")
+	a, target, targetSnap, ok := h.restoreTarget(w, r)
 	if !ok {
 		return
 	}
-	a, target, targetSnap, ok := h.versionFromPath(w, r)
+	me, ok := h.currentPerson(w, r)
 	if !ok {
 		return
 	}

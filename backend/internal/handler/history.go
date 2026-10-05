@@ -91,8 +91,12 @@ func (h *Handler) appFromPath(w http.ResponseWriter, r *http.Request) (sqlc.App,
 }
 
 func (h *Handler) appHistory(w http.ResponseWriter, r *http.Request) {
-	me, ok := h.currentPerson(w, r)
+	a, me, _, can, ok := h.appFor(w, r)
 	if !ok {
+		return
+	}
+	if !can.Tech {
+		writeError(w, http.StatusForbidden, "Você não pode ver o histórico deste app.")
 		return
 	}
 	typ := r.URL.Query().Get("type")
@@ -111,10 +115,6 @@ func (h *Handler) appHistory(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		before = t
-	}
-	a, ok := h.appFromPath(w, r)
-	if !ok {
-		return
 	}
 	ctx := r.Context()
 	var current int32
@@ -142,7 +142,7 @@ func (h *Handler) appHistory(w http.ResponseWriter, r *http.Request) {
 			internalError(w, "expire runs", err)
 			return
 		}
-		rows, err := h.q.ListRunsBefore(ctx, sqlc.ListRunsBeforeParams{AppID: a.ID, Before: ts, SeeAll: h.roleKey(ctx, me) == "admin", PersonID: me.ID, Lim: lim})
+		rows, err := h.q.ListRunsBefore(ctx, sqlc.ListRunsBeforeParams{AppID: a.ID, Before: ts, SeeAll: can.Runs, PersonID: me.ID, Lim: lim})
 		if err != nil {
 			internalError(w, "list runs", err)
 			return
