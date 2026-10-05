@@ -198,7 +198,8 @@ func (h *Handler) deleteRole(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) setPersonRole(w http.ResponseWriter, r *http.Request) {
-	if _, _, ok := h.requirePerm(w, r, access.ManagePeople); !ok {
+	_, acc, ok := h.requirePerm(w, r, access.ManagePeople)
+	if !ok {
 		return
 	}
 	id, _ := pathID(r)
@@ -221,6 +222,12 @@ func (h *Handler) setPersonRole(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "Escolha o cargo da pessoa.")
 		return
+	}
+	for _, perm := range next.Permissions {
+		if !acc.Has(perm) {
+			writeError(w, http.StatusForbidden, "Você não pode dar um cargo com mais permissões que o seu.")
+			return
+		}
 	}
 	cur, err := h.q.GetRole(r.Context(), p.RoleID)
 	if err != nil {
@@ -338,7 +345,14 @@ func (h *Handler) renameArea(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Dê um nome.")
 		return
 	}
-	a, err := h.q.RenameArea(r.Context(), sqlc.RenameAreaParams{ID: id, Name: b.Name})
+	var a sqlc.Area
+	err := h.q.InTx(r.Context(), func(q *sqlc.Queries) error {
+		var err error
+		if a, err = q.RenameArea(r.Context(), sqlc.RenameAreaParams{ID: id, Name: b.Name}); err != nil {
+			return err
+		}
+		return q.RenameAppsArea(r.Context(), sqlc.RenameAppsAreaParams{AreaID: a.ID, Name: a.Name})
+	})
 	if isUnique(err) {
 		writeError(w, http.StatusConflict, "Já existe uma área com esse nome.")
 		return
@@ -349,10 +363,6 @@ func (h *Handler) renameArea(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		internalError(w, "rename area", err)
-		return
-	}
-	if err := h.q.RenameAppsArea(r.Context(), sqlc.RenameAppsAreaParams{AreaID: a.ID, Name: a.Name}); err != nil {
-		internalError(w, "rename apps area", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, areaJSON{ID: a.ID, Name: a.Name, Leaders: []nameRef{}, Members: []nameRef{}})
@@ -390,8 +400,10 @@ func (h *Handler) setAreaLeaders(w http.ResponseWriter, r *http.Request) {
 	if _, _, ok := h.requirePerm(w, r, access.ManageAreas); !ok {
 		return
 	}
-	h.replaceAreaPeople(w, r, h.q.ClearAreaLeaders, func(area, person int64) error {
-		return h.q.AddAreaLeader(r.Context(), sqlc.AddAreaLeaderParams{AreaID: area, PersonID: person})
+	h.replaceAreaPeople(w, r, func(q *sqlc.Queries, ctx context.Context, area int64) error {
+		return q.ClearAreaLeaders(ctx, area)
+	}, func(q *sqlc.Queries, ctx context.Context, area, person int64) error {
+		return q.AddAreaLeader(ctx, sqlc.AddAreaLeaderParams{AreaID: area, PersonID: person})
 	})
 }
 
@@ -410,12 +422,18 @@ func (h *Handler) setAreaMembers(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "Você não tem permissão para isso.")
 		return
 	}
-	h.replaceAreaPeople(w, r, h.q.ClearAreaMembers, func(area, person int64) error {
-		return h.q.AddAreaMember(r.Context(), sqlc.AddAreaMemberParams{AreaID: area, PersonID: person})
+	h.replaceAreaPeople(w, r, func(q *sqlc.Queries, ctx context.Context, area int64) error {
+		return q.ClearAreaMembers(ctx, area)
+	}, func(q *sqlc.Queries, ctx context.Context, area, person int64) error {
+		return q.AddAreaMember(ctx, sqlc.AddAreaMemberParams{AreaID: area, PersonID: person})
 	})
 }
 
-func (h *Handler) replaceAreaPeople(w http.ResponseWriter, r *http.Request, clear func(context.Context, int64) error, add func(area, person int64) error) {
+// replaceAreaPeople validates every id first, then swaps the list in one
+// transaction, so a bad request never leaves the area half-changed.
+func (h *Handler) replaceAreaPeople(w http.ResponseWriter, r *http.Request,
+	clear func(*sqlc.Queries, context.Context, int64) error,
+	add func(*sqlc.Queries, context.Context, int64, int64) error) {
 	id, _ := pathID(r)
 	if _, err := h.q.GetArea(r.Context(), id); err != nil {
 		writeError(w, http.StatusNotFound, "Área não encontrada.")
@@ -427,15 +445,30 @@ func (h *Handler) replaceAreaPeople(w http.ResponseWriter, r *http.Request, clea
 	if !readJSON(w, r, &b) {
 		return
 	}
-	if err := clear(r.Context(), id); err != nil {
-		internalError(w, "clear area people", err)
-		return
-	}
 	for _, p := range b.PersonIDs {
-		if err := add(id, p); err != nil {
-			internalError(w, "add area person", err)
+		if _, err := h.q.GetPerson(r.Context(), p); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				writeError(w, http.StatusBadRequest, "Pessoa não encontrada.")
+				return
+			}
+			internalError(w, "get person", err)
 			return
 		}
+	}
+	err := h.q.InTx(r.Context(), func(q *sqlc.Queries) error {
+		if err := clear(q, r.Context(), id); err != nil {
+			return err
+		}
+		for _, p := range b.PersonIDs {
+			if err := add(q, r.Context(), id, p); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		internalError(w, "replace area people", err)
+		return
 	}
 	w.WriteHeader(http.StatusOK)
 }
