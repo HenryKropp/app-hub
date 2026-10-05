@@ -557,3 +557,10 @@ func TestPlainRunError(t *testing.T) {
 		}
 	}
 }
+
+// filesPrepManifestWithID is the sample manifest under another id and name.
+func filesPrepManifestWithID(id string) manifest.Manifest {
+	m := filesPrepManifest()
+	m.ID, m.Name = id, id
+	return m
+}
