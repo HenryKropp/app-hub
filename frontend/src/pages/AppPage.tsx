@@ -1,70 +1,49 @@
-import { useEffect, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Link, useParams } from "react-router-dom"
 import { ArrowLeft, FolderOpen, KeyRound, Play, TriangleAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { HistoryTimeline } from "@/components/HistoryTimeline"
 import { KindTab, LoadError, SavedIn } from "@/components/bits"
-import { api, type AppDetail, type Input } from "@/lib/api"
+import { AccessSection } from "@/components/ficha/AccessSection"
+import { BuildEditor, choiceProblems, DependsEditor, IdentityEditor, InputsEditor, NotesEditor, OutputsEditor, PeopleEditor } from "@/components/ficha/editors"
+import { EditLink, Part, SaveBar, Section } from "@/components/ficha/Part"
+import { BuildView, InputList, Notes, OtherApps, OutputList, People, RunList } from "@/components/ficha/views"
+import { api, type AppDetail, type AppSummary, type Area, type Manifest, type PersonRow, type RunSummary } from "@/lib/api"
+import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
 import { formatWhen } from "@/lib/runs"
-import { INPUT_SOURCES, kindInfo } from "@/lib/kinds"
+import { kindInfo } from "@/lib/kinds"
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="grid gap-x-10 gap-y-3 border-t border-border py-6 md:grid-cols-[12rem_1fr]">
-      <h2 className="text-sm font-semibold">{title}</h2>
-      <div className="min-w-0">{children}</div>
-    </section>
-  )
-}
+type PartKey = "sobre" | "pede" | "entrega" | "pessoas" | "notas" | "outros" | "codigo"
+type Draft = { manifest: Manifest; ownerId: number; backupId: number }
+type Lists = { areas: Area[]; people: PersonRow[]; apps: AppSummary[] }
 
-// Most apps take every input in their own window; then saying it once is enough.
-function InputList({ inputs }: { inputs: Input[] }) {
-  const same = inputs.every((i) => i.source === inputs[0].source)
-  return (
-    <>
-      {same && <p className="mb-2 text-sm text-muted-foreground">{inputs[0].source === "window" ? "Você preenche tudo na janela do app:" : `Tudo via ${INPUT_SOURCES[inputs[0].source]}:`}</p>}
-      <ul className="flex list-disc flex-col gap-1 pl-5 text-sm marker:text-border">
-        {inputs.map((i) => (
-          <li key={i.id}>
-            {i.label}
-            {!same && <span className="text-muted-foreground"> · {INPUT_SOURCES[i.source]}</span>}
-          </li>
-        ))}
-      </ul>
-    </>
-  )
-}
-
-const NOTES_SHOWN = 3
-
-function Notes({ notes }: { notes: string[] }) {
-  const [all, setAll] = useState(false)
-  const shown = all ? notes : notes.slice(0, NOTES_SHOWN)
-  return (
-    <>
-      <ul className="flex list-disc flex-col gap-2 pl-5 text-sm marker:text-warn">
-        {shown.map((n) => <li key={n}>{n}</li>)}
-      </ul>
-      {notes.length > NOTES_SHOWN && (
-        <button type="button" onClick={() => setAll(!all)} className="mt-3 text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
-          {all ? "Mostrar menos" : `Ver mais ${notes.length - NOTES_SHOWN}`}
-        </button>
-      )}
-    </>
-  )
+const RUNS_SHOWN = 5
+const techKey = (id?: string) => `apphub-tech-open-${id}`
+function readTechOpen(id?: string) {
+  try {
+    return localStorage.getItem(techKey(id)) === "1"
+  } catch {
+    return false
+  }
 }
 
 export function AppPage() {
   const { id } = useParams()
+  const { person } = useAuth()
   const [app, setApp] = useState<AppDetail | null>(null)
   const [error, setError] = useState("")
-  const canEdit = app?.can.edit ?? false
-  const canRestore = app?.can.restore ?? false
   const [readable, setReadable] = useState(true)
   const [historyKey, setHistoryKey] = useState(0)
   const [tries, setTries] = useState(0)
-  const { run, busy, rememberedFor } = useRuns()
+  const [runs, setRuns] = useState<RunSummary[] | null>(null)
+  const [open, setOpen] = useState<PartKey | null>(null)
+  const [draft, setDraft] = useState<Draft | null>(null)
+  const [lists, setLists] = useState<Lists>({ areas: [], people: [], apps: [] })
+  const listsAsked = useRef(false)
+  const [techOpen, setTechOpen] = useState(() => readTechOpen(id))
+  const [techSeen, setTechSeen] = useState(techOpen)
+  const { run, busy, rememberedFor, active } = useRuns()
 
   // The ficha shows what the Hub already knows; the folder check (OneDrive can
   // take seconds) runs behind it and only adds a new version or the warning.
@@ -88,18 +67,114 @@ export function AppPage() {
           () => !gone && setReadable(false),
         )
       },
-      (e: Error) => setError(e.message),
+      (e: Error) => !gone && setError(e.message),
     )
     return () => {
       gone = true
     }
   }, [id, tries])
 
+  // Another app on the same page: forget the open part and the technical block.
+  useEffect(() => {
+    setOpen(null)
+    setDraft(null)
+    const o = readTechOpen(id)
+    setTechOpen(o)
+    setTechSeen(o)
+  }, [id])
+
+  // Runs reload when one of this app's runs changes situation in the strip.
+  const signal = active.filter((r) => String(r.app_id) === id).map((r) => `${r.id}:${r.status}`).join(",")
+  useEffect(() => {
+    if (!id) return
+    let gone = false
+    api.appRuns(id).then(
+      (r) => !gone && setRuns(r.slice(0, RUNS_SHOWN)),
+      () => !gone && setRuns([]),
+    )
+    return () => {
+      gone = true
+    }
+  }, [id, tries, signal])
+
   if (error) return <LoadError message={error} onRetry={() => { setError(""); setTries((n) => n + 1) }} />
   if (!app) return <p className="text-muted-foreground">Carregando…</p>
   const m = app.manifest
+  const can = app.can
   const target = { id: app.id, name: m.name, folder_display: app.folder_display, remembered_folder: app.remembered_folder }
   const saved = rememberedFor(target)
+
+  const dirty = !!draft && (JSON.stringify(draft.manifest) !== JSON.stringify(app.manifest) || draft.ownerId !== app.owner_id || draft.backupId !== (app.backup_id ?? 0))
+
+  // Areas, people and apps feed the editors; they load the first time someone edits.
+  const loadLists = () => {
+    if (listsAsked.current) return
+    listsAsked.current = true
+    Promise.all([api.areas().catch(() => []), api.people().catch(() => []), api.apps().catch(() => [])]).then(([areas, people, apps]) =>
+      setLists({ areas, people, apps }),
+    )
+  }
+  const startEdit = (k: PartKey) => {
+    if (open && dirty && !window.confirm("Descartar o que você mudou?")) return
+    loadLists()
+    setDraft({ manifest: structuredClone(app.manifest), ownerId: app.owner_id, backupId: app.backup_id ?? 0 })
+    setOpen(k)
+  }
+  const close = () => {
+    setOpen(null)
+    setDraft(null)
+  }
+  const save = async () => {
+    const problems = choiceProblems(draft!.manifest.inputs ?? [])
+    if (problems.length) throw new Error(`Falta definir ${problems.join(", ")}.`)
+    const next = await api.updateApp(app.id, {
+      owner_id: draft!.ownerId,
+      backup_id: draft!.backupId || null,
+      manifest: draft!.manifest,
+      updated_at: app.updated_at,
+    })
+    setApp(next)
+    close()
+    setHistoryKey((k) => k + 1)
+  }
+  const reload = () => {
+    close()
+    setTries((n) => n + 1)
+  }
+  const setManifest = (patch: Partial<Manifest>) => setDraft((d) => (d ? { ...d, manifest: { ...d.manifest, ...patch } } : d))
+  const toggleTech = (o: boolean) => {
+    setTechOpen(o)
+    if (o) setTechSeen(true)
+    try {
+      localStorage.setItem(techKey(id), o ? "1" : "0")
+    } catch {
+      // Private windows may refuse storage; the block still opens.
+    }
+  }
+
+  // One part of the ficha: everything a Part needs that is the same for all.
+  const part = (k: PartKey, title: string, view: ReactNode, edit: () => ReactNode) => (
+    <Part
+      title={title}
+      canEdit={can.edit}
+      dirty={open === k && dirty}
+      editing={open === k}
+      onEdit={() => startEdit(k)}
+      onSave={save}
+      onCancel={close}
+      view={view}
+      edit={open === k && draft ? edit() : null}
+      extra={<Button size="sm" variant="outline" onClick={reload}>Recarregar</Button>}
+    />
+  )
+
+  const uses = app.depends_on_apps ?? []
+  const usedBy = app.used_by ?? []
+  const showOthers = uses.length > 0 || usedBy.length > 0 || can.edit
+  const showBuild = !!m.build || m.kind === "executable" || m.kind === "desktop"
+  const deps = m.runtime.dependencies ?? []
+  const howRuns = m.run.command || m.run.url
+  const notes = m.notes ?? []
 
   return (
     <article>
@@ -107,9 +182,26 @@ export function AppPage() {
         <ArrowLeft className="size-4" /> Catálogo
       </Link>
       <header className="flex flex-col gap-5 pb-8 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0">
-          <h1 className="font-heading text-3xl leading-tight md:text-4xl">{m.name}</h1>
-          <p className="mt-3 max-w-[68ch] text-base leading-relaxed text-muted-foreground">{m.summary || "Sem resumo ainda."}</p>
+        <div className="min-w-0 flex-1">
+          {open === "sobre" && draft ? (
+            <div className="flex max-w-2xl flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-xs" role="group" aria-label="Sobre">
+              <IdentityEditor value={draft.manifest} onChange={(v) => setDraft({ ...draft, manifest: v })} areas={lists.areas} />
+              <SaveBar dirty={dirty} onSave={save} onCancel={close} extra={<Button size="sm" variant="outline" onClick={reload}>Recarregar</Button>} />
+            </div>
+          ) : (
+            <>
+              <h1 className="font-heading text-3xl leading-tight md:text-4xl">{m.name}</h1>
+              <p className="mt-3 max-w-[68ch] text-base leading-relaxed text-muted-foreground">
+                {m.summary || "Sem resumo ainda."}
+                {can.edit && (
+                  <>
+                    {" "}
+                    <EditLink part="Sobre" onClick={() => startEdit("sobre")} />
+                  </>
+                )}
+              </p>
+            </>
+          )}
           <p className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
             <span title={kindInfo(m.kind).label}><KindTab kind={m.kind} /></span>
             {[
@@ -117,8 +209,8 @@ export function AppPage() {
               m.owner && <>Responsável <span className="text-foreground">{m.owner.name}</span></>,
               m.backup ? <>Reserva <span className="text-foreground">{m.backup.name}</span></> : <span className="text-warn">Sem reserva</span>,
               app.version && <span className="inline-flex gap-1"><span>versão {app.version.number}</span><span>de {formatWhen(app.version.created_at)}</span></span>,
-            ].filter(Boolean).map((part, i) => (
-              <span key={i} className="inline-flex items-center gap-2"><span aria-hidden className="text-muted-foreground/50">·</span>{part}</span>
+            ].filter(Boolean).map((p, i) => (
+              <span key={i} className="inline-flex items-center gap-2"><span aria-hidden className="text-muted-foreground/50">·</span>{p}</span>
             ))}
           </p>
         </div>
@@ -132,55 +224,80 @@ export function AppPage() {
         )}
       </header>
 
-        {!readable && (
-          <p role="alert" className="mt-4 flex gap-2 text-sm text-warn">
-            <TriangleAlert className="mt-0.5 size-4 shrink-0" /> Não consegui ler a pasta do app agora. O histórico continua aqui, mas mudanças novas no código não são registradas e não dá para voltar versões.
-          </p>
-        )}
+      {!readable && (
+        <p role="alert" className="mt-4 flex gap-2 text-sm text-warn">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" /> Não consegui ler a pasta do app agora. O histórico continua aqui, mas mudanças novas no código não são registradas e não dá para voltar versões.
+        </p>
+      )}
 
-        <div className="mt-8">
-          <Section title="O que ele recebe">
-            {(m.inputs ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nada. É só rodar.</p>
-            ) : (
-              <InputList inputs={m.inputs!} />
-            )}
+      <div className="mt-8">
+        {part("pede", "O que ele pede", <InputList inputs={m.inputs ?? []} />, () => (
+          <InputsEditor value={draft!.manifest.inputs ?? []} onChange={(v) => setManifest({ inputs: v })} />
+        ))}
+        {part("entrega", "O que ele entrega", <OutputList outputs={m.outputs} />, () => (
+          <OutputsEditor value={draft!.manifest.outputs ?? []} onChange={(v) => setManifest({ outputs: v })} />
+        ))}
+        {(app.can_run || (runs?.length ?? 0) > 0) && (
+          <Section title={can.runs ? "Execuções" : "Suas execuções"}>
+            <RunList runs={runs} everyone={can.runs} />
           </Section>
-          <Section title="O que ele devolve">
-            {(m.outputs ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">Ainda não identificado.</p>
-            ) : (
-              <ul className="flex flex-col gap-1.5 text-sm">
-                {m.outputs!.map((o) => (
-                  <li key={o.pattern} title={o.pattern}>{o.label}</li>
-                ))}
-              </ul>
+        )}
+        {part("pessoas", "Quem cuida", <People owner={m.owner?.name ?? ""} backup={m.backup?.name ?? ""} />, () => (
+          <PeopleEditor people={lists.people} ownerId={draft!.ownerId} backupId={draft!.backupId} onChange={(o, b) => setDraft({ ...draft!, ownerId: o, backupId: b })} />
+        ))}
+
+        {can.tech && (
+          <details open={techOpen} onToggle={(e) => toggleTech(e.currentTarget.open)} className="group/tech border-t border-border">
+            <summary className="flex cursor-pointer list-none items-center gap-2.5 py-5 text-sm font-semibold [&::-webkit-details-marker]:hidden">
+              <span aria-hidden className="text-lg leading-none text-muted-foreground transition-transform group-open/tech:rotate-90">›</span>
+              Para quem cuida do app
+              <small className="font-normal text-muted-foreground">
+                {notes.length > 0 && `${notes.length} ${notes.length === 1 ? "ponto" : "pontos"} de atenção · `}código, outros apps, histórico, acesso
+              </small>
+            </summary>
+            {part("notas", "Pontos de atenção", <Notes notes={notes} />, () => (
+              <NotesEditor value={draft!.manifest.notes ?? []} onChange={(v) => setManifest({ notes: v })} />
+            ))}
+            {showOthers && part("outros", "Outros apps", <OtherApps uses={uses} usedBy={usedBy} />, () => (
+              <DependsEditor value={draft!.manifest.depends_on ?? []} onChange={(v) => setManifest({ depends_on: v })} apps={lists.apps} selfSlug={m.id} />
+            ))}
+            {showBuild && part("codigo", "Código-fonte", <BuildView build={m.build ?? null} />, () => (
+              <BuildEditor value={draft!.manifest.build ?? null} onChange={(v) => setManifest({ build: v })} />
+            ))}
+            {(m.secrets ?? []).length > 0 && (
+              <Section title="Chaves e senhas">
+                <p className="flex gap-2 text-sm">
+                  <KeyRound className="mt-0.5 size-4 shrink-0 text-destructive" />
+                  Usa {m.secrets!.length} chave(s) ou senha(s) escritas no código. Os valores nunca aparecem no Hub.
+                </p>
+              </Section>
             )}
-          </Section>
-          {(m.notes ?? []).length > 0 && (
-            <Section title="Pontos de atenção">
-              <Notes notes={m.notes!} />
+            {deps.length > 0 && (
+              <Section title="Bibliotecas">
+                <p className="flex flex-wrap gap-1.5">
+                  {deps.map((d) => <code key={d} className="rounded-sm bg-secondary px-1.5 py-0.5 font-mono text-xs">{d}</code>)}
+                </p>
+              </Section>
+            )}
+            {howRuns && (
+              <Section title="Como roda">
+                <code className="font-mono text-xs [overflow-wrap:anywhere]">{howRuns}</code>
+              </Section>
+            )}
+            <Section title="Histórico">
+              <HistoryTimeline preview={5} appId={app.id} canEdit={can.edit} canRestore={can.restore} reloadKey={historyKey} onChanged={() => void api.app(app.id).then(setApp, () => {})} />
             </Section>
-          )}
-          {(m.secrets ?? []).length > 0 && (
-            <Section title="Chaves e senhas">
-              <p className="flex gap-2 text-sm">
-                <KeyRound className="mt-0.5 size-4 shrink-0 text-destructive" />
-                Usa {m.secrets!.length} chave(s) ou senha(s) escritas no código. Os valores nunca aparecem no Hub.
+            <Section title="Onde está">
+              <p className="flex items-start gap-2 text-sm">
+                <FolderOpen className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <span className="[overflow-wrap:anywhere]">{app.folder_display}</span>
               </p>
+              <p className="mt-1.5 pl-6 text-xs text-muted-foreground">A ficha também fica salva nessa pasta.</p>
             </Section>
-          )}
-          <Section title="Histórico">
-            <HistoryTimeline preview={5} appId={app.id} canEdit={canEdit} canRestore={canRestore} reloadKey={historyKey} onChanged={() => void api.app(app.id).then(setApp, () => {})} />
-          </Section>
-          <Section title="Onde está">
-            <p className="flex items-start gap-2 text-sm">
-              <FolderOpen className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-              <span className="[overflow-wrap:anywhere]">{app.folder_display}</span>
-            </p>
-            <p className="mt-1.5 pl-6 text-xs text-muted-foreground">A ficha também fica salva nessa pasta.</p>
-          </Section>
-        </div>
+            {techSeen && person && <AccessSection app={app} me={person} />}
+          </details>
+        )}
+      </div>
     </article>
   )
 }
