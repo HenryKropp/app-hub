@@ -39,6 +39,9 @@ describe("choiceProblems", () => {
   it("names each list without options", () => {
     expect(choiceProblems([{ id: "d", label: "Docs", type: "choice", source: "window", required: true }])).toEqual(['as opções de "Docs"'])
   })
+  it("falls back to 'entrada' when the label is empty", () => {
+    expect(choiceProblems([{ id: "d", label: "", type: "choice", source: "window", required: true }])).toEqual(['as opções de "entrada"'])
+  })
   it("ignores blank option lines", () => {
     expect(choiceProblems([{ id: "d", label: "Docs", type: "choice", source: "window", required: true, options: ["", " "] }])).toEqual(['as opções de "Docs"'])
   })
@@ -46,10 +49,27 @@ describe("choiceProblems", () => {
 
 describe("NotesEditor", () => {
   it("keeps one note per line and drops empty lines", async () => {
-    let got: string[] = []
-    render(<NotesEditor value={[]} onChange={(v) => (got = v)} />)
+    function Notes() {
+      const [v, setV] = useState<string[]>([])
+      return (
+        <>
+          <NotesEditor value={v} onChange={setV} />
+          <pre data-testid="out">{JSON.stringify(v)}</pre>
+        </>
+      )
+    }
+    render(<Notes />)
     await userEvent.type(screen.getByLabelText("Observações"), "Precisa da VPN.{enter}{enter}Roda às 9h.")
-    expect(got).toEqual(["Precisa da VPN.", "Roda às 9h."])
+    expect(out()).toEqual(["Precisa da VPN.", "Roda às 9h."])
+  })
+})
+
+describe("NotesEditor external reset", () => {
+  it("follows the parent when the value changes from outside", async () => {
+    const { rerender } = render(<NotesEditor value={["A"]} onChange={() => {}} />)
+    expect(screen.getByLabelText("Observações")).toHaveValue("A")
+    rerender(<NotesEditor value={["B", "C"]} onChange={() => {}} />)
+    expect(screen.getByLabelText("Observações")).toHaveValue("B\nC")
   })
 })
 
@@ -62,5 +82,13 @@ describe("DependsEditor", () => {
     expect(screen.getByText(/sumiu/)).toBeInTheDocument()
     await userEvent.click(screen.getByLabelText("Files Prep"))
     expect(got).toEqual(["sumiu", "files-prep"])
+  })
+
+  it("shows itself if listed, so it can be removed", async () => {
+    let got: string[] = ["eu"]
+    const apps = [appSummary({ id: 2, slug: "eu", name: "Eu" })]
+    render(<DependsEditor value={["eu"]} onChange={(v) => (got = v)} apps={apps} selfSlug="eu" />)
+    await userEvent.click(screen.getByRole("button", { name: "Tirar eu" }))
+    expect(got).toEqual([])
   })
 })

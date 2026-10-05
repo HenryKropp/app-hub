@@ -22,7 +22,7 @@ const cleanLines = (text: string) => text.split("\n").map((s) => s.trim()).filte
 export function choiceProblems(inputs: AppInput[]): string[] {
   return inputs
     .filter((i) => i.type === "choice" && !(i.options ?? []).some((o) => o.trim()))
-    .map((i) => `as opções de "${i.label}"`)
+    .map((i) => `as opções de "${i.label.trim() || "entrada"}"`)
 }
 
 export function IdentityEditor({ value: m, onChange, areas, asks }: Edit<Manifest> & { areas: Area[]; asks?: Set<string> }) {
@@ -105,8 +105,8 @@ export function InputsEditor({ value, onChange }: Edit<AppInput[]>) {
                     onBlur={(e) => setInput(i, { options: cleanLines(e.target.value) })}
                   />
                   <div className="flex items-center gap-2 text-sm">
-                    <Checkbox aria-label="Pode marcar mais de uma" checked={!!inp.multiple} onCheckedChange={(c) => setInput(i, { multiple: c === true })} />
-                    <span onClick={() => setInput(i, { multiple: !inp.multiple })}>Pode marcar mais de uma</span>
+                    <Checkbox aria-labelledby={`f-multi-${i}-label`} checked={!!inp.multiple} onCheckedChange={(c) => setInput(i, { multiple: c === true })} />
+                    <span id={`f-multi-${i}-label`} onClick={() => setInput(i, { multiple: !inp.multiple })}>Pode marcar mais de uma</span>
                   </div>
                 </div>
               )}
@@ -155,6 +155,9 @@ export function OutputsEditor({ value, onChange }: Edit<Output[]>) {
 export function NotesEditor({ value, onChange }: Edit<string[]>) {
   // Raw text is kept locally so a line being typed is not swallowed.
   const [text, setText] = useState(() => value.join("\n"))
+  // The parent changed the list from outside (e.g. cancel): follow it. Comparing
+  // cleaned lines keeps blank lines being typed from being wiped.
+  if (cleanLines(text).join("\n") !== value.join("\n")) setText(value.join("\n"))
   return (
     <Textarea
       aria-label="Observações"
@@ -171,16 +174,16 @@ export function NotesEditor({ value, onChange }: Edit<string[]>) {
 
 export function DependsEditor({ value, onChange, apps, selfSlug }: Edit<string[]> & { apps: AppSummary[]; selfSlug: string }) {
   const others = apps.filter((a) => a.slug !== selfSlug)
-  const unknown = value.filter((id) => !apps.some((a) => a.slug === id))
+  const unknown = value.filter((id) => id === selfSlug || !apps.some((a) => a.slug === id))
   const toggle = (slug: string, on: boolean) => onChange(on ? [...value, slug] : value.filter((v) => v !== slug))
   return (
     <div className="flex flex-col gap-2">
       {unknown.map((id) => (
         <p key={id} className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>
-            {id} · fora do catálogo
+            {id} · {id === selfSlug ? "é este mesmo app" : "fora do catálogo"}
           </span>
-          <Button variant="ghost" size="sm" onClick={() => onChange(value.filter((v) => v !== id))}>
+          <Button variant="ghost" size="sm" aria-label={`Tirar ${id}`} onClick={() => onChange(value.filter((v) => v !== id))}>
             Tirar
           </Button>
         </p>
@@ -188,8 +191,8 @@ export function DependsEditor({ value, onChange, apps, selfSlug }: Edit<string[]
       {others.length === 0 && unknown.length === 0 && <p className="text-sm text-muted-foreground">Não há outros apps no catálogo.</p>}
       {others.map((a) => (
         <div key={a.slug} className="flex items-center gap-2 text-sm">
-          <Checkbox aria-label={a.name} checked={value.includes(a.slug)} onCheckedChange={(c) => toggle(a.slug, c === true)} />
-          <span onClick={() => toggle(a.slug, !value.includes(a.slug))}>{a.name}</span>
+          <Checkbox aria-labelledby={`f-dep-${a.slug}-label`} checked={value.includes(a.slug)} onCheckedChange={(c) => toggle(a.slug, c === true)} />
+          <span id={`f-dep-${a.slug}-label`} onClick={() => toggle(a.slug, !value.includes(a.slug))}>{a.name}</span>
         </div>
       ))}
     </div>
