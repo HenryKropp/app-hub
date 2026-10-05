@@ -4,7 +4,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field, LoadError, NativeSelect, PageHeader } from "@/components/bits"
-import { api, type Area, type PersonRow, type RoleInfo } from "@/lib/api"
+import { api, type Area, type Person, type PersonRow, type RoleInfo } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { PERMISSIONS, canSeeTeam, has, permLabel } from "@/lib/permissions"
 
@@ -12,6 +12,7 @@ type Tab = "pessoas" | "areas" | "cargos"
 const TAB_NAMES: Record<Tab, string> = { pessoas: "Pessoas", areas: "Áreas", cargos: "Cargos" }
 const textBtn = "text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
 const errText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback)
+const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 export function TeamPage() {
   const { person: me } = useAuth()
@@ -45,6 +46,12 @@ export function TeamPage() {
     )
   }, [me])
 
+  // people_count changes when someone gets a role or is registered.
+  const reloadRoles = useCallback(() => {
+    if (!(has(me, "manage_people") || has(me, "manage_roles"))) return
+    api.roles().then(setRoles, () => {})
+  }, [me])
+
   useEffect(() => {
     if (canSeeTeam(me)) load()
   }, [me, load])
@@ -68,33 +75,43 @@ export function TeamPage() {
       {loadError ? (
         <LoadError message={loadError} onRetry={load} />
       ) : !loaded ? null : tab === "pessoas" ? (
-        <PeopleTab people={people} setPeople={setPeople} roles={roles} areas={areas} meId={me!.id} />
+        <PeopleTab people={people} setPeople={setPeople} roles={roles} areas={areas} me={me!} reloadRoles={reloadRoles} />
       ) : tab === "areas" ? (
         <AreasTab areas={areas} people={people} reload={load} canAreas={canAreas} leads={leads} />
       ) : (
-        <RolesTab roles={roles} setRoles={setRoles} />
+        <RolesTab roles={roles} setRoles={setRoles} myRoleId={me!.role_id} />
       )}
     </>
   )
 }
 
-function PeopleTab({ people, setPeople, roles, areas, meId }: { people: PersonRow[]; setPeople: (f: (l: PersonRow[]) => PersonRow[]) => void; roles: RoleInfo[]; areas: Area[]; meId: number }) {
+function PeopleTab({ people, setPeople, roles, areas, me, reloadRoles }: { people: PersonRow[]; setPeople: (f: (l: PersonRow[]) => PersonRow[]) => void; roles: RoleInfo[]; areas: Area[]; me: Person; reloadRoles: () => void }) {
   const { refresh } = useAuth()
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({})
+  const [saving, setSaving] = useState<number | null>(null)
   const [form, setForm] = useState({ name: "", email: "", password: "", role_id: 0 })
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
-  const roleId = form.role_id || roles.find((r) => r.key === "usuario")?.id || roles[0]?.id || 0
+  // Nobody gives a role with more than their own, nor changes the role of someone with more.
+  const within = (r: RoleInfo) => r.permissions.every((p) => has(me, p))
+  const givable = roles.filter(within)
+  const roleId = form.role_id || givable.find((r) => r.key === "usuario")?.id || givable[0]?.id || 0
 
   const changeRole = async (p: PersonRow, id: number) => {
     setRowErrors((e) => ({ ...e, [p.id]: "" }))
+    setSaving(p.id)
     try {
       const updated = await api.setPersonRole(p.id, id)
       setPeople((l) => l.map((x) => (x.id === p.id ? { ...x, role_id: updated.role_id ?? id, role_name: updated.role_name ?? roles.find((r) => r.id === id)?.name ?? x.role_name } : x)))
-      if (p.id === meId) await refresh()
+      reloadRoles()
     } catch (err) {
       setRowErrors((e) => ({ ...e, [p.id]: errText(err, "Não foi possível mudar o cargo.") }))
+      return
+    } finally {
+      setSaving(null)
     }
+    // The change is saved; a failed refresh only means the screen is a bit behind.
+    if (p.id === me.id) await refresh().catch(() => {})
   }
 
   const submit = async (e: FormEvent) => {
@@ -105,6 +122,7 @@ function PeopleTab({ people, setPeople, roles, areas, meId }: { people: PersonRo
       const p = await api.createPerson({ ...form, role_id: roleId })
       setPeople((list) => [...list, p].sort((a, b) => a.name.localeCompare(b.name)))
       setForm({ name: "", email: "", password: "", role_id: 0 })
+      reloadRoles()
       toast.success(`${p.name} foi cadastrado(a).`)
     } catch (err) {
       setError(errText(err, "Não foi possível cadastrar."))
@@ -118,24 +136,34 @@ function PeopleTab({ people, setPeople, roles, areas, meId }: { people: PersonRo
       <ul className="h-fit divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
         {people.map((p) => {
           const names = areas.filter((a) => p.area_ids.includes(a.id)).map((a) => a.name).join(", ")
+          const role = roles.find((r) => r.id === p.role_id)
           return (
             <li key={p.id} className="px-5 py-3.5">
-              <div className="flex items-center gap-4">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold">{p.name.slice(0, 1).toUpperCase()}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">
-                    {p.name} {p.id === meId && <span className="text-xs font-normal text-muted-foreground">(você)</span>}
-                  </p>
-                  <p className="truncate text-sm text-muted-foreground">{p.email}</p>
-                  <p className="truncate text-sm text-muted-foreground">{names || "Sem área"}</p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+                <div className="flex min-w-0 flex-1 items-center gap-4">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-semibold">{p.name.slice(0, 1).toUpperCase()}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">
+                      {p.name} {p.id === me.id && <span className="text-xs font-normal text-muted-foreground">(você)</span>}
+                    </p>
+                    <p className="truncate text-sm text-muted-foreground">{p.email}</p>
+                    <p className="truncate text-sm text-muted-foreground">{names || "Sem área"}</p>
+                  </div>
                 </div>
-                <NativeSelect aria-label={`Cargo de ${p.name}`} value={p.role_id} onChange={(e) => void changeRole(p, Number(e.target.value))} className="w-44">
-                  {roles.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </NativeSelect>
+                {role && !within(role) ? (
+                  <p className="text-sm sm:w-44">
+                    <span className="sr-only">Cargo: </span>
+                    {p.role_name}
+                  </p>
+                ) : (
+                  <NativeSelect aria-label={`Cargo de ${p.name}`} value={p.role_id} disabled={saving === p.id} onChange={(e) => void changeRole(p, Number(e.target.value))} className="sm:w-44">
+                    {givable.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                )}
               </div>
               {rowErrors[p.id] && (
                 <p role="alert" className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -160,7 +188,7 @@ function PeopleTab({ people, setPeople, roles, areas, meId }: { people: PersonRo
         </Field>
         <Field label="Cargo" htmlFor="p-role">
           <NativeSelect id="p-role" value={roleId} onChange={(e) => setForm({ ...form, role_id: Number(e.target.value) })}>
-            {roles.map((r) => (
+            {givable.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
               </option>
@@ -223,7 +251,7 @@ function AreasTab({ areas, people, reload, canAreas, leads }: { areas: Area[]; p
             <li key={a.id} className="px-5 py-3.5">
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                 <p className="font-medium">{a.name}</p>
-                <p className="text-sm text-muted-foreground">{a.app_count} apps</p>
+                <p className="text-sm text-muted-foreground">{count(a.app_count, "app", "apps")}</p>
                 <p className="text-sm text-muted-foreground">Líderes: {a.leaders.map((x) => x.name).join(", ") || "ninguém"}</p>
                 <p className="text-sm text-muted-foreground">Membros: {a.members.map((x) => x.name).join(", ") || "ninguém"}</p>
               </div>
@@ -382,7 +410,8 @@ function RoleForm({ initial, submitLabel, onSubmit, onCancel }: { initial: { nam
   )
 }
 
-function RolesTab({ roles, setRoles }: { roles: RoleInfo[]; setRoles: (f: (l: RoleInfo[]) => RoleInfo[]) => void }) {
+function RolesTab({ roles, setRoles, myRoleId }: { roles: RoleInfo[]; setRoles: (f: (l: RoleInfo[]) => RoleInfo[]) => void; myRoleId: number }) {
+  const { refresh } = useAuth()
   const [editingId, setEditingId] = useState<number | "new" | null>(null)
   const [error, setError] = useState("")
 
@@ -404,7 +433,7 @@ function RolesTab({ roles, setRoles }: { roles: RoleInfo[]; setRoles: (f: (l: Ro
           <li key={r.id} className="px-5 py-3.5">
             <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
               <p className="font-medium">{r.name}</p>
-              <p className="text-sm text-muted-foreground">{r.people_count} pessoas</p>
+              <p className="text-sm text-muted-foreground">{count(r.people_count, "pessoa", "pessoas")}</p>
             </div>
             <p className="text-sm text-muted-foreground">{r.permissions.length ? r.permissions.map(permLabel).join(" · ") : "Nenhuma permissão"}</p>
             <div className="mt-1 flex gap-4">
@@ -426,6 +455,8 @@ function RolesTab({ roles, setRoles }: { roles: RoleInfo[]; setRoles: (f: (l: Ro
                   const saved = await api.updateRole(r.id, b)
                   setRoles((l) => l.map((x) => (x.id === r.id ? saved : x)))
                   setEditingId(null)
+                  // My own boxes changed: the tabs and menus follow them.
+                  if (r.id === myRoleId) await refresh().catch(() => {})
                 }}
               />
             )}

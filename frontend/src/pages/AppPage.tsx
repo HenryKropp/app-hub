@@ -165,10 +165,10 @@ export function AppPage() {
   }
 
   // One part of the ficha: everything a Part needs that is the same for all.
-  const part = (k: PartKey, title: string, view: ReactNode, edit: () => ReactNode) => (
+  const part = (k: PartKey, title: string, view: ReactNode, edit: () => ReactNode, canEdit = can.edit) => (
     <Part
       title={title}
-      canEdit={can.edit}
+      canEdit={canEdit}
       dirty={open === k && dirty}
       editing={open === k}
       onEdit={() => startEdit(k)}
@@ -197,7 +197,7 @@ export function AppPage() {
         <div className="min-w-0 flex-1">
           {open === "sobre" && draft ? (
             <div className="flex max-w-2xl flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-xs" role="group" aria-label="Sobre">
-              <IdentityEditor value={draft.manifest} onChange={(v) => setDraft({ ...draft, manifest: v })} areas={lists.areas} />
+              <IdentityEditor value={draft.manifest} onChange={(v) => setDraft({ ...draft, manifest: v })} areas={lists.areas} areaLocked={!can.access} />
               <SaveBar dirty={dirty} onSave={save} onCancel={close} extra={<Button size="sm" variant="outline" onClick={reload}>Recarregar</Button>} />
             </div>
           ) : (
@@ -256,7 +256,7 @@ export function AppPage() {
         )}
         {part("pessoas", "Quem cuida", <People owner={m.owner?.name ?? ""} backup={m.backup?.name ?? ""} />, () => (
           <PeopleEditor people={lists.people} ownerId={draft!.ownerId} backupId={draft!.backupId} onChange={(o, b) => setDraft({ ...draft!, ownerId: o, backupId: b })} />
-        ))}
+        ), can.edit && can.access)}
 
         {can.tech && (
           <details open={techOpen} onToggle={(e) => toggleTech(e.currentTarget.open)} className="group/tech border-t border-border">
