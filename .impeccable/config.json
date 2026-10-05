@@ -14,6 +14,12 @@
         "value": "geist mono",
         "createdAt": "2026-10-05T16:13:23.996Z",
         "reason": "Claude: DESIGN.md declares Geist Variable / Geist Mono Variable; the Google Fonts names in the prototype are the same families"
+      },
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "createdAt": "2026-10-05T18:21:00.000Z",
+        "reason": "Claude: Geist is the product font chosen in DESIGN.md; the prototype mirrors it on purpose"
       }
     ]
   }
