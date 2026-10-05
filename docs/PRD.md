@@ -64,6 +64,7 @@ A numeração segue a especificação do produto.
 
 ### 3.2 Ficha do app (1.2)
 - Página por app com: nome e resumo, como usar, entradas, saídas, exemplo (última execução bem-sucedida), responsável e reserva, dependências, status e uso, versão.
+- **Desenho B (2026-10-05, ADR 009):** uma página só. Primeiro a parte de uso (o que ele pede, o que ele entrega, execuções, quem cuida); no fim, o bloco recolhido "Para quem cuida do app" (pontos de atenção, outros apps, código-fonte, chaves, bibliotecas, histórico, onde está, acesso), que só aparece para quem pode ver a parte técnica. Cada parte tem seu "Editar" em texto cinza discreto; uma parte em edição por vez; se outra pessoa salvou antes, o Hub pede para recarregar. Entradas em lista mostram as opções e "pode marcar mais de uma".
 - Campos editáveis à mão. No piloto sem IA, o texto nasce de um modelo preenchido com o diagnóstico; com IA, é escrito em português simples.
 - **Exportação:** a ficha também é salva como arquivo de texto na pasta do app.
 
@@ -114,15 +115,19 @@ Pedido do Henry em 2026-09-30: o histórico de um app mostra três coisas, numa 
 - Histórico de execuções ligado à versão usada.
 - **Construído (2026-10-01, ADR 006):** a versão nasce sozinha quando o Hub confere a pasta, sem perguntar. Descrever a mudança é opcional. Só o código-fonte tem cópia; do `.exe` fica só a impressão digital, e voltar a versão pede recompilar. A ficha só é registrada, não se restaura. Chaves no código aparecem mascaradas.
 
-### 3.7 Acesso, permissões e cofre (1.7)
-- Cadastro de pessoas da empresa. Cada app tem quem pode usar e quem pode editar.
-- **Cofre local:** chaves e senhas guardadas criptografadas. O app recebe a chave na hora de rodar e o usuário nunca a vê.
-- Registro de qual app usou qual chave e quando.
-- **Empresa e times (combinado em 2026-09-30, construir depois do app funcionando):**
-  - **Empresa** é a conta: nome, áreas, padrões, cofre da empresa, chave da IA e pastas de apps. Cada pessoa pertence a **uma empresa só**.
-  - **Time = área.** Os times (Investimentos, Research, Operações…) substituem a lista de áreas. A pessoa pode estar em mais de um time. Cada app pertence a um time.
-  - **Quem vê cada app:** a empresa toda, só alguns times ou só pessoas escolhidas (app restrito).
-  - No piloto existe uma empresa só (Alis). Configurações extras por time ou por pessoa, como limites e aprovação antes de publicar, ficam para depois.
+### 3.7 Equipe e permissões (1.7, construído na Etapa 2, ADR 009)
+Em linguagem de produto, quem pode o quê:
+- **Cada pessoa tem um cargo**, personalizável. Prontos: Administrador (tudo), Criador (registrar apps) e Usuário (só usar). Um cargo liga ou desliga: registrar apps, editar qualquer ficha, voltar versões de qualquer app, ver a parte técnica de qualquer app, ver as execuções de todos, ver todos os apps (inclusive restritos), cadastrar pessoas, cuidar das áreas e criar/mudar cargos.
+- **Áreas** têm líderes e membros. Todo app pertence a uma área. O líder cuida dos apps da sua área: edita, volta versões, vê o técnico e as execuções de todos, e dá acessos extras só neles.
+- **Acessos extras** a uma pessoa, app por app ou "todos os apps da área": editar a ficha, voltar versões, ver a parte técnica, ver execuções de todos.
+- **App aberto ou restrito.** Aberto: todos veem e rodam. Restrito: só as áreas e pessoas escolhidas. Quem não tem acesso nem enxerga o app (a página responde "App não encontrado"). Todo app novo começa aberto.
+- **Execuções:** cada um vê as suas. As de todos: quem tem o cargo com essa permissão, o líder da área e quem recebeu o acesso extra. Responsável e reserva não veem as dos outros sem esse acesso. Quem vê as execuções dos outros também baixa os arquivos delas.
+- **Quem pode editar um app** também muda responsável, reserva e área dele.
+- **Ninguém dá um cargo com mais permissões do que o próprio.**
+- **Sempre há ao menos uma pessoa** que cuida das pessoas e dos cargos; o Hub recusa a mudança que deixaria a empresa sem ninguém assim.
+- **Tela Equipe** (barra lateral, para quem cuida de pessoas, áreas ou cargos, ou lidera uma área), com três abas: Pessoas (só para quem pode cadastrar pessoas), Áreas e Cargos.
+- **Cofre local:** chaves e senhas guardadas criptografadas. O app recebe a chave na hora de rodar e o usuário nunca a vê. Registro de qual app usou qual chave e quando. (Pendente, Fase 6.)
+- **Empresa e times (combinado em 2026-09-30, para depois):** a empresa é a conta (nome, padrões, cofre, chave da IA); no piloto existe uma só (Alis). A Etapa 2 entregou áreas, líderes, apps restritos e acessos por app; ainda ficam para depois a pessoa em várias empresas, configurações próprias por time, limites e aprovação antes de publicar.
 
 ### 3.8 Saúde (1.8)
 - Toda execução com erro fica registrada com a mensagem de erro.

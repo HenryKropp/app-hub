@@ -8,3 +8,4 @@ e2e/node_modules/
 .superpowers/
 dist/
 .claude/worktrees/
+e2e/shots/

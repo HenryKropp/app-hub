@@ -18,7 +18,7 @@ Status: Pending / In Progress / Done / Blocked
 | Layout base, identidade visual, navegação | Done | Estilo novo (2026-10-02): limpo e neutro como Notion/Vercel, um violeta vivo só no Rodar e no que está aberto agora; claro por padrão, com escuro; Painel e Cofre marcados "em breve" |
 | Registrar apps pelo + do catálogo | Done | 2026-10-02, pedido do Henry: saiu da barra lateral; virou o botão "+ Registrar apps" ao lado da busca (só "+" no celular), só para administrador e criador. A página tem "← Catálogo" e o Catálogo fica marcado enquanto se registra |
 | Configurações | Done | 2026-10-02, pedido do Henry: item no pé da barra lateral (no celular, no menu do avatar) com Meu computador e Aparência (claro, escuro, igual ao sistema). O endereço antigo `/meu-computador` leva para lá |
-| Cadastro de pessoas e login simples (protótipo) | Done | ADR 003. Primeiro acesso cria o administrador; perfis admin/criador/usuário |
+| Cadastro de pessoas e login simples (protótipo) | Done | ADR 003. Primeiro acesso cria o administrador; perfis admin/criador/usuário (substituídos por cargos na Etapa 2, ADR 009) |
 
 ## Fase 2 — Manifesto e registro (1.1, 1.5)
 
@@ -48,8 +48,12 @@ Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep)
      5. ~~Acabamento~~ **feito** (2026-10-05): busca com nome para leitor de tela, X e "Limpar busca", Esc limpa; "Fechar" em vez de "Close"; "Em breve" só para administrador e criador; catálogo vazio com texto próprio para quem só usa; link "Pular para o conteúdo"; contador "abertos agora" no plural; no celular a faixa mostra um cartão só e conta o resto. O selo "Janela", as legendas, o vermelho do título e o contador vermelho já tinham sido resolvidos pelo estilo novo (conferido em foto). Fotos: `e2e/acabamento.mjs` (só leitura)
    - **Parar um app aberto pelo Hub** (pendente, pedido do Henry em 2026-10-05): comando novo no Agente (0.2.4), botão Parar na faixa e na página da execução, teste de verdade no PC do Henry
    - Ficha mais limpa (2026-10-02, pedido do Henry): quadro de 5 caixas virou uma linha discreta abaixo do resumo; entradas dizem uma vez de onde vêm ("Você preenche tudo na janela do app"); saídas sem o padrão técnico (fica no passar o mouse); pontos de atenção mostram 3 e "Ver mais N"; histórico mostra os 5 mais novos e "Ver histórico completo", com filtro em abas pequenas e ações das versões discretas; pasta sem fonte de código
-   - Etapa 2, ficha por perfil (abas Usar/Cuidar, editar por seção, campos da v0.2): depois do acabamento, desenho próprio
-   - Etapa 3, catálogo e primeiro uso (favoritos, filtro por área, status e "usado há…", guia do Agente): depois
+   - ~~**Etapa 2, cargos, permissões e ficha editável**~~ **feita** (2026-10-05; desenho: `docs/superpowers/specs/2026-10-05-etapa-2-permissoes-e-ficha-design.md`; ADR 009). As abas Usar/Cuidar foram descartadas; a ficha ficou no desenho B:
+     1. **Done:** cargos personalizáveis (Administrador, Criador, Usuário prontos) com 9 permissões; áreas com líderes e membros; acessos extras por app ou área; app aberto ou restrito (quem não vê recebe "App não encontrado"); regra única em `internal/access`; migração 007
+     2. **Done:** tela Equipe (Pessoas, Áreas, Cargos); ficha no desenho B com bloco recolhido "Para quem cuida do app" e "Editar" por parte, inclusive os campos do formato v0.2 (opções, "pode marcar mais de uma", outros apps, código-fonte); registro com os mesmos editores; fotos em `e2e/etapa2.mjs` (só leitura)
+     3. **Pending:** teste de verdade com o Henry (criar área com líder, restringir um app e conferir com um usuário de teste que ele some do catálogo)
+     4. **Pending (fora desta etapa):** **Parar** um app aberto (Agente 0.2.4); visibilidade por time como conta separada; aprovação antes de publicar; código de acesso pessoal e MCP
+   - Etapa 3, catálogo e primeiro uso (favoritos, filtro por área, status e "usado há…", guia do Agente): **Pending**, depois da Etapa 2
 4. Rodar scripts: formulário automático e ambiente preparado sozinho
 5. App Hub: ícone perto do relógio, janela própria e instalador único (etapas 2 e 3), antes de o primeiro colega entrar
 6. Assinatura digital do App Hub (etapa 4), antes de vender
@@ -75,9 +79,9 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Protocolo de registro pelo Claude | In Progress | `docs/PROTOCOLO-REGISTRO.md` v0.2 (8 melhorias da rodada 1 aprovadas); vira as instruções do MCP |
 | Teste local do protocolo em 4 apps da Alis | In Progress | Rodada 1 (Eq. Research Files Prep, app extra) aprovada. Faltam: Python Rentabilidade fundos, Research Platform, transcritor-calls, CVM Downloader (decidir aí a relação com o Files Prep) |
 | Formato v0.2 do manifesto | Done | Origem `window`, `multiple`, `depends_on`, `build`, todos opcionais; comando `cmd/validate-manifest` para validar rascunhos |
-| Tela de revisão: mostrar/editar `depends_on`, `build` e várias escolhas | Pending | Hoje o formato aceita e a ficha mostra; a tela de revisão ainda não edita esses campos |
+| Tela de revisão: mostrar/editar `depends_on`, `build` e várias escolhas | Done | Etapa 2 (2026-10-05): a tela de registro usa os mesmos editores da ficha |
 | ADR: servidor MCP dentro do binário do Hub | Pending | HTTP (streamable) em `/mcp`, SDK oficial de MCP em Go; mesmas regras dos handlers |
-| Código de acesso pessoal (token) | Pending | Gerado/revogado na tela Pessoas; guardado com hash; a IA age com o perfil da pessoa |
+| Código de acesso pessoal (token) | Pending | Gerado/revogado na tela Equipe (aba Pessoas); guardado com hash; a IA age com o perfil da pessoa |
 | Ferramenta: listar catálogo e ler ficha | Pending | Para achar duplicados antes de registrar |
 | Ferramenta: formato do manifesto e regras da empresa | Pending | Esquema + explicação em português (padrões 1.5) |
 | Ferramenta: listar pessoas | Pending | Para escolher responsável e reserva |
@@ -94,7 +98,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 |---|---|---|
 | Catálogo em cartões com busca e filtro por área/status | In Progress | Cartões, busca simples e botão Rodar no cartão prontos (Etapa 1 da UX); faltam filtros por área/status (Etapa 3) |
 | Favoritos por pessoa | Pending | |
-| Ficha do app (visualização e edição) | In Progress | Visualização básica pronta; edição direto na ficha pendente (hoje: reanalisar a pasta e "Atualizar ficha") |
+| Ficha do app (visualização e edição) | Done | Etapa 2 (2026-10-05): desenho B, "Editar" por parte, grava `app-hub.yaml` e `FICHA.md` e registra no histórico |
 
 ## Fase 4 — Execução (1.3), feature central
 
@@ -132,8 +136,8 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Empresa e times (time = área; pessoa em uma empresa só) | Pending | Combinado em 2026-09-30: fazer depois do app funcionando (registro, catálogo, execução). Área do app vira time |
-| Permissões por app (usar / editar) | Pending | Visível para a empresa toda, alguns times ou pessoas escolhidas |
+| Empresa e times (time = área; pessoa em uma empresa só) | In Progress | Áreas com líderes e membros feitas na Etapa 2 (ADR 009). Falta a empresa como conta, vários times com configurações próprias, limites e aprovação antes de publicar |
+| Permissões por app (usar / editar) | Done | Etapa 2 (2026-10-05, ADR 009): cargos, líderes de área, acessos extras e app restrito. Parar um app aberto (Agente 0.2.4) segue pendente |
 | Cofre local criptografado + injeção na execução | Pending | |
 | Registro de uso de chaves | Pending | |
 
