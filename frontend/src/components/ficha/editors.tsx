@@ -157,7 +157,7 @@ export function NotesEditor({ value, onChange }: Edit<string[]>) {
   const [text, setText] = useState(() => value.join("\n"))
   // The parent changed the list from outside (e.g. cancel): follow it. Comparing
   // cleaned lines keeps blank lines being typed from being wiped.
-  if (cleanLines(text).join("\n") !== value.join("\n")) setText(value.join("\n"))
+  if (cleanLines(text).join("\n") !== cleanLines(value.join("\n")).join("\n")) setText(value.join("\n"))
   return (
     <Textarea
       aria-label="Observações"
