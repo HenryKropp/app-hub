@@ -97,3 +97,25 @@ func TestAccessUnknownIDsChangeNothing(t *testing.T) {
 		t.Fatalf("grant to unknown person = %d", code)
 	}
 }
+
+// Saving one scope never touches the other: per-app accesses survive a
+// whole-area save, and whole-area accesses survive a per-app save or "Tirar".
+func TestGrantScopesAreIndependent(t *testing.T) {
+	_, ana, _, id := team(t)
+	makeLeader(t, 1, 2)
+	var out appAccessOut
+	ana.do("PUT", appPath(id, "/grants"), map[string]any{"person_id": 3, "permissions": []string{"edit"}}, nil)
+	ana.do("PUT", appPath(id, "/grants"), map[string]any{"person_id": 3, "permissions": []string{"runs"}, "whole_area": true}, &out)
+	if len(out.Grants) != 1 || len(out.AreaGrants) != 1 {
+		t.Fatalf("whole-area save wiped the per-app grant: %+v", out)
+	}
+	ana.do("PUT", appPath(id, "/grants"), map[string]any{"person_id": 3, "permissions": []string{}}, &out)
+	if len(out.Grants) != 0 || len(out.AreaGrants) != 1 || out.AreaGrants[0].Permissions[0] != "runs" {
+		t.Fatalf("per-app Tirar wiped the area grant: %+v", out)
+	}
+	ana.do("PUT", appPath(id, "/grants"), map[string]any{"person_id": 3, "permissions": []string{"tech"}}, &out)
+	ana.do("PUT", appPath(id, "/grants"), map[string]any{"person_id": 3, "permissions": []string{}, "whole_area": true}, &out)
+	if len(out.Grants) != 1 || len(out.AreaGrants) != 0 {
+		t.Fatalf("area Tirar must keep the per-app grant: %+v", out)
+	}
+}

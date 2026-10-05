@@ -176,12 +176,16 @@ func (h *Handler) setAppGrants(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Escolha a pessoa.")
 		return
 	}
-	// One place per person: choosing "whole area" moves the accesses there, and back.
+	// Only the scope being saved is replaced: this app's accesses, or the
+	// whole area's. The other one (which reaches other apps) stays as it was.
 	err := h.q.InTx(ctx, func(q *sqlc.Queries) error {
-		if err := q.ClearPersonAppGrants(ctx, sqlc.ClearPersonAppGrantsParams{AppID: a.ID, PersonID: b.PersonID}); err != nil {
-			return err
+		var err error
+		if b.WholeArea {
+			err = q.ClearPersonAreaGrants(ctx, sqlc.ClearPersonAreaGrantsParams{AreaID: a.AreaID, PersonID: b.PersonID})
+		} else {
+			err = q.ClearPersonAppGrants(ctx, sqlc.ClearPersonAppGrantsParams{AppID: a.ID, PersonID: b.PersonID})
 		}
-		if err := q.ClearPersonAreaGrants(ctx, sqlc.ClearPersonAreaGrantsParams{AreaID: a.AreaID, PersonID: b.PersonID}); err != nil {
+		if err != nil {
 			return err
 		}
 		for _, p := range b.Permissions {

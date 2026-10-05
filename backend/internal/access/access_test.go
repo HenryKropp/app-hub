@@ -110,3 +110,63 @@ func TestRegisterAndTeam(t *testing.T) {
 		t.Fatal("creator")
 	}
 }
+
+// Company-wide role boxes reach only apps the person can see: on a restricted
+// app they are not listed for, each one alone gives nothing at all.
+func TestCompanyWidePermsDoNotRevealRestricted(t *testing.T) {
+	r := App{ID: 10, AreaID: 1, OwnerID: 1, Restricted: true}
+	for _, perm := range []string{RegisterApps, EditAnyApp, RestoreAnyApp, SeeTechAnyApp, SeeAllRuns, ManagePeople, ManageRoles} {
+		p := person(9)
+		p.Perms[perm] = true
+		if c := p.For(r); c != (Can{}) {
+			t.Fatalf("%s on a restricted app: %+v", perm, c)
+		}
+	}
+	// Once the app is visible (see_all_apps or listed), the boxes apply.
+	for _, perm := range []string{EditAnyApp, RestoreAnyApp, SeeTechAnyApp, SeeAllRuns} {
+		p := person(9)
+		p.Perms[perm] = true
+		p.Perms[SeeAllApps] = true
+		if c := p.For(r); !c.View || !c.Tech && !c.Runs {
+			t.Fatalf("%s + see_all_apps: %+v", perm, c)
+		}
+		q := person(9)
+		q.Perms[perm] = true
+		q.ViewerApps[10] = true
+		if c := q.For(r); !c.View || !c.Tech && !c.Runs {
+			t.Fatalf("%s + viewer: %+v", perm, c)
+		}
+	}
+}
+
+func TestRestrictedVisibleToCarersAndGrants(t *testing.T) {
+	r := App{ID: 10, AreaID: 1, OwnerID: 1, BackupID: 2, Restricted: true}
+	for _, id := range []int64{1, 2} {
+		if c := person(id).For(r); !c.View || !c.Access {
+			t.Fatalf("carer %d: %+v", id, c)
+		}
+	}
+	m := person(9)
+	m.Perms[ManageAreas] = true
+	if c := m.For(r); !c.View || !c.Access || !c.Grants {
+		t.Fatalf("manage_areas: %+v", c)
+	}
+	for _, g := range Grants {
+		a := person(9)
+		a.AreaGrants[1] = map[string]bool{g: true}
+		if !a.For(r).View {
+			t.Fatalf("area grant %s must see the app", g)
+		}
+		p := person(9)
+		p.AppGrants[10] = map[string]bool{g: true}
+		if !p.For(r).View {
+			t.Fatalf("app grant %s must see the app", g)
+		}
+	}
+	other := person(9)
+	other.AppGrants[11] = map[string]bool{GrantEdit: true}
+	other.AreaGrants[2] = map[string]bool{GrantRuns: true}
+	if c := other.For(r); c != (Can{}) {
+		t.Fatalf("grants on other apps/areas: %+v", c)
+	}
+}

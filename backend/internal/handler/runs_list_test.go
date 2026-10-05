@@ -112,8 +112,8 @@ func TestListRunsScopesAndPages(t *testing.T) {
 	createPersonAs(t, admin, "Ana", "ana@alis.com", "usuario")
 	ana := admin.fresh()
 	loginAs(t, ana, "ana@alis.com")
-	if code := ana.do("GET", "/api/runs?scope=all", nil, nil); code != http.StatusForbidden {
-		t.Fatalf("all para usuário %d", code)
+	if code := ana.do("GET", "/api/runs?scope=all", nil, &page); code != http.StatusOK || len(page.Items) != 0 {
+		t.Fatalf("all para usuário %d %+v", code, page)
 	}
 	ana.do("GET", "/api/runs?scope=mine", nil, &page)
 	if len(page.Items) != 0 {

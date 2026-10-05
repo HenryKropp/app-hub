@@ -160,8 +160,9 @@ func TestLeaderRunsVisibility(t *testing.T) {
 	if code := ana.do("GET", "/api/runs?scope=all", nil, &all); code != http.StatusOK || len(all.Items) != 1 {
 		t.Fatalf("leader scope=all %d %+v", code, all)
 	}
-	if code := bia.do("GET", "/api/runs?scope=all", nil, nil); code != http.StatusForbidden {
-		t.Fatalf("bia scope=all = %d", code)
+	// Bia sees no one else's runs: "everyone" is just her own, not an error.
+	if code := bia.do("GET", "/api/runs?scope=all", nil, &all); code != http.StatusOK || len(all.Items) != 1 || all.Items[0].PersonID != 3 {
+		t.Fatalf("bia scope=all = %d %+v", code, all)
 	}
 	var mine runListJSON
 	ana.do("GET", "/api/runs", nil, &mine)
@@ -318,4 +319,77 @@ func TestOnlyManagersCreatePeopleOrRevokeOthersComputers(t *testing.T) {
 		t.Fatalf("manager revokes computer = %d", code)
 	}
 	_ = bia
+}
+
+// A role with company-wide boxes but not see_all_apps does not reach a
+// restricted app: not in the catalog, not openable, and its runs stay out of
+// "De todos".
+func TestCompanyWideRoleDoesNotRevealRestricted(t *testing.T) {
+	_, ana, _, id := team(t)
+	other := filesPrepManifest()
+	other.ID, other.Name = "outro-app", "Outro App"
+	open := insertApp(t, other)
+	someonesRun(t, id, 3)   // run 1, restricted app
+	someonesRun(t, open, 3) // run 2, open app
+	restrict(t, id)
+	setRole(t, "criador", "edit_any_app", "restore_any_app", "see_tech_any_app", "see_all_runs")
+	var list []appSummary
+	ana.do("GET", "/api/apps", nil, &list)
+	if len(list) != 1 || list[0].ID != open || !list[0].Can.Edit || !list[0].Can.Runs {
+		t.Fatalf("catalog: %+v", list)
+	}
+	if code := ana.do("GET", appPath(id, ""), nil, nil); code != http.StatusNotFound {
+		t.Fatalf("restricted ficha = %d", code)
+	}
+	if code := ana.do("GET", "/api/runs/1", nil, nil); code != http.StatusNotFound {
+		t.Fatalf("run of restricted app = %d", code)
+	}
+	var all runListJSON
+	if code := ana.do("GET", "/api/runs?scope=all", nil, &all); code != http.StatusOK || len(all.Items) != 1 || all.Items[0].AppID != open {
+		t.Fatalf("scope=all %d %+v", code, all)
+	}
+	// Listed as a viewer: now the boxes apply to it too.
+	exec(t, "INSERT INTO app_viewers (app_id, person_id) VALUES ($1, 2)", id)
+	ana.do("GET", "/api/apps", nil, &list)
+	if len(list) != 2 {
+		t.Fatalf("viewer catalog: %+v", list)
+	}
+	if code := ana.do("GET", "/api/runs?scope=all", nil, &all); code != http.StatusOK || len(all.Items) != 2 {
+		t.Fatalf("viewer scope=all %d %+v", code, all)
+	}
+}
+
+// Asking for everyone's runs with none in reach is an empty list, not an error.
+func TestScopeAllWithNothingInReach(t *testing.T) {
+	_, ana, _, id := team(t)
+	someonesRun(t, id, 3)
+	var areaID int64
+	if err := testPool.QueryRow(context.Background(), "INSERT INTO areas (name) VALUES ('Vazia') RETURNING id").Scan(&areaID); err != nil {
+		t.Fatal(err)
+	}
+	makeLeader(t, areaID, 2) // leads an area with no apps
+	var all runListJSON
+	if code := ana.do("GET", "/api/runs?scope=all", nil, &all); code != http.StatusOK || len(all.Items) != 0 {
+		t.Fatalf("leader of an empty area scope=all %d %+v", code, all)
+	}
+}
+
+func TestScanHidesRestrictedRegisteredID(t *testing.T) {
+	_, ana, _, id := team(t)
+	dir := t.TempDir()
+	m := filesPrepManifest()
+	if err := manifest.WriteToFolder(dir, m); err != nil {
+		t.Fatal(err)
+	}
+	exec(t, "UPDATE apps SET folder_path = $2 WHERE id = $1", id, dir)
+	var res scanResp
+	ana.do("POST", "/api/scan", map[string]string{"path": dir, "mode": "single"}, &res)
+	if len(res.Items) != 1 || res.Items[0].RegisteredAppID != id {
+		t.Fatalf("open app registered id: %+v", res)
+	}
+	restrict(t, id)
+	ana.do("POST", "/api/scan", map[string]string{"path": dir, "mode": "single"}, &res)
+	if len(res.Items) != 1 || res.Items[0].RegisteredAppID != 0 {
+		t.Fatalf("restricted app id leaked: %+v", res.Items)
+	}
 }

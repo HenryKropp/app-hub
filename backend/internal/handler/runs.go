@@ -678,31 +678,25 @@ func (h *Handler) listRuns(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	all := r.URL.Query().Get("scope") == "all"
-	seeAll, appIDs := false, []int64{}
-	if all {
+	// scope=all adds the others' runs of the apps the person sees and may see
+	// everyone's runs of (see_all_runs reaches only visible apps). With none
+	// in reach it is just the person's own runs, never an error.
+	appIDs := []int64{}
+	if r.URL.Query().Get("scope") == "all" {
 		acc, err := h.loadAccess(r.Context(), me)
 		if err != nil {
 			internalError(w, "load access", err)
 			return
 		}
-		if acc.Has(access.SeeAllRuns) {
-			seeAll = true
-		} else {
-			links, err := h.q.ListAppLinks(r.Context())
-			if err != nil {
-				internalError(w, "list app links", err)
-				return
-			}
-			for _, l := range links {
-				c := acc.For(access.App{ID: l.ID, AreaID: l.AreaID, OwnerID: l.OwnerID, BackupID: l.BackupID.Int64, Restricted: l.Restricted})
-				if c.View && c.Runs {
-					appIDs = append(appIDs, l.ID)
-				}
-			}
-			if len(appIDs) == 0 {
-				writeError(w, http.StatusForbidden, "Você não pode ver as execuções dos outros.")
-				return
+		links, err := h.q.ListAppLinks(r.Context())
+		if err != nil {
+			internalError(w, "list app links", err)
+			return
+		}
+		for _, l := range links {
+			c := acc.For(access.App{ID: l.ID, AreaID: l.AreaID, OwnerID: l.OwnerID, BackupID: l.BackupID.Int64, Restricted: l.Restricted})
+			if c.View && c.Runs {
+				appIDs = append(appIDs, l.ID)
 			}
 		}
 	}
@@ -718,7 +712,7 @@ func (h *Handler) listRuns(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "expire runs", err)
 		return
 	}
-	rows, err := h.q.ListRuns(r.Context(), sqlc.ListRunsParams{SeeAll: seeAll, PersonID: me.ID, AppIds: appIDs, Before: before, Lim: int32(h.runsPage + 1)})
+	rows, err := h.q.ListRuns(r.Context(), sqlc.ListRunsParams{PersonID: me.ID, AppIds: appIDs, Before: before, Lim: int32(h.runsPage + 1)})
 	if err != nil {
 		internalError(w, "list runs", err)
 		return

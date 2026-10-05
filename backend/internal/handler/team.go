@@ -197,6 +197,19 @@ func (h *Handler) deleteRole(w http.ResponseWriter, r *http.Request) {
 	writeError(w, http.StatusNotFound, "Cargo não encontrado.")
 }
 
+const biggerRole = "Você não pode dar um cargo com mais permissões que o seu."
+
+// holdsAll: the caller's role has every one of perms. Nobody gives a role
+// with more than their own, nor changes the role of someone with more.
+func holdsAll(acc *access.Person, perms []string) bool {
+	for _, perm := range perms {
+		if !acc.Has(perm) {
+			return false
+		}
+	}
+	return true
+}
+
 func (h *Handler) setPersonRole(w http.ResponseWriter, r *http.Request) {
 	_, acc, ok := h.requirePerm(w, r, access.ManagePeople)
 	if !ok {
@@ -218,20 +231,26 @@ func (h *Handler) setPersonRole(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "get person", err)
 		return
 	}
-	next, err := h.q.GetRole(r.Context(), b.RoleID)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "Escolha o cargo da pessoa.")
-		return
-	}
-	for _, perm := range next.Permissions {
-		if !acc.Has(perm) {
-			writeError(w, http.StatusForbidden, "Você não pode dar um cargo com mais permissões que o seu.")
-			return
-		}
-	}
 	cur, err := h.q.GetRole(r.Context(), p.RoleID)
 	if err != nil {
 		internalError(w, "get role", err)
+		return
+	}
+	if !holdsAll(acc, cur.Permissions) {
+		writeError(w, http.StatusForbidden, "Você não pode mudar o cargo de quem tem mais permissões que você.")
+		return
+	}
+	next, err := h.q.GetRole(r.Context(), b.RoleID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusBadRequest, "Escolha o cargo da pessoa.")
+		return
+	}
+	if err != nil {
+		internalError(w, "get role", err)
+		return
+	}
+	if !holdsAll(acc, next.Permissions) {
+		writeError(w, http.StatusForbidden, biggerRole)
 		return
 	}
 	if isManager(cur.Permissions) && !isManager(next.Permissions) {

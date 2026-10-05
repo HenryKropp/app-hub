@@ -162,3 +162,55 @@ func TestCannotGrantMoreThanOwn(t *testing.T) {
 		t.Fatalf("ana gives usuario = %d", code)
 	}
 }
+
+func TestCannotCreatePersonWithBiggerRole(t *testing.T) {
+	admin, ana, _, _ := team(t)
+	var r roleOut
+	admin.do("POST", "/api/roles", map[string]any{"name": "RH", "permissions": []string{"manage_people"}}, &r)
+	if code := admin.do("PUT", "/api/people/2", map[string]any{"role_id": r.ID}, nil); code != http.StatusOK {
+		t.Fatalf("give RH %d", code)
+	}
+	const msg = "Você não pode dar um cargo com mais permissões que o seu."
+	body := map[string]any{"name": "Caio", "email": "caio@alis.com", "password": "senha-forte-1", "role_id": 1}
+	var out map[string]any
+	if code := ana.do("POST", "/api/people", body, &out); code != http.StatusForbidden || out["error"] != msg {
+		t.Fatalf("RH creates an admin = %d %v", code, out)
+	}
+	body["role"], body["role_id"] = "admin", 0
+	if code := ana.do("POST", "/api/people", body, &out); code != http.StatusForbidden {
+		t.Fatalf("RH creates an admin by key = %d %v", code, out)
+	}
+	body["role_id"] = r.ID
+	if code := ana.do("POST", "/api/people", body, nil); code != http.StatusCreated {
+		t.Fatalf("RH creates another RH = %d", code)
+	}
+	body["email"], body["role_id"] = "dani@alis.com", 9999
+	if code := ana.do("POST", "/api/people", body, &out); code != http.StatusBadRequest || out["error"] != "Escolha o cargo da pessoa." {
+		t.Fatalf("unknown role = %d %v", code, out)
+	}
+}
+
+func TestCannotChangeRoleOfBiggerPerson(t *testing.T) {
+	admin, ana, _, _ := team(t)
+	var r roleOut
+	admin.do("POST", "/api/roles", map[string]any{"name": "RH", "permissions": []string{"manage_people"}}, &r)
+	admin.do("PUT", "/api/people/2", map[string]any{"role_id": r.ID}, nil)
+	createPersonAs(t, admin, "Caio", "caio@alis.com", "admin") // id 4, another admin
+	const msg = "Você não pode mudar o cargo de quem tem mais permissões que você."
+	var out map[string]any
+	if code := ana.do("PUT", "/api/people/4", map[string]any{"role_id": 3}, &out); code != http.StatusForbidden || out["error"] != msg {
+		t.Fatalf("RH demotes an admin = %d %v", code, out)
+	}
+	// Someone whose role is within hers: allowed, both directions.
+	if code := ana.do("PUT", "/api/people/3", map[string]any{"role_id": r.ID}, nil); code != http.StatusOK {
+		t.Fatalf("RH promotes usuario to RH = %d", code)
+	}
+	if code := ana.do("PUT", "/api/people/3", map[string]any{"role_id": 3}, nil); code != http.StatusOK {
+		t.Fatalf("RH moves RH back to usuario = %d", code)
+	}
+	// Bia as criador (register_apps, which Ana lacks): Ana cannot touch her.
+	admin.do("PUT", "/api/people/3", map[string]any{"role_id": 2}, nil)
+	if code := ana.do("PUT", "/api/people/3", map[string]any{"role_id": 3}, &out); code != http.StatusForbidden || out["error"] != msg {
+		t.Fatalf("RH demotes criador = %d %v", code, out)
+	}
+}

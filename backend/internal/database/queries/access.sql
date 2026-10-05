@@ -66,7 +66,7 @@ INSERT INTO areas (name) VALUES ($1) RETURNING *;
 UPDATE areas SET name = $2 WHERE id = $1 RETURNING *;
 
 -- name: RenameAppsArea :exec
-UPDATE apps SET area = sqlc.arg(name), manifest = jsonb_set(manifest, '{area}', to_jsonb(sqlc.arg(name)::text))
+UPDATE apps SET area = sqlc.arg(name), manifest = jsonb_set(manifest, '{area}', to_jsonb(sqlc.arg(name)::text)), updated_at = now()
 WHERE area_id = sqlc.arg(area_id);
 
 -- name: DeleteArea :exec

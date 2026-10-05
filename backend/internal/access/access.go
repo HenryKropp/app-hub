@@ -62,18 +62,29 @@ type Can struct {
 	Grants  bool `json:"grants"`  // give and take extra accesses
 }
 
+// For says what the person may do with one app. A restricted app is seen
+// only by see_all_apps, the people and areas it lists, those who care for it
+// (owner, backup, area leader), manage_areas, and whoever was given an extra
+// access on it (per app or for its area). The company-wide boxes (edit,
+// restore, technical part, everyone's runs) reach only apps the person sees.
 func (p *Person) For(a App) Can {
 	leader := p.Leads[a.AreaID]
 	cares := leader || a.OwnerID == p.ID || (a.BackupID != 0 && a.BackupID == p.ID)
 	granted := func(g string) bool { return p.AppGrants[a.ID][g] || p.AreaGrants[a.AreaID][g] }
+	anyGrant := false
+	for _, g := range Grants {
+		anyGrant = anyGrant || granted(g)
+	}
+	if a.Restricted && !(p.Has(SeeAllApps) || p.ViewerApps[a.ID] || cares || p.Has(ManageAreas) || anyGrant) {
+		return Can{}
+	}
 
-	var c Can
+	c := Can{View: true}
 	c.Edit = cares || p.Has(EditAnyApp) || granted(GrantEdit)
 	c.Restore = cares || p.Has(RestoreAnyApp) || granted(GrantRestore)
 	c.Tech = c.Edit || c.Restore || p.Has(SeeTechAnyApp) || granted(GrantTech)
 	c.Runs = leader || p.Has(SeeAllRuns) || granted(GrantRuns)
 	c.Grants = leader || p.Has(ManageAreas)
 	c.Access = cares || c.Grants
-	c.View = !a.Restricted || p.Has(SeeAllApps) || p.ViewerApps[a.ID] || c.Access || c.Tech || c.Runs
 	return c
 }
