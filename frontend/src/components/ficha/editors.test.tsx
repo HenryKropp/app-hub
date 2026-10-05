@@ -73,6 +73,13 @@ describe("NotesEditor external reset", () => {
   })
 })
 
+describe("NotesEditor with untidy values", () => {
+  it("renders without looping when value has blanks or trailing spaces", () => {
+    render(<NotesEditor value={["a ", "", "b"]} onChange={() => {}} />)
+    expect(screen.getByLabelText("Observações")).toHaveValue("a \n\nb")
+  })
+})
+
 describe("DependsEditor", () => {
   it("lists other apps, not itself, and keeps unknown ids", async () => {
     let got: string[] = []
