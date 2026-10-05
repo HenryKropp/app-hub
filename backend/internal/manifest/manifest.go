@@ -154,6 +154,9 @@ func (m Manifest) Validate() []string {
 		if in.Multiple && in.Type != "choice" {
 			errs = append(errs, fmt.Sprintf("Só uma lista de opções pode aceitar várias escolhas: %q.", in.Label))
 		}
+		if in.Type == "choice" && len(in.Options) == 0 {
+			errs = append(errs, fmt.Sprintf("Escreva ao menos uma opção para %q.", in.Label))
+		}
 		if seen[in.ID] {
 			errs = append(errs, fmt.Sprintf("Entrada repetida: %q.", in.ID))
 		}
