@@ -60,3 +60,17 @@ it("someone who only sees the technical part cannot change access", async () => 
   expect(screen.queryByRole("button", { name: "Editar Quem vê" })).toBeNull()
   expect(screen.queryByText("Dar acesso extra")).toBeNull()
 })
+
+it("a person with an app access and an area access gets two distinct buttons", async () => {
+  vi.spyOn(api, "appAccess").mockResolvedValue({ ...open,
+    grants: [{ person_id: 3, name: "Bia", permissions: ["edit"] }], area_grants: [{ person_id: 3, name: "Bia", permissions: ["runs"] }] })
+  vi.spyOn(api, "areas").mockResolvedValue([])
+  vi.spyOn(api, "people").mockResolvedValue([])
+  const set = vi.spyOn(api, "setGrants").mockResolvedValue(open)
+  render(<AccessSection app={detail()} me={henry} />)
+  const area = await screen.findByRole("button", { name: "Tirar Bia (área)" })
+  expect(screen.getByRole("button", { name: "Tirar Bia" })).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "Mudar Bia (área)" })).toBeInTheDocument()
+  await userEvent.click(area)
+  expect(set).toHaveBeenCalledWith(expect.any(Number), { person_id: 3, permissions: [], whole_area: true })
+})

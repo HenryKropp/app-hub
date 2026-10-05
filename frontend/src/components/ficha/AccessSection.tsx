@@ -91,7 +91,9 @@ export function AccessSection({ app, me }: { app: AppDetail; me: Person }) {
     if (form.permissions.length === 0) return setFormError("Marque ao menos um acesso.")
     if (await giveGrant(form)) setForm(null)
   }
-  const grantRow = (g: Grant, whole: boolean) => (
+  const grantRow = (g: Grant, whole: boolean) => {
+    const who = whole ? `${g.name} (área)` : g.name
+    return (
     <li key={`${whole ? "a" : "p"}-${g.person_id}`} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <span>
         {g.name}: {g.permissions.map(permLabel).join(", ")}
@@ -99,18 +101,19 @@ export function AccessSection({ app, me }: { app: AppDetail; me: Person }) {
       </span>
       {can.grants && (
         <span className="flex gap-3 text-sm">
-          <button type="button" className="text-muted-foreground hover:text-foreground" aria-label={`Mudar ${g.name}`}
+          <button type="button" className="text-muted-foreground hover:text-foreground" aria-label={`Mudar ${who}`}
             onClick={() => { setFormError(""); setForm({ person_id: g.person_id, permissions: g.permissions, whole_area: whole }) }}>
             Mudar
           </button>
-          <button type="button" className="text-muted-foreground hover:text-destructive" aria-label={`Tirar ${g.name}`} disabled={busy}
+          <button type="button" className="text-muted-foreground hover:text-destructive" aria-label={`Tirar ${who}`} disabled={busy}
             onClick={() => void giveGrant({ person_id: g.person_id, permissions: [], whole_area: whole })}>
             Tirar
           </button>
         </span>
       )}
     </li>
-  )
+    )
+  }
 
   const chosen = viewers ? people.filter((p) => viewers.person_ids.includes(p.id)) : []
   const noExtras = access.grants.length === 0 && access.area_grants.length === 0

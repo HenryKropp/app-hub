@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { act, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, beforeEach, expect, it, test, vi } from "vitest"
@@ -244,4 +244,83 @@ it("remembers the technical block open per app", async () => {
   renderPage(henry)
   await userEvent.click(await screen.findByText("Para quem cuida do app"))
   await vi.waitFor(() => expect(localStorage.getItem("apphub-tech-open-3")).toBe("1"))
+})
+
+it("saves with the version the edit started from, so a change in between gets the conflict", async () => {
+  const d = detail()
+  mockApp(d)
+  vi.mocked(api.app).mockResolvedValueOnce(d).mockResolvedValue({ ...d, updated_at: "2026-10-05T09:00:00Z" })
+  vi.mocked(api.history).mockResolvedValue({
+    items: [{ type: "version", at: "2026-09-30T10:00:00Z", version: {
+      number: 2, origin: "folder", restored_from: null, author_name: "Ana", author_probable: false, description: "",
+      summary: { added: 0, removed: 0, modified: 1, binaries: [] }, files_changed_at: null, created_at: "2026-09-30T10:00:00Z", current: true,
+    } }],
+    more: false, next_before: "",
+  })
+  vi.spyOn(api, "describeVersion").mockResolvedValue({} as never)
+  const update = vi.spyOn(api, "updateApp").mockRejectedValue(new ApiError(409, "Alguém mudou esta ficha agora há pouco. Recarregue para ver a versão nova."))
+  renderPage(henry)
+  await userEvent.click(await screen.findByRole("button", { name: "Editar O que ele entrega" }))
+  // While the part is open, the version gets a description in the history: the app reloads.
+  await userEvent.click(await screen.findByRole("button", { name: "Descrever" }))
+  await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Salvar" }))
+  await vi.waitFor(() => expect(api.app).toHaveBeenCalledTimes(2))
+  await vi.waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
+  await userEvent.click(screen.getByRole("button", { name: "Salvar" }))
+  expect(update).toHaveBeenCalledWith(d.id, expect.objectContaining({ updated_at: d.updated_at }))
+  expect(await screen.findByRole("button", { name: "Recarregar" })).toBeInTheDocument()
+})
+
+it("shows Recarregar only for a conflict or a lost app, not for something missing", async () => {
+  const d = detail()
+  d.manifest = { ...d.manifest, inputs: [{ id: "docs", label: "Documentos", type: "choice", source: "window", options: [], required: true }] }
+  mockApp(d)
+  const update = vi.spyOn(api, "updateApp")
+  renderPage(henry)
+  await userEvent.click(await screen.findByRole("button", { name: "Editar O que ele pede" }))
+  await userEvent.click(screen.getByRole("button", { name: "Salvar" }))
+  expect(await screen.findByRole("alert")).toHaveTextContent('Falta definir as opções de "Documentos".')
+  expect(screen.queryByRole("button", { name: "Recarregar" })).toBeNull()
+  expect(update).not.toHaveBeenCalled()
+})
+
+it("an app lost while open: save says not found, Recarregar shows it and offers to try again", async () => {
+  mockApp(detail())
+  vi.spyOn(api, "updateApp").mockRejectedValue(new ApiError(404, "App não encontrado."))
+  renderPage(bia)
+  await userEvent.click(await screen.findByRole("button", { name: "Editar O que ele entrega" }))
+  await userEvent.click(screen.getByRole("button", { name: "Salvar" }))
+  expect(await screen.findByRole("alert")).toHaveTextContent("App não encontrado.")
+  vi.mocked(api.app).mockRejectedValue(new ApiError(404, "App não encontrado."))
+  await userEvent.click(screen.getByRole("button", { name: "Recarregar" }))
+  expect(await screen.findByText("App não encontrado.")).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "Tentar de novo" })).toBeInTheDocument()
+  expect(screen.queryByRole("heading", { name: "Eq. Research Files Prep" })).toBeNull()
+})
+
+it("tries the editor lists again after they failed", async () => {
+  mockApp(detail())
+  vi.mocked(api.people).mockRejectedValueOnce(new ApiError(0, "offline")).mockResolvedValue([])
+  renderPage(henry)
+  await userEvent.click(await screen.findByRole("button", { name: "Editar Quem cuida" }))
+  await vi.waitFor(() => expect(api.people).toHaveBeenCalledTimes(1))
+  await userEvent.click(screen.getByRole("button", { name: "Cancelar" }))
+  await userEvent.click(screen.getByRole("button", { name: "Editar Quem cuida" }))
+  await vi.waitFor(() => expect(api.people).toHaveBeenCalledTimes(2))
+  expect(api.areas).toHaveBeenCalledTimes(2)
+})
+
+it("following another app's link loads that app fresh", async () => {
+  const other = detail({ id: 7, manifest: { ...detail().manifest, name: "Files Prep" } })
+  mockApp(detail({ depends_on_apps: [{ id: 7, slug: "files-prep", name: "Files Prep", visible: true }] }))
+  let answer: (d: AppDetail) => void = () => {}
+  renderPage(henry)
+  await screen.findByRole("heading", { name: "Eq. Research Files Prep" })
+  vi.mocked(api.app).mockImplementation(() => new Promise((r) => { answer = r }))
+  await userEvent.click(screen.getByText("Para quem cuida do app"))
+  await userEvent.click(screen.getByRole("link", { name: "Files Prep" }))
+  expect(await screen.findByText("Carregando…")).toBeInTheDocument()
+  expect(screen.queryByRole("heading", { name: "Eq. Research Files Prep" })).toBeNull()
+  act(() => answer(other))
+  expect(await screen.findByRole("heading", { name: "Files Prep" })).toBeInTheDocument()
 })
