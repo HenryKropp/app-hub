@@ -104,7 +104,9 @@ func (h *Handler) scan(w http.ResponseWriter, r *http.Request) {
 		item := scanItem{Diagnosis: d, FolderDisplay: hostpath.ToDisplay(d.FolderPath), Similar: []similarApp{}}
 		for _, a := range existing {
 			if a.FolderPath == d.FolderPath {
-				item.RegisteredAppID = a.ID
+				if visible[a.ID] {
+					item.RegisteredAppID = a.ID
+				}
 				continue
 			}
 			if visible[a.ID] && scanner.LooksDuplicate(a.Name, d.Manifest.Name) {
@@ -326,9 +328,16 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "get app by folder", oldErr)
 		return
 	}
-	if oldErr == nil && !acc.For(appRef(old)).Edit {
-		writeError(w, http.StatusForbidden, "Você não pode mudar este app.")
-		return
+	if oldErr == nil {
+		can := acc.For(appRef(old))
+		if !can.Edit {
+			writeError(w, http.StatusForbidden, "Você não pode mudar este app.")
+			return
+		}
+		if !can.Access && handsOver(old, body) {
+			writeError(w, http.StatusForbidden, handOverMsg)
+			return
+		}
 	}
 	if oldErr != nil && !acc.CanRegister() {
 		writeError(w, http.StatusForbidden, "Você não tem permissão para registrar apps.")
@@ -372,6 +381,10 @@ func (h *Handler) updateApp(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &body) {
 		return
 	}
+	if !can.Access && handsOver(a, body.appBody) {
+		writeError(w, http.StatusForbidden, handOverMsg)
+		return
+	}
 	if !body.UpdatedAt.Equal(a.UpdatedAt.Time) {
 		writeError(w, http.StatusConflict, "Alguém mudou esta ficha agora há pouco. Recarregue para ver a versão nova.")
 		return
@@ -385,6 +398,20 @@ func (h *Handler) updateApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.writeDetail(w, r, me, saved, http.StatusOK)
+}
+
+const handOverMsg = "Só quem cuida do acesso do app pode trocar o responsável, a reserva ou a área."
+
+// handsOver: the body changes who cares for the app (owner, backup) or its
+// area. Only someone with access control on the app may do that; an editor
+// who did it could give themselves restore and access rights.
+func handsOver(old sqlc.App, body appBody) bool {
+	var backup int64
+	if body.BackupID != nil {
+		backup = *body.BackupID
+	}
+	return body.OwnerID != old.OwnerID || backup != old.BackupID.Int64 ||
+		strings.TrimSpace(body.Manifest.Area) != old.Area
 }
 
 type appBody struct {

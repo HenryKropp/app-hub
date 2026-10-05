@@ -652,7 +652,7 @@ func (q *Queries) ListViewerAppIDs(ctx context.Context, personID pgtype.Int8) ([
 }
 
 const renameAppsArea = `-- name: RenameAppsArea :exec
-UPDATE apps SET area = $1, manifest = jsonb_set(manifest, '{area}', to_jsonb($1::text))
+UPDATE apps SET area = $1, manifest = jsonb_set(manifest, '{area}', to_jsonb($1::text)), updated_at = now()
 WHERE area_id = $2
 `
 

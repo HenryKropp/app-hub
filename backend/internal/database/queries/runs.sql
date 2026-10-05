@@ -61,7 +61,7 @@ SELECT r.id, r.app_id, a.name AS app_name, r.status, r.output_folder, r.created_
 FROM runs r
 JOIN apps a ON a.id = r.app_id
 JOIN people p ON p.id = r.person_id
-WHERE (sqlc.arg(see_all)::boolean OR r.person_id = sqlc.arg(person_id) OR r.app_id = ANY(sqlc.arg(app_ids)::bigint[]))
+WHERE (r.person_id = sqlc.arg(person_id) OR r.app_id = ANY(sqlc.arg(app_ids)::bigint[]))
   AND (sqlc.arg(before)::bigint = 0 OR r.id < sqlc.arg(before)::bigint)
 ORDER BY r.id DESC
 LIMIT sqlc.arg(lim);

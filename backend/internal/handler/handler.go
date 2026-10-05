@@ -383,7 +383,8 @@ func (h *Handler) listPeople(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) createPerson(w http.ResponseWriter, r *http.Request) {
-	if _, _, ok := h.requirePerm(w, r, access.ManagePeople); !ok {
+	_, acc, ok := h.requirePerm(w, r, access.ManagePeople)
+	if !ok {
 		return
 	}
 	var c credentials
@@ -403,8 +404,16 @@ func (h *Handler) createPerson(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	role, err := h.q.GetRole(r.Context(), roleID)
-	if err != nil {
+	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusBadRequest, "Escolha o cargo da pessoa.")
+		return
+	}
+	if err != nil {
+		internalError(w, "get role", err)
+		return
+	}
+	if !holdsAll(acc, role.Permissions) {
+		writeError(w, http.StatusForbidden, biggerRole)
 		return
 	}
 	if _, err := h.q.GetPersonByEmail(r.Context(), c.Email); err == nil {
