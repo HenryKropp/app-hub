@@ -13,6 +13,8 @@ beforeEach(() => {
   localStorage.clear()
   vi.spyOn(auth, "useAuth").mockReturnValue({ loading: false, needsSetup: false, person: henry, refresh: async () => {}, setPerson: () => {} })
   vi.spyOn(api, "people").mockResolvedValue([row(henry), row(ana)])
+  vi.spyOn(api, "areas").mockResolvedValue([{ id: 1, name: "Research", app_count: 0, leaders: [], members: [] }])
+  vi.spyOn(api, "apps").mockResolvedValue([])
 })
 afterEach(() => vi.restoreAllMocks())
 

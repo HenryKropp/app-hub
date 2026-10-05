@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { KindTab, PageHeader } from "@/components/bits"
 import { ReviewForm } from "@/components/ReviewForm"
-import { api, type PersonRow, type ScanItem, type ScanResult } from "@/lib/api"
+import { api, type Area, type AppSummary, type PersonRow, type ScanItem, type ScanResult } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 
@@ -32,9 +32,13 @@ export function RegisterPage() {
   const [published, setPublished] = useState<Record<string, number>>({})
   const [selected, setSelected] = useState(0)
   const [people, setPeople] = useState<PersonRow[]>([])
+  const [areas, setAreas] = useState<Area[]>([])
+  const [apps, setApps] = useState<AppSummary[]>([])
 
   useEffect(() => {
     api.people().then(setPeople, () => {})
+    api.areas().then(setAreas, () => {})
+    api.apps().then(setApps, () => {})
   }, [])
 
   const scan = async (e: FormEvent) => {
@@ -215,6 +219,8 @@ export function RegisterPage() {
                   key={current.folder_path}
                   item={current}
                   people={people}
+                  areas={areas}
+                  apps={apps}
                   me={me}
                   onPublished={(app) => {
                     setPublished((p) => ({ ...p, [current.folder_path]: app.id }))

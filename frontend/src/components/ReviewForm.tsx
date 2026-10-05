@@ -1,16 +1,18 @@
 import { useMemo, useState, type ReactNode } from "react"
-import { CircleHelp, FileCog, KeyRound, Plus, Search, TriangleAlert, X } from "lucide-react"
+import { CircleHelp, FileCog, KeyRound, Search, TriangleAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Field, KindTab, NativeSelect } from "@/components/bits"
-import { api, ApiError, type AppDetail, type Input as AppInput, type Manifest, type Person, type PersonRow, type ScanItem } from "@/lib/api"
-import { AREAS, INPUT_SOURCES, INPUT_TYPES, KINDS, RUNNABLE } from "@/lib/kinds"
+import { BuildEditor, choiceProblems, Confirm, DependsEditor, IdentityEditor, InputsEditor, OutputsEditor, PeopleEditor } from "@/components/ficha/editors"
+import { api, ApiError, type AppDetail, type Area, type AppSummary, type Manifest, type Person, type PersonRow, type ScanItem } from "@/lib/api"
+import { RUNNABLE } from "@/lib/kinds"
 import { cn } from "@/lib/utils"
 
 type Props = {
   item: ScanItem
   people: PersonRow[]
+  areas: Area[]
+  apps: AppSummary[]
   me: Person
   onPublished: (app: AppDetail) => void
   onSkip: () => void
@@ -28,27 +30,24 @@ function Block({ title, icon, children, id }: { title: string; icon?: ReactNode;
   )
 }
 
-function Confirm({ on }: { on: boolean }) {
-  if (!on) return null
-  return <span className="ml-1.5 rounded-full bg-warn-soft px-2 py-px align-middle text-[0.7rem] font-medium text-warn">confirmar</span>
-}
-
 function personIdFor(people: PersonRow[], email?: string) {
   return people.find((p) => p.email === email)?.id ?? 0
 }
 
 /** Missing items that block publishing, in plain Portuguese. */
-export function missingForPublish(m: Manifest, ownerId: number, backupId: number): string[] {
+export function missingForPublish(m: Manifest, ownerId: number, backupId: number, areas: Area[] = []): string[] {
   const out: string[] = []
   if (!m.name.trim()) out.push("o nome")
   if (!ownerId) out.push("o responsável")
   if (ownerId && backupId && ownerId === backupId) out.push("um reserva diferente do responsável")
   if (RUNNABLE.includes(m.kind) && !m.entrypoint.trim()) out.push("o arquivo que inicia o app")
   if ((m.inputs ?? []).some((i) => !i.label.trim())) out.push("o nome de cada entrada")
+  out.push(...choiceProblems(m.inputs ?? []))
+  if (!m.area || !areas.some((a) => a.name === m.area)) out.push("a área")
   return out
 }
 
-export function ReviewForm({ item, people, me, onPublished, onSkip }: Props) {
+export function ReviewForm({ item, people, areas, apps, me, onPublished, onSkip }: Props) {
   const [m, setM] = useState<Manifest>(() => ({
     ...item.manifest,
     inputs: item.manifest.inputs ?? [],
@@ -61,10 +60,9 @@ export function ReviewForm({ item, people, me, onPublished, onSkip }: Props) {
 
   const asks = useMemo(() => new Set((item.questions ?? []).map((q) => q.field)), [item.questions])
   const set = <K extends keyof Manifest>(k: K, v: Manifest[K]) => setM((cur) => ({ ...cur, [k]: v }))
-  const setInput = (i: number, patch: Partial<AppInput>) => set("inputs", (m.inputs ?? []).map((x, j) => (j === i ? { ...x, ...patch } : x)))
 
   const runnable = RUNNABLE.includes(m.kind)
-  const missing = missingForPublish(m, ownerId, backupId)
+  const missing = missingForPublish(m, ownerId, backupId, areas)
   const entryOptions = Array.from(new Set([...(item.entrypoint_options ?? []), m.entrypoint].filter(Boolean)))
   const updating = item.registered_app_id > 0 || item.has_manifest
 
@@ -79,11 +77,6 @@ export function ReviewForm({ item, people, me, onPublished, onSkip }: Props) {
     } finally {
       setBusy(false)
     }
-  }
-
-  const addInput = () => {
-    const n = (m.inputs ?? []).length + 1
-    set("inputs", [...(m.inputs ?? []), { id: `entrada_${n}`, label: "", type: "file", source: "fixed_file", path: "", required: true }])
   }
 
   return (
@@ -120,62 +113,19 @@ export function ReviewForm({ item, people, me, onPublished, onSkip }: Props) {
       )}
 
       <Block title="Identidade">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Nome" htmlFor="f-name" className="sm:col-span-2">
-            <Input id="f-name" value={m.name} onChange={(e) => set("name", e.target.value)} className="h-10 text-base" />
-          </Field>
-          <Field label={<>O que ele faz<Confirm on={asks.has("summary")} /></>} htmlFor="f-summary" className="sm:col-span-2" hint="Uma ou duas frases, para quem nunca usou.">
-            <Textarea id="f-summary" value={m.summary} onChange={(e) => set("summary", e.target.value)} rows={2} />
-          </Field>
-          <Field label={<>Tipo<Confirm on={asks.has("kind")} /></>} htmlFor="f-kind">
-            <NativeSelect id="f-kind" value={m.kind} onChange={(e) => set("kind", e.target.value as Manifest["kind"])}>
-              {KINDS.map((k) => (
-                <option key={k.value} value={k.value}>
-                  {k.label}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field label={<>Área<Confirm on={asks.has("area") && !m.area.trim()} /></>} htmlFor="f-area">
-            <Input id="f-area" list="areas" value={m.area} onChange={(e) => set("area", e.target.value)} placeholder="Ex.: Investimentos" />
-            <datalist id="areas">
-              {AREAS.map((a) => (
-                <option key={a} value={a} />
-              ))}
-            </datalist>
-          </Field>
-        </div>
+        <IdentityEditor value={m} onChange={setM} areas={areas} asks={asks} />
       </Block>
 
       <Block title="Pessoas">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Responsável" htmlFor="f-owner" hint="Quem mantém o app e responde por ele.">
-            <NativeSelect id="f-owner" value={ownerId} onChange={(e) => setOwnerId(Number(e.target.value))}>
-              <option value={0}>Escolha…</option>
-              {people.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </NativeSelect>
-          </Field>
-          <Field
-            label="Reserva"
-            htmlFor="f-backup"
-            hint={backupId ? "Quem assume se o responsável não estiver." : <span className="text-warn">Sem reserva, o app fica marcado como risco.</span>}
-          >
-            <NativeSelect id="f-backup" value={backupId} onChange={(e) => setBackupId(Number(e.target.value))}>
-              <option value={0}>Ninguém por enquanto</option>
-              {people
-                .filter((p) => p.id !== ownerId)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-            </NativeSelect>
-          </Field>
-        </div>
+        <PeopleEditor
+          people={people}
+          ownerId={ownerId}
+          backupId={backupId}
+          onChange={(o, b) => {
+            setOwnerId(o)
+            setBackupId(b)
+          }}
+        />
       </Block>
 
       {runnable && (
@@ -228,54 +178,25 @@ export function ReviewForm({ item, people, me, onPublished, onSkip }: Props) {
       {runnable && (
         <Block title="O que ele recebe">
           {asks.has("inputs") && <p className="-mt-2 mb-3 text-sm text-muted-foreground">Remova o que não for entrada.<Confirm on /></p>}
-          <ul className="flex flex-col gap-3">
-            {(m.inputs ?? []).map((inp, i) => (
-              <li key={i} className="grid gap-2 rounded-md border border-border bg-background/50 p-3 sm:grid-cols-[1fr_9rem_auto]" data-testid="input-row">
-                <Input aria-label="Nome da entrada" value={inp.label} placeholder="Nome da entrada" onChange={(e) => setInput(i, { label: e.target.value })} />
-                <NativeSelect aria-label="Tipo da entrada" value={inp.type} onChange={(e) => setInput(i, { type: e.target.value as AppInput["type"] })}>
-                  {INPUT_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
-                  ))}
-                </NativeSelect>
-                <Button variant="ghost" size="icon" aria-label={`Remover ${inp.label || "entrada"}`} onClick={() => set("inputs", (m.inputs ?? []).filter((_, j) => j !== i))}>
-                  <X />
-                </Button>
-                <p className="text-xs text-muted-foreground sm:col-span-3">
-                  Via {INPUT_SOURCES[inp.source]}
-                  {inp.path && (
-                    <>
-                      : <code className="font-mono">{inp.path}</code>
-                    </>
-                  )}
-                </p>
-              </li>
-            ))}
-          </ul>
-          {(m.inputs ?? []).length === 0 && <p className="mb-2 text-sm text-muted-foreground">Nenhuma entrada. O app roda sem precisar de nada.</p>}
-          <Button variant="outline" size="sm" className="mt-3" onClick={addInput}>
-            <Plus /> Adicionar entrada
-          </Button>
+          <InputsEditor value={m.inputs ?? []} onChange={(v) => set("inputs", v)} />
         </Block>
       )}
 
       {runnable && (
         <Block title="O que ele devolve">
-          <ul className="flex flex-col gap-2">
-            {(m.outputs ?? []).map((o, i) => (
-              <li key={i} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-                <Input aria-label="Descrição do resultado" value={o.label} onChange={(e) => set("outputs", (m.outputs ?? []).map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
-                <Input aria-label="Nome do arquivo" value={o.pattern} className="font-mono text-xs" onChange={(e) => set("outputs", (m.outputs ?? []).map((x, j) => (j === i ? { ...x, pattern: e.target.value } : x)))} />
-                <Button variant="ghost" size="icon" aria-label="Remover resultado" onClick={() => set("outputs", (m.outputs ?? []).filter((_, j) => j !== i))}>
-                  <X />
-                </Button>
-              </li>
-            ))}
-          </ul>
-          <Button variant="outline" size="sm" className="mt-3" onClick={() => set("outputs", [...(m.outputs ?? []), { label: "Arquivo gerado", pattern: "*.xlsx" }])}>
-            <Plus /> Adicionar resultado
-          </Button>
+          <OutputsEditor value={m.outputs ?? []} onChange={(v) => set("outputs", v)} />
+        </Block>
+      )}
+
+      {(m.kind === "executable" || (m.depends_on ?? []).length > 0) && (
+        <Block title="Outros apps que ele usa">
+          <DependsEditor value={m.depends_on ?? []} onChange={(v) => set("depends_on", v)} apps={apps} selfSlug={m.id} />
+        </Block>
+      )}
+
+      {(m.kind === "executable" || m.build) && (
+        <Block title="Código-fonte">
+          <BuildEditor value={m.build ?? null} onChange={(v) => set("build", v)} />
         </Block>
       )}
 
