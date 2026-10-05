@@ -15,7 +15,9 @@ import { formatWhen } from "@/lib/runs"
 import { kindInfo } from "@/lib/kinds"
 
 type PartKey = "sobre" | "pede" | "entrega" | "pessoas" | "notas" | "outros" | "codigo"
-type Draft = { manifest: Manifest; ownerId: number; backupId: number }
+// updatedAt is the version the draft started from: saving it after the app
+// changed elsewhere gets the 409 instead of reverting the other parts.
+type Draft = { manifest: Manifest; ownerId: number; backupId: number; updatedAt: string }
 type Lists = { areas: Area[]; people: PersonRow[]; apps: AppSummary[] }
 
 const RUNS_SHOWN = 5
@@ -76,6 +78,8 @@ export function AppPage() {
 
   // Another app on the same page: forget the open part and the technical block.
   useEffect(() => {
+    setApp(null)
+    setRuns(null)
     setOpen(null)
     setDraft(null)
     const o = readTechOpen(id)
@@ -110,14 +114,22 @@ export function AppPage() {
   const loadLists = () => {
     if (listsAsked.current) return
     listsAsked.current = true
-    Promise.all([api.areas().catch(() => []), api.people().catch(() => []), api.apps().catch(() => [])]).then(([areas, people, apps]) =>
-      setLists({ areas, people, apps }),
-    )
+    let failed = false
+    const or = <T,>(p: Promise<T[]>) =>
+      p.catch((): T[] => {
+        failed = true
+        return []
+      })
+    Promise.all([or(api.areas()), or(api.people()), or(api.apps())]).then(([areas, people, apps]) => {
+      setLists({ areas, people, apps })
+      // A later "Editar" tries again.
+      if (failed) listsAsked.current = false
+    })
   }
   const startEdit = (k: PartKey) => {
     if (open && dirty && !window.confirm("Descartar o que você mudou?")) return
     loadLists()
-    setDraft({ manifest: structuredClone(app.manifest), ownerId: app.owner_id, backupId: app.backup_id ?? 0 })
+    setDraft({ manifest: structuredClone(app.manifest), ownerId: app.owner_id, backupId: app.backup_id ?? 0, updatedAt: app.updated_at })
     setOpen(k)
   }
   const close = () => {
@@ -131,7 +143,7 @@ export function AppPage() {
       owner_id: draft!.ownerId,
       backup_id: draft!.backupId || null,
       manifest: draft!.manifest,
-      updated_at: app.updated_at,
+      updated_at: draft!.updatedAt,
     })
     setApp(next)
     close()

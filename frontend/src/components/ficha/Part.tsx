@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
+import { ApiError } from "@/lib/api"
 
 /** One titled block of the ficha: the title on the left, the content on the right. */
 export function Section({ title, aside, children, id }: { title: string; aside?: ReactNode; children: ReactNode; id?: string }) {
@@ -27,13 +28,18 @@ export function EditLink({ part, onClick }: { part: string; onClick: () => void 
 export function SaveBar({ dirty, onSave, onCancel, extra }: { dirty: boolean; onSave: () => Promise<void>; onCancel: () => void; extra?: ReactNode }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+  // extra (e.g. "Recarregar") only helps when the ficha changed or is gone, not
+  // when something is missing here: reloading would throw the edits away.
+  const [stale, setStale] = useState(false)
   const save = async () => {
     setBusy(true)
     setError("")
+    setStale(false)
     try {
       await onSave()
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não consegui salvar.")
+      setStale(e instanceof ApiError && (e.status === 409 || e.status === 404))
     } finally {
       setBusy(false)
     }
@@ -48,7 +54,7 @@ export function SaveBar({ dirty, onSave, onCancel, extra }: { dirty: boolean; on
       {error && (
         <div role="alert" className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
           <span>{error}</span>
-          {extra}
+          {stale && extra}
         </div>
       )}
       <div className="flex gap-2">
