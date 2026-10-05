@@ -405,6 +405,9 @@ func (h *Handler) writeApp(w http.ResponseWriter, r *http.Request, me sqlc.Perso
 	m.Summary = strings.TrimSpace(m.Summary)
 	m.Area = strings.TrimSpace(m.Area)
 
+	if old != nil {
+		m.ID = old.Slug // an edit never renames the slug; validate against the real one
+	}
 	m.Owner, m.Backup = nil, nil
 	if body.OwnerID != 0 {
 		owner, err := h.q.GetPerson(r.Context(), body.OwnerID)
