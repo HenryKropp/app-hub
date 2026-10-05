@@ -1,0 +1,20 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "geist",
+        "createdAt": "2026-10-05T16:13:23.963Z",
+        "reason": "Claude: DESIGN.md declares Geist Variable / Geist Mono Variable; the Google Fonts names in the prototype are the same families"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "geist mono",
+        "createdAt": "2026-10-05T16:13:23.996Z",
+        "reason": "Claude: DESIGN.md declares Geist Variable / Geist Mono Variable; the Google Fonts names in the prototype are the same families"
+      }
+    ]
+  }
+}
