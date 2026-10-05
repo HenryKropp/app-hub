@@ -142,7 +142,7 @@ func (h *Handler) appHistory(w http.ResponseWriter, r *http.Request) {
 			internalError(w, "expire runs", err)
 			return
 		}
-		rows, err := h.q.ListRunsBefore(ctx, sqlc.ListRunsBeforeParams{AppID: a.ID, Before: ts, SeeAll: me.Role == "admin", PersonID: me.ID, Lim: lim})
+		rows, err := h.q.ListRunsBefore(ctx, sqlc.ListRunsBeforeParams{AppID: a.ID, Before: ts, SeeAll: h.roleKey(ctx, me) == "admin", PersonID: me.ID, Lim: lim})
 		if err != nil {
 			internalError(w, "list runs", err)
 			return

@@ -47,6 +47,19 @@ func TestMain(m *testing.M) {
 
 // client is an HTTP client with a cookie jar talking to a test server whose
 // database work happens inside a transaction that is rolled back afterwards.
+// resetSQL empties the Hub and puts back the built-in roles and two areas
+// (Research = 1, Investimentos = 2), so every test starts the same way.
+const resetSQL = `
+TRUNCATE run_files, agent_jobs, runs, app_changes, app_versions, code_blobs, pairings, computers,
+         app_grants, app_viewers, area_grants, area_leaders, area_members, apps, sessions, people, areas
+         RESTART IDENTITY CASCADE;
+DELETE FROM roles WHERE key IS NULL;
+UPDATE roles SET name = 'Administrador', permissions = ARRAY['register_apps','edit_any_app','restore_any_app','see_tech_any_app','see_all_runs','see_all_apps','manage_people','manage_areas','manage_roles'] WHERE key = 'admin';
+UPDATE roles SET name = 'Criador', permissions = ARRAY['register_apps'] WHERE key = 'criador';
+UPDATE roles SET name = 'Usuário', permissions = ARRAY[]::text[] WHERE key = 'usuario';
+INSERT INTO areas (name) VALUES ('Research'), ('Investimentos');
+`
+
 type client struct {
 	t   *testing.T
 	srv *httptest.Server
@@ -61,7 +74,7 @@ func newClient(t *testing.T, devMode bool) *client {
 		t.Fatal(err)
 	}
 	// Start from an empty Hub inside the transaction.
-	if _, err := tx.Exec(ctx, "TRUNCATE run_files, agent_jobs, runs, app_changes, app_versions, code_blobs, pairings, computers, apps, sessions, people RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := tx.Exec(ctx, resetSQL); err != nil {
 		t.Fatal(err)
 	}
 	mux := http.NewServeMux()
@@ -120,7 +133,7 @@ func newPoolClient(t *testing.T) (*client, *Handler) {
 	t.Helper()
 	ctx := context.Background()
 	truncate := func() {
-		if _, err := testPool.Exec(ctx, "TRUNCATE run_files, agent_jobs, runs, app_changes, app_versions, code_blobs, pairings, computers, apps, sessions, people RESTART IDENTITY CASCADE"); err != nil {
+		if _, err := testPool.Exec(ctx, resetSQL); err != nil {
 			t.Fatal(err)
 		}
 	}

@@ -150,7 +150,7 @@ func TestPublishRefusesForeignFicha(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, manifest.FichaName), []byte("ficha feita à mão"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	m := manifest.Manifest{Name: "Docs", Kind: manifest.KindReference}
+	m := manifest.Manifest{Name: "Docs", Kind: manifest.KindReference, Area: "Research"}
 	code := c.do("POST", "/api/apps", map[string]any{"folder_path": dir, "manifest": m, "owner_id": admin.ID}, nil)
 	if code != http.StatusConflict {
 		t.Fatalf("status = %d", code)

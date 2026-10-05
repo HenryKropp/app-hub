@@ -18,7 +18,7 @@ func TestSetupLoginLogout(t *testing.T) {
 	}
 
 	admin := setupAdmin(t, c)
-	if admin.Role != "admin" || admin.Email != "henry@alis.com" {
+	if admin.RoleName != "Administrador" || admin.Email != "henry@alis.com" {
 		t.Fatalf("admin = %+v", admin)
 	}
 	c.do("GET", "/api/auth/status", nil, &status)
@@ -76,7 +76,7 @@ func TestDevLoginAbsentWithoutDevMode(t *testing.T) {
 func TestDevLoginInDevMode(t *testing.T) {
 	dev := newClient(t, true)
 	var p personJSON
-	if code := dev.do("POST", "/api/dev/login", nil, &p); code != http.StatusOK || p.Role != "admin" {
+	if code := dev.do("POST", "/api/dev/login", nil, &p); code != http.StatusOK || p.RoleName != "Administrador" {
 		t.Fatalf("dev login = %d %+v", code, p)
 	}
 	if code := dev.do("GET", "/api/apps", nil, nil); code != http.StatusOK {

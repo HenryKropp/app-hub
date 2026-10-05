@@ -263,7 +263,7 @@ func (h *Handler) runForPerson(w http.ResponseWriter, r *http.Request) (sqlc.Get
 			return sqlc.GetRunRow{}, me, false
 		}
 		row, err := h.q.GetRun(r.Context(), id)
-		if err == nil && (row.PersonID == me.ID || me.Role == "admin") {
+		if err == nil && (row.PersonID == me.ID || h.roleKey(r.Context(), me) == "admin") {
 			return row, me, true
 		}
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -302,7 +302,7 @@ func (h *Handler) listAppRuns(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "expire runs", err)
 		return
 	}
-	rows, err := h.q.ListAppRuns(r.Context(), sqlc.ListAppRunsParams{AppID: id, SeeAll: me.Role == "admin", PersonID: me.ID})
+	rows, err := h.q.ListAppRuns(r.Context(), sqlc.ListAppRunsParams{AppID: id, SeeAll: h.roleKey(r.Context(), me) == "admin", PersonID: me.ID})
 	if err != nil {
 		internalError(w, "list runs", err)
 		return
@@ -685,7 +685,7 @@ func (h *Handler) listRuns(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	all := r.URL.Query().Get("scope") == "all"
-	if all && me.Role != "admin" {
+	if all && h.roleKey(r.Context(), me) != "admin" {
 		writeError(w, http.StatusForbidden, "Só administradores veem as execuções de todos.")
 		return
 	}

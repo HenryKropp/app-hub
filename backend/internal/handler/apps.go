@@ -274,6 +274,16 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	area, err := h.q.GetAreaByName(r.Context(), m.Area)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusBadRequest, "Escolha a área do app na lista.")
+		return
+	}
+	if err != nil {
+		internalError(w, "get area", err)
+		return
+	}
+
 	base := m.ID
 	if base == "" {
 		base = manifest.Slugify(m.Name)
@@ -310,7 +320,7 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a, err := h.q.UpsertApp(r.Context(), sqlc.UpsertAppParams{
-		Slug: m.ID, Name: m.Name, Summary: m.Summary, Kind: m.Kind, Language: m.Language, Area: m.Area,
+		Slug: m.ID, Name: m.Name, Summary: m.Summary, Kind: m.Kind, Language: m.Language, Area: m.Area, AreaID: area.ID,
 		FolderPath: folder, OwnerID: body.OwnerID, BackupID: backupID, Manifest: manifestJSON, CreatedBy: me.ID,
 	})
 	if err != nil {

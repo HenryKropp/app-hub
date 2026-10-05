@@ -142,17 +142,6 @@ func internalError(w http.ResponseWriter, msg string, err error) {
 	writeError(w, http.StatusInternalServerError, "Algo deu errado do nosso lado. Tente de novo.")
 }
 
-type personJSON struct {
-	ID    int64  `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-	Role  string `json:"role"`
-}
-
-func toPersonJSON(p sqlc.Person) personJSON {
-	return personJSON{ID: p.ID, Name: p.Name, Email: p.Email, Role: p.Role}
-}
-
 // currentPerson returns the logged-in person, or writes 401 and returns false.
 func (h *Handler) currentPerson(w http.ResponseWriter, r *http.Request) (sqlc.Person, bool) {
 	c, err := r.Cookie(cookieName)
@@ -177,7 +166,7 @@ func (h *Handler) requireRole(w http.ResponseWriter, r *http.Request, roles ...s
 		return p, false
 	}
 	for _, role := range roles {
-		if p.Role == role {
+		if h.roleKey(r.Context(), p) == role {
 			return p, true
 		}
 	}
@@ -215,7 +204,9 @@ func (h *Handler) authStatus(w http.ResponseWriter, r *http.Request) {
 	resp := map[string]any{"needs_setup": count == 0, "person": nil}
 	if c, err := r.Cookie(cookieName); err == nil {
 		if p, err := h.q.GetSessionPerson(r.Context(), c.Value); err == nil {
-			resp["person"] = toPersonJSON(p)
+			if out, err := h.personOut(r.Context(), p); err == nil {
+				resp["person"] = out
+			}
 		}
 	}
 	writeJSON(w, http.StatusOK, resp)
@@ -226,6 +217,7 @@ type credentials struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	Role     string `json:"role"`
+	RoleID   int64  `json:"role_id"`
 }
 
 func (c *credentials) normalize() {
@@ -270,7 +262,12 @@ func (h *Handler) setup(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "hash", err)
 		return
 	}
-	p, err := h.q.CreatePerson(r.Context(), sqlc.CreatePersonParams{Name: c.Name, Email: c.Email, PasswordHash: string(hash), Role: "admin"})
+	admin, err := h.q.GetRoleByKey(r.Context(), pgtype.Text{String: "admin", Valid: true})
+	if err != nil {
+		internalError(w, "admin role", err)
+		return
+	}
+	p, err := h.q.CreatePerson(r.Context(), sqlc.CreatePersonParams{Name: c.Name, Email: c.Email, PasswordHash: string(hash), RoleID: admin.ID})
 	if err != nil {
 		internalError(w, "create person", err)
 		return
@@ -279,7 +276,12 @@ func (h *Handler) setup(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "session", err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, toPersonJSON(p))
+	out, err := h.personOut(r.Context(), p)
+	if err != nil {
+		internalError(w, "person", err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, out)
 }
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
@@ -301,7 +303,12 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "session", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toPersonJSON(p))
+	out, err := h.personOut(r.Context(), p)
+	if err != nil {
+		internalError(w, "person", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
@@ -332,10 +339,31 @@ func (h *Handler) devLogin(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "session", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toPersonJSON(p))
+	out, err := h.personOut(r.Context(), p)
+	if err != nil {
+		internalError(w, "person", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 // --- people ---
+
+type personRow struct {
+	ID       int64   `json:"id"`
+	Name     string  `json:"name"`
+	Email    string  `json:"email"`
+	RoleID   int64   `json:"role_id"`
+	RoleName string  `json:"role_name"`
+	AreaIDs  []int64 `json:"area_ids"`
+}
+
+func nonNil(v []int64) []int64 {
+	if v == nil {
+		return []int64{}
+	}
+	return v
+}
 
 func (h *Handler) listPeople(w http.ResponseWriter, r *http.Request) {
 	if _, ok := h.currentPerson(w, r); !ok {
@@ -346,9 +374,9 @@ func (h *Handler) listPeople(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "list people", err)
 		return
 	}
-	out := make([]personJSON, 0, len(people))
+	out := make([]personRow, 0, len(people))
 	for _, p := range people {
-		out = append(out, personJSON{ID: p.ID, Name: p.Name, Email: p.Email, Role: p.Role})
+		out = append(out, personRow{ID: p.ID, Name: p.Name, Email: p.Email, RoleID: p.RoleID, RoleName: p.RoleName, AreaIDs: nonNil(p.AreaIds)})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -366,8 +394,16 @@ func (h *Handler) createPerson(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, msg)
 		return
 	}
-	if c.Role != "admin" && c.Role != "criador" && c.Role != "usuario" {
-		writeError(w, http.StatusBadRequest, "Escolha o perfil da pessoa.")
+	roleID := c.RoleID
+	if roleID == 0 && c.Role != "" {
+		role, err := h.q.GetRoleByKey(r.Context(), pgtype.Text{String: c.Role, Valid: true})
+		if err == nil {
+			roleID = role.ID
+		}
+	}
+	role, err := h.q.GetRole(r.Context(), roleID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "Escolha o cargo da pessoa.")
 		return
 	}
 	if _, err := h.q.GetPersonByEmail(r.Context(), c.Email); err == nil {
@@ -379,10 +415,10 @@ func (h *Handler) createPerson(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "hash", err)
 		return
 	}
-	p, err := h.q.CreatePerson(r.Context(), sqlc.CreatePersonParams{Name: c.Name, Email: c.Email, PasswordHash: string(hash), Role: c.Role})
+	p, err := h.q.CreatePerson(r.Context(), sqlc.CreatePersonParams{Name: c.Name, Email: c.Email, PasswordHash: string(hash), RoleID: roleID})
 	if err != nil {
 		internalError(w, "create person", err)
 		return
 	}
-	writeJSON(w, http.StatusCreated, toPersonJSON(p))
+	writeJSON(w, http.StatusCreated, personRow{ID: p.ID, Name: p.Name, Email: p.Email, RoleID: p.RoleID, RoleName: role.Name, AreaIDs: []int64{}})
 }
