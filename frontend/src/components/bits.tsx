@@ -176,3 +176,18 @@ export function RunState({ status, className }: { status: RunStatus; className?:
     </span>
   )
 }
+
+/** A page that didn't load: the reason in plain words and a way to try again. */
+export function LoadError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div role="alert" className="flex flex-col items-start gap-3">
+      <p className="flex items-start gap-2 text-destructive">
+        <TriangleAlert className="mt-1 size-4 shrink-0" />
+        {message}
+      </p>
+      <button type="button" onClick={onRetry} className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium transition-colors hover:bg-accent">
+        Tentar de novo
+      </button>
+    </div>
+  )
+}

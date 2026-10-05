@@ -7,7 +7,10 @@ import { RunsProvider, useRuns } from "@/lib/runs-context"
 import { activeRun } from "@/test/fixtures"
 import { RunStrip } from "./RunStrip"
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
 
 function Starter() {
   const { run } = useRuns()
@@ -36,6 +39,19 @@ test("open app shows the hint and can be hidden", async () => {
   expect(screen.getByText("CVM")).toHaveAttribute("title", "D:\\Saídas\\CVM")
   await user.click(screen.getByRole("button", { name: "Ocultar" }))
   expect(screen.queryByText(/aberto no seu computador/)).not.toBeInTheDocument()
+  // A reminder stays, and brings it back.
+  await user.click(screen.getByRole("button", { name: /1 aberto oculto · Mostrar/ }))
+  expect(screen.getByText(/aberto no seu computador/)).toBeInTheDocument()
+})
+
+test("Ver on an open app goes to its page and keeps it in the strip", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "activeRuns").mockResolvedValue([activeRun({ status: "running" })])
+  const dismiss = vi.spyOn(api, "dismissRun").mockResolvedValue()
+  mount()
+  await user.click(await screen.findByRole("button", { name: "Ver" }))
+  expect(await screen.findByText("página da execução")).toBeInTheDocument()
+  expect(dismiss).not.toHaveBeenCalled()
 })
 
 test("waiting run says it is opening", async () => {
@@ -186,4 +202,13 @@ test("error cards are alerts, the others are not", async () => {
   mount()
   expect(await screen.findByRole("alert")).toHaveTextContent("deu ruim")
   expect(screen.getAllByRole("alert")).toHaveLength(1)
+})
+
+test("on a phone the strip shows one card and counts the rest", async () => {
+  vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width"), media: q, addEventListener: () => {}, removeEventListener: () => {} }))
+  vi.spyOn(api, "activeRuns").mockResolvedValue([activeRun({ id: 1, status: "running" }), activeRun({ id: 2, status: "no_files" })])
+  mount()
+  expect(await screen.findByText(/terminou sem arquivos novos/)).toBeInTheDocument()
+  expect(screen.queryByText(/aberto no seu computador/)).not.toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "+1 em Minhas execuções" })).toBeInTheDocument()
 })

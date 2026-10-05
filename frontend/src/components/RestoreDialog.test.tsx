@@ -23,7 +23,8 @@ test("success stays visible and onDone fires only on Fechar", async () => {
   const { user, onDone } = await setup()
   expect(await screen.findByText(/Pronto\. O código voltou para a versão 1/)).toBeInTheDocument()
   expect(onDone).not.toHaveBeenCalled()
-  await user.click(screen.getByRole("button", { name: "Fechar" }))
+  // The footer button; the corner X is also named Fechar.
+  await user.click(screen.getAllByRole("button", { name: "Fechar" }).at(-1)!)
   expect(onDone).toHaveBeenCalledTimes(1)
 })
 

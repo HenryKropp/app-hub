@@ -83,3 +83,43 @@ test("the + Registrar apps sits in the catalog for creators, not for usuários",
   await screen.findByText("Eq. Research Files Prep")
   expect(screen.queryByRole("link", { name: "Registrar apps" })).not.toBeInTheDocument()
 })
+
+test("a catalog that didn't load says why and tries again", async () => {
+  const user = userEvent.setup()
+  const apps = vi.spyOn(api, "apps").mockRejectedValueOnce(new Error("O Hub não respondeu. Espere um pouco e tente de novo.")).mockResolvedValue([appSummary()])
+  mount()
+  expect(await screen.findByRole("alert")).toHaveTextContent("O Hub não respondeu")
+  await user.click(screen.getByRole("button", { name: "Tentar de novo" }))
+  expect(await screen.findByText("Eq. Research Files Prep")).toBeInTheDocument()
+  expect(apps).toHaveBeenCalledTimes(2)
+})
+
+test("search has a name and can be cleared", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "apps").mockResolvedValue([appSummary()])
+  mount()
+  await user.type(await screen.findByRole("searchbox", { name: "Buscar apps" }), "xyz")
+  expect(screen.getByText(/Nenhum app encontrado/)).toBeInTheDocument()
+  await user.click(screen.getAllByRole("button", { name: "Limpar busca" })[0]!)
+  expect(screen.getByRole("searchbox", { name: "Buscar apps" })).toHaveValue("")
+  expect(screen.getByText("Eq. Research Files Prep")).toBeInTheDocument()
+})
+
+test("the run window has Cancelar", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "apps").mockResolvedValue([appSummary()])
+  const start = vi.spyOn(api, "startRun")
+  mount()
+  await user.click(await screen.findByRole("button", { name: "Rodar Eq. Research Files Prep" }))
+  await user.click(screen.getByRole("button", { name: "Cancelar" }))
+  await vi.waitFor(() => expect(screen.queryByLabelText("Onde salvar os resultados?")).not.toBeInTheDocument())
+  expect(start).not.toHaveBeenCalled()
+})
+
+test("an empty catalog tells a usuário what to expect, not how to register", async () => {
+  vi.spyOn(auth, "useAuth").mockReturnValue({ loading: false, needsSetup: false, person: { ...henry, role: "usuario" }, refresh: async () => {}, setPerson: () => {} })
+  vi.spyOn(api, "apps").mockResolvedValue([])
+  mount()
+  expect(await screen.findByText(/Quando alguém registrar os apps/)).toBeInTheDocument()
+  expect(screen.queryByRole("link", { name: /Registrar/ })).not.toBeInTheDocument()
+})

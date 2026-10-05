@@ -65,6 +65,9 @@ export function RunDialog({ target, onCancel, onConfirm }: { target: RunTarget |
           </p>
         )}
         <DialogFooter>
+          <Button variant="outline" onClick={onCancel}>
+            Cancelar
+          </Button>
           <Button variant="run" className="pr-4 pl-4" onClick={() => onConfirm(folder.trim(), remember)} disabled={choosing || folder.trim() === ""}>
             Abrir app
           </Button>

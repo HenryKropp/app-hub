@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { ArrowLeft, Download, Play, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
-import { RunState } from "@/components/bits"
+import { LoadError, RunState } from "@/components/bits"
 import { api, fileUrl, groupZipUrl, selectedUrl, type Run, type RunGroup } from "@/lib/api"
 import { useRuns } from "@/lib/runs-context"
 import { formatDuration, formatSize, formatWhen, isLive } from "@/lib/runs"
@@ -75,6 +75,7 @@ export function RunPage() {
   const { id } = useParams()
   const [run, setRun] = useState<Run | null>(null)
   const [error, setError] = useState("")
+  const [tries, setTries] = useState(0)
   const [, setNow] = useState(() => Date.now())
   const [selected, setSelected] = useState<Set<number>>(() => new Set())
   const { run: runApp, busy } = useRuns()
@@ -110,9 +111,9 @@ export function RunPage() {
       stop = true
       clearInterval(t)
     }
-  }, [id])
+  }, [id, tries])
 
-  if (error) return <p role="alert" className="text-destructive">{error}</p>
+  if (error) return <LoadError message={error} onRetry={() => { setError(""); setTries((n) => n + 1) }} />
   if (!run) return <p className="text-muted-foreground">Carregando…</p>
 
   return (
@@ -147,6 +148,11 @@ export function RunPage() {
       <div>
         {run.status === "running" && <p className="mt-2 text-muted-foreground">Rodando: a janela está aberta no seu computador. Quando você fechar, os arquivos aparecem aqui.</p>}
         {run.status === "waiting" && <p className="mt-2 text-muted-foreground">Esperando o computador {run.computer_name} abrir o app…</p>}
+        {run.status === "no_files" && (
+          <p className="mt-2 max-w-prose text-muted-foreground">
+            O app fechou sem criar nem mudar arquivos na pasta abaixo. Se você esperava algum, confira se o app salvou nesta pasta: o Hub só vê o que fica nela.
+          </p>
+        )}
         {(run.status === "error" || run.status === "interrupted") && run.error_message && (
           <p role="alert" className="mt-2 text-destructive">{run.error_message}</p>
         )}

@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom"
 import { ArrowLeft, FolderOpen, KeyRound, Play, TriangleAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { HistoryTimeline } from "@/components/HistoryTimeline"
-import { KindTab, SavedIn } from "@/components/bits"
+import { KindTab, LoadError, SavedIn } from "@/components/bits"
 import { api, type AppDetail, type Input } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
@@ -64,6 +64,7 @@ export function AppPage() {
   const canEdit = person?.role === "admin" || person?.role === "criador"
   const [readable, setReadable] = useState(true)
   const [historyKey, setHistoryKey] = useState(0)
+  const [tries, setTries] = useState(0)
   const { run, busy, rememberedFor } = useRuns()
 
   // The ficha shows what the Hub already knows; the folder check (OneDrive can
@@ -93,9 +94,9 @@ export function AppPage() {
     return () => {
       gone = true
     }
-  }, [id])
+  }, [id, tries])
 
-  if (error) return <p className="text-destructive">{error}</p>
+  if (error) return <LoadError message={error} onRetry={() => { setError(""); setTries((n) => n + 1) }} />
   if (!app) return <p className="text-muted-foreground">Carregando…</p>
   const m = app.manifest
   const target = { id: app.id, name: m.name, folder_display: app.folder_display, remembered_folder: app.remembered_folder }
