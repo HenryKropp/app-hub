@@ -120,3 +120,45 @@ func TestAreasAndLeaders(t *testing.T) {
 }
 
 func itoa(n int64) string { return strconv.FormatInt(n, 10) }
+
+func TestAreaPeopleAtomic(t *testing.T) {
+	admin, _, _, _ := team(t)
+	var a areaOut
+	admin.do("POST", "/api/areas", map[string]string{"name": "Atômica"}, &a)
+	p := "/api/areas/" + itoa(a.ID)
+	for _, k := range []string{"/leaders", "/members"} {
+		if code := admin.do("PUT", p+k, map[string]any{"person_ids": []int64{2}}, nil); code != http.StatusOK {
+			t.Fatalf("set %s %d", k, code)
+		}
+		var out map[string]any
+		if code := admin.do("PUT", p+k, map[string]any{"person_ids": []int64{3, 9999}}, &out); code != http.StatusBadRequest || out["error"] != "Pessoa não encontrada." {
+			t.Fatalf("unknown id %s = %d %v", k, code, out)
+		}
+	}
+	var areas []areaOut
+	admin.do("GET", "/api/areas", nil, &areas)
+	for _, x := range areas {
+		if x.ID == a.ID && (len(x.Leaders) != 1 || x.Leaders[0].ID != 2 || len(x.Members) != 1 || x.Members[0].ID != 2) {
+			t.Fatalf("area changed: %+v", x)
+		}
+	}
+}
+
+func TestCannotGrantMoreThanOwn(t *testing.T) {
+	admin, ana, _, _ := team(t)
+	var r roleOut
+	admin.do("POST", "/api/roles", map[string]any{"name": "RH", "permissions": []string{"manage_people"}}, &r)
+	if code := admin.do("PUT", "/api/people/2", map[string]any{"role_id": r.ID}, nil); code != http.StatusOK {
+		t.Fatalf("give RH %d", code)
+	}
+	const msg = "Você não pode dar um cargo com mais permissões que o seu."
+	for _, id := range []string{"2", "3"} {
+		var out map[string]any
+		if code := ana.do("PUT", "/api/people/"+id, map[string]any{"role_id": 1}, &out); code != http.StatusForbidden || out["error"] != msg {
+			t.Fatalf("ana gives admin to %s = %d %v", id, code, out)
+		}
+	}
+	if code := ana.do("PUT", "/api/people/3", map[string]any{"role_id": 3}, nil); code != http.StatusOK {
+		t.Fatalf("ana gives usuario = %d", code)
+	}
+}
