@@ -76,6 +76,17 @@ func (h *Handler) Register(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /api/people", h.listPeople)
 	mux.HandleFunc("POST /api/people", h.createPerson)
+	mux.HandleFunc("PUT /api/people/{id}", h.setPersonRole)
+	mux.HandleFunc("GET /api/roles", h.listRoles)
+	mux.HandleFunc("POST /api/roles", h.createRole)
+	mux.HandleFunc("PUT /api/roles/{id}", h.updateRole)
+	mux.HandleFunc("DELETE /api/roles/{id}", h.deleteRole)
+	mux.HandleFunc("GET /api/areas", h.listAreas)
+	mux.HandleFunc("POST /api/areas", h.createArea)
+	mux.HandleFunc("PUT /api/areas/{id}", h.renameArea)
+	mux.HandleFunc("DELETE /api/areas/{id}", h.deleteArea)
+	mux.HandleFunc("PUT /api/areas/{id}/leaders", h.setAreaLeaders)
+	mux.HandleFunc("PUT /api/areas/{id}/members", h.setAreaMembers)
 
 	mux.HandleFunc("POST /api/scan", h.scan)
 	mux.HandleFunc("GET /api/apps", h.listApps)
