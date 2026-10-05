@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Protótipo da ficha</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono&display=swap" rel="stylesheet">
+<style>
+:root{--violet:oklch(0.53 0.25 293);--wash:oklch(0.955 0.03 293);--ink:oklch(0.205 0 0);--quiet:oklch(0.5 0 0);--pill:oklch(0.965 0 0);--hover:oklch(0.955 0 0);--line:oklch(0.925 0 0);--field:oklch(0.88 0 0);--side:oklch(0.982 0 0);--warn:oklch(0.55 0.13 65);--warnsoft:oklch(0.96 0.04 80);--red:oklch(0.55 0.21 27);--ok:oklch(0.52 0.13 150)}
+*{box-sizing:border-box}
+body{margin:0;font-family:Geist,system-ui,sans-serif;color:var(--ink);background:#fff;font-size:15px}
+.proto{position:sticky;top:0;z-index:20;background:#fff8d6;border-bottom:1px solid #ecd98a;padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;font-size:13px}
+.proto b{font-weight:600}
+.seg{display:inline-flex;border:1px solid #d9c67a;border-radius:8px;overflow:hidden;background:#fff}
+.seg button{border:0;background:none;padding:6px 11px;font:inherit;cursor:pointer;color:#5b4d10}
+.seg button.on{background:#5b4d10;color:#fff}
+.wrap{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 50px)}
+.side{background:var(--side);border-right:1px solid var(--line);padding:18px 10px}
+.side .brand{font-weight:600;padding:0 10px 14px}
+.side .lbl{font-size:12px;color:var(--quiet);padding:10px 10px 6px}
+.side a{display:block;padding:7px 10px;border-radius:6px;color:var(--ink);text-decoration:none;cursor:pointer;font-size:14px}
+.side a:hover{background:var(--hover)}
+.side a.on{background:#fff;box-shadow:0 0 0 1px var(--line);font-weight:500}
+main{padding:32px 48px 120px;max-width:1080px}
+.back{color:var(--quiet);font-size:14px;cursor:pointer}
+h1{font-size:2.1rem;font-weight:600;letter-spacing:-.02em;margin:18px 0 0}
+.sum{color:var(--quiet);max-width:68ch;line-height:1.6;margin-top:12px}
+.meta{margin-top:14px;color:var(--quiet);font-size:14px;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+.meta .v{color:var(--ink)}
+.kind{background:var(--pill);border-radius:4px;padding:2px 7px;font-size:12px;font-weight:500;color:var(--ink)}
+.warn{color:var(--warn)}
+.head{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;padding-bottom:26px;flex-wrap:wrap}
+.run{background:var(--violet);color:#fff;border:0;border-radius:999px;height:44px;padding:0 24px 0 20px;font:inherit;font-weight:500;cursor:pointer}
+.saved{font-size:13px;color:var(--quiet);margin-top:8px;text-align:right}
+.lnk{color:var(--quiet);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.tabs{display:flex;gap:24px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.tabs button{border:0;background:none;font:inherit;padding:10px 0;cursor:pointer;color:var(--quiet);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:var(--ink);border-color:var(--ink);font-weight:500}
+.count{font-size:12px;color:var(--warn);margin-left:4px}
+.sec{display:grid;grid-template-columns:12rem 1fr;gap:12px 40px;border-top:1px solid var(--line);padding:22px 0}
+.tabs + .sec,.first{border-top:0}
+.sec h2{font-size:14px;font-weight:600;margin:0;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.edit{font-size:13px;font-weight:400;color:var(--quiet);cursor:pointer;border:0;background:none;padding:0;font-family:inherit}
+.edit:hover{color:var(--violet);text-decoration:underline}
+ul.dots{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+ul.dots li::marker{color:var(--field)}
+ul.notes li::marker{color:var(--warn)}
+.muted{color:var(--quiet);font-size:14px;margin:0 0 8px}
+.opts{color:var(--quiet)}
+.mono{font-family:"Geist Mono",monospace;font-size:12.5px}
+.chip{display:inline-block;background:var(--pill);border-radius:4px;padding:2px 6px;margin:0 4px 4px 0}
+.apl{color:var(--violet);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.hist{list-style:none;margin:0;padding:0;font-size:14px}
+.hist li{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line)}
+.hist li span:last-child{color:var(--quiet)}
+details.tech{border-top:1px solid var(--line);margin-top:4px}
+details.tech summary{cursor:pointer;padding:20px 0;font-weight:600;font-size:14px;list-style:none;display:flex;gap:10px;align-items:center}
+details.tech summary::before{content:"›";display:inline-block;transition:transform .15s;color:var(--quiet);font-size:18px}
+details.tech[open] summary::before{transform:rotate(90deg)}
+details.tech summary small{font-weight:400;color:var(--quiet)}
+form.ed{display:flex;flex-direction:column;gap:10px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+form.ed label{font-size:13px;font-weight:500;display:flex;flex-direction:column;gap:5px}
+form.ed .hint{font-weight:400;color:var(--quiet);font-size:12px}
+input,textarea,select{font:inherit;font-size:14px;border:1px solid var(--field);border-radius:6px;padding:7px 9px;background:#fff;color:var(--ink)}
+textarea{resize:vertical}
+.row{display:grid;grid-template-columns:1fr 9rem 2rem;gap:8px;align-items:start;border:1px solid var(--line);border-radius:8px;padding:10px}
+.row .sub{grid-column:1/-1;display:flex;flex-direction:column;gap:6px}
+.x{border:0;background:none;cursor:pointer;color:var(--quiet);font-size:18px}
+.btns{display:flex;gap:8px;justify-content:flex-end}
+.btn{border:1px solid var(--field);background:#fff;border-radius:6px;padding:7px 14px;font:inherit;font-size:14px;cursor:pointer}
+.btn.pri{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn.sm{padding:4px 10px;font-size:13px;align-self:flex-start}
+.check{flex-direction:row!important;align-items:center;gap:8px!important;font-weight:400!important}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:8px;font-size:14px;z-index:30}
+.note{background:var(--wash);border-radius:8px;padding:10px 14px;font-size:13px;margin:0 0 20px;color:oklch(0.35 0.12 293)}
+@media (max-width:760px){.wrap{grid-template-columns:1fr}.side{display:none}main{padding:20px 16px 100px}.sec{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="proto">
+  <span><b>Protótipo</b> (nada é salvo)</span>
+  <span>Desenho:
+    <span class="seg" id="segD">
+      <button data-v="A">A · Abas Usar / Cuidar</button>
+      <button data-v="B">B · Uma página, técnico recolhido</button>
+      <button data-v="C">C · Ficha de hoje + editar</button>
+    </span>
+  </span>
+  <span>Ver como:
+    <span class="seg" id="segW">
+      <button data-v="colega">Colega que só usa</button>
+      <button data-v="resp">Responsável do app</button>
+    </span>
+  </span>
+</div>
+<div class="wrap">
+  <nav class="side">
+    <div class="brand">App Hub</div>
+    <div class="lbl">Fichas dos apps</div>
+    <div id="applist"></div>
+  </nav>
+  <main id="view"></main>
+</div>
+<div id="toast"></div>
+<script>
+const people=["Henry Kropp","Andre Ogliari","Marina Costa","Paulo Lima"];
+const KIND={desktop:"Janela",script:"Script",exe:"Executável",web:"Navegador",doc:"Documento"};
+const apps=[
+ {id:"cvm-downloader",name:"CVM Downloader",kind:"exe",area:"Research",owner:"Henry Kropp",backup:"Andre Ogliari",version:"versão 2 de 12/09",
+  summary:"Baixa documentos de empresas abertas direto dos sites da CVM, por CNPJ e período.",
+  inputs:[{label:"CNPJ da empresa",type:"text",source:"window"},{label:"Período (anos)",type:"number",source:"window"}],
+  outputs:[{label:"PDFs da CVM numa pasta por empresa"}],
+  notes:["Precisa dos sites da CVM no ar.","Se a CVM mudar o site, o download para de funcionar."],
+  build:{source:"src/cvm_downloader.py",command:"build.bat"},depends:[],secrets:0,libs:["requests","curl_cffi"],folder:"C:\\Users\\hkrop\\OneDrive\\8. Programação\\CVM Downloader",
+  mine:["10/09 · 12 arquivos"]},
+ {id:"eq-research-files-prep",name:"Eq. Research Files Prep",kind:"desktop",area:"Research",owner:"Henry Kropp",backup:"",version:"versão 3 de 01/10",
+  summary:"Baixa da CVM os documentos de uma empresa aberta (Formulário de Referência, apresentações, fatos relevantes, ITR e DFP) e junta os que você escolher num único arquivo de texto, o Data Pack, pronto para usar numa IA na análise da empresa.",
+  inputs:[{label:"Nome da empresa ou CNPJ (ex.: PETROBRAS)",type:"text",source:"window"},{label:"Quantos anos de histórico baixar (padrão 3, de 1 a 20)",type:"number",source:"window"},{label:"Quais documentos baixar",type:"choice",source:"window",options:["FRE","Apresentações","Fatos Relevantes","ITR","DFP"],multiple:true},{label:"Pasta onde os documentos serão salvos",type:"folder",source:"window"},{label:"FRE em PDF único, para cortar só as seções que interessam (opcional)",type:"file",source:"window"}],
+  outputs:[{label:"Documentos da CVM baixados, numa pasta por empresa e por tipo"},{label:"Data Pack da empresa, um arquivo de texto com todos os documentos escolhidos"},{label:"FRE cortado, só com as seções usadas na análise"}],
+  notes:["Depende do app CVM Downloader, que é o motor do download. Se o CVM Downloader mudar, este app precisa ser recompilado.","Só o Ferramenta CVM.exe funciona hoje. Rodar pelo código dá erro ao iniciar.","O atalho de recompilar aponta para o Python de outro usuário do Windows.","Por padrão os downloads vão para a própria pasta do app (2,3 GB de PDFs no OneDrive).","Precisa de internet e dos sites da CVM no ar.","A pasta Old tem um atalho antigo que aponta para um arquivo que não existe mais."],
+  build:{source:"Código-fonte/Files Prep.py",command:"Recompilar Ferramenta CVM.bat"},depends:["cvm-downloader"],secrets:0,libs:["pdfplumber","pypdf","requests","tqdm","curl_cffi"],folder:"C:\\Users\\hkrop\\OneDrive\\8. Programação\\2026 06 23 - Henry Files Prep",
+  mine:["hoje 14:21 · 4 arquivos","30/09 · sem arquivos novos"]},
+ {id:"rentabilidade",name:"Rentabilidade dos fundos",kind:"script",area:"Investimentos",owner:"Marina Costa",backup:"Henry Kropp",version:"versão 5 de 28/09",
+  summary:"Calcula a rentabilidade diária e mensal dos fundos da casa e gera a planilha para o comitê.",
+  inputs:[{label:"Planilha com os CNPJs dos fundos",type:"file",source:"fixed_file"},{label:"Data de referência",type:"date",source:"prompt"},{label:"Benchmarks",type:"choice",source:"prompt",options:["CDI","Ibovespa","IMA-B"],multiple:true}],
+  outputs:[{label:"Planilha com a rentabilidade"}],
+  notes:["O caminho da planilha de saída aponta para a pasta pessoal da Marina.","Chave da API da CVM escrita no código."],
+  build:null,depends:[],secrets:1,libs:["pandas","openpyxl","requests"],folder:"C:\\Users\\mcosta\\OneDrive\\Investimentos\\Rentabilidade",
+  mine:[]},
+ {id:"transcritor",name:"Transcritor de calls",kind:"desktop",area:"Research",owner:"Paulo Lima",backup:"",version:"versão 1 de 20/09",
+  summary:"Transcreve o áudio de uma call de resultados e gera um resumo em tópicos.",
+  inputs:[{label:"Arquivo de áudio da call",type:"file",source:"window"}],
+  outputs:[{label:"Transcrição em texto"},{label:"Resumo em tópicos"}],
+  notes:["Usa a placa de vídeo; em notebook sem placa demora uns 20 minutos por hora de áudio."],
+  build:null,depends:[],secrets:0,libs:["whisper","torch"],folder:"C:\\Users\\plima\\OneDrive\\Research\\Transcritor",mine:["ontem · 2 arquivos"]},
+ {id:"projecao",name:"Expandir Projeção",kind:"doc",area:"Investimentos",owner:"Henry Kropp",backup:"Marina Costa",version:"versão 1 de 02/09",
+  summary:"Passo a passo para estender a projeção de resultados de uma empresa por mais 5 anos na planilha modelo.",
+  inputs:[],outputs:[],notes:[],build:null,depends:[],secrets:0,libs:[],folder:"C:\\Users\\hkrop\\OneDrive\\Modelos\\Expandir Projeção",mine:[]},
+];
+const SRC={window:"Você preenche na janela do app",fixed_file:"Arquivo fixo na pasta",prompt:"O Hub pergunta antes de rodar",dialog:"Janela de escolher arquivo"};
+const TYPES={text:"Texto",number:"Número",date:"Data",file:"Arquivo",folder:"Pasta",choice:"Lista de opções"};
+let st={d:"A",who:"resp",app:"eq-research-files-prep",tab:"usar",editing:null,draft:null,open:false};
+const $=s=>document.querySelector(s);
+const cur=()=>apps.find(a=>a.id===st.app);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const care=()=>st.who==="resp";
+function toast(t){$("#toast").innerHTML=`<div class="toast">${t}</div>`;setTimeout(()=>$("#toast").innerHTML="",2600)}
+
+// ---------- read-only blocks ----------
+function inputsView(a){
+  if(!a.inputs.length)return `<p class="muted">Nada. É só rodar.</p>`;
+  const same=a.inputs.every(i=>i.source===a.inputs[0].source);
+  return (same?`<p class="muted">${SRC[a.inputs[0].source]}:</p>`:"")+`<ul class="dots">${a.inputs.map(i=>`<li>${esc(i.label)}${i.options?.length?` <span class="opts">· ${i.multiple?"marque uma ou mais":"escolha uma"}: ${i.options.map(esc).join(", ")}</span>`:""}${!same?` <span class="opts">· ${SRC[i.source]}</span>`:""}</li>`).join("")}</ul>`;
+}
+const outputsView=a=>a.outputs.length?`<ul class="dots">${a.outputs.map(o=>`<li>${esc(o.label)}</li>`).join("")}</ul>`:`<p class="muted">Ainda não identificado.</p>`;
+function notesView(a){
+  if(!a.notes.length)return `<p class="muted">Nenhum ponto de atenção.</p>`;
+  const show=st.open?a.notes:a.notes.slice(0,3);
+  return `<ul class="dots notes">${show.map(n=>`<li>${esc(n)}</li>`).join("")}</ul>${a.notes.length>3?`<p style="margin:10px 0 0"><span class="lnk" onclick="st.open=!st.open;render()">${st.open?"Mostrar menos":"Ver mais "+(a.notes.length-3)}</span></p>`:""}`;
+}
+const appLink=id=>{const o=apps.find(x=>x.id===id);return o?`<span class="apl" onclick="go('${id}')">${esc(o.name)}</span>`:esc(id)};
+function dependsView(a){
+  const usedBy=apps.filter(o=>o.depends.includes(a.id));
+  const parts=[];
+  parts.push(a.depends.length?`<p style="margin:0 0 6px;font-size:14px">Usa: ${a.depends.map(appLink).join(", ")}</p>`:`<p class="muted">Não usa outros apps do catálogo.</p>`);
+  if(usedBy.length)parts.push(`<p style="margin:0;font-size:14px">É usado por: ${usedBy.map(o=>appLink(o.id)).join(", ")} <span class="opts">· se mudar este, confira ${usedBy.length>1?"esses":"esse"}</span></p>`);
+  return parts.join("");
+}
+const buildView=a=>a.build?`<p style="margin:0;font-size:14px">Código em <span class="mono">${esc(a.build.source)}</span></p>${a.build.command?`<p style="margin:6px 0 0;font-size:14px">Para recompilar: <span class="mono">${esc(a.build.command)}</span></p>`:""}`:`<p class="muted">${a.kind==="exe"||a.kind==="desktop"?"Não informado. Se o app é um .exe gerado de código, diga onde está o código.":"Roda direto pelo código; nada a recompilar."}</p>`;
+const libsView=a=>a.libs.length?a.libs.map(l=>`<span class="chip mono">${l}</span>`).join(""):`<p class="muted">Nenhuma.</p>`;
+const secretsView=a=>a.secrets?`<p style="margin:0;font-size:14px;color:var(--red)">Usa ${a.secrets} chave(s) ou senha(s) escritas no código. Os valores nunca aparecem no Hub.</p>`:`<p class="muted">Nenhuma encontrada no código.</p>`;
+const histView=a=>`<ul class="hist"><li><span>${a.version.replace("versão","Versão")} · código mudou</span><span>ver mudanças</span></li><li><span>Ficha: pontos de atenção mudaram</span><span>30/09</span></li><li><span>Ficha criada</span><span>12/09</span></li></ul><p style="margin:10px 0 0"><span class="lnk">Ver histórico completo</span></p>`;
+const whereView=a=>`<p class="mono" style="margin:0">${esc(a.folder)}</p><p class="muted" style="margin-top:6px;font-size:12px">A ficha também fica salva nessa pasta.</p>`;
+const mineView=a=>a.mine.length?`<ul class="hist">${a.mine.map(m=>`<li><span>${m}</span><span class="lnk">Ver e baixar</span></li>`).join("")}</ul>`:`<p class="muted">Você ainda não rodou este app.</p>`;
+const peopleView=a=>`<p style="margin:0;font-size:14px">Responsável: ${a.owner}</p><p style="margin:6px 0 0;font-size:14px">Reserva: ${a.backup||'<span class="warn">ninguém ainda</span>'}</p>`;
+
+const BLOCKS={
+ summary:{t:"O que ele faz"},
+ people:{t:"Quem cuida",v:peopleView,editable:true},
+ inputs:{t:"O que ele recebe",v:inputsView,editable:true},
+ outputs:{t:"O que ele devolve",v:outputsView,editable:true},
+ mine:{t:"Suas execuções",v:mineView},
+ notes:{t:"Pontos de atenção",v:notesView,editable:true},
+ depends:{t:"Outros apps",v:dependsView,editable:true},
+ build:{t:"Código-fonte",v:buildView,editable:true},
+ libs:{t:"Bibliotecas",v:libsView},
+ secrets:{t:"Chaves e senhas",v:secretsView},
+ history:{t:"Histórico",v:histView},
+ where:{t:"Onde está",v:whereView},
+};
+
+// ---------- edit forms ----------
+function startEdit(k){const a=cur();st.editing=k;st.draft=JSON.parse(JSON.stringify(k==="summary"?{summary:a.summary,name:a.name,area:a.area}:k==="people"?{owner:a.owner,backup:a.backup}:{[k]:a[k]}));render()}
+function cancel(){st.editing=null;st.draft=null;render()}
+function save(){const a=cur();Object.assign(a,st.draft);const k=st.editing;st.editing=null;st.draft=null;render();toast(`Salvo. A ficha na pasta foi atualizada e o histórico registrou: “${BLOCKS[k].t} mudou”.`)}
+const btns=`<div class="btns"><button type="button" class="btn" onclick="cancel()">Cancelar</button><button type="button" class="btn pri" onclick="save()">Salvar</button></div>`;
+function form(k){
+  const d=st.draft;
+  if(k==="summary")return `<form class="ed"><label>Nome<input value="${esc(d.name)}" oninput="st.draft.name=this.value"></label><label>O que ele faz<span class="hint">Uma ou duas frases, para quem nunca usou.</span><textarea rows="3" oninput="st.draft.summary=this.value">${esc(d.summary)}</textarea></label><label>Área<input value="${esc(d.area)}" oninput="st.draft.area=this.value"></label>${btns}</form>`;
+  if(k==="people")return `<form class="ed"><label>Responsável<select onchange="st.draft.owner=this.value">${people.map(p=>`<option ${p===d.owner?"selected":""}>${p}</option>`).join("")}</select></label><label>Reserva<span class="hint">Quem assume se o responsável não estiver.</span><select onchange="st.draft.backup=this.value"><option value="">Ninguém por enquanto</option>${people.filter(p=>p!==d.owner).map(p=>`<option ${p===d.backup?"selected":""}>${p}</option>`).join("")}</select></label>${btns}</form>`;
+  if(k==="inputs")return `<form class="ed">${d.inputs.map((i,n)=>`<div class="row"><input value="${esc(i.label)}" placeholder="Nome da entrada" oninput="st.draft.inputs[${n}].label=this.value"><select onchange="st.draft.inputs[${n}].type=this.value;render()">${Object.entries(TYPES).map(([v,l])=>`<option value="${v}" ${v===i.type?"selected":""}>${l}</option>`).join("")}</select><button type="button" class="x" title="Remover" onclick="st.draft.inputs.splice(${n},1);render()">×</button>${i.type==="choice"?`<div class="sub"><label>Opções, uma por linha<textarea rows="${Math.max(3,(i.options||[]).length)}" oninput="st.draft.inputs[${n}].options=this.value.split('\\n').filter(Boolean)">${esc((i.options||[]).join("\n"))}</textarea></label><label class="check"><input type="checkbox" ${i.multiple?"checked":""} onchange="st.draft.inputs[${n}].multiple=this.checked"> Pode marcar mais de uma</label></div>`:""}</div>`).join("")}<button type="button" class="btn sm" onclick="st.draft.inputs.push({label:'',type:'text',source:'window'});render()">+ Adicionar entrada</button>${btns}</form>`;
+  if(k==="outputs")return `<form class="ed">${d.outputs.map((o,n)=>`<div style="display:flex;gap:8px"><input style="flex:1" value="${esc(o.label)}" oninput="st.draft.outputs[${n}].label=this.value"><button type="button" class="x" onclick="st.draft.outputs.splice(${n},1);render()">×</button></div>`).join("")}<button type="button" class="btn sm" onclick="st.draft.outputs.push({label:''});render()">+ Adicionar resultado</button>${btns}</form>`;
+  if(k==="notes")return `<form class="ed"><label>Um ponto por linha<span class="hint">Frases curtas: o que alguém precisa saber antes de rodar ou mexer.</span><textarea rows="8" oninput="st.draft.notes=this.value.split('\\n').filter(Boolean)">${esc(d.notes.join("\n"))}</textarea></label>${btns}</form>`;
+  if(k==="depends")return `<form class="ed"><span class="hint" style="font-size:13px;color:var(--quiet)">Marque os apps do catálogo que este usa (código, arquivos ou resultados).</span>${apps.filter(o=>o.id!==st.app).map(o=>`<label class="check"><input type="checkbox" ${d.depends.includes(o.id)?"checked":""} onchange="st.draft.depends=this.checked?[...st.draft.depends,'${o.id}']:st.draft.depends.filter(x=>x!=='${o.id}')"> ${esc(o.name)}</label>`).join("")}${btns}</form>`;
+  if(k==="build"){const b=d.build||{source:"",command:""};st.draft.build=b;return `<form class="ed"><label>Onde está o código<span class="hint">Arquivo principal, dentro da pasta do app.</span><input class="mono" value="${esc(b.source)}" oninput="st.draft.build.source=this.value"></label><label>Como recompilar<span class="hint">Comando ou atalho que gera o .exe de novo. Opcional.</span><input class="mono" value="${esc(b.command)}" oninput="st.draft.build.command=this.value"></label>${btns}</form>`}
+}
+
+// ---------- layout ----------
+function sec(k,a,{first=false,editable=care()}={}){
+  const b=BLOCKS[k];const canEd=editable&&b.editable;
+  return `<section class="sec ${first?"first":""}"><h2>${b.t}${canEd&&st.editing!==k?`<button class="edit" onclick="startEdit('${k}')">Editar</button>`:""}</h2><div>${st.editing===k?form(k):b.v(a)}</div></section>`;
+}
+function header(a){
+  const canEd=care();
+  const meta=[`<span class="kind">${KIND[a.kind]}</span>`,a.area,`Responsável <span class="v">${a.owner}</span>`,a.backup?`Reserva <span class="v">${a.backup}</span>`:`<span class="warn">Sem reserva</span>`,a.version];
+  const sumEd=st.editing==="summary";
+  return `<span class="back">← Catálogo</span>
+  <div class="head"><div style="min-width:0;flex:1">
+    ${sumEd?`<div style="margin-top:18px;max-width:640px">${form("summary")}</div>`:`<h1>${esc(a.name)}</h1><p class="sum">${esc(a.summary)} ${canEd?`<button class="edit" onclick="startEdit('summary')">Editar</button>`:""}</p>`}
+    <div class="meta">${meta.map((m,i)=>`${i?'<span style="opacity:.4">·</span>':""}<span>${m}</span>`).join("")}</div>
+  </div>
+  ${a.kind!=="doc"?`<div><button class="run" onclick="toast('No protótipo o Rodar não faz nada.')">▶&nbsp; Rodar</button><div class="saved">Salva em Downloads · <span class="lnk">trocar</span></div></div>`:`<div><button class="run" onclick="toast('No protótipo o Ler não faz nada.')">Ler</button></div>`}</div>`;
+}
+const USE=a=>["inputs","outputs",...(a.kind!=="doc"?["mine"]:[])];
+const CARE=a=>["notes","depends","build","secrets","libs","history","where"];
+function viewA(a){
+  if(!care())return USE(a).map((k,i)=>sec(k,a,{first:i===0})).join("")+sec("depends",a,{editable:false});
+  const tabs=`<div class="tabs"><button class="${st.tab==="usar"?"on":""}" onclick="st.tab='usar';st.editing=null;render()">Usar</button><button class="${st.tab==="cuidar"?"on":""}" onclick="st.tab='cuidar';st.editing=null;render()">Cuidar${a.notes.length?`<span class="count">· ${a.notes.length} pontos</span>`:""}</button></div>`;
+  const ks=st.tab==="usar"?[...USE(a),"people"]:CARE(a);
+  return tabs+ks.map(k=>sec(k,a)).join("");
+}
+function viewB(a){
+  const top=USE(a).map((k,i)=>sec(k,a,{first:i===0})).join("")+sec("people",a);
+  const careKs=CARE(a);
+  const inner=careKs.map(k=>sec(k,a)).join("");
+  const label=care()?"Para quem cuida do app":"Detalhes técnicos";
+  return top+`<details class="tech" ${st.techOpen?"open":""} ontoggle="st.techOpen=this.open"><summary>${label} <small>${a.notes.length?`${a.notes.length} pontos de atenção · `:""}código, outros apps, histórico, pasta</small></summary>${inner}</details>`;
+}
+function viewC(a){
+  const ks=[...USE(a),"people","notes","depends","build","secrets","libs","history","where"];
+  return ks.map((k,i)=>sec(k,a,{first:i===0})).join("");
+}
+const NOTE={A:"A · Quem cuida do app vê duas abas. Usar é o que todo mundo vê; Cuidar tem o técnico e os “Editar”. O colega vê só a parte Usar, sem abas.",B:"B · Uma página só para todos. A parte técnica fica num bloco recolhido no fim, que abre com um clique. Quem cuida vê os “Editar” em cada parte.",C:"C · A ficha de hoje, com tudo em sequência para todos. Só ganha os “Editar” para quem cuida e os campos novos (outros apps, código-fonte, opções da lista)."};
+function render(){
+  document.querySelectorAll("#segD button").forEach(b=>b.classList.toggle("on",b.dataset.v===st.d));
+  document.querySelectorAll("#segW button").forEach(b=>b.classList.toggle("on",b.dataset.v===st.who));
+  $("#applist").innerHTML=apps.map(a=>`<a class="${a.id===st.app?"on":""}" onclick="go('${a.id}')">${esc(a.name)}</a>`).join("");
+  const a=cur();
+  $("#view").innerHTML=`<p class="note">${NOTE[st.d]}${care()?" Clique em “Editar” em qualquer parte para testar.":""}</p>`+header(a)+({A:viewA,B:viewB,C:viewC}[st.d])(a);
+}
+function go(id){st.app=id;st.editing=null;st.tab="usar";st.open=false;render();window.scrollTo(0,0)}
+document.querySelectorAll("#segD button").forEach(b=>b.onclick=()=>{st.d=b.dataset.v;st.editing=null;render()});
+document.querySelectorAll("#segW button").forEach(b=>b.onclick=()=>{st.who=b.dataset.v;st.editing=null;st.tab="usar";render()});
+render();
+</script>
+</body>
+</html>
