@@ -324,3 +324,23 @@ it("following another app's link loads that app fresh", async () => {
   act(() => answer(other))
   expect(await screen.findByRole("heading", { name: "Files Prep" })).toBeInTheDocument()
 })
+
+it("an editor without access control cannot change who cares for the app nor its area", async () => {
+  mockApp(detail({ can: { ...VIEW_ONLY, edit: true, tech: true } }))
+  vi.mocked(api.areas).mockResolvedValue([{ id: 1, name: "Research", app_count: 1, leaders: [], members: [] }])
+  renderPage(bia)
+  await screen.findByRole("heading", { name: "Eq. Research Files Prep" })
+  expect(screen.queryByRole("button", { name: "Editar Quem cuida" })).toBeNull()
+  await userEvent.click(screen.getByRole("button", { name: "Editar Sobre" }))
+  const sobre = screen.getByRole("group", { name: "Sobre" })
+  expect(within(sobre).queryByLabelText(/Área/)).toBeNull()
+  expect(within(sobre).getByText("Só quem cuida do acesso do app troca a área.")).toBeInTheDocument()
+})
+
+it("someone who cares for the app's access changes who cares and the area", async () => {
+  mockApp(detail())
+  renderPage(henry)
+  expect(await screen.findByRole("button", { name: "Editar Quem cuida" })).toBeInTheDocument()
+  await userEvent.click(screen.getByRole("button", { name: "Editar Sobre" }))
+  expect(within(screen.getByRole("group", { name: "Sobre" })).getByLabelText(/Área/)).toBeInTheDocument()
+})

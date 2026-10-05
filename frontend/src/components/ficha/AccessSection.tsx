@@ -24,7 +24,10 @@ const names = (xs: { name: string }[]) => {
 
 type Viewers = { restricted: boolean; area_ids: number[]; person_ids: number[] }
 type GrantForm = { person_id: number; permissions: string[]; whole_area: boolean }
-const BLANK: GrantForm = { person_id: 0, permissions: [], whole_area: false }
+// from: the row "Mudar" opened. Saving it to another place (this app ↔ whole
+// area) moves the accesses: the Hub replaces only the place being saved.
+type GrantDraft = GrantForm & { from?: { person_id: number; whole_area: boolean } }
+const BLANK: GrantDraft = { person_id: 0, permissions: [], whole_area: false }
 
 // AccessSection says who sees the app and who has extra accesses. Those who
 // take care of access (can.access) change who sees it; only leaders (can.grants)
@@ -36,7 +39,7 @@ export function AccessSection({ app, me }: { app: AppDetail; me: Person }) {
   const [areas, setAreas] = useState<Area[]>([])
   const [people, setPeople] = useState<PersonRow[]>([])
   const [viewers, setViewers] = useState<Viewers | null>(null)
-  const [form, setForm] = useState<GrantForm | null>(null)
+  const [form, setForm] = useState<GrantDraft | null>(null)
   const [formError, setFormError] = useState("")
   const [busy, setBusy] = useState(false)
 
@@ -89,7 +92,11 @@ export function AccessSection({ app, me }: { app: AppDetail; me: Person }) {
     if (!form) return
     if (!form.person_id) return setFormError("Escolha a pessoa.")
     if (form.permissions.length === 0) return setFormError("Marque ao menos um acesso.")
-    if (await giveGrant(form)) setForm(null)
+    const { from, ...g } = form
+    if (!(await giveGrant(g))) return
+    const moved = from && (from.person_id !== g.person_id || from.whole_area !== g.whole_area)
+    if (moved && !(await giveGrant({ person_id: from.person_id, permissions: [], whole_area: from.whole_area }))) return
+    setForm(null)
   }
   const grantRow = (g: Grant, whole: boolean) => {
     const who = whole ? `${g.name} (área)` : g.name
@@ -102,7 +109,7 @@ export function AccessSection({ app, me }: { app: AppDetail; me: Person }) {
       {can.grants && (
         <span className="flex gap-3 text-sm">
           <button type="button" className="text-muted-foreground hover:text-foreground" aria-label={`Mudar ${who}`}
-            onClick={() => { setFormError(""); setForm({ person_id: g.person_id, permissions: g.permissions, whole_area: whole }) }}>
+            onClick={() => { setFormError(""); setForm({ person_id: g.person_id, permissions: g.permissions, whole_area: whole, from: { person_id: g.person_id, whole_area: whole } }) }}>
             Mudar
           </button>
           <button type="button" className="text-muted-foreground hover:text-destructive" aria-label={`Tirar ${who}`} disabled={busy}

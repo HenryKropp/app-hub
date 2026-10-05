@@ -19,6 +19,14 @@ function Harness({ start }: { start: Input[] }) {
 const out = () => JSON.parse(screen.getByTestId("out").textContent!)
 
 describe("InputsEditor", () => {
+  it("keeps the remove button on the name's row on a phone", () => {
+    render(<Harness start={[{ id: "docs", label: "Documentos", type: "file", source: "window", required: true }]} />)
+    // Two columns below sm (name | ×), the type select on its own row under them.
+    expect(screen.getByTestId("input-row")).toHaveClass("grid-cols-[1fr_auto]")
+    expect(screen.getByRole("button", { name: "Remover Documentos" })).toHaveClass("row-start-1", "col-start-2")
+    expect(screen.getByLabelText("Tipo de Documentos")).toHaveClass("col-span-2")
+  })
+
   it("asks for options when the input is a list", async () => {
     render(<Harness start={[{ id: "docs", label: "Documentos", type: "file", source: "window", required: true }]} />)
     await userEvent.selectOptions(screen.getByLabelText("Tipo de Documentos"), "choice")

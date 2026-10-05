@@ -25,7 +25,8 @@ export function choiceProblems(inputs: AppInput[]): string[] {
     .map((i) => `as opções de "${i.label.trim() || "entrada"}"`)
 }
 
-export function IdentityEditor({ value: m, onChange, areas, asks }: Edit<Manifest> & { areas: Area[]; asks?: Set<string> }) {
+/** areaLocked: only who cares for the app's access may move it to another area. */
+export function IdentityEditor({ value: m, onChange, areas, asks, areaLocked }: Edit<Manifest> & { areas: Area[]; asks?: Set<string>; areaLocked?: boolean }) {
   const set = <K extends keyof Manifest>(k: K, v: Manifest[K]) => onChange({ ...m, [k]: v })
   const known = areas.some((a) => a.name === m.area)
   const ask = asks ?? new Set<string>()
@@ -46,17 +47,25 @@ export function IdentityEditor({ value: m, onChange, areas, asks }: Edit<Manifes
           ))}
         </NativeSelect>
       </Field>
-      <Field label={<>Área<Confirm on={ask.has("area") && !m.area.trim()} /></>} htmlFor="f-area">
-        <NativeSelect id="f-area" value={m.area} onChange={(e) => set("area", e.target.value)}>
-          <option value="">Escolha a área</option>
-          {m.area && !known && <option value={m.area}>{m.area} (fora da lista)</option>}
-          {areas.map((a) => (
-            <option key={a.id} value={a.name}>
-              {a.name}
-            </option>
-          ))}
-        </NativeSelect>
-      </Field>
+      {areaLocked ? (
+        <div className="flex flex-col gap-1.5 text-sm">
+          <span className="font-medium">Área</span>
+          <p>{m.area}</p>
+          <p className="text-xs text-muted-foreground">Só quem cuida do acesso do app troca a área.</p>
+        </div>
+      ) : (
+        <Field label={<>Área<Confirm on={ask.has("area") && !m.area.trim()} /></>} htmlFor="f-area">
+          <NativeSelect id="f-area" value={m.area} onChange={(e) => set("area", e.target.value)}>
+            <option value="">Escolha a área</option>
+            {m.area && !known && <option value={m.area}>{m.area} (fora da lista)</option>}
+            {areas.map((a) => (
+              <option key={a.id} value={a.name}>
+                {a.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </Field>
+      )}
     </div>
   )
 }
@@ -82,16 +91,16 @@ export function InputsEditor({ value, onChange }: Edit<AppInput[]>) {
         {value.map((inp, i) => {
           const name = inp.label || "entrada"
           return (
-            <li key={i} className="grid gap-2 rounded-md border border-border bg-background/50 p-3 sm:grid-cols-[1fr_9rem_auto]" data-testid="input-row">
+            <li key={i} className="grid grid-cols-[1fr_auto] gap-2 rounded-md border border-border bg-background/50 p-3 sm:grid-cols-[1fr_9rem_auto]" data-testid="input-row">
               <Input aria-label="Nome da entrada" value={inp.label} placeholder="Nome da entrada" onChange={(e) => setInput(i, { label: e.target.value })} />
-              <NativeSelect aria-label={`Tipo de ${name}`} value={inp.type} onChange={(e) => setType(i, e.target.value as AppInput["type"])}>
+              <NativeSelect aria-label={`Tipo de ${name}`} className="col-span-2 sm:col-span-1" value={inp.type} onChange={(e) => setType(i, e.target.value as AppInput["type"])}>
                 {INPUT_TYPES.map((t) => (
                   <option key={t.value} value={t.value}>
                     {t.label}
                   </option>
                 ))}
               </NativeSelect>
-              <Button variant="ghost" size="icon" aria-label={`Remover ${name}`} onClick={() => onChange(value.filter((_, j) => j !== i))}>
+              <Button variant="ghost" size="icon" className="col-start-2 row-start-1 sm:col-start-3" aria-label={`Remover ${name}`} onClick={() => onChange(value.filter((_, j) => j !== i))}>
                 <X />
               </Button>
               {inp.type === "choice" && (
@@ -110,7 +119,7 @@ export function InputsEditor({ value, onChange }: Edit<AppInput[]>) {
                   </div>
                 </div>
               )}
-              <p className="text-xs text-muted-foreground sm:col-span-3">
+              <p className="col-span-full text-xs text-muted-foreground">
                 Via {INPUT_SOURCES[inp.source]}
                 {inp.path && (
                   <>
