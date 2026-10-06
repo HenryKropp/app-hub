@@ -11,12 +11,18 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // Fake is an in-memory Engine for tests. Each started container is a real
 // httptest server. It never touches real containers.
+//
+// The exported fields may be written directly only before the Fake is used
+// concurrently. Afterwards use SetDown, SetHandler and CallsCopy.
 type Fake struct {
-	mu         sync.Mutex
+	mu  sync.Mutex
+	seq int
+	sync.Mutex
 	Images     map[string]BuildSpec
 	Containers map[string]*FakeContainer
 	BuildErr   error // próxima montagem falha com isto (e volta a nil)
@@ -32,6 +38,18 @@ type FakeContainer struct {
 	Running bool
 	Exit    int
 	srv     *httptest.Server
+	swap    *swapHandler
+}
+
+// swapHandler lets a running server change its handler safely.
+type swapHandler struct{ v atomic.Value }
+
+type handlerBox struct{ h http.Handler }
+
+func (s *swapHandler) set(h http.Handler) { s.v.Store(handlerBox{h}) }
+
+func (s *swapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.v.Load().(handlerBox).h.ServeHTTP(w, r)
 }
 
 var _ Engine = (*Fake)(nil)
@@ -40,9 +58,40 @@ func NewFake() *Fake {
 	return &Fake{Images: map[string]BuildSpec{}, Containers: map[string]*FakeContainer{}}
 }
 
+// SetDown sets Down under the lock.
+func (f *Fake) SetDown(down bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Down = down
+}
+
+// CallsCopy returns a copy of Calls.
+func (f *Fake) CallsCopy() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.Calls...)
+}
+
+// Close shuts down every running container server.
+func (f *Fake) Close() {
+	f.mu.Lock()
+	var srvs []*httptest.Server
+	for id := range f.Containers {
+		if srv := f.stopLocked(id, 0); srv != nil {
+			srvs = append(srvs, srv)
+		}
+	}
+	f.mu.Unlock()
+	for _, srv := range srvs {
+		srv.Close()
+	}
+}
+
 func (f *Fake) record(s string) { f.Calls = append(f.Calls, s) }
 
 func (f *Fake) Available(context.Context) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	if f.Down {
 		return ErrUnavailable
 	}
@@ -57,7 +106,8 @@ func (f *Fake) Build(_ context.Context, b BuildSpec) (string, string, error) {
 		f.BuildErr = nil
 		return "", f.BuildLog + "\n" + err.Error(), err
 	}
-	id := "img-" + strconv.Itoa(len(f.Images)+1)
+	f.seq++
+	id := "img-" + strconv.Itoa(f.seq)
 	f.Images[id] = b
 	return id, f.BuildLog, nil
 }
@@ -81,35 +131,50 @@ func (f *Fake) Start(_ context.Context, s StartSpec) (string, error) {
 	if h == nil {
 		h = f.defaultHandler(s.Name)
 	}
-	id := "ctr-" + strconv.Itoa(len(f.Containers)+1) + "-" + s.Name
-	f.Containers[id] = &FakeContainer{Spec: s, Running: true, srv: httptest.NewServer(h)}
+	f.seq++
+	id := "ctr-" + strconv.Itoa(f.seq) + "-" + s.Name
+	sw := &swapHandler{}
+	sw.set(h)
+	f.Containers[id] = &FakeContainer{Spec: s, Running: true, srv: httptest.NewServer(sw), swap: sw}
 	return id, nil
 }
 
-func (f *Fake) stopLocked(id string, exit int) {
+// stopLocked marks the container stopped and returns its server, which the
+// caller must Close after releasing the lock (nil if nothing to close).
+func (f *Fake) stopLocked(id string, exit int) *httptest.Server {
 	if c := f.Containers[id]; c != nil && c.Running {
 		c.Running, c.Exit = false, exit
-		c.srv.Close()
+		return c.srv
+	}
+	return nil
+}
+
+func closeSrv(srv *httptest.Server) {
+	if srv != nil {
+		srv.Close()
 	}
 }
 
 func (f *Fake) Stop(_ context.Context, id string) error {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.record("stop " + id)
 	if f.Containers[id] == nil {
+		f.mu.Unlock()
 		return ErrNotFound
 	}
-	f.stopLocked(id, 0)
+	srv := f.stopLocked(id, 0)
+	f.mu.Unlock()
+	closeSrv(srv)
 	return nil
 }
 
 func (f *Fake) Remove(_ context.Context, id string) error {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.record("remove " + id)
-	f.stopLocked(id, 0)
+	srv := f.stopLocked(id, 0)
 	delete(f.Containers, id)
+	f.mu.Unlock()
+	closeSrv(srv)
 	return nil
 }
 
@@ -122,15 +187,16 @@ func (f *Fake) RemoveImage(_ context.Context, id string) error {
 
 func (f *Fake) Crash(id string) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.stopLocked(id, 1)
+	srv := f.stopLocked(id, 1)
+	f.mu.Unlock()
+	closeSrv(srv)
 }
 
 func (f *Fake) SetHandler(id string, h http.Handler) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if c := f.Containers[id]; c != nil && c.Running {
-		c.srv.Config.Handler = h
+	if c := f.Containers[id]; c != nil {
+		c.swap.set(h)
 	}
 }
 
