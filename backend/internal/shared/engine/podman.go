@@ -94,7 +94,10 @@ func (p *Podman) guard(ctx context.Context, id string) error {
 
 // unavailable reports whether a failed command was really the engine being down.
 func (p *Podman) unavailable(ctx context.Context, err error) bool {
-	return errors.Is(err, exec.ErrNotFound) || p.Available(ctx) != nil
+	// fresh context: the caller's may already be expired (e.g. build timeout)
+	pctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return errors.Is(err, exec.ErrNotFound) || p.Available(pctx) != nil
 }
 
 func tail(s string, n int) string {
@@ -112,13 +115,32 @@ func (p *Podman) Available(ctx context.Context) error {
 	return nil
 }
 
+// exists runs a `podman ... exists` command: exit 0 = yes, exit 1 = no,
+// anything else is an error. Nothing is logged above Debug.
+func (p *Podman) exists(ctx context.Context, args ...string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, shortTimeout)
+	defer cancel()
+	err := exec.CommandContext(ctx, p.bin, args...).Run()
+	if err == nil {
+		return true, nil
+	}
+	var ee *exec.ExitError
+	if errors.As(err, &ee) && ee.ExitCode() == 1 {
+		slog.Debug("podman: does not exist", "args", args)
+		return false, nil
+	}
+	if errors.Is(err, exec.ErrNotFound) || p.unavailable(ctx, err) {
+		return false, ErrUnavailable
+	}
+	return false, err
+}
+
 func (p *Podman) ensureNetwork(ctx context.Context) error {
-	if _, err := p.run(ctx, shortTimeout, nil, "network", "exists", Network); err == nil {
-		return nil
-	} else if errors.Is(err, ErrUnavailable) {
+	ok, err := p.exists(ctx, "network", "exists", Network)
+	if err != nil || ok {
 		return err
 	}
-	_, err := p.run(ctx, shortTimeout, nil, "network", "create", Network)
+	_, err = p.run(ctx, shortTimeout, nil, "network", "create", Network)
 	return err
 }
 
@@ -161,6 +183,11 @@ func (p *Podman) Start(ctx context.Context, s StartSpec) (string, error) {
 	if err := p.ensureNetwork(ctx); err != nil {
 		return "", err
 	}
+	if taken, err := p.exists(ctx, "container", "exists", "--", s.Name); err != nil {
+		return "", err
+	} else if taken {
+		return "", fmt.Errorf("já existe uma caixa com o nome %q", s.Name)
+	}
 	for k, v := range s.Env {
 		if !envKeyRe.MatchString(k) || strings.ContainsAny(v, "\r\n\x00") {
 			return "", fmt.Errorf("variável %q tem quebra de linha ou nome inválido", k)
@@ -193,7 +220,7 @@ func (p *Podman) Start(ctx context.Context, s StartSpec) (string, error) {
 	out, err := p.run(ctx, shortTimeout, nil, args...)
 	if err != nil {
 		if !errors.Is(err, ErrUnavailable) {
-			_ = p.Remove(ctx, s.Name) // best effort; guarded by the Hub label
+			_ = p.Remove(ctx, s.Name) // best effort; the name was free before run, so it is ours
 		}
 		return "", err
 	}
@@ -303,6 +330,9 @@ func (p *Podman) Stats(ctx context.Context, ids []string) ([]Usage, error) {
 func normalizeStats(all []Usage, ids []string) []Usage {
 	var res []Usage
 	for _, id := range ids {
+		if id == "" {
+			continue
+		}
 		for _, u := range all {
 			if u.ContainerID != "" && (strings.HasPrefix(id, u.ContainerID) || strings.HasPrefix(u.ContainerID, id)) {
 				u.ContainerID = id

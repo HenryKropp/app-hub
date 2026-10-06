@@ -66,7 +66,7 @@ func TestPodmanRoundTrip(t *testing.T) {
 	if err := p.Stop(ctx, "app-hub-db"); err == nil {
 		t.Fatal("Stop(app-hub-db) was not refused")
 	}
-	if dbst, _ := p.Inspect(ctx, "app-hub-db"); !dbst.Running {
+	if dbst, err := p.Inspect(ctx, "app-hub-db"); err != nil || !dbst.Running {
 		t.Fatalf("app-hub-db no longer running: %+v", dbst)
 	}
 	if err := p.Stop(ctx, "apphub-does-not-exist"); !errors.Is(err, ErrNotFound) {
@@ -75,7 +75,17 @@ func TestPodmanRoundTrip(t *testing.T) {
 	if err := p.Remove(ctx, "apphub-does-not-exist"); err != nil {
 		t.Fatalf("remove missing: %v", err)
 	}
-	list, _ := p.List(ctx)
+	// Same name twice: second Start must fail and leave the first running.
+	if _, err := p.Start(ctx, StartSpec{Name: "apphub-probe-1", Image: img, Labels: labels, Port: 8080, MemoryMB: 128, CPUs: 0.5}); err == nil {
+		t.Fatal("second Start with the same name succeeded")
+	}
+	if st2, err := p.Inspect(ctx, id); err != nil || !st2.Running {
+		t.Fatalf("first container disturbed: %+v %v", st2, err)
+	}
+	list, err := p.List(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	found := false
 	for _, c := range list {
 		found = found || strings.HasPrefix(id, c.ID) || strings.HasPrefix(c.ID, id)
