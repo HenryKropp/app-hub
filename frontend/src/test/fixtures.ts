@@ -1,6 +1,6 @@
 import type { ActiveRun, AppDetail, AppSummary, Can, PersonRow, Computer, Manifest, Person, Run, ScanItem } from "@/lib/api"
 
-const ALL = ["register_apps", "edit_any_app", "restore_any_app", "see_tech_any_app", "see_all_runs", "see_all_apps", "manage_people", "manage_areas", "manage_roles"]
+const ALL = ["register_apps", "edit_any_app", "restore_any_app", "see_tech_any_app", "see_all_runs", "see_all_apps", "manage_people", "manage_areas", "manage_roles", "manage_server"]
 export const henry: Person = { id: 1, name: "Henry", email: "henry@alis.com", role_id: 1, role_name: "Administrador", permissions: ALL, leads: [], areas: [], sees_others_runs: true }
 export const ana: Person = { id: 2, name: "Ana", email: "ana@alis.com", role_id: 2, role_name: "Criador", permissions: ["register_apps"], leads: [], areas: [1], sees_others_runs: false }
 export const bia: Person = { id: 3, name: "Bia", email: "bia@alis.com", role_id: 3, role_name: "Usuário", permissions: [], leads: [], areas: [2], sees_others_runs: false }
