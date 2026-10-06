@@ -67,7 +67,7 @@ func TestNormalizeStats(t *testing.T) {
 	if err != nil || len(all) != 1 || len(all[0].ContainerID) != 12 {
 		t.Fatalf("%+v %v", all, err)
 	}
-	got := normalizeStats(all, []string{full, "ffffffffffffffffffff"})
+	got := normalizeStats(all, []string{"", full, "ffffffffffffffffffff"})
 	if len(got) != 1 || got[0].ContainerID != full || got[0].MemBytes <= 0 {
 		t.Fatalf("%+v", got)
 	}
