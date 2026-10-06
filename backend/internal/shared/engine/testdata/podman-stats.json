@@ -1,0 +1,14 @@
+[
+ {
+  "id": "5ba6ab6d82b2",
+  "name": "apphub-probe",
+  "cpu_time": "21.783ms",
+  "cpu_percent": "0.67%",
+  "avg_cpu": "0.67%",
+  "mem_usage": "147.5kB / 8.163GB",
+  "mem_percent": "0.00%",
+  "net_io": "110B / 430B",
+  "block_io": "0B / 0B",
+  "pids": "1"
+ }
+]
