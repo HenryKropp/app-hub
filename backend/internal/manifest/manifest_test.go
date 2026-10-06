@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func valid() Manifest {
@@ -137,4 +139,66 @@ func TestChoiceNeedsOptions(t *testing.T) {
 	if errs := m.Validate(); len(errs) != 0 {
 		t.Fatalf("valid choice: %v", errs)
 	}
+}
+
+func TestSharedValidation(t *testing.T) {
+	base := func() Manifest {
+		return Manifest{ManifestVersion: 1, ID: "x", Name: "X", Kind: KindWeb, Entrypoint: "app.py", Owner: &PersonRef{Name: "Henry", Email: "h@a.com"}, Area: "Research",
+			Shared: &Shared{Enabled: true}}
+	}
+	cases := []struct {
+		name string
+		edit func(*Manifest)
+		want string
+	}{
+		{"ok", func(*Manifest) {}, ""},
+		{"only web", func(m *Manifest) { m.Kind = KindScript }, "Só apps com tela no navegador podem ser compartilhados."},
+		{"bad db", func(m *Manifest) { m.Shared.Database = "mysql" }, "O banco do app compartilhado precisa ser postgres."},
+		{"bad port", func(m *Manifest) { m.Shared.Port = 70000 }, "A porta do app precisa estar entre 1 e 65535."},
+		{"memory", func(m *Manifest) { m.Shared.MemoryMB = 64 }, "A memória do app precisa estar entre 128 e 16384 MB."},
+		{"reserved env", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "DATABASE_URL", Label: "x"}} }, "DATABASE_URL é preenchida pelo Hub; tire da lista de configurações."},
+		{"bad env name", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "minha var", Label: "x"}} }, "O nome da configuração \"minha var\" só pode ter letras maiúsculas, números e _."},
+		{"underscore start", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "_db_password", Label: "x"}} }, "só pode ter letras maiúsculas"},
+		{"dup env", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "A", Label: "a"}, {Name: "A", Label: "b"}} }, "A configuração A aparece duas vezes."},
+		{"health", func(m *Manifest) { m.Shared.HealthPath = "health" }, "O endereço de saúde precisa começar com /."},
+	}
+	for _, c := range cases {
+		m := base()
+		c.edit(&m)
+		got := strings.Join(m.Validate(), " | ")
+		if c.want == "" && got != "" || c.want != "" && !strings.Contains(got, c.want) {
+			t.Errorf("%s: got %q want %q", c.name, got, c.want)
+		}
+	}
+}
+
+func TestSharedDefaults(t *testing.T) {
+	d := (&Shared{Enabled: true}).WithDefaults()
+	if d.HealthPath != "/" || d.IdleMin != 30 || d.MemoryMB != 512 || d.CPUs != 1 || d.Python != "3.12" || d.Node != "22" {
+		t.Fatalf("%+v", d)
+	}
+}
+
+func TestSharedRoundTripYAML(t *testing.T) {
+	m := Manifest{ManifestVersion: 1, ID: "x", Name: "X", Kind: KindWeb, Shared: &Shared{Enabled: true, Database: "postgres",
+		Env: []EnvVar{{Name: "SMTP_PASSWORD", Label: "Senha do e-mail", Secret: true}}}}
+	out, err := yaml.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), "secret: true") || strings.Contains(string(out), "value") {
+		t.Fatalf("yaml:\n%s", out)
+	}
+}
+
+func TestDiffShared(t *testing.T) {
+	a := valid()
+	b := valid()
+	b.Shared = &Shared{Enabled: true}
+	for _, c := range Diff(a, b) {
+		if c.Field == "shared" && c.Long {
+			return
+		}
+	}
+	t.Fatal("no shared change")
 }
