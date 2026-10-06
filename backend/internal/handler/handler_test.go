@@ -50,11 +50,12 @@ func TestMain(m *testing.M) {
 // resetSQL empties the Hub and puts back the built-in roles and two areas
 // (Research = 1, Investimentos = 2), so every test starts the same way.
 const resetSQL = `
-TRUNCATE run_files, agent_jobs, runs, app_changes, app_versions, code_blobs, pairings, computers,
+TRUNCATE shared_usage, shared_backups, app_config, shared_apps, shared_deployments, run_files, agent_jobs, runs, app_changes, app_versions, code_blobs, pairings, computers,
          app_grants, app_viewers, area_grants, area_leaders, area_members, apps, sessions, people, areas
          RESTART IDENTITY CASCADE;
 DELETE FROM roles WHERE key IS NULL;
-UPDATE roles SET name = 'Administrador', permissions = ARRAY['register_apps','edit_any_app','restore_any_app','see_tech_any_app','see_all_runs','see_all_apps','manage_people','manage_areas','manage_roles'] WHERE key = 'admin';
+UPDATE roles SET name = 'Administrador', permissions = ARRAY['register_apps','edit_any_app','restore_any_app','see_tech_any_app','see_all_runs','see_all_apps','manage_people','manage_areas','manage_roles','manage_server'] WHERE key = 'admin';
+UPDATE server_settings SET monthly_cost_cents = 0;
 UPDATE roles SET name = 'Criador', permissions = ARRAY['register_apps'] WHERE key = 'criador';
 UPDATE roles SET name = 'Usuário', permissions = ARRAY[]::text[] WHERE key = 'usuario';
 INSERT INTO areas (name) VALUES ('Research'), ('Investimentos');
