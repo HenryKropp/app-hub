@@ -525,7 +525,7 @@ func (h *Handler) writeApp(w http.ResponseWriter, r *http.Request, me sqlc.Perso
 	}
 	if len(changes) > 0 {
 		raw, _ := json.Marshal(changes)
-		if err := h.q.InsertAppChange(r.Context(), sqlc.InsertAppChangeParams{AppID: a.ID, PersonID: me.ID, Changes: raw}); err != nil {
+		if err := h.q.InsertAppChange(r.Context(), sqlc.InsertAppChangeParams{AppID: a.ID, PersonID: pgtype.Int8{Int64: me.ID, Valid: true}, Changes: raw}); err != nil {
 			internalError(w, "insert app change", err)
 			return sqlc.App{}, false
 		}
