@@ -29,6 +29,13 @@ export type Output = { label: string; pattern: string }
 export type SecretRef = { name: string; file: string; line: number; hint?: string }
 export type PersonRef = { name: string; email: string }
 
+export type EnvVar = { name: string; label: string; secret?: boolean; required?: boolean; default?: string }
+export type SharedSpec = {
+  enabled: boolean; port?: number; health_path?: string; database?: "" | "postgres"
+  always_on?: boolean; idle_minutes?: number; memory_mb?: number; cpus?: number
+  python?: string; node?: string; command?: string; env?: EnvVar[] | null
+}
+
 export type Manifest = {
   manifest_version: number
   id: string
@@ -50,6 +57,7 @@ export type Manifest = {
   depends_on?: string[] | null
   build?: { source: string; command: string } | null
   notes: string[] | null
+  shared?: SharedSpec | null
 }
 
 export type Question = { field: string; text: string }
