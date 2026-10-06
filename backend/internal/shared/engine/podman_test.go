@@ -4,6 +4,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -57,6 +58,22 @@ func TestPodmanRoundTrip(t *testing.T) {
 	var out strings.Builder
 	if err := p.Exec(ctx, id, nil, &out, "nc", "-z", "-w", "3", "host.containers.internal", "5433"); err != nil {
 		t.Fatalf("container cannot reach Postgres on host.containers.internal:5433: %v", err)
+	}
+	// Safety guard: a container without the Hub label must be refused.
+	if err := p.Remove(ctx, "app-hub-db"); err == nil {
+		t.Fatal("Remove(app-hub-db) was not refused")
+	}
+	if err := p.Stop(ctx, "app-hub-db"); err == nil {
+		t.Fatal("Stop(app-hub-db) was not refused")
+	}
+	if dbst, _ := p.Inspect(ctx, "app-hub-db"); !dbst.Running {
+		t.Fatalf("app-hub-db no longer running: %+v", dbst)
+	}
+	if err := p.Stop(ctx, "apphub-does-not-exist"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("stop missing: %v", err)
+	}
+	if err := p.Remove(ctx, "apphub-does-not-exist"); err != nil {
+		t.Fatalf("remove missing: %v", err)
 	}
 	list, _ := p.List(ctx)
 	found := false

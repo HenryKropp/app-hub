@@ -17,6 +17,8 @@ import (
 	"time"
 )
 
+var envKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
 type Podman struct{ bin string }
 
 func NewPodman(bin string) *Podman {
@@ -42,13 +44,57 @@ func (p *Podman) run(ctx context.Context, timeout time.Duration, stdin io.Reader
 	err := cmd.Run()
 	if err != nil {
 		msg := errb.String()
-		slog.Warn("podman", "args", args[0], "err", err, "stderr", tail(msg, 2000))
-		if errors.Is(err, exec.ErrNotFound) || strings.Contains(msg, "cannot connect") {
+		low := strings.ToLower(msg)
+		if errors.Is(err, exec.ErrNotFound) || strings.Contains(low, "cannot connect") ||
+			strings.Contains(low, "unable to connect") || strings.Contains(low, "connection refused") {
+			slog.Warn("podman", "args", args[0], "err", err, "stderr", tail(msg, 2000))
 			return nil, ErrUnavailable
 		}
+		if strings.Contains(low, "no such container") || strings.Contains(low, "no such object") || strings.Contains(low, "no such image") {
+			slog.Debug("podman: not found", "args", args[0], "stderr", tail(msg, 500))
+			return nil, ErrNotFound
+		}
+		slog.Warn("podman", "args", args[0], "err", err, "stderr", tail(msg, 2000))
 		return out.Bytes(), fmt.Errorf("%s: %w: %s", args[0], err, tail(msg, 500))
 	}
 	return out.Bytes(), nil
+}
+
+// hubOwned decides whether a container label value marks a Hub container.
+func hubOwned(label string) bool { return strings.TrimSpace(label) != "" }
+
+// imageAllowed decides whether an image may be removed: it carries the Hub
+// label or one of its tags lives under localhost/apphub/.
+func imageAllowed(label string, repoTags []string) bool {
+	if hubOwned(label) {
+		return true
+	}
+	for _, t := range repoTags {
+		if strings.HasPrefix(t, "localhost/apphub/") {
+			return true
+		}
+	}
+	return false
+}
+
+var errNotHub = errors.New("recusado: esta caixa não é do Hub")
+
+// guard refuses to act on a container without the Hub label.
+func (p *Podman) guard(ctx context.Context, id string) error {
+	out, err := p.run(ctx, shortTimeout, nil, "container", "inspect", "--format", `{{index .Config.Labels "`+Label+`"}}`, "--", id)
+	if err != nil {
+		return err
+	}
+	if !hubOwned(string(out)) {
+		slog.Error("podman: refused to touch a container without the Hub label", "id", id)
+		return errNotHub
+	}
+	return nil
+}
+
+// unavailable reports whether a failed command was really the engine being down.
+func (p *Podman) unavailable(ctx context.Context, err error) bool {
+	return errors.Is(err, exec.ErrNotFound) || p.Available(ctx) != nil
 }
 
 func tail(s string, n int) string {
@@ -69,6 +115,8 @@ func (p *Podman) Available(ctx context.Context) error {
 func (p *Podman) ensureNetwork(ctx context.Context) error {
 	if _, err := p.run(ctx, shortTimeout, nil, "network", "exists", Network); err == nil {
 		return nil
+	} else if errors.Is(err, ErrUnavailable) {
+		return err
 	}
 	_, err := p.run(ctx, shortTimeout, nil, "network", "create", Network)
 	return err
@@ -98,10 +146,10 @@ func (p *Podman) Build(ctx context.Context, b BuildSpec) (string, string, error)
 	cmd.Stdout, cmd.Stderr = &log, &log
 	err := cmd.Run()
 	text := tail(log.String(), 64<<10)
-	if errors.Is(err, exec.ErrNotFound) || strings.Contains(text, "cannot connect") {
-		return "", text, ErrUnavailable
-	}
 	if err != nil {
+		if p.unavailable(ctx, err) {
+			return "", text, ErrUnavailable
+		}
 		slog.Warn("podman build", "err", err, "log", tail(text, 2000))
 		return "", text, err
 	}
@@ -114,7 +162,7 @@ func (p *Podman) Start(ctx context.Context, s StartSpec) (string, error) {
 		return "", err
 	}
 	for k, v := range s.Env {
-		if strings.ContainsAny(k, "=\r\n") || strings.ContainsAny(v, "\r\n") {
+		if !envKeyRe.MatchString(k) || strings.ContainsAny(v, "\r\n\x00") {
 			return "", fmt.Errorf("variável %q tem quebra de linha ou nome inválido", k)
 		}
 	}
@@ -143,31 +191,66 @@ func (p *Podman) Start(ctx context.Context, s StartSpec) (string, error) {
 	args = append(args, labelArgs(s.Labels)...)
 	args = append(args, s.Image)
 	out, err := p.run(ctx, shortTimeout, nil, args...)
-	return strings.TrimSpace(string(out)), err
+	if err != nil {
+		if !errors.Is(err, ErrUnavailable) {
+			_ = p.Remove(ctx, s.Name) // best effort; guarded by the Hub label
+		}
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 func (p *Podman) Stop(ctx context.Context, id string) error {
-	_, err := p.run(ctx, shortTimeout, nil, "stop", "-t", "10", id)
+	if err := p.guard(ctx, id); err != nil {
+		return err
+	}
+	_, err := p.run(ctx, shortTimeout, nil, "stop", "-t", "10", "--", id)
 	return err
 }
 
 func (p *Podman) Remove(ctx context.Context, id string) error {
-	_, err := p.run(ctx, shortTimeout, nil, "rm", "-f", "--ignore", id)
+	if err := p.guard(ctx, id); err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
+		return err
+	}
+	_, err := p.run(ctx, shortTimeout, nil, "rm", "-f", "--ignore", "--", id)
+	if errors.Is(err, ErrNotFound) {
+		return nil
+	}
 	return err
 }
 
 func (p *Podman) RemoveImage(ctx context.Context, id string) error {
-	_, err := p.run(ctx, shortTimeout, nil, "rmi", "--ignore", id)
+	out, err := p.run(ctx, shortTimeout, nil, "image", "inspect", "--format",
+		`{{index .Labels "`+Label+`"}}|{{join .RepoTags ","}}`, "--", id)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) {
+			return nil
+		}
+		return err
+	}
+	label, tags, _ := strings.Cut(strings.TrimSpace(string(out)), "|")
+	var repoTags []string
+	if tags != "" {
+		repoTags = strings.Split(tags, ",")
+	}
+	if !imageAllowed(label, repoTags) {
+		slog.Error("podman: refused to remove an image that is not the Hub's", "id", id)
+		return errors.New("recusado: esta imagem não é do Hub")
+	}
+	_, err = p.run(ctx, shortTimeout, nil, "rmi", "--ignore", "--", id)
 	return err
 }
 
 func (p *Podman) Inspect(ctx context.Context, id string) (State, error) {
-	out, err := p.run(ctx, shortTimeout, nil, "inspect", "--type", "container", id)
+	out, err := p.run(ctx, shortTimeout, nil, "inspect", "--type", "container", "--", id)
 	if err != nil {
-		if errors.Is(err, ErrUnavailable) {
-			return State{}, err
+		if errors.Is(err, ErrNotFound) {
+			return State{}, nil
 		}
-		return State{}, nil // não existe
+		return State{}, err
 	}
 	return parseInspect(out, 0)
 }
@@ -200,11 +283,35 @@ func (p *Podman) Stats(ctx context.Context, ids []string) ([]Usage, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	out, err := p.run(ctx, shortTimeout, nil, append([]string{"stats", "--no-stream", "--format", "json"}, ids...)...)
+	// All running containers; podman fails the whole call on a stopped id.
+	out, err := p.run(ctx, shortTimeout, nil, "stats", "--no-stream", "--format", "json")
 	if err != nil {
 		return nil, err
 	}
-	return parseStats(out)
+	if len(bytes.TrimSpace(out)) == 0 {
+		return nil, nil
+	}
+	all, err := parseStats(out)
+	if err != nil {
+		return nil, err
+	}
+	return normalizeStats(all, ids), nil
+}
+
+// normalizeStats keeps only the requested ids. Podman reports short ids; the
+// result carries the full requested id.
+func normalizeStats(all []Usage, ids []string) []Usage {
+	var res []Usage
+	for _, id := range ids {
+		for _, u := range all {
+			if u.ContainerID != "" && (strings.HasPrefix(id, u.ContainerID) || strings.HasPrefix(u.ContainerID, id)) {
+				u.ContainerID = id
+				res = append(res, u)
+				break
+			}
+		}
+	}
+	return res
 }
 
 func parseStats(raw []byte) ([]Usage, error) {
@@ -246,13 +353,16 @@ func ParseSize(s string) (int64, error) {
 }
 
 func (p *Podman) Logs(ctx context.Context, id string, lines int) (string, error) {
+	if err := p.guard(ctx, id); err != nil {
+		return "", err
+	}
 	ctx, cancel := context.WithTimeout(ctx, shortTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, p.bin, "logs", "--tail", strconv.Itoa(lines), id)
+	cmd := exec.CommandContext(ctx, p.bin, "logs", "--tail", strconv.Itoa(lines), "--", id)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		slog.Warn("podman logs", "err", err, "out", tail(string(out), 500))
-		if errors.Is(err, exec.ErrNotFound) || strings.Contains(string(out), "cannot connect") {
+		if p.unavailable(ctx, err) {
 			return "", ErrUnavailable
 		}
 	}
@@ -263,6 +373,9 @@ func (p *Podman) Exec(ctx context.Context, container string, stdin io.Reader, st
 	if len(cmd) == 0 {
 		return errors.New("exec: comando vazio")
 	}
+	if err := p.guard(ctx, container); err != nil {
+		return err
+	}
 	args := append([]string{"exec", "-i", container}, cmd...)
 	c := exec.CommandContext(ctx, p.bin, args...)
 	c.Stdin, c.Stdout = stdin, stdout
@@ -270,7 +383,7 @@ func (p *Podman) Exec(ctx context.Context, container string, stdin io.Reader, st
 	c.Stderr = &errb
 	if err := c.Run(); err != nil {
 		slog.Warn("podman exec", "err", err, "stderr", tail(errb.String(), 2000))
-		if errors.Is(err, exec.ErrNotFound) || strings.Contains(errb.String(), "cannot connect") {
+		if p.unavailable(ctx, err) {
 			return ErrUnavailable
 		}
 		return fmt.Errorf("exec %s: %w: %s", cmd[0], err, tail(errb.String(), 500))
