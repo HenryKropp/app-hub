@@ -125,10 +125,11 @@ func (h *Handler) scan(w http.ResponseWriter, r *http.Request) {
 
 type appSummary struct {
 	sqlc.ListAppsRow
-	FolderDisplay    string     `json:"folder_display"`
-	CanRun           bool       `json:"can_run"`
-	RememberedFolder string     `json:"remembered_folder"`
-	Can              access.Can `json:"can"`
+	FolderDisplay    string       `json:"folder_display"`
+	CanRun           bool         `json:"can_run"`
+	RememberedFolder string       `json:"remembered_folder"`
+	Can              access.Can   `json:"can"`
+	Shared           *sharedBrief `json:"shared"`
 }
 
 func (h *Handler) listApps(w http.ResponseWriter, r *http.Request) {
@@ -155,6 +156,11 @@ func (h *Handler) listApps(w http.ResponseWriter, r *http.Request) {
 	for _, f := range folders {
 		remembered[f.AppID] = f.Folder
 	}
+	shared, err := h.sharedBriefs(r)
+	if err != nil {
+		internalError(w, "list shared apps", err)
+		return
+	}
 	out := make([]appSummary, 0, len(apps))
 	for _, a := range apps {
 		can := acc.For(access.App{ID: a.ID, AreaID: a.AreaID, OwnerID: a.OwnerID, BackupID: a.BackupID.Int64, Restricted: a.Restricted})
@@ -162,7 +168,7 @@ func (h *Handler) listApps(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		out = append(out, appSummary{ListAppsRow: a, FolderDisplay: hostpath.ToDisplay(a.FolderPath),
-			CanRun: canRunKind(a.Kind, a.Entrypoint), RememberedFolder: remembered[a.ID], Can: can})
+			CanRun: canRunKind(a.Kind, a.Entrypoint), RememberedFolder: remembered[a.ID], Can: can, Shared: shared[a.ID]})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -184,6 +190,7 @@ type appDetail struct {
 	Can              access.Can         `json:"can"`
 	DependsOn        []appLink          `json:"depends_on_apps,omitempty"`
 	UsedBy           []appLink          `json:"used_by,omitempty"`
+	Shared           *sharedBrief       `json:"shared"`
 }
 
 type appLink struct {
@@ -239,6 +246,10 @@ func (h *Handler) writeDetail(w http.ResponseWriter, r *http.Request, me sqlc.Pe
 		return
 	}
 	d.Can = acc.For(appRef(a))
+	if d.Shared, err = h.sharedBriefOf(r, a.ID); err != nil {
+		internalError(w, "shared brief", err)
+		return
+	}
 	if d.Can.Tech {
 		if d.DependsOn, d.UsedBy, err = h.appLinks(r.Context(), acc, a, d.Manifest); err != nil {
 			internalError(w, "app links", err)
