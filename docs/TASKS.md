@@ -165,3 +165,15 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 |---|---|---|
 | MCP: criar app do zero, rodar, ler saúde, usar cofre | Pending | Depois das Fases 4–7; registro já coberto na Fase 2b |
 
+## Apps compartilhados (2026-10-06, ADR 010)
+
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Tasks 1 a 18 (manifesto, cofre, motor Podman, bancos por app, receitas, checagem, implantação, porteiro, vigia, API da ficha, uso e custo, catálogo, parte "Compartilhado" da ficha, página Servidor e gastos) | Done | Na branch `apps-compartilhados` |
+| Task 19: ADR 010, PRD, TASKS, INFRASTRUCTURE e script de fotos (`e2e/compartilhados.mjs`) | Done | As fotos só rodam depois que o Henry reiniciar o Hub com o código novo |
+| Task 19: teste de verdade com o Henry (Streamlit de exemplo, testar, publicar, descansar, voltar versão, custo, checagem do Sistema Alis V2) | Pending | Um passo por vez, conferindo pelos dados do Hub |
+
+### Depois
+- Subir na nuvem (por último).
+- Sistema Alis V2 para a equipe (antes, só a checagem).

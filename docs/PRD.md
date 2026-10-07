@@ -130,6 +130,19 @@ Em linguagem de produto, quem pode o quê:
 - **Cofre local:** chaves e senhas guardadas criptografadas. O app recebe a chave na hora de rodar e o usuário nunca a vê. Registro de qual app usou qual chave e quando. (Pendente, Fase 6.)
 - **Empresa e times (combinado em 2026-09-30, para depois):** a empresa é a conta (nome, padrões, cofre, chave da IA); no piloto existe uma só (Alis). A Etapa 2 entregou áreas, líderes, apps restritos e acessos por app; ainda ficam para depois a pessoa em várias empresas, configurações próprias por time, limites e aprovação antes de publicar.
 
+### 3.7b Apps compartilhados (construído em 2026-10, ADR 010)
+Alguns apps precisam ficar no ar para muita gente usar ao mesmo tempo, com os mesmos dados. O Hub passa a rodá-los num servidor, em vez de abrir no computador de cada pessoa.
+- **Tornar compartilhado:** na ficha, a parte "Compartilhado" mostra a checagem do que falta (com um "texto para o Claude" para consertar), deixa **Testar** numa caixa separada, com banco próprio de teste (desliga sozinha em 30 min), e **Publicar** para a equipe. **Publicar versão nova** sobe ao lado da atual e só assume se funcionar; **Voltar para a anterior** volta só a versão ou a versão com os dados.
+- **Abrir:** o cartão do catálogo ganha **Abrir** e o status (no ar, dormindo, parado, com problema). O app abre em endereço próprio, sem outro login: vale o login do Hub e as mesmas regras de acesso da ficha. O app sabe quem é a pessoa (nome, e-mail e papel).
+- **Descanso e cópias:** o app dorme depois de 30 min sem uso e acorda no próximo acesso. Há cópia diária do banco, cópias antes de publicar e restaurar e cópia manual; a ficha restaura.
+- **Servidor e gastos:** o administrador informa quanto o servidor custa por mês e vê memória, disco e a parte de cada app no gasto, e pode parar, ligar ou mudar os limites de um app.
+- **O que cada papel vê:**
+  - **Quem só usa:** vê o status e **Abrir** nos apps que pode ver. Nada de testar, publicar ou servidor.
+  - **Quem cuida do app** (pode restaurar): torna compartilhado, testa, publica, volta versão, muda configurações e restaura cópias.
+  - **Quem vê a parte técnica:** vê mensagens do app e o uso.
+  - **Quem tem "Cuidar do servidor"** (administrador, por padrão): vê a página Servidor, age sobre qualquer app compartilhado e informa o custo.
+- **Limites:** exige Podman ligado no servidor; geração de PDF do Sistema Alis não funciona dentro da caixa (a checagem avisa). Subir na nuvem fica para depois.
+
 ### 3.8 Saúde (1.8)
 - Toda execução com erro fica registrada com a mensagem de erro.
 - Status de cada app: funcionando, com erro ou sem uso.
