@@ -126,11 +126,27 @@ func TestSharedPublishTwiceIs409(t *testing.T) {
 	id := sharedApp(t, h, d, "notas")
 	release := make(chan struct{})
 	d.svc.SetSpawn(func(f func()) { go func() { <-release; f() }() })
-	defer close(release)
-	c.do("POST", appPath(id, "/shared/publish"), nil, nil)
+	var first struct {
+		ID int64 `json:"id"`
+	}
+	c.do("POST", appPath(id, "/shared/publish"), nil, &first)
+	defer func() { // the background publish must end before the test's folders go away
+		close(release)
+		for i := 0; i < 200; i++ {
+			dep, err := h.q.GetDeployment(context.Background(), first.ID)
+			if err == nil && dep.Status != "building" && !d.svc.Busy(id) {
+				return
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
+		t.Error("publish never finished")
+	}()
 	var e struct{ Error string }
-	if code := c.do("POST", appPath(id, "/shared/publish"), nil, &e); code != http.StatusConflict || !strings.Contains(e.Error, "em andamento") {
+	if code := c.do("POST", appPath(id, "/shared/publish"), nil, &e); code != http.StatusConflict || e.Error != "Já existe uma publicação em andamento para este app." {
 		t.Fatalf("%d %s", code, e.Error)
+	}
+	if code := c.do("POST", appPath(id, "/shared/test"), nil, &e); code != http.StatusConflict || e.Error != "Já existe uma publicação em andamento para este app." {
+		t.Fatalf("test while publishing: %d %s", code, e.Error)
 	}
 	if code := c.do("POST", appPath(id, "/shared/stop"), nil, &e); code != http.StatusConflict || !strings.Contains(e.Error, "tente de novo") {
 		t.Fatalf("stop while busy: %d %s", code, e.Error)

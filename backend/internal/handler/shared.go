@@ -309,6 +309,10 @@ func (h *Handler) startShared(w http.ResponseWriter, r *http.Request, test bool)
 	} else {
 		d, err = h.shared.Svc.Publish(r.Context(), a, m, me.ID)
 	}
+	if errors.Is(err, deploy.ErrBusy) { // the exact sentence for a second "Publicar"/"Testar"
+		writeError(w, http.StatusConflict, deploy.ErrBusy.Error())
+		return
+	}
 	if err != nil {
 		sharedError(w, err)
 		return
