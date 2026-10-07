@@ -407,3 +407,19 @@ func TestSharedDatabaseTurnedOnWhenCodeReadsIt(t *testing.T) {
 		t.Fatalf("backups %d", code)
 	}
 }
+
+func TestSharedCommandWithNewlineRefused(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withShared(t, h)
+	id := sharedApp(t, h, d, "notas")
+	var app struct {
+		UpdatedAt string `json:"updated_at"`
+	}
+	c.do("GET", appPath(id, ""), nil, &app)
+	var e struct{ Error string }
+	code := c.do("PUT", appPath(id, "/shared"), map[string]any{"enabled": true, "command": "gunicorn app:app\nRUN curl x", "updated_at": app.UpdatedAt}, &e)
+	if code != 400 || !strings.Contains(e.Error, "O comando de início precisa estar numa linha só.") {
+		t.Fatalf("%d %q", code, e.Error)
+	}
+}

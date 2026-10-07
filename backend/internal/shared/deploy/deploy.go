@@ -406,7 +406,7 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 	if live && j.sa.WantsDb && j.sa.DbName != "" {
 		depID := j.dep.ID
 		if _, err := s.Backup(ctx, j.app.ID, "pre_deploy", &depID, &j.by); err != nil {
-			return &failure{msg: "Não foi possível fazer a cópia de segurança antes de publicar. Nada mudou no app.", log: err.Error()}
+			return &failure{msg: "Não foi possível fazer a cópia de segurança antes de publicar. Nada mudou no app.", log: detail(err)}
 		}
 	}
 	img, log, f := s.build(ctx, j)
@@ -555,15 +555,20 @@ func (s *Service) EndTest(ctx context.Context, depID int64) error {
 	if d.ImageID != "" {
 		logErr(s.eng.RemoveImage(ctx, d.ImageID), "remove test image", "image", d.ImageID)
 	}
+	var dropErr error
 	if d.TestDbName != "" {
-		if err := s.dbs.Drop(ctx, d.TestDbName); err != nil {
-			return err
+		if dropErr = s.dbs.Drop(ctx, d.TestDbName); dropErr != nil {
+			slog.Error("shared: drop test db", "deployment", d.ID, "db", d.TestDbName, "err", dropErr)
+		} else {
+			s.setTestPassword(d.TestDbName, "")
 		}
-		s.setTestPassword(d.TestDbName, "")
 	}
 	if !newer {
 		logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(d.AppID, 10), "test-data")), "remove test data", "app", d.AppID)
 		s.setTarget(d.AppID, true, 0)
+	}
+	if dropErr != nil {
+		return dropErr // not retired: the supervisor tries the drop again
 	}
 	if d.Status == "failed" {
 		return nil

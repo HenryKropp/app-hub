@@ -78,6 +78,6 @@ type Engine interface {
 	Stats(ctx context.Context, containerIDs []string) ([]Usage, error)
 	Logs(ctx context.Context, containerID string, lines int) (string, error)
 	Exec(ctx context.Context, container string, stdin io.Reader, stdout io.Writer, cmd ...string) error
-	List(ctx context.Context) ([]Container, error) // só as que têm Label
+	List(ctx context.Context) ([]Container, error)        // só as que têm Label
 	RemoveNetwork(ctx context.Context, name string) error // só redes do Hub (HubNetwork + Label); sem erro se não existe
 }

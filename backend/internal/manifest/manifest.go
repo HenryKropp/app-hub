@@ -224,6 +224,9 @@ type EnvVar struct {
 	Default  string `yaml:"default,omitempty" json:"default"`
 }
 
+// MsgCommandLines refuses a start command with line breaks.
+const MsgCommandLines = "O comando de início precisa estar numa linha só."
+
 // ReservedEnv are filled in by the Hub and cannot be declared by the app.
 var ReservedEnv = []string{"PORT", "BASE_URL", "APPHUB_DATA_DIR", "DATABASE_URL"}
 
@@ -279,6 +282,9 @@ func (m Manifest) sharedProblems() []string {
 	}
 	if s.HealthPath != "" && !strings.HasPrefix(s.HealthPath, "/") {
 		out = append(out, "O endereço de saúde precisa começar com /.")
+	}
+	if strings.ContainsAny(s.Command, "\r\n") {
+		out = append(out, MsgCommandLines)
 	}
 	seen := map[string]bool{}
 	for _, e := range s.Env {

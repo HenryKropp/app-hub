@@ -63,12 +63,11 @@ func (h *Handler) createSharedBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	b, err := h.shared.Svc.Backup(r.Context(), a.ID, "manual", nil, &me.ID)
+	if errors.Is(err, deploy.ErrBackupFailed) { // the service logged the technical reason
+		writeError(w, http.StatusInternalServerError, deploy.ErrBackupFailed.Error())
+		return
+	}
 	if err != nil {
-		if !isPortuguese(err) {
-			slog.Error("shared backup", "app", a.ID, "err", err)
-			writeError(w, http.StatusInternalServerError, "Não foi possível fazer a cópia agora. Tente de novo em alguns minutos.")
-			return
-		}
 		sharedError(w, err)
 		return
 	}
