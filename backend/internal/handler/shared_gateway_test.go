@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -78,8 +79,8 @@ func TestSharedAuthorizeTestBoxNeedsRestore(t *testing.T) {
 	loginAs(t, c, "ana@alis.com")
 	c.noRedirect()
 	res := c.raw("GET", "/api/shared/authorize?app=notas&teste=1&volta=%2F", nil)
-	if !strings.HasSuffix(res.Header.Get("Location"), "notas--teste.localhost:8080/__apphub/sem-acesso") {
-		t.Fatalf("%s", res.Header.Get("Location"))
+	if res.StatusCode != http.StatusFound || !strings.HasSuffix(res.Header.Get("Location"), "notas--teste.localhost:8080/__apphub/sem-acesso") {
+		t.Fatalf("%d %s", res.StatusCode, res.Header.Get("Location"))
 	}
 	// The same person can open the live app (not restricted).
 	res = c.raw("GET", "/api/shared/authorize?app=notas&volta=%2F", nil)
@@ -92,12 +93,25 @@ func TestSharedAuthorizeUnknownAppAndNoServer(t *testing.T) {
 	c, h := newPoolClient(t)
 	setupAdmin(t, c)
 	c.noRedirect()
-	if res := c.raw("GET", "/api/shared/authorize?app=notas&volta=%2F", nil); res.StatusCode != http.StatusServiceUnavailable {
-		t.Fatalf("without shared parts: %d", res.StatusCode)
+	page := func(path string) (int, string, string) {
+		req, _ := http.NewRequest("GET", c.srv.URL+path, nil)
+		req.Header.Set("Accept", "text/html,application/xhtml+xml")
+		res, err := c.c.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer res.Body.Close()
+		b, _ := io.ReadAll(res.Body)
+		return res.StatusCode, res.Header.Get("Content-Type"), string(b)
+	}
+	if code, ct, body := page("/api/shared/authorize?app=notas&volta=%2F"); code != http.StatusServiceUnavailable ||
+		!strings.HasPrefix(ct, "text/html") || !strings.Contains(body, "O servidor de apps não está disponível") {
+		t.Fatalf("without shared parts: %d %s %s", code, ct, body)
 	}
 	withShared(t, h)
-	if res := c.raw("GET", "/api/shared/authorize?app=nada&volta=%2F", nil); res.StatusCode != http.StatusNotFound {
-		t.Fatalf("unknown app: %d", res.StatusCode)
+	if code, ct, body := page("/api/shared/authorize?app=nada&volta=%2F"); code != http.StatusNotFound ||
+		!strings.HasPrefix(ct, "text/html") || !strings.Contains(body, "App não encontrado") {
+		t.Fatalf("unknown app: %d %s %s", code, ct, body)
 	}
 }
 
