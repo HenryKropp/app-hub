@@ -154,9 +154,10 @@ type Fake struct {
 	DBs         map[string]string // nome → senha
 	Data        map[string]string // conteúdo "do banco", para provar restaurações
 	FailDump    error
-	FailRestore error // Restore fails with this (and changes nothing)
+	FailRestore error             // Restore fails with this (and changes nothing)
 	OnDump      func(name string) // called at the start of every Dump (tests)
 	FailDrop    error             // Drop fails with this (and changes nothing)
+	FailSize    error             // Size fails with this
 }
 
 func NewFake() *Fake { return &Fake{DBs: map[string]string{}, Data: map[string]string{}} }
@@ -209,7 +210,12 @@ func (f *Fake) Name(appID int64) string { return fmt.Sprintf("app_%d", appID) }
 
 func (f *Fake) TestName(appID, dep int64) string { return fmt.Sprintf("app_%d_test_%d", appID, dep) }
 
-func (f *Fake) Size(_ context.Context, n string) (int64, error) { return 8 << 20, nil }
+func (f *Fake) Size(_ context.Context, n string) (int64, error) {
+	if f.FailSize != nil {
+		return 0, f.FailSize
+	}
+	return 8 << 20, nil
+}
 
 var _ DBs = (*Admin)(nil)
 var _ DBs = (*Fake)(nil)

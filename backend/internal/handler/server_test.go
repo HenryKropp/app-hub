@@ -1,7 +1,11 @@
 package handler
 
 import (
+	"bytes"
+	"errors"
+	"log/slog"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -89,5 +93,24 @@ func TestServerAppSettings(t *testing.T) {
 	waitShared(t, c, id, "running")
 	if code := c.do("PUT", path, map[string]any{"memory_mb": 768, "cpus": 1, "idle_minutes": 30}, &out); code != 200 || !out.NeedsRestart {
 		t.Fatalf("running %d %+v", code, out)
+	}
+}
+
+func TestServerLogsDBSizeError(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withShared(t, h)
+	id := sharedApp(t, h, d, "notas")
+	testPool.Exec(t.Context(), "UPDATE shared_apps SET db_name = 'app_notas' WHERE app_id = $1", id)
+	d.dbs.FailSize = errors.New("size boom")
+	var buf bytes.Buffer
+	old := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	defer slog.SetDefault(old)
+	if code := c.do("GET", "/api/server", nil, nil); code != 200 {
+		t.Fatalf("server %d", code)
+	}
+	if !strings.Contains(buf.String(), "size boom") {
+		t.Fatalf("Size error not logged: %q", buf.String())
 	}
 }

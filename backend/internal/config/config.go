@@ -2,8 +2,12 @@ package config
 
 import (
 	"errors"
+	"fmt"
+	"log/slog"
+	"net/url"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -60,4 +64,81 @@ func Load() (Config, error) {
 // SecureCookies is true when the Hub is served over HTTPS.
 func (c Config) SecureCookies() bool {
 	return strings.HasPrefix(c.BaseURL, "https://")
+}
+
+// redacted is a copy of the config that is safe to print: the secret key and
+// any password inside a database address are hidden.
+func (c Config) redacted() map[string]any {
+	hide := func(s string) string {
+		if s == "" {
+			return ""
+		}
+		return "[escondido]"
+	}
+	return map[string]any{
+		"Port": c.Port, "DatabaseURL": hideURLPassword(c.DatabaseURL), "BaseURL": c.BaseURL, "DevMode": c.DevMode,
+		"AgentBinaryPath": c.AgentBinaryPath, "SecretKey": hide(c.SecretKey),
+		"AppsDBAdminURL": hideURLPassword(c.AppsDBAdminURL), "AppsDBHost": c.AppsDBHost,
+		"AppsDBContainer": c.AppsDBContainer, "SharedDomain": c.SharedDomain,
+		"SharedDataDir": c.SharedDataDir, "ContainerEngine": c.ContainerEngine,
+	}
+}
+
+func hideURLPassword(s string) string {
+	u, err := url.Parse(s)
+	if err != nil {
+		if s == "" {
+			return ""
+		}
+		return "[escondido]"
+	}
+	if _, has := u.User.Password(); has {
+		u.User = url.UserPassword(u.User.Username(), "xxxxx")
+	}
+	q := u.Query()
+	if q.Has("password") {
+		q.Set("password", "xxxxx")
+		u.RawQuery = q.Encode()
+	}
+	return u.String()
+}
+
+// String, GoString and LogValue keep secrets out of logs and error messages.
+func (c Config) String() string {
+	r := c.redacted()
+	keys := make([]string, 0, len(r))
+	for k := range r {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	b.WriteString("{")
+	for i, k := range keys {
+		if i > 0 {
+			b.WriteString(" ")
+		}
+		fmt.Fprintf(&b, "%s:%v", k, r[k])
+	}
+	b.WriteString("}")
+	return b.String()
+}
+
+func (c Config) GoString() string { return "config.Config" + c.String() }
+
+func (c Config) LogValue() slog.Value {
+	r := c.redacted()
+	attrs := make([]slog.Attr, 0, len(r))
+	for k, v := range r {
+		attrs = append(attrs, slog.Any(k, v))
+	}
+	return slog.GroupValue(attrs...)
+}
+
+// Format makes %v, %+v, %#v and %s all go through the hidden copy.
+func (c Config) Format(f fmt.State, verb rune) {
+	if verb == 'v' && f.Flag('#') {
+		fmt.Fprint(f, c.GoString())
+		return
+	}
+	fmt.Fprint(f, c.String())
 }

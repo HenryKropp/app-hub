@@ -86,7 +86,10 @@ func (h *Handler) getServer(w http.ResponseWriter, r *http.Request) {
 		u := byApp[a.AppID]
 		var dbBytes int64
 		if a.DbName != "" && h.shared.DBs != nil {
-			dbBytes, _ = h.shared.DBs.Size(ctx, a.DbName)
+			var err error
+			if dbBytes, err = h.shared.DBs.Size(ctx, a.DbName); err != nil {
+				slog.Warn("db size", "app", a.AppID, "err", err)
+			}
 		}
 		out = append(out, row{AppID: a.AppID, Name: a.AppName, Slug: a.Slug, Status: a.Status, AlwaysOn: a.AlwaysOn,
 			MemoryMB: a.MemoryMb, CPUs: numericFloat(a.Cpus), IdleMinutes: a.IdleMinutes,
