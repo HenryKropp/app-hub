@@ -4,8 +4,11 @@
 package gateway
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -49,6 +52,7 @@ type session struct {
 	id              Identity
 	expires         time.Time
 	checked         time.Time
+	checking        bool // a recheck is already running
 }
 
 type Gateway struct {
@@ -85,15 +89,28 @@ func (g *Gateway) Match(host string) (string, bool, bool) {
 	return sub, false, true
 }
 
+// safeVolta only lets same-site paths through: browsers drop tabs/newlines
+// inside URLs, so "/\t/evil.com" would otherwise become "//evil.com".
 func safeVolta(v string) string {
-	if !strings.HasPrefix(v, "/") || strings.HasPrefix(v, "//") || strings.HasPrefix(v, "/\\") || strings.ContainsAny(v, "\\\r\n") {
+	for i := 0; i < len(v); i++ {
+		if v[i] < 0x20 || v[i] == 0x7f || v[i] == '\\' {
+			return "/"
+		}
+	}
+	u, err := url.Parse(v)
+	if err != nil || u.Scheme != "" || u.Host != "" || u.User != nil ||
+		!strings.HasPrefix(v, "/") || strings.HasPrefix(v, "//") || strings.HasPrefix(u.Path, "//") {
 		return "/"
 	}
 	return v
 }
 
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	slug, test, _ := g.Match(r.Host)
+	slug, test, matched := g.Match(r.Host)
+	if !matched {
+		g.show(w, r, http.StatusNotFound, page{Title: "App não encontrado", Message: "Este endereço não é de nenhum app compartilhado do Hub.", HubURL: g.hubURL})
+		return
+	}
 	t, ok, err := g.b.Lookup(r.Context(), slug, test)
 	if err != nil {
 		slog.Error("gateway lookup", "slug", slug, "err", err)
@@ -112,8 +129,19 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		g.show(w, r, http.StatusForbidden, page{App: t.Name, Title: "Sem acesso", Message: "Você não tem acesso a este app. Peça acesso a " + owner(t) + ".", HubURL: g.hubURL})
 		return
 	}
-	s := g.session(r, t.AppID, test)
-	if s == nil {
+	tok, s, found := g.session(r, t.AppID, test)
+	if found {
+		switch g.recheck(r.Context(), tok, t, test, false) {
+		case verdictDenied:
+			g.show(w, r, http.StatusForbidden, page{App: t.Name, Title: "Sem acesso", Message: "Você não tem mais acesso a este app. Peça acesso a " + owner(t) + ".", HubURL: g.hubURL})
+			return
+		case verdictGone:
+			found = false
+		default:
+			s = g.snapshot(tok)
+		}
+	}
+	if !found {
 		if !wantsHTML(r) {
 			g.show(w, r, http.StatusUnauthorized, page{Title: "Entre pelo Hub", Message: "Abra o app pelo Hub."})
 			return
@@ -125,20 +153,6 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, g.hubURL+"/api/shared/authorize?"+q.Encode(), http.StatusFound)
 		return
 	}
-	if g.now().Sub(s.checked) >= g.Recheck {
-		id, allowed, err := g.b.Allowed(r.Context(), s.personID, t.AppID, test)
-		if err != nil {
-			slog.Error("gateway recheck", "app", t.AppID, "err", err)
-		} else if !allowed {
-			g.drop(r)
-			g.show(w, r, http.StatusForbidden, page{App: t.Name, Title: "Sem acesso", Message: "Você não tem mais acesso a este app. Peça acesso a " + owner(t) + ".", HubURL: g.hubURL})
-			return
-		} else {
-			g.mu.Lock()
-			s.id, s.checked = id, g.now()
-			g.mu.Unlock()
-		}
-	}
 	if t.Port == 0 {
 		g.notRunning(w, r, t, test)
 		return
@@ -146,7 +160,7 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !test {
 		g.b.Touch(t.AppID)
 	}
-	g.proxy(w, r, t, s)
+	g.proxy(w, r, t, tok, s)
 }
 
 func (g *Gateway) notRunning(w http.ResponseWriter, r *http.Request, t Target, test bool) {
@@ -178,7 +192,12 @@ func (g *Gateway) enter(w http.ResponseWriter, r *http.Request, t Target, slug s
 		return
 	}
 	id, allowed, err := g.b.Allowed(r.Context(), personID, t.AppID, test)
-	if err != nil || !allowed {
+	if err != nil {
+		slog.Error("gateway enter", "app", t.AppID, "err", err)
+		g.show(w, r, http.StatusInternalServerError, page{App: t.Name, Title: "Algo deu errado", Message: "Tente de novo em instantes.", HubURL: g.hubURL})
+		return
+	}
+	if !allowed {
 		g.show(w, r, http.StatusForbidden, page{App: t.Name, Title: "Sem acesso", Message: "Você não tem acesso a este app. Peça acesso a " + owner(t) + ".", HubURL: g.hubURL})
 		return
 	}
@@ -197,33 +216,144 @@ func (g *Gateway) enter(w http.ResponseWriter, r *http.Request, t Target, slug s
 	http.Redirect(w, r, volta, http.StatusFound)
 }
 
-func (g *Gateway) session(r *http.Request, appID int64, test bool) *session {
-	c, err := r.Cookie(cookieName)
-	if err != nil {
-		return nil
-	}
+// session finds the first valid gateway cookie (a hostile sibling site could
+// plant extra cookies of the same name) and returns a copy of its session.
+func (g *Gateway) session(r *http.Request, appID int64, test bool) (string, session, bool) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	s := g.sessions[c.Value]
-	if s == nil || s.appID != appID || s.test != test || g.now().After(s.expires) {
-		return nil
+	for _, c := range r.Cookies() {
+		if c.Name != cookieName {
+			continue
+		}
+		s := g.sessions[c.Value]
+		if s == nil || s.appID != appID || s.test != test || g.now().After(s.expires) {
+			continue
+		}
+		return c.Value, *s, true
 	}
-	return s
+	return "", session{}, false
 }
 
-func (g *Gateway) drop(r *http.Request) {
-	if c, err := r.Cookie(cookieName); err == nil {
-		g.mu.Lock()
-		delete(g.sessions, c.Value)
-		g.mu.Unlock()
-	}
-}
-
-func (g *Gateway) proxy(w http.ResponseWriter, r *http.Request, t Target, s *session) {
-	target := &url.URL{Scheme: "http", Host: "127.0.0.1:" + strconv.Itoa(t.Port)}
+func (g *Gateway) snapshot(tok string) session {
 	g.mu.Lock()
-	id := s.id
+	defer g.mu.Unlock()
+	if s := g.sessions[tok]; s != nil {
+		return *s
+	}
+	return session{}
+}
+
+type verdict int
+
+const (
+	verdictOK verdict = iota
+	verdictDenied
+	verdictGone
+)
+
+// recheck asks the Hub again whether the person still has access, at most
+// every Recheck, with one question in flight per session. If the Hub cannot
+// answer for longer than 2*Recheck the session is dropped (fail closed).
+func (g *Gateway) recheck(ctx context.Context, tok string, t Target, test, force bool) verdict {
+	g.mu.Lock()
+	s := g.sessions[tok]
+	now := g.now()
+	if s == nil || now.After(s.expires) {
+		delete(g.sessions, tok)
+		g.mu.Unlock()
+		return verdictGone
+	}
+	if (!force && now.Sub(s.checked) < g.Recheck) || s.checking {
+		g.mu.Unlock()
+		return verdictOK
+	}
+	s.checking = true
+	personID := s.personID
 	g.mu.Unlock()
+
+	id, allowed, err := g.b.Allowed(ctx, personID, t.AppID, test)
+
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	s.checking = false
+	if err != nil {
+		slog.Error("gateway recheck", "app", t.AppID, "err", err)
+		if g.now().Sub(s.checked) > 2*g.Recheck {
+			delete(g.sessions, tok)
+			return verdictGone
+		}
+		return verdictOK
+	}
+	if !allowed {
+		delete(g.sessions, tok)
+		return verdictDenied
+	}
+	s.id, s.checked = id, g.now()
+	return verdictOK
+}
+
+// hijackTrack remembers the connection a WebSocket upgrade takes over, so the
+// gateway can keep checking access and close it when access is gone.
+type hijackTrack struct {
+	http.ResponseWriter
+	mu   sync.Mutex
+	conn net.Conn
+}
+
+func (h *hijackTrack) Unwrap() http.ResponseWriter { return h.ResponseWriter }
+
+func (h *hijackTrack) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hj, ok := h.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, errors.New("hijack not supported")
+	}
+	c, rw, err := hj.Hijack()
+	if err == nil {
+		h.mu.Lock()
+		h.conn = c
+		h.mu.Unlock()
+	}
+	return c, rw, err
+}
+
+func (h *hijackTrack) Flush() {
+	if f, ok := h.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (h *hijackTrack) close() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.conn != nil {
+		_ = h.conn.Close()
+	}
+}
+
+// watch runs while an upgraded connection is open: every Recheck it asks the
+// Hub again (closing the connection if access is gone) and records use.
+func (g *Gateway) watch(h *hijackTrack, done <-chan struct{}, tok string, t Target, test bool) {
+	tk := time.NewTicker(g.Recheck)
+	defer tk.Stop()
+	for {
+		select {
+		case <-done:
+			return
+		case <-tk.C:
+			if g.recheck(context.Background(), tok, t, test, true) != verdictOK {
+				h.close()
+				return
+			}
+			if !test {
+				g.b.Touch(t.AppID)
+			}
+		}
+	}
+}
+
+func (g *Gateway) proxy(w http.ResponseWriter, r *http.Request, t Target, tok string, s session) {
+	target := &url.URL{Scheme: "http", Host: "127.0.0.1:" + strconv.Itoa(t.Port)}
+	id, test := s.id, s.test
 	rp := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(target)
@@ -236,16 +366,31 @@ func (g *Gateway) proxy(w http.ResponseWriter, r *http.Request, t Target, s *ses
 			}
 			pr.Out.Header.Set("X-AppHub-User-Id", strconv.FormatInt(id.ID, 10))
 			pr.Out.Header.Set("X-AppHub-User-Email", id.Email)
-			pr.Out.Header.Set("X-AppHub-User-Name", url.QueryEscape(id.Name)) // nomes com acento: o app decodifica
-			pr.Out.Header.Set("X-AppHub-User-Role", url.QueryEscape(id.Role))
+			pr.Out.Header.Set("X-AppHub-User-Name", url.PathEscape(id.Name)) // nomes com acento: o app decodifica com unquote
+			pr.Out.Header.Set("X-AppHub-User-Role", url.PathEscape(id.Role))
 			stripCookie(pr.Out)
 		},
 		FlushInterval: -1,
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			if errors.Is(err, context.Canceled) {
+				return // the browser went away; nothing to wake or show
+			}
 			slog.Warn("gateway proxy", "app", t.AppID, "err", err)
+			if test {
+				g.show(w, r, http.StatusNotFound, page{App: t.Name, Title: "O teste terminou", Message: "A caixa de teste foi desligada. Faça um teste novo pela ficha do app.", HubURL: g.hubURL})
+				return
+			}
 			g.b.Wake(t.AppID)
 			g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "Ligando o app…", Message: "O app está reiniciando. Ele abre sozinho em alguns segundos.", Refresh: true})
 		},
+	}
+	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		h := &hijackTrack{ResponseWriter: w}
+		done := make(chan struct{})
+		defer close(done)
+		go g.watch(h, done, tok, t, test)
+		rp.ServeHTTP(h, r)
+		return
 	}
 	rp.ServeHTTP(w, r)
 }

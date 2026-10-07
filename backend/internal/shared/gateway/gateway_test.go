@@ -10,16 +10,25 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
 
 type fakeBackend struct {
-	target  Target
-	allowed bool
-	woken   []int64
-	touched []int64
+	mu       sync.Mutex
+	target   Target
+	allowed  bool
+	allowErr error
+	calls    int
+	slow     chan struct{} // when set, Allowed waits for it
+	name     string
+	woken    []int64
+	touched  []int64
 }
+
+func (f *fakeBackend) setAllowed(v bool) { f.mu.Lock(); f.allowed = v; f.mu.Unlock() }
+func (f *fakeBackend) touches() int      { f.mu.Lock(); defer f.mu.Unlock(); return len(f.touched) }
 
 func (f *fakeBackend) Lookup(_ context.Context, slug string, test bool) (Target, bool, error) {
 	if slug != "notas" {
@@ -28,15 +37,28 @@ func (f *fakeBackend) Lookup(_ context.Context, slug string, test bool) (Target,
 	return f.target, true, nil
 }
 func (f *fakeBackend) Allowed(_ context.Context, pid, aid int64, test bool) (Identity, bool, error) {
-	return Identity{ID: pid, Email: "ana@alis.com", Name: "Ana", Role: "Usuário"}, f.allowed, nil
+	f.mu.Lock()
+	f.calls++
+	slow := f.slow
+	f.mu.Unlock()
+	if slow != nil {
+		<-slow
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	name := f.name
+	if name == "" {
+		name = "Ana"
+	}
+	return Identity{ID: pid, Email: "ana@alis.com", Name: name, Role: "Usuário"}, f.allowed, f.allowErr
 }
-func (f *fakeBackend) Wake(id int64)  { f.woken = append(f.woken, id) }
-func (f *fakeBackend) Touch(id int64) { f.touched = append(f.touched, id) }
+func (f *fakeBackend) Wake(id int64)  { f.mu.Lock(); f.woken = append(f.woken, id); f.mu.Unlock() }
+func (f *fakeBackend) Touch(id int64) { f.mu.Lock(); f.touched = append(f.touched, id); f.mu.Unlock() }
 
 // upstream echoes what the app receives.
 func upstream(t *testing.T) (*httptest.Server, int) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintf(w, "path=%s email=%s cookie=%s host=%s", r.URL.RequestURI(), r.Header.Get("X-AppHub-User-Email"), r.Header.Get("Cookie"), r.Host)
+		fmt.Fprintf(w, "path=%s email=%s cookie=%s host=%s id=%s name=%s role=%s", r.URL.RequestURI(), r.Header.Get("X-AppHub-User-Email"), r.Header.Get("Cookie"), r.Host, r.Header.Get("X-AppHub-User-Id"), r.Header.Get("X-AppHub-User-Name"), r.Header.Get("X-AppHub-User-Role"))
 	}))
 	t.Cleanup(srv.Close)
 	u, _ := url.Parse(srv.URL)
@@ -134,8 +156,8 @@ func TestEnterThenProxies(t *testing.T) {
 func TestGatewayStripsForgedHeaders(t *testing.T) {
 	g, _ := setup(t)
 	c := enter(t, g, "notas.localhost:8080", false)
-	w := get(g, "notas.localhost:8080", "/", c, map[string]string{"X-AppHub-User-Email": "chefe@alis.com", "X-Apphub-User-Role": "Administrador"})
-	if !strings.Contains(w.Body.String(), "email=ana@alis.com") {
+	w := get(g, "notas.localhost:8080", "/", c, map[string]string{"X-AppHub-User-Email": "chefe@alis.com", "X-Apphub-User-Role": "Administrador", "X-AppHub-User-Id": "99", "X-AppHub-User-Name": "Chefe"})
+	if b := w.Body.String(); !strings.Contains(b, "email=ana@alis.com") || !strings.Contains(b, "id=1 ") || !strings.Contains(b, "name=Ana ") || !strings.Contains(b, "role=Usu") {
 		t.Fatalf("%s", w.Body.String())
 	}
 	// sem sessão, o cabeçalho forjado também não passa: vai para o Hub
@@ -167,7 +189,7 @@ func TestCodeSingleUseAndExpires(t *testing.T) {
 
 func TestUnsafeVoltaGoesHome(t *testing.T) {
 	g, _ := setup(t)
-	for _, volta := range []string{"//evil.com/x", "https://evil.com", "/\\evil.com"} {
+	for _, volta := range []string{"//evil.com/x", "https://evil.com", "/\\evil.com", "//evil.com", "/\t/evil.com", "/\n/evil.com", "/\x7f/evil.com", "javascript:alert(1)"} {
 		code := g.Codes.Issue(1, 7, false)
 		w := get(g, "notas.localhost:8080", "/__apphub/entrar?code="+code+"&volta="+url.QueryEscape(volta), nil, nil)
 		if w.Header().Get("Location") != "/" {
@@ -335,5 +357,163 @@ func TestReservedPathsNeverReachTheApp(t *testing.T) {
 	w := get(g, "notas.localhost:8080", "/__apphub/sem-acesso", c, nil)
 	if w.Code != http.StatusForbidden || strings.Contains(w.Body.String(), "path=") {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestEncodedTabVoltaGoesHome(t *testing.T) {
+	g, _ := setup(t)
+	code := g.Codes.Issue(1, 7, false)
+	w := get(g, "notas.localhost:8080", "/__apphub/entrar?code="+code+"&volta=/%09/evil.com", nil, nil)
+	if w.Header().Get("Location") != "/" {
+		t.Fatalf("Location %q", w.Header().Get("Location"))
+	}
+}
+
+func TestIdentityNameEncodedForUnquote(t *testing.T) {
+	g, b := setup(t)
+	b.name = "Ana Souza Ção"
+	c := enter(t, g, "notas.localhost:8080", false)
+	body := get(g, "notas.localhost:8080", "/", c, nil).Body.String()
+	raw := strings.TrimPrefix(strings.Fields(body[strings.Index(body, "name="):])[0], "name=")
+	if got, err := url.PathUnescape(raw); err != nil || got != "Ana Souza Ção" || strings.Contains(raw, "+") {
+		t.Fatalf("raw %q got %q err %v", raw, got, err)
+	}
+}
+
+func TestEnterAllowedErrorIsNotNoAccess(t *testing.T) {
+	g, b := setup(t)
+	b.allowErr = fmt.Errorf("db down")
+	code := g.Codes.Issue(1, 7, false)
+	w := get(g, "notas.localhost:8080", "/__apphub/entrar?code="+code, nil, nil)
+	if w.Code != 500 || !strings.Contains(w.Body.String(), "Algo deu errado") || strings.Contains(w.Body.String(), "Sem acesso") || len(w.Result().Cookies()) != 0 {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestRecheckFailsClosedWhenHubCannotAnswer(t *testing.T) {
+	g, b := setup(t)
+	now := time.Now()
+	g.SetNow(func() time.Time { return now })
+	c := enter(t, g, "notas.localhost:8080", false)
+	b.allowErr = fmt.Errorf("db down")
+	now = now.Add(6 * time.Minute)
+	if w := get(g, "notas.localhost:8080", "/", c, nil); w.Code != 200 {
+		t.Fatalf("one failed recheck should still pass, got %d", w.Code)
+	}
+	now = now.Add(5 * time.Minute) // 11 min since last good answer
+	if w := get(g, "notas.localhost:8080", "/", c, nil); w.Code != http.StatusFound {
+		t.Fatalf("should fail closed, got %d", w.Code)
+	}
+}
+
+func TestFirstValidCookieWins(t *testing.T) {
+	g, _ := setup(t)
+	c := enter(t, g, "notas.localhost:8080", false)
+	r := httptest.NewRequest("GET", "http://notas.localhost:8080/", nil)
+	r.Host = "notas.localhost:8080"
+	r.Header.Set("Accept", "text/html")
+	r.AddCookie(&http.Cookie{Name: "apphub_app", Value: "planted"})
+	r.AddCookie(c)
+	w := httptest.NewRecorder()
+	g.ServeHTTP(w, r)
+	if w.Code != 200 {
+		t.Fatalf("got %d", w.Code)
+	}
+}
+
+func TestUnmatchedHostIs404(t *testing.T) {
+	g, _ := setup(t)
+	if w := get(g, "a.b.localhost:8080", "/", nil, nil); w.Code != 404 {
+		t.Fatalf("%d", w.Code)
+	}
+}
+
+// openWS opens an upgraded connection through the gateway and returns it.
+func openWS(t *testing.T, g *Gateway, cookie string) (net.Conn, *bufio.Reader) {
+	t.Helper()
+	front := httptest.NewServer(g)
+	t.Cleanup(front.Close)
+	conn, err := net.Dial("tcp", strings.TrimPrefix(front.URL, "http://"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { conn.Close() })
+	fmt.Fprintf(conn, "GET /_stcore/stream HTTP/1.1\r\nHost: notas.localhost:8080\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nCookie: apphub_app=%s\r\n\r\n", cookie)
+	rd := bufio.NewReader(conn)
+	status, _ := rd.ReadString('\n')
+	if !strings.Contains(status, "101") {
+		t.Fatalf("status %q", status)
+	}
+	for l, _ := rd.ReadString('\n'); l != "\r\n"; l, _ = rd.ReadString('\n') {
+	}
+	return conn, rd
+}
+
+func holdingUpstream(t *testing.T) int {
+	ws := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, buf, _ := w.(http.Hijacker).Hijack()
+		defer conn.Close()
+		buf.WriteString("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n")
+		buf.Flush()
+		_, _ = buf.ReadString('\n') // holds until the gateway closes
+	}))
+	t.Cleanup(ws.Close)
+	u, _ := url.Parse(ws.URL)
+	port, _ := strconv.Atoi(u.Port())
+	return port
+}
+
+func TestOpenWebSocketClosedWhenAccessRevoked(t *testing.T) {
+	b := &fakeBackend{target: Target{AppID: 7, Status: "running", Port: holdingUpstream(t)}, allowed: true}
+	g := New("localhost:8080", "http://localhost:5173", false, b)
+	g.Recheck = 30 * time.Millisecond
+	c := enter(t, g, "notas.localhost:8080", false)
+	conn, rd := openWS(t, g, c.Value)
+	b.setAllowed(false)
+	_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	if _, err := rd.ReadString('\n'); err == nil || strings.Contains(err.Error(), "timeout") {
+		t.Fatalf("connection should be closed by the gateway, err=%v", err)
+	}
+}
+
+func TestOpenWebSocketKeepsAppAwake(t *testing.T) {
+	b := &fakeBackend{target: Target{AppID: 7, Status: "running", Port: holdingUpstream(t)}, allowed: true}
+	g := New("localhost:8080", "http://localhost:5173", false, b)
+	g.Recheck = 30 * time.Millisecond
+	c := enter(t, g, "notas.localhost:8080", false)
+	openWS(t, g, c.Value)
+	before := b.touches()
+	deadline := time.Now().Add(3 * time.Second)
+	for b.touches() < before+2 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if b.touches() < before+2 {
+		t.Fatalf("open websocket did not keep recording access (%d -> %d)", before, b.touches())
+	}
+}
+
+func TestOnlyOneRecheckInFlight(t *testing.T) {
+	g, b := setup(t)
+	now := time.Now()
+	g.SetNow(func() time.Time { return now })
+	c := enter(t, g, "notas.localhost:8080", false)
+	b.mu.Lock()
+	b.calls = 0
+	b.slow = make(chan struct{})
+	b.mu.Unlock()
+	now = now.Add(6 * time.Minute)
+	var wg sync.WaitGroup
+	for i := 0; i < 5; i++ {
+		wg.Add(1)
+		go func() { defer wg.Done(); get(g, "notas.localhost:8080", "/", c, nil) }()
+	}
+	time.Sleep(200 * time.Millisecond)
+	b.mu.Lock()
+	n := b.calls
+	close(b.slow)
+	b.mu.Unlock()
+	wg.Wait()
+	if n != 1 {
+		t.Fatalf("%d parallel Allowed calls, want 1", n)
 	}
 }
