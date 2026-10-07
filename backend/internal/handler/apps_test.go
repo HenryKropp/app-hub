@@ -87,6 +87,10 @@ func TestScanAndPublish(t *testing.T) {
 	if saved.Manifest.Owner == nil || saved.Manifest.Owner.Email != "henry@alis.com" || saved.Manifest.Backup.Name != "Ana" {
 		t.Errorf("people in manifest = %+v / %+v", saved.Manifest.Owner, saved.Manifest.Backup)
 	}
+	// The answer is the same detail a GET gives: what the person may do and the version.
+	if !saved.Can.View || !saved.Can.Edit || saved.Version == nil || saved.Version.Number != 1 {
+		t.Errorf("create answer can=%+v version=%+v", saved.Can, saved.Version)
+	}
 
 	// The manifest and ficha are written next to the app; the code is untouched.
 	yaml, err := os.ReadFile(filepath.Join(rent.FolderPath, manifest.FileName))

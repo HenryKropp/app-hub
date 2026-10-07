@@ -15,3 +15,13 @@ func TestReadWorksHere(t *testing.T) {
 		t.Fatalf("%+v %v", info, err)
 	}
 }
+
+// Like df: blocks reserved for root count neither as used nor as space this
+// Hub can use, so the warning percentage matches what df shows.
+func TestDiskUsageLikeDf(t *testing.T) {
+	// 1000 blocks of 4 KiB: 300 used, 700 free, of which 50 reserved for root.
+	total, used := diskUsage(1000, 700, 650, 4096)
+	if used != 300*4096 || total != (300+650)*4096 {
+		t.Fatalf("total %d used %d", total, used)
+	}
+}
