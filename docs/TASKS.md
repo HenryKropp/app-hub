@@ -172,6 +172,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 |---|---|---|
 | Tasks 1 a 18 (manifesto, cofre, motor Podman, bancos por app, receitas, checagem, implantação, porteiro, vigia, API da ficha, uso e custo, catálogo, parte "Compartilhado" da ficha, página Servidor e gastos) | Done | Na branch `apps-compartilhados` |
 | Task 19: ADR 010, PRD, TASKS, INFRASTRUCTURE e script de fotos (`e2e/compartilhados.mjs`) | Done | As fotos só rodam depois que o Henry reiniciar o Hub com o código novo |
+| Teste de ponta a ponta com o Podman de verdade (2026-10-07, num Hub de teste separado) | Done | 12 de 12 passos passaram. Os 5 defeitos achados foram corrigidos: parada do app levava 10 s (o app não recebia o sinal de parar), o vigia religava depois de uma só checagem de saúde que falhava (agora pede 2 seguidas e confere de novo antes de religar), disco "usado" contava os blocos reservados, `PUT /api/server/cost` com corpo errado gravava zero, e a resposta de `POST /api/apps` vinha sem permissões nem versão |
 | Task 19: teste de verdade com o Henry (Streamlit de exemplo, testar, publicar, descansar, voltar versão, custo, checagem do Sistema Alis V2) | Pending | Um passo por vez, conferindo pelos dados do Hub |
 
 ### Depois
@@ -190,5 +191,5 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
   - Montagem: `.dockerignore` simples (sem `**`); `Wait` pode passar do tempo em até 5 s.
   - Implantação: "Voltar para a anterior" não marca acesso (pode descansar logo); `Unshare` ignora erros ao remover caixa e imagem (registrar); `deploy.go` grande (separar); imagens de montagens que falharam ficam para trás.
   - Porteiro: `stripCookie` também tirar `hub_session`; vigia de WebSocket com tempo-limite; "fail closed" contar do primeiro erro; testes de não acordar em pedido cancelado e da página de teste encerrado.
-  - Vigia: uma checagem de saúde que falha já religa; app que caiu depois de "Ligar" manual não é tentado de novo.
+  - Vigia: app que caiu depois de "Ligar" manual não é tentado de novo.
   - Telas: "Abrir" aparece também para app parado ou que caiu; ficha guarda informação velha sem avisar quando um GET falha depois; quem só vê o app recebe erro em vez da linha com "Abrir" se a primeira leitura falha; `hostinfo` com erro dá custo zero sem aviso (falta `host_ok`); testes de permissão e de "Ligar" na página Servidor e gastos.
