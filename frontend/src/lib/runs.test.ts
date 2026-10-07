@@ -14,6 +14,8 @@ test("sizes", () => {
   expect(formatSize(820)).toBe("820 B")
   expect(formatSize(12 * 1024)).toBe("12 KB")
   expect(formatSize(79291437)).toBe("75,6 MB")
+  expect(formatSize(68099.6 * 2 ** 20)).toBe("66,5 GB")
+  expect(formatSize(1031018.4 * 2 ** 20)).toBe("1006,9 GB")
 })
 
 test("when and live", () => {
