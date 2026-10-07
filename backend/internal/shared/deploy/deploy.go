@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -215,9 +216,25 @@ func (s *Service) begin(ctx context.Context, app sqlc.App, m manifest.Manifest, 
 	}
 	s.spawn(func() {
 		defer unlock()
+		defer s.recoverJob(j)
 		s.runJob(context.Background(), j)
 	})
 	return dep, nil
+}
+
+// recoverJob turns a panic in a background job into a failed deployment (the
+// deferred unlock then frees the app).
+func (s *Service) recoverJob(j job) {
+	r := recover()
+	if r == nil {
+		return
+	}
+	slog.Error("shared deploy panic", "app", j.app.ID, "deployment", j.dep.ID, "panic", r, "stack", string(debug.Stack()))
+	ctx := context.Background()
+	if d, err := s.q.GetDeployment(ctx, j.dep.ID); err == nil && d.Status != "building" {
+		return // already recorded as finished; leave it as it is
+	}
+	s.fail(ctx, j, &failure{msg: "Erro inesperado no Hub. Tente de novo; se repetir, avise o administrador.", log: fmt.Sprint(r)})
 }
 
 func (s *Service) prepare(ctx context.Context, app sqlc.App, m manifest.Manifest, by int64, test bool) (sqlc.SharedDeployment, job, error) {
@@ -261,7 +278,7 @@ func (s *Service) prepare(ctx context.Context, app sqlc.App, m manifest.Manifest
 		return sqlc.SharedDeployment{}, job{}, err
 	}
 	if !test && !sa.CurrentDeploymentID.Valid {
-		_ = s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: app.ID, Status: "starting"})
+		logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: app.ID, Status: "starting"}), "set status", "app", app.ID)
 	}
 	return dep, job{app: app, sa: sa, m: m, dep: dep, rec: rec, by: by, test: test}, nil
 }
@@ -279,12 +296,16 @@ func (s *Service) runJob(ctx context.Context, j job) {
 	} else {
 		f = s.runPublish(ctx, j)
 	}
-	if f == nil {
-		return
+	if f != nil {
+		s.fail(ctx, j, f)
 	}
+}
+
+// fail records a failed deployment (the version in the air does not change).
+func (s *Service) fail(ctx context.Context, j job, f *failure) {
 	slog.Warn("shared deploy failed", "app", j.app.ID, "deployment", j.dep.ID, "msg", f.msg, "log", lastLines(f.log, 10))
 	if !j.test && !j.sa.CurrentDeploymentID.Valid {
-		_ = s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: j.app.ID, Status: "draft", StatusMessage: f.msg})
+		logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: j.app.ID, Status: "draft", StatusMessage: f.msg}), "set status", "app", j.app.ID)
 	}
 	if err := s.q.FinishDeployment(ctx, sqlc.FinishDeploymentParams{ID: j.dep.ID, Status: "failed",
 		Port: int32(j.rec.Port), BuildLog: lastLines(f.log, 40), ErrorMessage: f.msg}); err != nil {
@@ -345,16 +366,19 @@ func (s *Service) start(ctx context.Context, j job, img, dbName string) (string,
 	}
 	if err != nil {
 		logs, _ := s.eng.Logs(ctx, cid, 40)
-		_ = s.eng.Remove(ctx, cid)
+		logErr(s.eng.Remove(ctx, cid), "remove container", "container", cid)
 		return "", 0, &failure{msg: fmt.Sprintf("O app ligou, mas não respondeu na porta %d. Confira se ele escuta em 0.0.0.0 na porta da variável PORT.", j.rec.Port), log: logs}
 	}
 	return cid, st.HostPort, nil
 }
 
+// msgRecord is shown when the Hub could not record a finished swap.
+const msgRecord = "Não foi possível registrar a versão nova no Hub. Nada mudou no app; tente de novo em alguns minutos."
+
 func (s *Service) runPublish(ctx context.Context, j job) *failure {
 	if t, err := s.q.ListOpenTests(ctx, j.app.ID); err == nil { // encerra o teste em andamento
 		for _, d := range t {
-			_ = s.EndTest(ctx, d.ID)
+			logErr(s.EndTest(ctx, d.ID), "end test", "deployment", d.ID)
 		}
 	}
 	live := j.sa.CurrentDeploymentID.Valid
@@ -379,42 +403,51 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 			err = s.q.SetSharedDBName(ctx, sqlc.SetSharedDBNameParams{AppID: j.app.ID, DbName: dbName})
 		}
 		if err != nil {
-			_ = s.eng.RemoveImage(ctx, img)
+			s.discard(ctx, "", img)
 			return &failure{msg: "Não foi possível preparar o banco do app.", log: log + "\n" + err.Error()}
 		}
 	}
 	cid, port, f := s.start(ctx, j, img, dbName)
 	if f != nil {
-		_ = s.eng.RemoveImage(ctx, img)
+		s.discard(ctx, "", img)
 		f.log = log + "\n" + f.log
 		return f
 	}
+	// Record the new version (the only write with its image, container and
+	// port), then point the app at it. Until both succeed the old version
+	// stays in the air and the new one is thrown away.
+	if err := s.q.FinishDeployment(ctx, sqlc.FinishDeploymentParams{ID: j.dep.ID, Status: "live", ImageID: img, ContainerID: cid,
+		Port: int32(j.rec.Port), BuildLog: lastLines(log, 40)}); err != nil {
+		s.discard(ctx, cid, img)
+		return &failure{msg: msgRecord, log: log + "\n" + err.Error()}
+	}
+	prev := j.sa.CurrentDeploymentID
+	if err := s.q.SetSharedDeployments(ctx, sqlc.SetSharedDeploymentsParams{AppID: j.app.ID,
+		CurrentID: pgtype.Int8{Int64: j.dep.ID, Valid: true}, PreviousID: prev}); err != nil {
+		s.discard(ctx, cid, img)
+		return &failure{msg: msgRecord, log: log + "\n" + err.Error()}
+	}
 	// Troca: o porteiro passa a mandar para a nova, depois a antiga para.
 	s.setTarget(j.app.ID, false, port)
-	var prev pgtype.Int8
 	if live {
-		if old, err := s.q.GetDeployment(ctx, j.sa.CurrentDeploymentID.Int64); err == nil {
+		if old, err := s.q.GetDeployment(ctx, prev.Int64); err != nil {
+			logErr(err, "read old deployment", "deployment", prev.Int64)
+		} else {
 			if old.ContainerID != "" {
-				_ = s.eng.Remove(ctx, old.ContainerID)
+				logErr(s.eng.Remove(ctx, old.ContainerID), "remove old container", "container", old.ContainerID)
 			}
-			_ = s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: old.ID})
-			_ = s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: old.ID, Status: "retired"})
-			prev = pgtype.Int8{Int64: old.ID, Valid: true}
+			logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: old.ID}), "clear container", "deployment", old.ID)
+			logErr(s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: old.ID, Status: "retired"}), "retire", "deployment", old.ID)
 		}
 		if j.sa.PreviousDeploymentID.Valid { // só a anterior guarda imagem
 			if older, err := s.q.GetDeployment(ctx, j.sa.PreviousDeploymentID.Int64); err == nil && older.ImageID != "" {
-				_ = s.eng.RemoveImage(ctx, older.ImageID)
+				logErr(s.eng.RemoveImage(ctx, older.ImageID), "remove older image", "image", older.ImageID)
 			}
 		}
 	}
-	_ = s.q.SetSharedDeployments(ctx, sqlc.SetSharedDeploymentsParams{AppID: j.app.ID,
-		CurrentID: pgtype.Int8{Int64: j.dep.ID, Valid: true}, PreviousID: prev})
-	_ = s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: j.app.ID, Status: "running"})
-	_ = s.q.SetSharedAccessNow(ctx, j.app.ID)
+	logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: j.app.ID, Status: "running"}), "set status", "app", j.app.ID)
+	logErr(s.q.SetSharedAccessNow(ctx, j.app.ID), "set access", "app", j.app.ID)
 	s.event(ctx, j.app.ID, &j.by, "Publicou "+s.versionLabel(ctx, j.dep))
-	// Last: whoever waits for the deployment to leave "building" sees everything done.
-	_ = s.q.FinishDeployment(ctx, sqlc.FinishDeploymentParams{ID: j.dep.ID, Status: "live", ImageID: img, ContainerID: cid,
-		Port: int32(j.rec.Port), BuildLog: lastLines(log, 40)})
 	return nil
 }
 
@@ -422,7 +455,7 @@ func (s *Service) runTest(ctx context.Context, j job) *failure {
 	if t, err := s.q.ListOpenTests(ctx, j.app.ID); err == nil { // um teste novo encerra o anterior
 		for _, d := range t {
 			if d.ID != j.dep.ID {
-				_ = s.EndTest(ctx, d.ID)
+				logErr(s.EndTest(ctx, d.ID), "end test", "deployment", d.ID)
 			}
 		}
 	}
@@ -431,6 +464,12 @@ func (s *Service) runTest(ctx context.Context, j job) *failure {
 		return f
 	}
 	dbName := ""
+	dropDB := func() {
+		if dbName != "" {
+			logErr(s.dbs.Drop(ctx, dbName), "drop test db", "db", dbName)
+			s.setTestPassword(dbName, "")
+		}
+	}
 	if j.sa.WantsDb {
 		dbName = s.dbs.TestName(j.app.ID, j.dep.ID)
 		pw := appdb.NewPassword()
@@ -439,39 +478,48 @@ func (s *Service) runTest(ctx context.Context, j job) *failure {
 			err = s.q.SetDeploymentTestDB(ctx, sqlc.SetDeploymentTestDBParams{ID: j.dep.ID, TestDbName: dbName})
 		}
 		if err != nil {
-			_ = s.eng.RemoveImage(ctx, img)
-			_ = s.dbs.Drop(ctx, dbName)
+			s.discard(ctx, "", img)
+			dropDB()
 			return &failure{msg: "Não foi possível preparar o banco de teste.", log: log + "\n" + err.Error()}
 		}
 		s.setTestPassword(dbName, pw)
 	}
 	cid, port, f := s.start(ctx, j, img, dbName)
 	if f != nil {
-		_ = s.eng.RemoveImage(ctx, img)
-		if dbName != "" {
-			_ = s.dbs.Drop(ctx, dbName)
-			s.setTestPassword(dbName, "")
-		}
+		s.discard(ctx, "", img)
+		dropDB()
 		f.log = log + "\n" + f.log
 		return f
 	}
+	if err := s.q.FinishDeployment(ctx, sqlc.FinishDeploymentParams{ID: j.dep.ID, Status: "ready", ImageID: img, ContainerID: cid,
+		Port: int32(j.rec.Port), BuildLog: lastLines(log, 40)}); err != nil {
+		s.discard(ctx, cid, img)
+		dropDB()
+		return &failure{msg: "Não foi possível registrar o teste no Hub. Tente de novo em alguns minutos.", log: log + "\n" + err.Error()}
+	}
 	s.setTarget(j.app.ID, true, port)
-	_ = s.q.FinishDeployment(ctx, sqlc.FinishDeploymentParams{ID: j.dep.ID, Status: "ready", ImageID: img, ContainerID: cid,
-		Port: int32(j.rec.Port), BuildLog: lastLines(log, 40)})
 	return nil
 }
 
-// EndTest removes a test deployment: container, image, test database and test data.
+// EndTest removes a test deployment: container, image, test database and
+// test data. A test still being built is refused (ErrBusy): its job would
+// bring it back.
 func (s *Service) EndTest(ctx context.Context, depID int64) error {
 	d, err := s.q.GetDeployment(ctx, depID)
 	if err != nil {
 		return err
 	}
+	if d.Kind != "test" {
+		return fmt.Errorf("deployment %d is not a test", depID)
+	}
+	if d.Status == "building" {
+		return ErrBusy
+	}
 	if d.ContainerID != "" {
-		_ = s.eng.Remove(ctx, d.ContainerID)
+		logErr(s.eng.Remove(ctx, d.ContainerID), "remove test container", "container", d.ContainerID)
 	}
 	if d.ImageID != "" {
-		_ = s.eng.RemoveImage(ctx, d.ImageID)
+		logErr(s.eng.RemoveImage(ctx, d.ImageID), "remove test image", "image", d.ImageID)
 	}
 	if d.TestDbName != "" {
 		if err := s.dbs.Drop(ctx, d.TestDbName); err != nil {
@@ -479,13 +527,17 @@ func (s *Service) EndTest(ctx context.Context, depID int64) error {
 		}
 		s.setTestPassword(d.TestDbName, "")
 	}
-	_ = os.RemoveAll(filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(d.AppID, 10), "test-data"))
+	logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(d.AppID, 10), "test-data")), "remove test data", "app", d.AppID)
 	s.setTarget(d.AppID, true, 0)
+	if d.Status == "failed" {
+		return nil
+	}
 	return s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: d.ID, Status: "retired"})
 }
 
 // Rollback puts the previous version back in the air (optionally with the
-// data from before the current version was published).
+// data from before the current version was published). If anything fails,
+// the current version is put back as it was.
 func (s *Service) Rollback(ctx context.Context, appID int64, withData bool, by int64) error {
 	unlock, err := s.lock(appID)
 	if err != nil {
@@ -510,18 +562,35 @@ func (s *Service) Rollback(ctx context.Context, appID int64, withData bool, by i
 	if prev.ImageID == "" {
 		return ErrNoPrevious
 	}
+	wasUp := sa.Status == "running" || sa.Status == "starting"
+	var before sqlc.SharedBackup // "antes de restaurar": the data of now
 	if withData {
 		b, err := s.q.LatestPreDeployBackup(ctx, sqlc.LatestPreDeployBackupParams{AppID: appID, DeploymentID: pgtype.Int8{Int64: cur.ID, Valid: true}})
 		if err != nil {
 			return errors.New("Não há cópia de segurança de antes desta versão para voltar os dados.")
 		}
-		if err := s.restoreFile(ctx, sa, b, by); err != nil {
+		if before, err = s.restoreFile(ctx, sa, b, by); err != nil {
+			s.bringBack(ctx, appID, wasUp)
 			return err
 		}
 	}
+	// undo puts the current version back (with today's data) after a failure.
+	undo := func(msg string) error {
+		if withData {
+			if err := s.loadFile(ctx, sa.DbName, before.Path); err != nil {
+				slog.Error("shared rollback: reload current data", "app", appID, "backup", before.ID, "err", err)
+				msg += " O app continua na versão atual, mas os dados voltaram para antes dela. Os dados mais recentes estão na cópia \"antes de restaurar\" em Cópias."
+				s.bringBack(ctx, appID, wasUp)
+				return errors.New(msg)
+			}
+			s.bringBack(ctx, appID, wasUp)
+		}
+		return errors.New(msg + " Nada mudou: o app continua na versão atual.")
+	}
 	app, err := s.q.GetApp(ctx, appID)
 	if err != nil {
-		return err
+		slog.Error("shared rollback: read app", "app", appID, "err", err)
+		return undo("Não foi possível voltar a versão.")
 	}
 	m := manifestOf(app)
 	port := int(prev.Port)
@@ -535,31 +604,69 @@ func (s *Service) Rollback(ctx context.Context, appID int64, withData bool, by i
 	j := job{app: app, sa: sa, m: m, dep: prev, rec: recipes.Recipe{Port: port}, by: by}
 	cid, hostPort, f := s.start(ctx, j, prev.ImageID, sa.DbName)
 	if f != nil {
-		slog.Warn("shared rollback failed", "app", appID, "deployment", prev.ID, "msg", f.msg)
-		if withData { // restoreFile already stopped the current version: bring it back
-			if err := s.Run(ctx, appID); err != nil {
-				slog.Warn("shared rollback: restart current", "app", appID, "err", err)
-			}
-		}
-		return errors.New(f.msg)
+		slog.Warn("shared rollback failed", "app", appID, "deployment", prev.ID, "msg", f.msg, "log", lastLines(f.log, 10))
+		return undo("A versão anterior não ligou: " + lowerFirst(f.msg))
+	}
+	if err := s.q.SetSharedDeployments(ctx, sqlc.SetSharedDeploymentsParams{AppID: appID,
+		CurrentID: pgtype.Int8{Int64: prev.ID, Valid: true}, PreviousID: pgtype.Int8{Int64: cur.ID, Valid: true}}); err != nil {
+		slog.Error("shared rollback: record swap", "app", appID, "err", err)
+		logErr(s.eng.Remove(ctx, cid), "remove container", "container", cid)
+		return undo("Não foi possível registrar a troca de versão no Hub.")
 	}
 	s.setTarget(appID, false, hostPort)
 	if cur.ContainerID != "" {
-		_ = s.eng.Remove(ctx, cur.ContainerID)
+		logErr(s.eng.Remove(ctx, cur.ContainerID), "remove container", "container", cur.ContainerID)
 	}
-	_ = s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: cur.ID})
-	_ = s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: prev.ID, ContainerID: cid})
-	_ = s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: prev.ID, Status: "live"})
-	_ = s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: cur.ID, Status: "retired"})
-	_ = s.q.SetSharedDeployments(ctx, sqlc.SetSharedDeploymentsParams{AppID: appID,
-		CurrentID: pgtype.Int8{Int64: prev.ID, Valid: true}, PreviousID: pgtype.Int8{Int64: cur.ID, Valid: true}})
-	_ = s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "running"})
+	logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: cur.ID}), "clear container", "deployment", cur.ID)
+	logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: prev.ID, ContainerID: cid}), "set container", "deployment", prev.ID)
+	logErr(s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: prev.ID, Status: "live"}), "set live", "deployment", prev.ID)
+	logErr(s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: cur.ID, Status: "retired"}), "retire", "deployment", cur.ID)
+	logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "running"}), "set status", "app", appID)
 	label := "Voltou para " + s.versionLabel(ctx, prev)
 	if withData {
 		label += " (com os dados de antes)"
 	}
 	s.event(ctx, appID, &by, label)
 	return nil
+}
+
+// discard removes a container and an image that never went live.
+func (s *Service) discard(ctx context.Context, cid, img string) {
+	if cid != "" {
+		logErr(s.eng.Remove(ctx, cid), "discard container", "container", cid)
+	}
+	if img != "" {
+		logErr(s.eng.RemoveImage(ctx, img), "discard image", "image", img)
+	}
+}
+
+// bringBack turns the current version on again after an operation stopped
+// it and then failed (only if it was up before and is not up now).
+func (s *Service) bringBack(ctx context.Context, appID int64, wasUp bool) {
+	if !wasUp {
+		return
+	}
+	if _, up := s.Target(appID, false); up {
+		return
+	}
+	if err := s.run(ctx, appID); err != nil {
+		slog.Error("shared: bring the app back", "app", appID, "err", err)
+	}
+}
+
+// logErr logs a best-effort step that failed.
+func logErr(err error, what string, args ...any) {
+	if err != nil {
+		slog.Error("shared: "+what, append(args, "err", err)...)
+	}
+}
+
+func lowerFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	return strings.ToLower(string(r[0])) + string(r[1:])
 }
 
 func numeric(f float64) pgtype.Numeric {

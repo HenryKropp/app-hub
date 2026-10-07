@@ -27,9 +27,10 @@ type Fake struct {
 	Containers map[string]*FakeContainer
 	BuildErr   error // próxima montagem falha com isto (e volta a nil)
 	BuildLog   string
-	Handler    http.Handler // o que as caixas respondem; padrão: 200 "ok <nome>" + eco dos X-AppHub-*
-	Down       bool         // Available devolve ErrUnavailable
-	Calls      []string     // "build <tag>", "start <name>", "stop <id>", "remove <id>", "exec <container> <cmd>"
+	Handler    http.Handler                   // o que as caixas respondem; padrão: 200 "ok <nome>" + eco dos X-AppHub-*
+	HandlerFor func(name string) http.Handler // se devolve não-nil, vale para a caixa com esse nome (antes de Handler)
+	Down       bool                           // Available devolve ErrUnavailable
+	Calls      []string                       // "build <tag>", "start <name>", "stop <id>", "remove <id>", "exec <container> <cmd>"
 	ExecFn     func(container string, stdin io.Reader, stdout io.Writer, cmd []string) error
 }
 
@@ -128,6 +129,11 @@ func (f *Fake) Start(_ context.Context, s StartSpec) (string, error) {
 	defer f.mu.Unlock()
 	f.record("start " + s.Name)
 	h := f.Handler
+	if f.HandlerFor != nil {
+		if hn := f.HandlerFor(s.Name); hn != nil {
+			h = hn
+		}
+	}
 	if h == nil {
 		h = f.defaultHandler(s.Name)
 	}
