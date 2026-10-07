@@ -538,6 +538,16 @@ func (s *Service) EndTest(ctx context.Context, depID int64) error {
 	if d.Status == "retired" {
 		return nil // already ended: its data and target may now belong to a newer test
 	}
+	// A newer test that is already up owns the app's test data and route: an
+	// older (lost) test only cleans up what is its own.
+	newer := false
+	if open, err := s.q.ListOpenTests(ctx, d.AppID); err == nil {
+		for _, o := range open {
+			if o.ID > d.ID && o.Status == "ready" {
+				newer = true
+			}
+		}
+	}
 	if d.ContainerID != "" {
 		logErr(s.eng.Remove(ctx, d.ContainerID), "remove test container", "container", d.ContainerID)
 	}
@@ -550,8 +560,10 @@ func (s *Service) EndTest(ctx context.Context, depID int64) error {
 		}
 		s.setTestPassword(d.TestDbName, "")
 	}
-	logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(d.AppID, 10), "test-data")), "remove test data", "app", d.AppID)
-	s.setTarget(d.AppID, true, 0)
+	if !newer {
+		logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(d.AppID, 10), "test-data")), "remove test data", "app", d.AppID)
+		s.setTarget(d.AppID, true, 0)
+	}
 	if d.Status == "failed" {
 		return nil
 	}
