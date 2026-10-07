@@ -19,13 +19,37 @@ import (
 
 var envKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
-type Podman struct{ bin string }
+type Podman struct {
+	bin       string
+	execAllow map[string]bool
+}
 
-func NewPodman(bin string) *Podman {
+// Option configures NewPodman.
+type Option func(*Podman)
+
+// WithExecAllowed lets Exec (and only Exec) run in the named containers
+// without the Hub label, by exact name. It exists for the Hub's own Postgres
+// container (pg_dump/pg_restore). Stop, Remove, RemoveImage and Logs stay
+// fully guarded even for these names.
+func WithExecAllowed(names ...string) Option {
+	return func(p *Podman) {
+		for _, n := range names {
+			if n != "" {
+				p.execAllow[n] = true
+			}
+		}
+	}
+}
+
+func NewPodman(bin string, opts ...Option) *Podman {
 	if bin == "" {
 		bin = "podman"
 	}
-	return &Podman{bin: bin}
+	p := &Podman{bin: bin, execAllow: map[string]bool{}}
+	for _, o := range opts {
+		o(p)
+	}
+	return p
 }
 
 const shortTimeout = 30 * time.Second
@@ -403,8 +427,10 @@ func (p *Podman) Exec(ctx context.Context, container string, stdin io.Reader, st
 	if len(cmd) == 0 {
 		return errors.New("exec: comando vazio")
 	}
-	if err := p.guard(ctx, container); err != nil {
-		return err
+	if !p.execAllow[container] {
+		if err := p.guard(ctx, container); err != nil {
+			return err
+		}
 	}
 	args := append([]string{"exec", "-i", container}, cmd...)
 	c := exec.CommandContext(ctx, p.bin, args...)
