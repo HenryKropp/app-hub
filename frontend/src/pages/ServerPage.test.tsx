@@ -1,10 +1,10 @@
-import { render, screen, within } from "@testing-library/react"
+import { act, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 import { beforeEach, expect, it, vi } from "vitest"
 import { toast } from "sonner"
 import { api, ApiError, type ServerInfo } from "@/lib/api"
-import { ServerPage } from "./ServerPage"
+import { parseReais, ServerPage } from "./ServerPage"
 
 const info: ServerInfo = {
   memory_total: 8 * 2 ** 30, memory_used: 3 * 2 ** 30, disk_total: 100 * 2 ** 30, disk_used: 95 * 2 ** 30, disk_warning: true,
@@ -97,4 +97,37 @@ it("offers a retry on other load errors", async () => {
   expect(await screen.findByText("O Hub não respondeu. Tente de novo.")).toBeInTheDocument()
   await userEvent.click(screen.getByRole("button", { name: "Tentar de novo" }))
   expect(await screen.findByText("Sistema Alis")).toBeInTheDocument()
+})
+
+it("reads reais strictly", () => {
+  expect(parseReais("300")).toBe(30000)
+  expect(parseReais("300,50")).toBe(30050)
+  expect(parseReais("1.234,56")).toBe(123456)
+  expect(parseReais("1234,5")).toBe(123450)
+  expect(parseReais(" 300 ")).toBe(30000)
+  for (const bad of ["300abc", "1e3", "300.50", "", "abc", "-5", "1.23,4", "300,505", "12.34"]) expect(parseReais(bad)).toBeNull()
+})
+
+it("the minute reload does not overwrite the cost being typed, and refills it otherwise", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    const get = vi.spyOn(api.server, "get").mockResolvedValue(info)
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    renderPage()
+    const input = await screen.findByLabelText("Quanto o servidor custa por mês")
+    expect(input).toHaveValue("300,00")
+    get.mockResolvedValue({ ...info, monthly_cost_cents: 40000 })
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    expect(input).toHaveValue("400,00") // nobody was editing: shows the new value
+    await user.clear(input)
+    await user.type(input, "45")
+    get.mockResolvedValue({ ...info, monthly_cost_cents: 50000 })
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    expect(input).toHaveValue("45")
+    await user.clear(input)
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
+    expect(input).toHaveValue("") // emptied on purpose: still editing
+  } finally {
+    vi.useRealTimers()
+  }
 })
