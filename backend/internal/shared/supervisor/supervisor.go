@@ -212,7 +212,7 @@ func (s *Supervisor) Tick(ctx context.Context) {
 		if a.Status == "crashed" {
 			// A restart that failed health leaves "crashed": keep trying inside
 			// the window, and say so once when giving up.
-			// (restart opens a fresh window when the old one has passed.)
+			// (its tries never reset here, only once it runs again.)
 			if a.RestartWindowStart.Valid && a.StatusMessage != msgGaveUp {
 				s.restart(ctx, a, now)
 			}
@@ -287,11 +287,10 @@ func (s *Supervisor) healthy(ctx context.Context, a sqlc.ListSharedAppsRow) bool
 
 func (s *Supervisor) restart(ctx context.Context, a sqlc.ListSharedAppsRow, now time.Time) {
 	count, start := a.RestartCount, a.RestartWindowStart
-	// An app that is already "crashed" with 3 tries used gives up now, however
-	// long the failed tries took: a slow tick must never open a fresh window
-	// for it. Only an app that was running (it recovered) starts a new cycle.
-	exhausted := a.Status == "crashed" && count >= 3
-	if !exhausted && (!start.Valid || now.Sub(start.Time) > restartWindow) {
+	// Only an app found "running" (it came back up and was healthy) may open
+	// a fresh window. A "crashed" app is still the same failure: its tries keep
+	// counting however far apart the ticks land, so it never gets a 4th start.
+	if a.Status == "running" && (!start.Valid || now.Sub(start.Time) > restartWindow) {
 		count, start = 0, pgtype.Timestamptz{Time: now, Valid: true}
 	}
 	if count >= 3 {
