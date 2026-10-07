@@ -156,6 +156,9 @@ func pyBase(s manifest.Shared, f files, reqText string, imports map[string]bool)
 			if strings.HasSuffix(p, ".py") {
 				local[strings.TrimSuffix(path.Base(p), ".py")] = true
 			}
+			if i := strings.Index(p, "/"); i > 0 {
+				local[p[:i]] = true // top-level folder, e.g. a local package
+			}
 		}
 		for imp := range imports {
 			if !local[imp] && !stdlib[imp] {
@@ -237,7 +240,7 @@ var fsSkipDir = fs.SkipDir
 // written into a generated requirements list.
 var stdlib = func() map[string]bool {
 	m := map[string]bool{}
-	for _, n := range strings.Fields(`os sys re json csv datetime time math pathlib typing collections itertools functools subprocess logging sqlite3 io shutil glob random uuid hashlib base64 threading dataclasses enum urllib http email zipfile tempfile argparse decimal statistics string textwrap traceback copy pickle unittest asyncio socket ssl smtplib xml html calendar locale platform signal struct queue contextlib abc inspect warnings operator secrets getpass configparser pprint`) {
+	for _, n := range strings.Fields(`abc aifc antigravity argparse array ast asyncio atexit audioop base64 bdb binascii bisect builtins bz2 cProfile calendar cgi cgitb chunk cmath cmd code codecs codeop collections colorsys compileall concurrent configparser contextlib contextvars copy copyreg crypt csv ctypes curses dataclasses datetime dbm decimal difflib dis doctest email encodings ensurepip enum errno faulthandler fcntl filecmp fileinput fnmatch fractions ftplib functools gc genericpath getopt getpass gettext glob graphlib grp gzip hashlib heapq hmac html http idlelib imaplib imghdr importlib inspect io ipaddress itertools json keyword lib2to3 linecache locale logging lzma mailbox mailcap marshal math mimetypes mmap modulefinder msilib msvcrt multiprocessing netrc nis nntplib nt ntpath nturl2path numbers opcode operator optparse os ossaudiodev pathlib pdb pickle pickletools pipes pkgutil platform plistlib poplib posix posixpath pprint profile pstats pty pwd py_compile pyclbr pydoc pydoc_data pyexpat queue quopri random re readline reprlib resource rlcompleter runpy sched secrets select selectors shelve shlex shutil signal site smtplib sndhdr socket socketserver spwd sqlite3 sre_compile sre_constants sre_parse ssl stat statistics string stringprep struct subprocess sunau symtable sys sysconfig syslog tabnanny tarfile telnetlib tempfile termios textwrap this threading time timeit tkinter token tokenize tomllib trace traceback tracemalloc tty turtle turtledemo types typing unicodedata unittest urllib uu uuid venv warnings wave weakref webbrowser winreg winsound wsgiref xdrlib xml xmlrpc zipapp zipfile zipimport zlib zoneinfo __future__`) {
 		m[n] = true
 	}
 	return m

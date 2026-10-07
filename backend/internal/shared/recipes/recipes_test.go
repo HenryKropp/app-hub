@@ -102,3 +102,33 @@ func TestUnknown(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 }
+
+func TestGeneratedRequirementsSkipLocalAndStdlib(t *testing.T) {
+	r := detect(t, "pyimports", manifest.Manifest{Entrypoint: "app.py"})
+	if len(r.Requirements) != 1 || r.Requirements[0] != "streamlit" {
+		t.Fatalf("%+v", r.Requirements)
+	}
+}
+
+func TestSkippedFoldersAndDepthCutoffAreIgnored(t *testing.T) {
+	// .venv has "import streamlit", node_modules and a/b/c have "import django":
+	// reading any of them would change the kind from flask.
+	r := detect(t, "skipdirs", manifest.Manifest{Entrypoint: "app.py"})
+	if r.Kind != "flask" {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestEntrypointInSubfolder(t *testing.T) {
+	r := detect(t, "srcapp", manifest.Manifest{})
+	if r.Kind != "streamlit" || !strings.Contains(r.Command, "streamlit run src/app.py") {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestDjango(t *testing.T) {
+	r := detect(t, "django", manifest.Manifest{})
+	if r.Kind != "django" || !r.NeedsConfirm || r.Port != 8000 || !strings.Contains(r.Command, "gunicorn -b 0.0.0.0:$PORT mysite.wsgi") {
+		t.Fatalf("%+v", r)
+	}
+}
