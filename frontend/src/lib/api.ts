@@ -89,20 +89,22 @@ export type SharedState = {
 }
 export type Deployment = {
   id: number; kind: "test" | "live"; status: "building" | "ready" | "live" | "failed" | "retired"
-  version_id: number | null; error_message: string; build_log: string; created_by_name: string; created_at: string
+  version_number: number | null; error_message: string; created_by_name: string
+  created_at: string; finished_at: string | null; expires_at: string | null
+  build_log?: string; port?: number // only for whoever sees the technical part
 }
 export type SharedInfo = {
   shared: SharedState | null; test_url?: string; test_open?: boolean
   live_version?: number; latest_version?: number; deployments?: Deployment[]
 }
 export type ReadinessItem = { key: string; status: "ok" | "auto" | "missing" | "warn"; title: string; detail: string; claude_text: string; acked: boolean }
-export type Readiness = { ready: boolean; recipe: { kind: string; command: string }; wants_db: boolean; suggest_env: EnvVar[]; items: ReadinessItem[] }
+export type Readiness = { ready: boolean; recipe: { kind: string; dockerfile: string; port: number; command: string; needs_confirm: boolean; requirements: string[] | null }; wants_db: boolean; suggest_env: EnvVar[] | null; items: ReadinessItem[] }
 export type SharedSettings = {
   enabled: boolean; always_on: boolean; idle_minutes: number; memory_mb: number; cpus: number; port: number
   health_path: string; database: "" | "postgres"; command: string; env: EnvVar[]; acks: string[]; updated_at: string
 }
 export type ConfigItem = EnvVar & { has_value: boolean; value: string }
-export type SharedBackup = { id: number; kind: "daily" | "manual" | "pre_deploy" | "pre_restore"; size_bytes: number; created_at: string; created_by_name: string; version_number: number | null }
+export type SharedBackup = { id: number; kind: "daily" | "manual" | "pre_deploy" | "pre_restore"; size_bytes: number; created_at: string; expires_at: string | null; created_by_name: string; version_number: number | null }
 export type UsagePoint = { at: string; mem_mb: number; cpu: number }
 export type ServerApp = {
   app_id: number; name: string; slug: string; status: SharedStatus; always_on: boolean; memory_mb: number; cpus: number; idle_minutes: number

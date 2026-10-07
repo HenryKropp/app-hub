@@ -37,11 +37,19 @@ func TestSharedCheckAndPublish(t *testing.T) {
 	if code := c.do("GET", appPath(id, "/shared/check"), nil, &rep); code != 200 || !rep.Ready {
 		t.Fatalf("check %d %+v", code, rep)
 	}
+	if _, err := testPool.Exec(context.Background(), "INSERT INTO app_versions (app_id, number, origin, files, summary) VALUES ($1, 1, 'original', '[]', '{}')", id); err != nil {
+		t.Fatal(err)
+	}
 	var dep struct {
-		ID int64 `json:"id"`
+		ID            int64  `json:"id"`
+		VersionNumber *int32 `json:"version_number"`
+		CreatedByName string `json:"created_by_name"`
 	}
 	if code := c.do("POST", appPath(id, "/shared/publish"), nil, &dep); code != http.StatusAccepted || dep.ID == 0 {
 		t.Fatalf("publish %d", code)
+	}
+	if dep.VersionNumber == nil || *dep.VersionNumber != 1 || dep.CreatedByName == "" {
+		t.Fatalf("publish answer should carry version_number and created_by_name: %+v", dep)
 	}
 	sh := waitShared(t, c, id, "running")
 	if sh["url"] != "http://notas.localhost:8080" {
@@ -68,6 +76,9 @@ func TestSharedCheckAndPublish(t *testing.T) {
 	}
 	if _, ok := prog["build_log"]; !ok {
 		t.Fatalf("tech should see build_log: %+v", prog)
+	}
+	if prog["version_number"] == nil || prog["created_by_name"] == "" {
+		t.Fatalf("deployment should carry version_number and created_by_name: %+v", prog)
 	}
 	var state struct {
 		LiveVersion any   `json:"live_version"`
