@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -343,5 +345,49 @@ func TestSharedBackupsFlow(t *testing.T) {
 	other := sharedApp(t, h, d, "caixa")
 	if res := c.raw("GET", appPath(other, "/shared/backups/"+itoa(b.ID)+"/download"), nil); res.StatusCode != 404 {
 		t.Fatalf("other app's copy: %d", res.StatusCode)
+	}
+}
+
+// An app whose code reads DATABASE_URL gets its database even when "Tornar
+// compartilhado" sent no database (the checklist promised it).
+func TestSharedDatabaseTurnedOnWhenCodeReadsIt(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withShared(t, h)
+	id := sharedApp(t, h, d, "notas")
+	a, err := h.q.GetApp(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(a.FolderPath, "db.py"), []byte("import os\nurl = os.environ.get(\"DATABASE_URL\")\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var app struct {
+		UpdatedAt string `json:"updated_at"`
+	}
+	c.do("GET", appPath(id, ""), nil, &app)
+	if code := c.do("PUT", appPath(id, "/shared"), map[string]any{"enabled": true, "database": "", "updated_at": app.UpdatedAt}, nil); code != 200 {
+		t.Fatalf("put %d", code)
+	}
+	var e struct{ Error string }
+	if code := c.do("POST", appPath(id, "/shared/publish"), nil, &e); code != http.StatusAccepted {
+		t.Fatalf("publish %d %s", code, e.Error)
+	}
+	sh := waitShared(t, c, id, "running")
+	if sh["wants_db"] != true {
+		t.Fatalf("wants_db should be on (the backups section depends on it): %+v", sh)
+	}
+	found := false
+	for _, ctr := range d.eng.Containers {
+		if strings.HasPrefix(ctr.Spec.Env["DATABASE_URL"], "postgres://app_") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("container has no DATABASE_URL")
+	}
+	var list []map[string]any
+	if code := c.do("GET", appPath(id, "/shared/backups"), nil, &list); code != 200 {
+		t.Fatalf("backups %d", code)
 	}
 }

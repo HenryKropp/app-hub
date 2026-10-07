@@ -3,10 +3,10 @@ import userEvent from "@testing-library/user-event"
 import { beforeEach, expect, it, vi } from "vitest"
 import { api, type AppDetail, type Can, type SharedState } from "@/lib/api"
 import { detail as makeDetail, manifest } from "@/test/fixtures"
-import { SharedSection } from "./SharedSection"
+import { MakeShared, SharedSection } from "./SharedSection"
 
 const running: SharedState = { status: "running", status_message: "", stopped_by: "", always_on: false, idle_minutes: 30,
-  memory_mb: 512, cpus: 0.5, wants_db: false, url: "http://notas.localhost:8080", acks: [], has_previous: false }
+  memory_mb: 512, cpus: 1, wants_db: false, url: "http://notas.localhost:8080", acks: [], has_previous: false }
 const detail: AppDetail = makeDetail({ manifest: manifest({ kind: "web", name: "Notas", shared: { enabled: true } }), shared: { status: "running", url: "http://notas.localhost:8080", slug: "notas" } })
 const can: Can = { view: true, edit: false, restore: false, tech: false, runs: false, access: false, grants: false }
 
@@ -101,4 +101,12 @@ it("says so when the shared part does not load, and tries again", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Tentar de novo" }))
   expect(await screen.findByRole("button", { name: "Parar" })).toBeInTheDocument()
   expect(get).toHaveBeenCalledTimes(2)
+})
+
+it("Tornar compartilhado keeps the database the manifest already asks for", async () => {
+  const save = vi.spyOn(api.shared, "save").mockResolvedValue(detail)
+  const app = makeDetail({ manifest: manifest({ kind: "web", name: "Notas", shared: { enabled: false, database: "postgres" } }) })
+  render(<MakeShared app={app} onChanged={() => {}} />)
+  await userEvent.click(screen.getByRole("button", { name: "Tornar compartilhado" }))
+  expect(save).toHaveBeenCalledWith(app.id, expect.objectContaining({ enabled: true, database: "postgres", cpus: 1 }))
 })

@@ -3,7 +3,7 @@ import { SHARED_STATUS, claudeTextFor, formatCents, sharedLine } from "./shared"
 import type { SharedState } from "./api"
 
 const base: SharedState = { status: "running", status_message: "", stopped_by: "", always_on: false, idle_minutes: 30,
-  memory_mb: 512, cpus: 0.5, wants_db: true, url: "http://notas.localhost:8080", acks: [], has_previous: false }
+  memory_mb: 512, cpus: 1, wants_db: true, url: "http://notas.localhost:8080", acks: [], has_previous: false }
 
 describe("sharedLine", () => {
   it("says it is on and which version", () => {

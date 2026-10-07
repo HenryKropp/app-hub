@@ -302,7 +302,7 @@ func (h *Handler) startShared(w http.ResponseWriter, r *http.Request, test bool)
 		writeError(w, http.StatusBadRequest, "A checagem ainda tem pendências. Resolva ou marque \"estou ciente\" antes de continuar.")
 		return
 	}
-	m := manifestOf(a)
+	m := withDatabase(manifestOf(a), rep)
 	var d sqlc.SharedDeployment
 	if test {
 		d, err = h.shared.Svc.Test(r.Context(), a, m, me.ID)
@@ -314,6 +314,21 @@ func (h *Handler) startShared(w http.ResponseWriter, r *http.Request, test bool)
 		return
 	}
 	writeJSON(w, http.StatusAccepted, h.deploymentOutFull(r, d, can.Tech))
+}
+
+// withDatabase turns the app's database on when the check says the code
+// reads DATABASE_URL (the checklist promises "O Hub cria um banco só deste app").
+func withDatabase(m manifest.Manifest, rep readiness.Report) manifest.Manifest {
+	if !rep.WantsDB {
+		return m
+	}
+	sh := manifest.Shared{Enabled: true}
+	if m.Shared != nil {
+		sh = *m.Shared
+	}
+	sh.Database = "postgres"
+	m.Shared = &sh
+	return m
 }
 
 func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
@@ -341,6 +356,14 @@ func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
 			Command: strings.TrimSpace(body.Command), Env: body.Env}
 		if m.Shared != nil { // fields this screen does not edit
 			sh.Python, sh.Node = m.Shared.Python, m.Shared.Node
+			if sh.Database == "" { // a save never turns the database off
+				sh.Database = m.Shared.Database
+			}
+		}
+		if sh.Database == "" {
+			if rep, err := h.readiness(a, sa); err == nil && rep.WantsDB {
+				sh.Database = "postgres"
+			}
 		}
 		m.Shared = &sh
 	} else {
