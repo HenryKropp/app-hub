@@ -834,3 +834,34 @@ func TestEachAppHasItsOwnNetwork(t *testing.T) {
 		t.Fatal("network left behind after unshare")
 	}
 }
+
+// "Parar" wins: a restart (supervisor) or a wake (gateway) that runs after it
+// does not turn the app back on. Only Ligar does.
+func TestStopNotUndoneByRunOrWake(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	e.Publish(t)
+	if err := e.S.Stop(ctx, e.App.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.S.Run(ctx, e.App.ID); !errors.Is(err, deploy.ErrStopped) {
+		t.Fatalf("run after stop: %v", err)
+	}
+	done := make(chan struct{})
+	e.S.SetSpawn(func(f func()) { go func() { defer close(done); f() }() })
+	e.S.Wake(e.App.ID)
+	<-done
+	if st := e.Shared(t).Status; st != "stopped" || len(e.Eng.Running()) != 0 {
+		t.Fatalf("stopped app came back: %s %v", st, e.Eng.Running())
+	}
+	e.S.SetSpawn(func(f func()) { go f() })
+	if err := e.S.Start(ctx, e.App.ID); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 100 && e.Shared(t).Status != "running"; i++ {
+		time.Sleep(50 * time.Millisecond)
+	}
+	if st := e.Shared(t).Status; st != "running" || len(e.Eng.Running()) != 1 {
+		t.Fatalf("Ligar after Parar: %s %v", st, e.Eng.Running())
+	}
+}

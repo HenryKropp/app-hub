@@ -21,8 +21,13 @@ import (
 // Run starts the live version (new container from the kept image), waits for
 // health and marks the app running. Used to wake a sleeping app, by
 // "Ligar"/"Religar" and by the supervisor to restart a crashed one. It
-// returns ErrBusy while another operation (or another Run) holds the app.
+// returns ErrBusy while another operation (or another Run) holds the app,
+// and ErrStopped when someone pressed "Parar" (only Start undoes that).
 func (s *Service) Run(ctx context.Context, appID int64) error {
+	return s.runLocked(ctx, appID, false)
+}
+
+func (s *Service) runLocked(ctx context.Context, appID int64, explicit bool) error {
 	if s.vault == nil {
 		return ErrNoVault
 	}
@@ -31,17 +36,24 @@ func (s *Service) Run(ctx context.Context, appID int64) error {
 		return err
 	}
 	defer unlock()
-	return s.run(ctx, appID)
+	return s.runApp(ctx, appID, explicit)
 }
 
 // run is Run for callers that already hold the app's lock.
-func (s *Service) run(ctx context.Context, appID int64) error {
+func (s *Service) run(ctx context.Context, appID int64) error { return s.runApp(ctx, appID, false) }
+
+// runApp re-reads the app under its lock: a "Parar" (or unshare) that came
+// first wins over a restart or a wake, unless this is an explicit Ligar.
+func (s *Service) runApp(ctx context.Context, appID int64, explicit bool) error {
 	if s.vault == nil {
 		return ErrNoVault
 	}
 	sa, err := s.q.GetSharedApp(ctx, appID)
 	if err != nil || !sa.CurrentDeploymentID.Valid || sa.UnsharedAt.Valid {
 		return ErrNotShared
+	}
+	if sa.Status == "stopped" && !explicit {
+		return ErrStopped
 	}
 	dep, err := s.q.GetDeployment(ctx, sa.CurrentDeploymentID.Int64)
 	if err != nil {
@@ -85,8 +97,10 @@ func (s *Service) run(ctx context.Context, appID int64) error {
 }
 
 // Wake runs the app in the background, once at a time per app. It does
-// nothing while another operation holds the app.
-func (s *Service) Wake(appID int64) {
+// nothing while another operation holds the app, nor for a stopped app.
+func (s *Service) Wake(appID int64) { s.wake(appID, false) }
+
+func (s *Service) wake(appID int64, explicit bool) {
 	s.mu.Lock()
 	if s.waking[appID] || s.busy[appID] {
 		s.mu.Unlock()
@@ -101,7 +115,9 @@ func (s *Service) Wake(appID int64) {
 				slog.Error("shared wake panic", "app", appID, "panic", r, "stack", string(debug.Stack()))
 			}
 		}()
-		if err := s.Run(context.Background(), appID); err != nil {
+		if err := s.runLocked(context.Background(), appID, explicit); errors.Is(err, ErrStopped) {
+			slog.Info("shared wake: app is stopped", "app", appID)
+		} else if err != nil {
 			slog.Warn("shared wake", "app", appID, "err", err)
 		}
 	})
@@ -123,7 +139,7 @@ func (s *Service) Start(ctx context.Context, appID int64) error {
 	}
 	logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "starting"}), "set status", "app", appID)
 	unlock()
-	s.Wake(appID)
+	s.wake(appID, true)
 	return nil
 }
 
