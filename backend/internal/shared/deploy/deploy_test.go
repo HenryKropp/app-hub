@@ -14,6 +14,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy/deploytest"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/engine"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -601,5 +602,213 @@ func TestSlugAndURLs(t *testing.T) {
 	}
 	if e.S.AppURL("notas") != "http://notas.localhost:8080" || e.S.TestURL("notas") != "http://notas--teste.localhost:8080" {
 		t.Fatal(e.S.AppURL("notas"))
+	}
+}
+
+// Data restore fails during a rollback with data: the current version must
+// come back up (restoreFile had stopped it).
+func TestRollbackWithDataRestoreFailsKeepsAppUp(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	e.Publish(t)
+	db := e.Shared(t).DbName
+	e.DBs.Data[db] = "v1"
+	d := e.Publish(t)
+	e.DBs.Data[db] = "v2"
+	e.DBs.FailRestore = errors.New("pg_restore: boom")
+	err := e.S.Rollback(ctx, e.App.ID, true, 1)
+	if err == nil || !strings.Contains(err.Error(), "antes de restaurar") {
+		t.Fatalf("err %v", err)
+	}
+	sa := e.Shared(t)
+	if sa.Status != "running" || sa.CurrentDeploymentID.Int64 != d.ID {
+		t.Fatalf("%+v", sa)
+	}
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(d.ID) {
+		t.Fatalf("running %v", got)
+	}
+	if _, ok := e.S.Target(e.App.ID, false); !ok {
+		t.Fatal("no target: the app was left down")
+	}
+}
+
+// The previous version does not answer after its data was restored: the
+// current data comes back and the current version is turned on again.
+func TestRollbackWithDataPreviousUnhealthyPutsDataBack(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	old := e.Publish(t)
+	db := e.Shared(t).DbName
+	e.DBs.Data[db] = "v1"
+	d := e.Publish(t)
+	e.DBs.Data[db] = "v2"
+	broken := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) })
+	e.Eng.HandlerFor = func(name string) http.Handler {
+		if name == "apphub-notas-"+itoa(old.ID) {
+			return broken
+		}
+		return nil
+	}
+	err := e.S.Rollback(ctx, e.App.ID, true, 1)
+	if err == nil || !strings.Contains(err.Error(), "Nada mudou") || !strings.Contains(err.Error(), "não respondeu") {
+		t.Fatalf("err %v", err)
+	}
+	if e.DBs.Data[db] != "v2" {
+		t.Fatalf("data %q: the current version runs on the old data", e.DBs.Data[db])
+	}
+	sa := e.Shared(t)
+	if sa.Status != "running" || sa.CurrentDeploymentID.Int64 != d.ID || sa.PreviousDeploymentID.Int64 != old.ID {
+		t.Fatalf("%+v", sa)
+	}
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(d.ID) {
+		t.Fatalf("running %v", got)
+	}
+}
+
+// failWrite makes Postgres reject one bookkeeping write until the test ends.
+func failWrite(t *testing.T, table, when string) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `CREATE OR REPLACE FUNCTION test_fail_write() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN IF `+when+` THEN RAISE EXCEPTION 'test: write refused'; END IF; RETURN NEW; END $$;
+		CREATE TRIGGER test_fail_write BEFORE UPDATE ON `+table+` FOR EACH ROW EXECUTE FUNCTION test_fail_write();`); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DROP TRIGGER IF EXISTS test_fail_write ON `+table+`; DROP FUNCTION IF EXISTS test_fail_write();`)
+	})
+}
+
+func TestSwapNotRecordedKeepsOld(t *testing.T) {
+	e := setup(t)
+	old := e.Publish(t)
+	oldPort, _ := e.S.Target(e.App.ID, false)
+	failWrite(t, "shared_apps", "OLD.current_deployment_id IS NOT NULL AND NEW.current_deployment_id IS DISTINCT FROM OLD.current_deployment_id")
+	d := e.Publish(t)
+	if d.Status != "failed" || !strings.Contains(d.ErrorMessage, "registrar") {
+		t.Fatalf("%s %q", d.Status, d.ErrorMessage)
+	}
+	sa := e.Shared(t)
+	if sa.CurrentDeploymentID.Int64 != old.ID || sa.Status != "running" {
+		t.Fatalf("%+v", sa)
+	}
+	if port, _ := e.S.Target(e.App.ID, false); port != oldPort {
+		t.Fatal("target moved")
+	}
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(old.ID) {
+		t.Fatalf("running %v", got)
+	}
+	if len(e.Eng.Images) != 1 {
+		t.Fatalf("new image kept: %v", e.Eng.Images)
+	}
+	// Nothing is left "building": the next publish goes through.
+	e.Publish(t)
+}
+
+func TestFinishNotRecordedLeavesNoBuilding(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	failWrite(t, "shared_deployments", "OLD.status = 'building' AND NEW.status = 'live'")
+	d := e.Publish(t)
+	if d.Status != "failed" || !strings.Contains(d.ErrorMessage, "registrar") {
+		t.Fatalf("%s %q", d.Status, d.ErrorMessage)
+	}
+	if e.Shared(t).Status != "draft" || len(e.Eng.Running()) != 0 || len(e.Eng.Images) != 0 {
+		t.Fatalf("%s running=%v images=%v", e.Shared(t).Status, e.Eng.Running(), e.Eng.Images)
+	}
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM shared_deployments WHERE status = 'building'`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("building rows %d %v", n, err)
+	}
+}
+
+func TestLifecycleWhilePublishing(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	e.Publish(t)
+	release := make(chan struct{})
+	e.S.SetSpawn(func(f func()) { go func() { <-release; f() }() })
+	d, err := e.S.Publish(ctx, e.App, e.M, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.S.Stop(ctx, e.App.ID, 1); !errors.Is(err, deploy.ErrBusy) {
+		t.Errorf("stop: %v", err)
+	}
+	if err := e.S.Start(ctx, e.App.ID); !errors.Is(err, deploy.ErrBusy) {
+		t.Errorf("start: %v", err)
+	}
+	if err := e.S.Run(ctx, e.App.ID); !errors.Is(err, deploy.ErrBusy) {
+		t.Errorf("run: %v", err)
+	}
+	if err := e.S.Sleep(ctx, e.App.ID); err != nil {
+		t.Errorf("sleep: %v", err)
+	}
+	e.S.Wake(e.App.ID) // no-op: would leave a container the publish does not know
+	if st := e.Shared(t).Status; st != "running" || len(e.Eng.Running()) != 1 {
+		t.Fatalf("status %s running %v", st, e.Eng.Running())
+	}
+	close(release)
+	d = e.WaitDeployment(t, d.ID)
+	time.Sleep(100 * time.Millisecond) // a stray Wake would have run by now
+	if got := e.Eng.Running(); d.Status != "live" || len(got) != 1 || got[0] != "apphub-notas-"+itoa(d.ID) {
+		t.Fatalf("%s running %v", d.Status, got)
+	}
+	if e.Shared(t).Status != "running" {
+		t.Fatal(e.Shared(t).Status)
+	}
+	starts := 0
+	for _, c := range e.Eng.CallsCopy() {
+		if c == "start apphub-notas-"+itoa(d.ID) {
+			starts++
+		}
+	}
+	if starts != 1 {
+		t.Fatalf("new version started %d times", starts)
+	}
+}
+
+func TestEndTestWhileBuilding(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	release := make(chan struct{})
+	e.S.SetSpawn(func(f func()) { go func() { <-release; f() }() })
+	d, err := e.S.Test(ctx, e.App, e.M, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.S.EndTest(ctx, d.ID); !errors.Is(err, deploy.ErrBusy) {
+		t.Fatalf("end test while building: %v", err)
+	}
+	close(release)
+	d = e.WaitDeployment(t, d.ID)
+	if d.Status != "ready" {
+		t.Fatal(d.Status)
+	}
+	if err := e.S.EndTest(ctx, d.ID); err != nil || len(e.Eng.Running()) != 0 {
+		t.Fatalf("%v %v", err, e.Eng.Running())
+	}
+}
+
+type panicBuild struct{ *engine.Fake }
+
+func (panicBuild) Build(context.Context, engine.BuildSpec) (string, string, error) { panic("boom") }
+
+func TestPanicInJobFailsDeployment(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	s := deploy.New(e.Q, panicBuild{e.Eng}, e.DBs, e.Vault(), deploy.Options{DataDir: e.DataDir(), Domain: "localhost:8080", HealthTimeout: time.Second})
+	d, err := s.Publish(ctx, e.App, e.M, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 100; i++ {
+		if d, _ = e.Q.GetDeployment(ctx, d.ID); d.Status != "building" && !s.Busy(e.App.ID) {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if d.Status != "failed" || s.Busy(e.App.ID) || e.Shared(t).Status != "draft" {
+		t.Fatalf("%s busy=%v %s", d.Status, s.Busy(e.App.ID), e.Shared(t).Status)
 	}
 }

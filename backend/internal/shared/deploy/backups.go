@@ -112,40 +112,53 @@ func (s *Service) Restore(ctx context.Context, appID, backupID, by int64) error 
 	if err != nil {
 		return errors.New("Cópia não encontrada.")
 	}
-	if err := s.restoreFile(ctx, sa, b, by); err != nil {
-		if _, up := s.Target(appID, false); !up && (sa.Status == "running" || sa.Status == "starting") {
-			if rerr := s.Run(ctx, appID); rerr != nil { // restoreFile may have stopped it
-				slog.Warn("shared restore: restart", "app", appID, "err", rerr)
-			}
-		}
+	wasUp := sa.Status == "running" || sa.Status == "starting"
+	if _, err := s.restoreFile(ctx, sa, b, by); err != nil {
+		s.bringBack(ctx, appID, wasUp) // restoreFile may have stopped it
 		return err
 	}
 	s.event(ctx, appID, &by, "Restaurou a cópia de "+b.CreatedAt.Time.Local().Format("02/01/2006 15:04"))
 	if sa.CurrentDeploymentID.Valid && sa.Status != "stopped" {
-		if err := s.Run(ctx, appID); err != nil {
+		if err := s.run(ctx, appID); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// restoreFile copies the current data first ("antes de restaurar"), stops
-// the app and loads the file into its database. It does not start the app.
-func (s *Service) restoreFile(ctx context.Context, sa sqlc.SharedApp, b sqlc.SharedBackup, by int64) error {
-	f, err := os.Open(b.Path)
-	if err != nil {
-		return errors.New("O arquivo da cópia não foi encontrado no servidor.")
+// restoreFile copies the current data first ("antes de restaurar", returned),
+// stops the app and loads the file into its database. It does not start the
+// app. If loading fails it puts the current data back.
+func (s *Service) restoreFile(ctx context.Context, sa sqlc.SharedApp, b sqlc.SharedBackup, by int64) (sqlc.SharedBackup, error) {
+	if _, err := os.Stat(b.Path); err != nil {
+		return sqlc.SharedBackup{}, errors.New("O arquivo da cópia não foi encontrado no servidor.")
 	}
-	defer f.Close()
-	if _, err := s.Backup(ctx, sa.AppID, "pre_restore", nil, &by); err != nil {
-		return errors.New("Não foi possível copiar os dados atuais antes de restaurar. Nada mudou.")
+	before, err := s.Backup(ctx, sa.AppID, "pre_restore", nil, &by)
+	if err != nil {
+		slog.Warn("shared restore: copy current data", "app", sa.AppID, "err", err)
+		return sqlc.SharedBackup{}, errors.New("Não foi possível copiar os dados atuais antes de restaurar. Nada mudou.")
 	}
 	if err := s.removeLive(ctx, sa.AppID); err != nil {
+		slog.Warn("shared restore: stop app", "app", sa.AppID, "err", err)
+		return before, errors.New("Não foi possível desligar o app para restaurar. Nada mudou.")
+	}
+	if err := s.loadFile(ctx, sa.DbName, b.Path); err != nil {
+		slog.Warn("shared restore", "app", sa.AppID, "backup", b.ID, "err", err)
+		if rerr := s.loadFile(ctx, sa.DbName, before.Path); rerr != nil {
+			slog.Error("shared restore: put current data back", "app", sa.AppID, "backup", before.ID, "err", rerr)
+			return before, errors.New("Não foi possível restaurar a cópia, e os dados podem ter ficado pela metade. Os dados de antes estão na cópia \"antes de restaurar\" em Cópias; restaure-a.")
+		}
+		return before, errors.New("Não foi possível restaurar a cópia. Nada mudou nos dados.")
+	}
+	return before, nil
+}
+
+// loadFile loads a copy file into a database.
+func (s *Service) loadFile(ctx context.Context, db, path string) error {
+	f, err := os.Open(path)
+	if err != nil {
 		return err
 	}
-	if err := s.dbs.Restore(ctx, sa.DbName, f); err != nil {
-		slog.Warn("shared restore", "app", sa.AppID, "backup", b.ID, "err", err)
-		return errors.New("Não foi possível restaurar a cópia. Os dados de antes estão guardados na cópia \"antes de restaurar\".")
-	}
-	return nil
+	defer f.Close()
+	return s.dbs.Restore(ctx, db, f)
 }

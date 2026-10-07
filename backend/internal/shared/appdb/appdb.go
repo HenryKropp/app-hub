@@ -148,10 +148,11 @@ func (a *Admin) Size(ctx context.Context, name string) (int64, error) {
 
 // Fake keeps databases and copies in memory.
 type Fake struct {
-	mu       sync.Mutex
-	DBs      map[string]string // nome → senha
-	Data     map[string]string // conteúdo "do banco", para provar restaurações
-	FailDump error
+	mu          sync.Mutex
+	DBs         map[string]string // nome → senha
+	Data        map[string]string // conteúdo "do banco", para provar restaurações
+	FailDump    error
+	FailRestore error // Restore fails with this (and changes nothing)
 }
 
 func NewFake() *Fake { return &Fake{DBs: map[string]string{}, Data: map[string]string{}} }
@@ -187,6 +188,9 @@ func (f *Fake) Restore(_ context.Context, n string, r io.Reader) error {
 	b, err := io.ReadAll(r)
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.FailRestore != nil {
+		return f.FailRestore
+	}
 	f.Data[n] = strings.TrimPrefix(string(b), "dump:")
 	return err
 }

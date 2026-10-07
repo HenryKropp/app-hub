@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strconv"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -18,8 +19,22 @@ import (
 
 // Run starts the live version (new container from the kept image), waits for
 // health and marks the app running. Used to wake a sleeping app, by
-// "Ligar"/"Religar" and by the supervisor to restart a crashed one.
+// "Ligar"/"Religar" and by the supervisor to restart a crashed one. It
+// returns ErrBusy while another operation (or another Run) holds the app.
 func (s *Service) Run(ctx context.Context, appID int64) error {
+	if s.vault == nil {
+		return ErrNoVault
+	}
+	unlock, err := s.lock(appID)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	return s.run(ctx, appID)
+}
+
+// run is Run for callers that already hold the app's lock.
+func (s *Service) run(ctx context.Context, appID int64) error {
 	if s.vault == nil {
 		return ErrNoVault
 	}
@@ -35,12 +50,12 @@ func (s *Service) Run(ctx context.Context, appID int64) error {
 	if err != nil {
 		return err
 	}
-	if dep.ContainerID != "" {
-		_ = s.eng.Remove(ctx, dep.ContainerID)
-		_ = s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: dep.ID})
-	}
 	s.setTarget(appID, false, 0)
-	_ = s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "starting"})
+	if dep.ContainerID != "" {
+		logErr(s.eng.Remove(ctx, dep.ContainerID), "remove container", "container", dep.ContainerID)
+		logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: dep.ID}), "clear container", "deployment", dep.ID)
+	}
+	logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "starting"}), "set status", "app", appID)
 	m := manifestOf(app)
 	port := int(dep.Port)
 	if port == 0 {
@@ -53,19 +68,26 @@ func (s *Service) Run(ctx context.Context, appID int64) error {
 	j := job{app: app, sa: sa, m: m, dep: dep, rec: recipes.Recipe{Port: port}}
 	cid, hostPort, f := s.start(ctx, j, dep.ImageID, sa.DbName)
 	if f != nil {
-		_ = s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "crashed", StatusMessage: f.msg})
+		logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "crashed", StatusMessage: f.msg}), "set status", "app", appID)
 		return errors.New(f.msg)
 	}
+	if err := s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: dep.ID, ContainerID: cid}); err != nil {
+		// Without the container ID the Hub would lose track of it: do not leave it running.
+		logErr(s.eng.Remove(ctx, cid), "remove container", "container", cid)
+		logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "crashed",
+			StatusMessage: "Não foi possível registrar o app ligado no Hub."}), "set status", "app", appID)
+		return fmt.Errorf("record container: %w", err)
+	}
 	s.setTarget(appID, false, hostPort)
-	_ = s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: dep.ID, ContainerID: cid})
-	_ = s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "running"})
+	logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "running"}), "set status", "app", appID)
 	return nil
 }
 
-// Wake runs the app in the background, once at a time per app.
+// Wake runs the app in the background, once at a time per app. It does
+// nothing while another operation holds the app.
 func (s *Service) Wake(appID int64) {
 	s.mu.Lock()
-	if s.waking[appID] {
+	if s.waking[appID] || s.busy[appID] {
 		s.mu.Unlock()
 		return
 	}
@@ -73,6 +95,11 @@ func (s *Service) Wake(appID int64) {
 	s.mu.Unlock()
 	s.spawn(func() {
 		defer func() { s.mu.Lock(); delete(s.waking, appID); s.mu.Unlock() }()
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("shared wake panic", "app", appID, "panic", r, "stack", string(debug.Stack()))
+			}
+		}()
 		if err := s.Run(context.Background(), appID); err != nil {
 			slog.Warn("shared wake", "app", appID, "err", err)
 		}
@@ -81,18 +108,26 @@ func (s *Service) Wake(appID int64) {
 
 // Start is "Ligar"/"Religar": it clears the restart count and wakes the app.
 func (s *Service) Start(ctx context.Context, appID int64) error {
+	unlock, err := s.lock(appID)
+	if err != nil {
+		return err
+	}
 	if _, err := s.q.GetSharedApp(ctx, appID); err != nil {
+		unlock()
 		return ErrNotShared
 	}
 	if err := s.q.SetSharedRestarts(ctx, sqlc.SetSharedRestartsParams{AppID: appID}); err != nil {
+		unlock()
 		return err
 	}
-	_ = s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "starting"})
+	logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "starting"}), "set status", "app", appID)
+	unlock()
 	s.Wake(appID)
 	return nil
 }
 
-// removeLive stops and removes the live container (the image stays).
+// removeLive stops and removes the live container (the image stays). The
+// caller holds the app's lock.
 func (s *Service) removeLive(ctx context.Context, appID int64) error {
 	sa, err := s.q.GetSharedApp(ctx, appID)
 	if err != nil {
@@ -104,14 +139,20 @@ func (s *Service) removeLive(ctx context.Context, appID int64) error {
 			if err := s.eng.Remove(ctx, d.ContainerID); err != nil {
 				return err
 			}
-			_ = s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: d.ID})
+			logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: d.ID}), "clear container", "deployment", d.ID)
 		}
 	}
 	return nil
 }
 
-// Sleep turns the app off after a while without use; the next visit wakes it.
+// Sleep turns the app off after a while without use; the next visit wakes
+// it. It does nothing while another operation holds the app.
 func (s *Service) Sleep(ctx context.Context, appID int64) error {
+	unlock, err := s.lock(appID)
+	if err != nil {
+		return nil
+	}
+	defer unlock()
 	if err := s.removeLive(ctx, appID); err != nil {
 		return err
 	}
@@ -120,6 +161,11 @@ func (s *Service) Sleep(ctx context.Context, appID int64) error {
 
 // Stop turns the app off until someone turns it on again.
 func (s *Service) Stop(ctx context.Context, appID, by int64) error {
+	unlock, err := s.lock(appID)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	if err := s.removeLive(ctx, appID); err != nil {
 		return err
 	}
@@ -145,7 +191,7 @@ func (s *Service) Unshare(ctx context.Context, appID, by int64) error {
 	}
 	if tests, err := s.q.ListOpenTests(ctx, appID); err == nil {
 		for _, d := range tests {
-			_ = s.EndTest(ctx, d.ID)
+			logErr(s.EndTest(ctx, d.ID), "end test", "deployment", d.ID)
 		}
 	}
 	s.setTarget(appID, false, 0)
@@ -155,13 +201,13 @@ func (s *Service) Unshare(ctx context.Context, appID, by int64) error {
 		}
 		if d, err := s.q.GetDeployment(ctx, id.Int64); err == nil {
 			if d.ContainerID != "" {
-				_ = s.eng.Remove(ctx, d.ContainerID)
+				logErr(s.eng.Remove(ctx, d.ContainerID), "remove container", "container", d.ContainerID)
 			}
 			if d.ImageID != "" {
-				_ = s.eng.RemoveImage(ctx, d.ImageID)
+				logErr(s.eng.RemoveImage(ctx, d.ImageID), "remove image", "image", d.ImageID)
 			}
-			_ = s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: d.ID})
-			_ = s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: d.ID, Status: "retired"})
+			logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: d.ID}), "clear container", "deployment", d.ID)
+			logErr(s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: d.ID, Status: "retired"}), "retire", "deployment", d.ID)
 		}
 	}
 	if err := s.q.MarkUnshared(ctx, appID); err != nil {
@@ -173,6 +219,11 @@ func (s *Service) Unshare(ctx context.Context, appID, by int64) error {
 
 // Purge deletes what Unshare kept, 30 days later (called by the supervisor).
 func (s *Service) Purge(ctx context.Context, appID int64) error {
+	unlock, err := s.lock(appID)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	sa, err := s.q.GetSharedApp(ctx, appID)
 	if err != nil {
 		return err
@@ -185,8 +236,8 @@ func (s *Service) Purge(ctx context.Context, appID int64) error {
 			return fmt.Errorf("drop %s: %w", sa.DbName, err)
 		}
 	}
-	_ = os.RemoveAll(filepath.Join(s.opt.DataDir, "backups", strconv.FormatInt(appID, 10)))
-	_ = os.RemoveAll(filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(appID, 10)))
+	logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "backups", strconv.FormatInt(appID, 10))), "remove backups", "app", appID)
+	logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(appID, 10))), "remove app data", "app", appID)
 	if err := s.q.DeleteBackupsOfApp(ctx, appID); err != nil {
 		return err
 	}
