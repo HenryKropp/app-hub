@@ -31,10 +31,10 @@ type Shared struct {
 // SetShared plugs in the shared-app parts. Call before serving.
 func (h *Handler) SetShared(s Shared) { h.shared = s }
 
-// sharedReady answers 503 when the shared-app parts are not running.
-func (h *Handler) sharedReady(w http.ResponseWriter) bool {
+// sharedReady answers 503 (a plain page: the browser navigates here) when the shared-app parts are not running.
+func (h *Handler) sharedReady(w http.ResponseWriter, r *http.Request) bool {
 	if h.shared.Svc == nil || h.shared.Codes == nil {
-		writeError(w, http.StatusServiceUnavailable, "O servidor de apps não está disponível. Tente de novo em alguns minutos ou fale com o administrador.")
+		gateway.Page(w, r, http.StatusServiceUnavailable, "Apps indisponíveis", "O servidor de apps não está disponível. Tente de novo em alguns minutos ou fale com o administrador.", "/")
 		return false
 	}
 	return true
@@ -44,7 +44,7 @@ func (h *Handler) sharedReady(w http.ResponseWriter) bool {
 // the browser to the app with a single-use code (or to the app's "no access"
 // page), or to the Hub's sign-in first.
 func (h *Handler) sharedAuthorize(w http.ResponseWriter, r *http.Request) {
-	if !h.sharedReady(w) {
+	if !h.sharedReady(w, r) {
 		return
 	}
 	q := r.URL.Query()
@@ -61,7 +61,7 @@ func (h *Handler) sharedAuthorize(w http.ResponseWriter, r *http.Request) {
 	}
 	sa, err := h.q.GetSharedAppBySlug(r.Context(), slug)
 	if errors.Is(err, pgx.ErrNoRows) {
-		writeError(w, http.StatusNotFound, "App não encontrado. Confira o endereço ou abra o app pela lista do Hub.")
+		gateway.Page(w, r, http.StatusNotFound, "App não encontrado", "Confira o endereço ou abra o app pela lista do Hub.", "/")
 		return
 	}
 	if err != nil {

@@ -24,6 +24,10 @@ func wantsHTML(r *http.Request) bool {
 
 // show writes a gateway page, or a short JSON error for API calls.
 func (g *Gateway) show(w http.ResponseWriter, r *http.Request, status int, p page) {
+	show(w, r, status, p)
+}
+
+func show(w http.ResponseWriter, r *http.Request, status int, p page) {
 	if status == http.StatusServiceUnavailable {
 		w.Header().Set("Retry-After", "5")
 	}

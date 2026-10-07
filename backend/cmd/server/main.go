@@ -88,9 +88,7 @@ func main() {
 		adminUser = adminURL.User.Username()
 	}
 	dbs := appdb.New(adminPool, cfg.AppsDBHost, eng, cfg.AppsDBContainer, adminUser)
-	if hubURL, err := url.Parse(cfg.DatabaseURL); err != nil {
-		slog.Warn("lock hub database: bad DATABASE_URL", "err", err)
-	} else if err := dbs.LockDown(ctx, strings.TrimPrefix(hubURL.Path, "/")); err != nil {
+	if err := dbs.LockDown(ctx, pool.Config().ConnConfig.Database); err != nil {
 		slog.Warn("lock hub database", "err", err)
 	}
 	scheme := "http"
@@ -104,12 +102,17 @@ func main() {
 	}
 	gw := gateway.New(cfg.SharedDomain, cfg.BaseURL, cfg.SecureCookies(), h.GatewayBackend())
 	h.SetShared(handler.Shared{Svc: svc, Sup: sup, Vault: v, DBs: dbs, Eng: eng, Codes: gw.Codes, DataDir: cfg.SharedDataDir})
-	// Reconcile before serving, so the gateway never wakes an app the Hub is
-	// about to adopt; then the supervisor loop runs in the background.
-	if err := sup.Reconcile(ctx); err != nil {
-		slog.Warn("supervisor reconcile", "err", err)
-	}
-	go sup.Loop(ctx)
+	// The Hub (UI, API, Agente) answers right away; app addresses answer
+	// "Ligando o app…" until the supervisor has reconciled, so the gateway
+	// never wakes an app the Hub is about to adopt.
+	gw.Hold()
+	go func() {
+		if err := sup.Reconcile(ctx); err != nil {
+			slog.Warn("supervisor reconcile", "err", err)
+		}
+		gw.Release()
+		sup.Loop(ctx)
+	}()
 
 	frontendDist := "frontend/dist"
 	if _, err := os.Stat(frontendDist); err == nil && !cfg.DevMode {
@@ -131,15 +134,8 @@ func main() {
 		slog.Warn("frontend dist not found — SPA routes will return 404", "path", frontendDist)
 	}
 
-	// App addresses (<slug>.<SHARED_APPS_DOMAIN>) go to the gateway; the rest is the Hub.
-	root := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, _, ok := gw.Match(r.Host); ok {
-			gw.ServeHTTP(w, r)
-			return
-		}
-		mux.ServeHTTP(w, r)
-	})
-	srv := &http.Server{Addr: ":" + cfg.Port, Handler: root, ReadHeaderTimeout: 10 * time.Second}
+	// Hosts under SHARED_APPS_DOMAIN go to the gateway; the rest is the Hub.
+	srv := &http.Server{Addr: ":" + cfg.Port, Handler: gw.Root(mux), ReadHeaderTimeout: 10 * time.Second}
 	stopped := make(chan struct{})
 	go func() {
 		defer close(stopped)

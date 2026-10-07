@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -65,6 +66,7 @@ type Gateway struct {
 	secure bool
 	b      Backend
 	now    func() time.Time
+	held   atomic.Bool // Hold/Release
 
 	mu       sync.Mutex
 	sessions map[string]*session
@@ -109,6 +111,14 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	slug, test, matched := g.Match(r.Host)
 	if !matched {
 		g.show(w, r, http.StatusNotFound, page{Title: "App não encontrado", Message: "Este endereço não é de nenhum app compartilhado do Hub.", HubURL: g.hubURL})
+		return
+	}
+	if g.hubURL == "" {
+		g.show(w, r, http.StatusServiceUnavailable, page{Title: "Endereços de apps não configurados", Message: "O Hub não sabe o próprio endereço (BASE_URL), então não consegue fazer você entrar no app. Peça ao administrador para configurá-lo."})
+		return
+	}
+	if g.held.Load() {
+		g.show(w, r, http.StatusServiceUnavailable, page{Title: "Ligando o app…", Message: "O Hub acabou de ligar. O app abre sozinho em alguns segundos.", Refresh: true})
 		return
 	}
 	t, ok, err := g.b.Lookup(r.Context(), slug, test)
