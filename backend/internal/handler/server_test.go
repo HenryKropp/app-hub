@@ -39,6 +39,15 @@ func TestServerCostAndApps(t *testing.T) {
 	if code := c.do("PUT", "/api/server/cost", map[string]int64{"monthly_cost_cents": -1}, nil); code != 400 {
 		t.Fatalf("negative cost %d", code)
 	}
+	// A body without the field (a typo, a wrong name) must not save R$ 0.
+	for _, body := range []any{map[string]int64{"cents": 1}, map[string]any{}, map[string]any{"monthly_cost_cents": nil}} {
+		var e struct {
+			Error string `json:"error"`
+		}
+		if code := c.do("PUT", "/api/server/cost", body, &e); code != 400 || !strings.Contains(e.Error, "custo") {
+			t.Fatalf("body %v: %d %q", body, code, e.Error)
+		}
+	}
 	testPool.Exec(t.Context(), "INSERT INTO shared_usage (app_id, at, mem_bytes, cpu_pct) SELECT $1, date_trunc('minute', now()) - (g || ' minutes')::interval, 200000000, 3 FROM generate_series(0, 59) g", id)
 	var out struct {
 		MonthlyCostCents int64 `json:"monthly_cost_cents"`

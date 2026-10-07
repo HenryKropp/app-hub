@@ -139,3 +139,29 @@ func TestCommandWithNewlineRefused(t *testing.T) {
 		t.Fatalf("%v", err)
 	}
 }
+
+// The start command runs through a shell (so $PORT expands), but with exec:
+// the app itself is PID 1 and gets the stop signal, instead of a shell that
+// ignores it until Podman kills everything 10 s later.
+func TestStartCommandRunsWithExec(t *testing.T) {
+	cases := []struct {
+		dir, entry, command, want string
+	}{
+		{"streamlit", "app.py", "", "\nCMD exec streamlit run app.py --server.port $PORT"},
+		{"flask", "app.py", "", "\nCMD exec gunicorn -b 0.0.0.0:$PORT app:app\n"},
+		{"fastapi", "main.py", "", "\nCMD exec uvicorn main:app --host 0.0.0.0 --port $PORT\n"},
+		{"flask", "app.py", "gunicorn -b 0.0.0.0:$PORT wsgi:app", "\nCMD exec gunicorn -b 0.0.0.0:$PORT wsgi:app\n"},
+		// already exec: not doubled (exec exec would look for a program called exec)
+		{"flask", "app.py", "exec gunicorn -b 0.0.0.0:$PORT wsgi:app", "\nCMD exec gunicorn -b 0.0.0.0:$PORT wsgi:app\n"},
+		// several commands or a leading VAR=x: exec in front would break them, so they stay as written
+		{"flask", "app.py", "cd src && gunicorn -b 0.0.0.0:$PORT app:app", "\nCMD cd src && gunicorn -b 0.0.0.0:$PORT app:app\n"},
+		{"flask", "app.py", "WORKERS=2 gunicorn -b 0.0.0.0:$PORT app:app", "\nCMD WORKERS=2 gunicorn -b 0.0.0.0:$PORT app:app\n"},
+	}
+	for _, c := range cases {
+		m := manifest.Manifest{Entrypoint: c.entry, Shared: &manifest.Shared{Enabled: true, Command: c.command}}
+		r := detect(t, c.dir, m)
+		if !strings.Contains(r.Dockerfile, c.want) {
+			t.Errorf("%s %q: want %q in\n%s", c.dir, c.command, c.want, r.Dockerfile)
+		}
+	}
+}

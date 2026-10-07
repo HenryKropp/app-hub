@@ -27,6 +27,31 @@ func (s *Service) Run(ctx context.Context, appID int64) error {
 	return s.runLocked(ctx, appID, false)
 }
 
+// RunIf is Run for the supervisor's restarts. Under the app's lock it re-reads
+// the app and hands it to still, which says whether the restart still makes
+// sense (a publish, swap, rollback, sleep or stop may have landed since the
+// caller looked). An error from still skips the start and is returned; nil
+// starts the app as Run does. Like Run, it returns ErrBusy while another
+// operation holds the app.
+func (s *Service) RunIf(ctx context.Context, appID int64, still func(sqlc.SharedApp) error) error {
+	if s.vault == nil {
+		return ErrNoVault
+	}
+	unlock, err := s.lock(appID)
+	if err != nil {
+		return err
+	}
+	defer unlock()
+	sa, err := s.q.GetSharedApp(ctx, appID)
+	if err != nil {
+		return err
+	}
+	if err := still(sa); err != nil {
+		return err
+	}
+	return s.runApp(ctx, appID, false)
+}
+
 func (s *Service) runLocked(ctx context.Context, appID int64, explicit bool) error {
 	if s.vault == nil {
 		return ErrNoVault

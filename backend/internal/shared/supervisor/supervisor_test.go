@@ -147,9 +147,64 @@ func TestUnhealthyButRunningIsRestarted(t *testing.T) {
 	old := currentContainer(t, e)
 	e.Eng.SetHandler(old, http500{})
 	s.Tick(ctx)
-	if currentContainer(t, e) == old {
-		t.Fatal("an app answering 500 should be restarted")
+	if currentContainer(t, e) != old {
+		t.Fatal("one failed check is not enough to restart (a slow answer happens)")
 	}
+	s.Tick(ctx)
+	if currentContainer(t, e) == old {
+		t.Fatal("an app failing two checks in a row should be restarted")
+	}
+}
+
+// A healthy check in between starts the count again.
+func TestFailedChecksMustBeInARow(t *testing.T) {
+	ctx := context.Background()
+	e, s, _ := live(t)
+	old := currentContainer(t, e)
+	for i := 0; i < 3; i++ {
+		e.Eng.SetHandler(old, http500{})
+		s.Tick(ctx)
+		e.Eng.SetHandler(old, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+		s.Tick(ctx)
+	}
+	if currentContainer(t, e) != old || e.Shared(t).RestartCount != 0 {
+		t.Fatal("failures that are not in a row must not restart")
+	}
+}
+
+// A publish (or a swap, rollback, sleep) that lands between the failed check
+// and the restart wins: the supervisor does not restart the app it no longer
+// knows.
+func TestChangeBetweenCheckAndRestartSkipsRestart(t *testing.T) {
+	ctx := context.Background()
+	t.Run("publish", func(t *testing.T) {
+		e, s, _ := live(t)
+		e.Eng.SetHandler(currentContainer(t, e), http500{})
+		s.Tick(ctx) // first failed check
+		var fresh string
+		s.beforeRestart = func(int64) {
+			e.Publish(t)
+			fresh = currentContainer(t, e)
+		}
+		s.Tick(ctx) // second failed check, then a publish before the restart
+		if got := currentContainer(t, e); got != fresh || e.Shared(t).RestartCount != 0 {
+			t.Fatalf("the new version was restarted: %s, want %s (count %d)", got, fresh, e.Shared(t).RestartCount)
+		}
+	})
+	t.Run("sleep", func(t *testing.T) {
+		e, s, _ := live(t)
+		e.Eng.SetHandler(currentContainer(t, e), http500{})
+		s.Tick(ctx)
+		s.beforeRestart = func(id int64) {
+			if err := e.S.Sleep(ctx, id); err != nil {
+				t.Error(err)
+			}
+		}
+		s.Tick(ctx)
+		if sa := e.Shared(t); sa.Status != "sleeping" || sa.RestartCount != 0 {
+			t.Fatalf("a sleeping app was woken by a restart: %s count %d", sa.Status, sa.RestartCount)
+		}
+	})
 }
 
 func TestSleepsWhenIdleUnlessAlwaysOn(t *testing.T) {

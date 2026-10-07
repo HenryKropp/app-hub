@@ -376,12 +376,7 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	d, err := toAppDetail(a)
-	if err != nil {
-		internalError(w, "decode manifest", err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, d)
+	h.writeDetail(w, r, me, a, http.StatusCreated) // the same answer a GET gives
 }
 
 // updateApp saves one part of the ficha (the frontend sends the whole manifest

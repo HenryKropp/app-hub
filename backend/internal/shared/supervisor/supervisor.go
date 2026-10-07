@@ -50,10 +50,29 @@ type Supervisor struct {
 	backupDay   string
 	backupTry   map[int64]time.Time // last failed daily copy per app
 	down        bool
+
+	fails         map[int64]failedChecks // failed health checks in a row, per app
+	beforeRestart func(appID int64)      // tests: runs between the health check and the restart
 }
 
+// failedChecks counts failed health checks in a row for one live container.
+type failedChecks struct {
+	container string
+	n         int
+}
+
+// failsToRestart is how many failed health checks in a row restart a running
+// app: one slow answer (the check gives up after 5 s) is not enough.
+const failsToRestart = 2
+
+// errChanged: the app is no longer what the supervisor checked.
+var errChanged = errors.New("app changed since the check")
+
+// errGaveUp: the restart limit was reached; nothing is started.
+var errGaveUp = errors.New("gave up restarting")
+
 func New(q *sqlc.Queries, eng engine.Engine, svc *deploy.Service) *Supervisor {
-	return &Supervisor{Interval: 30 * time.Second, BackupHour: 3, q: q, eng: eng, svc: svc, now: time.Now, access: map[int64]time.Time{}, backupTry: map[int64]time.Time{}}
+	return &Supervisor{Interval: 30 * time.Second, BackupHour: 3, q: q, eng: eng, svc: svc, now: time.Now, access: map[int64]time.Time{}, backupTry: map[int64]time.Time{}, fails: map[int64]failedChecks{}}
 }
 
 func (s *Supervisor) SetNow(fn func() time.Time) { s.now = fn }
@@ -213,6 +232,9 @@ func (s *Supervisor) Tick(ctx context.Context) {
 		return
 	}
 	for _, a := range apps {
+		if a.Status != "running" {
+			delete(s.fails, a.AppID) // failed checks count only while it runs
+		}
 		if s.svc.Busy(a.AppID) {
 			continue // something else is working on it
 		}
@@ -228,10 +250,24 @@ func (s *Supervisor) Tick(ctx context.Context) {
 		if a.Status != "running" {
 			continue
 		}
-		if !s.healthy(ctx, a) {
+		if h, cid := s.healthy(ctx, a); h != up {
+			f := s.fails[a.AppID]
+			if f.container != cid { // a new container starts a new count
+				f = failedChecks{container: cid}
+			}
+			f.n++
+			if h == noAnswer && f.n < failsToRestart { // a dead container needs no second look
+				s.fails[a.AppID] = f
+				continue
+			}
+			delete(s.fails, a.AppID)
+			if s.beforeRestart != nil {
+				s.beforeRestart(a.AppID)
+			}
 			s.restart(ctx, a, now)
 			continue
 		}
+		delete(s.fails, a.AppID)
 		last := a.StatusChangedAt.Time
 		if a.LastAccessAt.Valid && a.LastAccessAt.Time.After(last) {
 			last = a.LastAccessAt.Time
@@ -281,41 +317,65 @@ func (s *Supervisor) container(ctx context.Context, a sqlc.ListSharedAppsRow) st
 	return d.ContainerID
 }
 
-func (s *Supervisor) healthy(ctx context.Context, a sqlc.ListSharedAppsRow) bool {
+// checkResult is what one check of the live container found.
+type checkResult int
+
+const (
+	up       checkResult = iota
+	down                 // no container, or it is not running: certain
+	noAnswer             // running, but / did not answer well in time: maybe just slow
+)
+
+// healthy checks the live container and also says which container it was.
+func (s *Supervisor) healthy(ctx context.Context, a sqlc.ListSharedAppsRow) (checkResult, string) {
 	id := s.container(ctx, a)
 	if id == "" {
-		return false
+		return down, ""
 	}
 	st, err := s.eng.Inspect(ctx, id)
 	if err != nil || !st.Running || st.HostPort == 0 {
-		return false
+		return down, id
 	}
-	return health.Check(ctx, fmt.Sprintf("http://127.0.0.1:%d%s", st.HostPort, a.HealthPath))
+	if !health.Check(ctx, fmt.Sprintf("http://127.0.0.1:%d%s", st.HostPort, a.HealthPath)) {
+		return noAnswer, id
+	}
+	return up, id
 }
 
+// restart starts the app again, under its lock and only if it is still what
+// the tick saw: same live deployment, same status, same moment of the last
+// status change. A publish, swap, rollback, sleep or stop that landed after
+// the check wins, and nothing is counted.
 func (s *Supervisor) restart(ctx context.Context, a sqlc.ListSharedAppsRow, now time.Time) {
-	count, start := a.RestartCount, a.RestartWindowStart
-	// Only an app found "running" (it came back up and was healthy) may open
-	// a fresh window. A "crashed" app is still the same failure: its tries keep
-	// counting however far apart the ticks land, so it never gets a 4th start.
-	if a.Status == "running" && (!start.Valid || now.Sub(start.Time) > restartWindow) {
-		count, start = 0, pgtype.Timestamptz{Time: now, Valid: true}
-	}
-	if count >= 3 {
-		_ = s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: a.AppID, Status: "crashed",
-			StatusMessage: msgGaveUp})
-		s.svc.HubEvent(ctx, a.AppID, "O app caiu e o Hub parou de tentar religar")
-		return
-	}
-	if err := s.q.SetSharedRestarts(ctx, sqlc.SetSharedRestartsParams{AppID: a.AppID, RestartCount: count + 1, RestartWindowStart: start}); err != nil {
-		slog.Warn("supervisor restart count", "app", a.AppID, "err", err)
-	}
-	slog.Info("supervisor restarts app", "app", a.AppID, "try", count+1)
-	if err := s.svc.Run(ctx, a.AppID); err != nil {
-		if errors.Is(err, deploy.ErrBusy) || errors.Is(err, deploy.ErrStopped) { // not a real try: give it back
-			_ = s.q.SetSharedRestarts(ctx, sqlc.SetSharedRestartsParams{AppID: a.AppID, RestartCount: a.RestartCount, RestartWindowStart: a.RestartWindowStart})
-			return
+	err := s.svc.RunIf(ctx, a.AppID, func(sa sqlc.SharedApp) error {
+		if sa.UnsharedAt.Valid || sa.Status != a.Status || sa.CurrentDeploymentID != a.CurrentDeploymentID ||
+			!sa.StatusChangedAt.Time.Equal(a.StatusChangedAt.Time) {
+			return errChanged
 		}
+		count, start := sa.RestartCount, sa.RestartWindowStart
+		// Only an app found "running" (it came back up and was healthy) may open
+		// a fresh window. A "crashed" app is still the same failure: its tries keep
+		// counting however far apart the ticks land, so it never gets a 4th start.
+		if sa.Status == "running" && (!start.Valid || now.Sub(start.Time) > restartWindow) {
+			count, start = 0, pgtype.Timestamptz{Time: now, Valid: true}
+		}
+		if count >= 3 {
+			_ = s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: a.AppID, Status: "crashed",
+				StatusMessage: msgGaveUp})
+			s.svc.HubEvent(ctx, a.AppID, "O app caiu e o Hub parou de tentar religar")
+			return errGaveUp
+		}
+		if err := s.q.SetSharedRestarts(ctx, sqlc.SetSharedRestartsParams{AppID: a.AppID, RestartCount: count + 1, RestartWindowStart: start}); err != nil {
+			slog.Warn("supervisor restart count", "app", a.AppID, "err", err)
+		}
+		slog.Info("supervisor restarts app", "app", a.AppID, "try", count+1)
+		return nil
+	})
+	switch {
+	case err == nil, errors.Is(err, errGaveUp):
+	case errors.Is(err, errChanged), errors.Is(err, deploy.ErrBusy), errors.Is(err, deploy.ErrStopped):
+		slog.Info("supervisor skips restart: the app changed", "app", a.AppID, "err", err) // not a try
+	default:
 		slog.Warn("supervisor restart", "app", a.AppID, "err", err)
 	}
 }

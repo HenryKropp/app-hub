@@ -31,8 +31,16 @@ func Read(dataDir string) (Info, error) {
 	if err := syscall.Statfs(dataDir, &st); err != nil {
 		return Info{}, err
 	}
-	dt := int64(st.Blocks) * int64(st.Bsize)
-	return Info{MemTotal: total, MemUsed: used, DiskTotal: dt, DiskUsed: dt - int64(st.Bavail)*int64(st.Bsize)}, nil
+	dt, du := diskUsage(st.Blocks, st.Bfree, st.Bavail, int64(st.Bsize))
+	return Info{MemTotal: total, MemUsed: used, DiskTotal: dt, DiskUsed: du}, nil
+}
+
+// diskUsage computes the disk numbers the way df does: used is what is
+// taken (blocks - free); total is used plus what is still available to
+// ordinary users, so the blocks reserved for root are left out of both.
+func diskUsage(blocks, bfree, bavail uint64, bsize int64) (total, used int64) {
+	used = int64(blocks-bfree) * bsize
+	return used + int64(bavail)*bsize, used
 }
 
 func parseMeminfo(text string) (int64, int64, error) {

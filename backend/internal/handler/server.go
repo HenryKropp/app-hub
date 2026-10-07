@@ -111,20 +111,25 @@ func (h *Handler) putServerCost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		MonthlyCostCents int64 `json:"monthly_cost_cents"`
+		MonthlyCostCents *int64 `json:"monthly_cost_cents"` // required: a missing field must not save R$ 0
 	}
 	if !readJSON(w, r, &body) {
 		return
 	}
-	if body.MonthlyCostCents < 0 || body.MonthlyCostCents > maxMonthlyCostCents {
+	if body.MonthlyCostCents == nil {
+		writeError(w, http.StatusBadRequest, "Faltou o custo do servidor por mês. Informe o valor e tente de novo.")
+		return
+	}
+	cents := *body.MonthlyCostCents
+	if cents < 0 || cents > maxMonthlyCostCents {
 		writeError(w, http.StatusBadRequest, "O custo do servidor precisa estar entre R$ 0 e R$ 1.000.000 por mês. Confira o valor e tente de novo.")
 		return
 	}
-	if err := h.q.SetServerCost(r.Context(), sqlc.SetServerCostParams{MonthlyCostCents: body.MonthlyCostCents, UpdatedBy: pgtype.Int8{Int64: me.ID, Valid: true}}); err != nil {
+	if err := h.q.SetServerCost(r.Context(), sqlc.SetServerCostParams{MonthlyCostCents: cents, UpdatedBy: pgtype.Int8{Int64: me.ID, Valid: true}}); err != nil {
 		internalError(w, "set server cost", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]int64{"monthly_cost_cents": body.MonthlyCostCents})
+	writeJSON(w, http.StatusOK, map[string]int64{"monthly_cost_cents": cents})
 }
 
 // serverApp loads the shared app in the URL for someone with manage_server.

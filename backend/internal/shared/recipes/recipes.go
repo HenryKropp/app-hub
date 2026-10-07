@@ -126,7 +126,7 @@ func Detect(src versions.Folder, m manifest.Manifest) (Recipe, error) {
 		r := pyBase(s, f, reqText, imports)
 		r.Kind, r.Port = "streamlit", 8501
 		r.Command = "streamlit run " + entry + " --server.port $PORT --server.address 0.0.0.0 --server.headless true"
-		r.Dockerfile += "CMD " + r.Command + "\n"
+		r.Dockerfile += cmdLine(r.Command)
 		return r, nil
 	case uses("fastapi"), uses("flask"), uses("django"):
 		r := pyBase(s, f, reqText, imports)
@@ -151,10 +151,27 @@ func Detect(src versions.Folder, m manifest.Manifest) (Recipe, error) {
 		if r.Kind == "fastapi" {
 			server = "uvicorn"
 		}
-		r.Dockerfile += "RUN pip install --no-cache-dir " + server + "\nCMD " + r.Command + "\n"
+		r.Dockerfile += "RUN pip install --no-cache-dir " + server + "\n" + cmdLine(r.Command)
 		return r, nil
 	}
 	return Recipe{}, nil
+}
+
+var assignRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*=`)
+
+// cmdLine is the Dockerfile CMD for a start command. Shell form keeps $PORT
+// expanding; "exec" makes the app replace the shell as PID 1, so it gets
+// Podman's stop signal and shuts down cleanly instead of being killed after
+// 10 s (a plain sh does not pass the signal on). A command that already
+// starts with exec, chains several commands or starts with VAR=x is kept as
+// written: exec in front would break it. The command is a single line
+// (Detect refuses line breaks).
+func cmdLine(command string) string {
+	c := strings.TrimSpace(command)
+	if !strings.HasPrefix(c, "exec ") && !strings.ContainsAny(c, ";&|") && !assignRe.MatchString(c) {
+		c = "exec " + c
+	}
+	return "CMD " + c + "\n"
 }
 
 func pyBase(s manifest.Shared, f files, reqText string, imports map[string]bool) Recipe {
