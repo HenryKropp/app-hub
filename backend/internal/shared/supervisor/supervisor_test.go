@@ -562,10 +562,14 @@ func TestCrashedRetryCrossesWindowBoundary(t *testing.T) {
 	s.Tick(ctx)
 	s.Tick(ctx) // two failed tries inside the window
 	c.add(11 * time.Minute)
-	s.Tick(ctx) // the window passed: a fresh one starts, with a new try
+	s.Tick(ctx) // the window passed: still the same crash, so this is the third try
 	sa := e.Shared(t)
-	if sa.Status != "crashed" || sa.StatusMessage == msgGaveUp || sa.RestartCount != 1 {
+	if sa.Status != "crashed" || sa.StatusMessage == msgGaveUp || sa.RestartCount != 3 {
 		t.Fatalf("%s %q count %d", sa.Status, sa.StatusMessage, sa.RestartCount)
+	}
+	s.Tick(ctx)
+	if sa := e.Shared(t); sa.StatusMessage != msgGaveUp {
+		t.Fatalf("no give-up after the third try: %q", sa.StatusMessage)
 	}
 }
 
@@ -615,6 +619,85 @@ func TestSlowTicksStillGiveUpAfterThreeTries(t *testing.T) {
 	}
 	if got := starts() - before; got != 3 {
 		t.Fatalf("%d restart tries, want 3", got)
+	}
+	if sa := e.Shared(t); sa.Status != "crashed" || sa.StatusMessage != msgGaveUp {
+		t.Fatalf("%s %q", sa.Status, sa.StatusMessage)
+	}
+}
+
+func countStarts(e *deploytest.Env) int {
+	n := 0
+	for _, call := range e.Eng.CallsCopy() {
+		if strings.HasPrefix(call, "start ") {
+			n++
+		}
+	}
+	return n
+}
+
+// Ticks far apart (slower than the 10-minute window across tries) must never
+// buy a crashing app more than three starts.
+func TestWidelySpacedTicksGiveUpAfterThreeTries(t *testing.T) {
+	for _, gap := range []time.Duration{301 * time.Second, 700 * time.Second} {
+		t.Run(gap.String(), func(t *testing.T) {
+			ctx := context.Background()
+			e, s, c := live(t)
+			before := countStarts(e)
+			e.Eng.Crash(currentContainer(t, e))
+			e.Eng.Handler = http500{}
+			for i := 0; i < 10; i++ {
+				s.Tick(ctx)
+				c.add(gap)
+			}
+			if got := countStarts(e) - before; got != 3 {
+				t.Fatalf("%d restart tries, want 3", got)
+			}
+			if sa := e.Shared(t); sa.Status != "crashed" || sa.StatusMessage != msgGaveUp {
+				t.Fatalf("%s %q", sa.Status, sa.StatusMessage)
+			}
+			var n int
+			pool.QueryRow(ctx, `SELECT count(*) FROM app_changes WHERE app_id = $1 AND person_id IS NULL
+				AND changes::text LIKE '%parou de tentar religar%'`, e.App.ID).Scan(&n)
+			if n != 1 {
+				t.Fatalf("give-up events: %d", n)
+			}
+		})
+	}
+}
+
+// An app that recovered and ran healthy past the window gets a fresh set of
+// tries when it goes down again.
+func TestRecoveredAppGetsFreshTries(t *testing.T) {
+	ctx := context.Background()
+	e, s, c := live(t)
+	e.Eng.Crash(currentContainer(t, e))
+	e.Eng.Handler = http500{}
+	s.Tick(ctx) // try 1 fails
+	c.add(time.Minute)
+	s.Tick(ctx) // try 2 fails
+	e.Eng.Handler = nil
+	c.add(time.Minute)
+	s.Tick(ctx) // try 3 succeeds
+	if sa := e.Shared(t); sa.Status != "running" || sa.RestartCount != 3 {
+		t.Fatalf("%s count %d", sa.Status, sa.RestartCount)
+	}
+	for i := 0; i < 3; i++ { // healthy for 12 minutes
+		c.add(4 * time.Minute)
+		s.Touch(e.App.ID)
+		s.Tick(ctx)
+	}
+	if sa := e.Shared(t); sa.Status != "running" {
+		t.Fatalf("status %s while healthy", sa.Status)
+	}
+	before := countStarts(e)
+	e.Eng.Handler = http500{}
+	e.Eng.SetHandler(currentContainer(t, e), http500{})
+	for i := 0; i < 6; i++ {
+		s.Tick(ctx)
+		c.add(time.Minute)
+	}
+	if got := countStarts(e) - before; got != 3 {
+		t.Fatalf("%d fresh tries, want 3", got)
 	}
 	if sa := e.Shared(t); sa.Status != "crashed" || sa.StatusMessage != msgGaveUp {
 		t.Fatalf("%s %q", sa.Status, sa.StatusMessage)
