@@ -1,10 +1,17 @@
-import { useState, type FormEvent } from "react"
-import { Navigate, useLocation, useNavigate } from "react-router-dom"
+import { useEffect, useState, type FormEvent } from "react"
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field, Logo } from "@/components/bits"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
+
+// sharedVolta keeps only a way back to a shared app's sign-in handoff
+// (a server address, so it is opened with a full page load).
+function sharedVolta(volta: string | null): string {
+  if (!volta) return ""
+  return volta === "/api/shared/authorize" || volta.startsWith("/api/shared/authorize?") ? volta : ""
+}
 
 export function LoginPage() {
   const { needsSetup, person, setPerson } = useAuth()
@@ -15,8 +22,14 @@ export function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const [params] = useSearchParams()
+  const toApp = sharedVolta(params.get("volta"))
 
-  if (person) return <Navigate to={from} replace />
+  useEffect(() => {
+    if (person && toApp) window.location.assign(toApp)
+  }, [person, toApp])
+
+  if (person) return toApp ? <p className="p-6 text-sm text-muted-foreground">Abrindo o app…</p> : <Navigate to={from} replace />
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
@@ -24,6 +37,10 @@ export function LoginPage() {
     setBusy(true)
     try {
       const p = needsSetup ? await api.setup({ name, email, password }) : await api.login({ email, password })
+      if (toApp) {
+        window.location.assign(toApp)
+        return
+      }
       setPerson(p)
       navigate(from, { replace: true })
     } catch (err) {

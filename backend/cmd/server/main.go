@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,6 +19,12 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/database"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/handler"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/appdb"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/engine"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/gateway"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/supervisor"
+	"github.com/HenryKropp/app-hub/backend/internal/vault"
 )
 
 func main() {
@@ -23,7 +33,8 @@ func main() {
 		slog.Error("config", "err", err)
 		os.Exit(1)
 	}
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	var pool *pgxpool.Pool
 	for i := range 6 {
@@ -50,7 +61,55 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	handler.New(sqlc.New(pool), cfg).Register(mux)
+	q := sqlc.New(pool)
+	h := handler.New(q, cfg)
+	h.Register(mux)
+
+	// Apps compartilhados (desenho 2026-10-06). Sem HUB_SECRET_KEY ou sem
+	// Podman o Hub liga normalmente; só os compartilhados ficam indisponíveis.
+	v, err := vault.New(cfg.SecretKey)
+	if err != nil {
+		slog.Warn("shared apps without vault (set HUB_SECRET_KEY)", "err", err)
+		v = nil
+	}
+	// Exec (pg_dump/pg_restore) may enter the Hub's own Postgres container;
+	// everything else stays limited to containers labelled by the Hub.
+	eng := engine.NewPodman(cfg.ContainerEngine, engine.WithExecAllowed(cfg.AppsDBContainer))
+	adminPool := pool
+	if cfg.AppsDBAdminURL != cfg.DatabaseURL {
+		if adminPool, err = pgxpool.New(ctx, cfg.AppsDBAdminURL); err != nil {
+			slog.Error("apps db admin", "err", err)
+			os.Exit(1)
+		}
+		defer adminPool.Close()
+	}
+	adminUser := ""
+	if adminURL, err := url.Parse(cfg.AppsDBAdminURL); err == nil && adminURL.User != nil {
+		adminUser = adminURL.User.Username()
+	}
+	dbs := appdb.New(adminPool, cfg.AppsDBHost, eng, cfg.AppsDBContainer, adminUser)
+	if hubURL, err := url.Parse(cfg.DatabaseURL); err != nil {
+		slog.Warn("lock hub database: bad DATABASE_URL", "err", err)
+	} else if err := dbs.LockDown(ctx, strings.TrimPrefix(hubURL.Path, "/")); err != nil {
+		slog.Warn("lock hub database", "err", err)
+	}
+	scheme := "http"
+	if cfg.SecureCookies() {
+		scheme = "https"
+	}
+	svc := deploy.New(q, eng, dbs, v, deploy.Options{DataDir: cfg.SharedDataDir, Domain: cfg.SharedDomain, Scheme: scheme})
+	sup := supervisor.New(q, eng, svc)
+	if cfg.BaseURL == "" {
+		slog.Warn("BASE_URL is empty: app addresses cannot send people to the Hub sign-in")
+	}
+	gw := gateway.New(cfg.SharedDomain, cfg.BaseURL, cfg.SecureCookies(), h.GatewayBackend())
+	h.SetShared(handler.Shared{Svc: svc, Sup: sup, Vault: v, DBs: dbs, Eng: eng, Codes: gw.Codes, DataDir: cfg.SharedDataDir})
+	// Reconcile before serving, so the gateway never wakes an app the Hub is
+	// about to adopt; then the supervisor loop runs in the background.
+	if err := sup.Reconcile(ctx); err != nil {
+		slog.Warn("supervisor reconcile", "err", err)
+	}
+	go sup.Loop(ctx)
 
 	frontendDist := "frontend/dist"
 	if _, err := os.Stat(frontendDist); err == nil && !cfg.DevMode {
@@ -72,10 +131,27 @@ func main() {
 		slog.Warn("frontend dist not found — SPA routes will return 404", "path", frontendDist)
 	}
 
-	srv := &http.Server{Addr: ":" + cfg.Port, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
-	slog.Info("server starting", "port", cfg.Port, "dev_mode", cfg.DevMode)
-	if err := srv.ListenAndServe(); err != nil {
+	// App addresses (<slug>.<SHARED_APPS_DOMAIN>) go to the gateway; the rest is the Hub.
+	root := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, _, ok := gw.Match(r.Host); ok {
+			gw.ServeHTTP(w, r)
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})
+	srv := &http.Server{Addr: ":" + cfg.Port, Handler: root, ReadHeaderTimeout: 10 * time.Second}
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(shutdownCtx)
+	}()
+	slog.Info("server starting", "port", cfg.Port, "dev_mode", cfg.DevMode, "shared_domain", cfg.SharedDomain)
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("server", "err", err)
 		os.Exit(1)
 	}
+	<-stopped
 }
