@@ -106,7 +106,57 @@ func TestSecretInCode(t *testing.T) {
 
 func TestPlaywrightOutsideRecipe(t *testing.T) {
 	it := item(check(t, "playwright", manifest.Manifest{Entrypoint: "app.py"}, nil), "container_limits")
-	if it.Status != "warn" || !strings.Contains(it.Detail, "PDF") && !strings.Contains(it.Detail, "navegador") {
+	if it.Status != "warn" || !strings.Contains(it.Detail, "gerar_pdf.js:1") || !strings.Contains(it.ClaudeText, "Playwright") {
 		t.Fatalf("%+v", it)
+	}
+}
+
+func TestEscapesAreNotWindowsPaths(t *testing.T) {
+	if it := item(check(t, "escapes", manifest.Manifest{Entrypoint: "app.py"}, nil), "windows_paths"); it.Key != "" {
+		t.Fatalf("false positive: %+v", it)
+	}
+	if it := item(check(t, "windows-path", manifest.Manifest{Entrypoint: "app.py"}, nil), "windows_paths"); it.Status != "warn" {
+		t.Fatalf("%+v", it)
+	}
+}
+
+func TestNeedsConfirmIsMissing(t *testing.T) {
+	r := check(t, "flask", manifest.Manifest{Entrypoint: "app.py"}, nil)
+	it := item(r, "recipe")
+	if r.Ready || it.Status != "missing" || !strings.Contains(it.Detail, "gunicorn") {
+		t.Fatalf("%+v", it)
+	}
+}
+
+func TestDockerfileAppWithBrowserDoesNotWarn(t *testing.T) {
+	r := check(t, "dockerfile-browser", manifest.Manifest{}, nil)
+	if it := item(r, "container_limits"); it.Key != "" || !r.Ready {
+		t.Fatalf("%+v", r)
+	}
+}
+
+func TestWhereCutsOff(t *testing.T) {
+	it := item(check(t, "winpath-many", manifest.Manifest{Entrypoint: "app.py"}, nil), "windows_paths")
+	if !strings.Contains(it.Detail, "app.py:2, app.py:3, app.py:4, e mais 2") {
+		t.Fatalf("%+v", it)
+	}
+}
+
+func TestUnknownFrameworkHasNoPortItem(t *testing.T) {
+	if it := item(check(t, "script", manifest.Manifest{}, nil), "port"); it.Key != "" {
+		t.Fatalf("%+v", it)
+	}
+}
+
+func TestWinPathRegexForms(t *testing.T) {
+	for _, s := range []string{`open("C:\\Users\\henry\\x.xlsx")`, `r"C:\Users\henry"`, `"D:\Temp\a"`, `/mnt/c/Users`, `OneDrive`} {
+		if !winPathRe.MatchString(s) {
+			t.Errorf("should match %s", s)
+		}
+	}
+	for _, s := range []string{`"Total:\n"`, `"Nome:\t"`, `"e:\n"`, `"a:\r"`} {
+		if winPathRe.MatchString(s) {
+			t.Errorf("should not match %s", s)
+		}
 	}
 }

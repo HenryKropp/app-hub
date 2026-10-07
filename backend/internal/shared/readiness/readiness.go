@@ -42,7 +42,7 @@ type Report struct {
 var (
 	envReadRe  = regexp.MustCompile(`(?:os\.getenv\(|os\.environ\.get\(|os\.environ\[|process\.env\.)\s*["']?([A-Z][A-Z0-9_]*)`)
 	fileDataRe = regexp.MustCompile(`sqlite3\.connect|\.to_csv\(|\.to_excel\(|openpyxl\.Workbook\(|\.save\(\s*["'][^"']+\.xlsx|open\([^)]*,\s*["'](?:w|a)`)
-	winPathRe  = regexp.MustCompile(`(?i)[A-Z]:\\\\|[A-Z]:\\[A-Za-z]|/mnt/[a-z]/|OneDrive`)
+	winPathRe  = regexp.MustCompile(`(?:^|[^A-Za-z0-9_])[A-Za-z]:\\(?:\\|[^nrtbfv0\s"'])|/mnt/[a-z]/|(?i:OneDrive)`)
 	browserRe  = regexp.MustCompile(`playwright|puppeteer|chromium|wkhtmltopdf|selenium`)
 	secretWord = regexp.MustCompile(`(?i)PASS|SECRET|TOKEN|KEY`)
 	codeExt    = map[string]bool{".py": true, ".js": true, ".mjs": true, ".ts": true}
