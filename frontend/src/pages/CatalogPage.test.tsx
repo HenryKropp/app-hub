@@ -123,3 +123,21 @@ test("an empty catalog tells a usuário what to expect, not how to register", as
   expect(await screen.findByText(/Quando alguém registrar os apps/)).toBeInTheDocument()
   expect(screen.queryByRole("link", { name: /Registrar/ })).not.toBeInTheDocument()
 })
+
+test("shows Abrir for a shared app instead of Rodar", async () => {
+  vi.spyOn(api, "apps").mockResolvedValue([appSummary({ name: "Notas", shared: { status: "running", url: "http://notas.localhost:8080", slug: "notas" } })])
+  mount()
+  const link = await screen.findByRole("link", { name: "Abrir Notas" })
+  expect(link).toHaveAttribute("href", "/api/shared/authorize?app=notas&volta=%2F")
+  expect(link).toHaveAttribute("target", "_blank")
+  expect(screen.queryByRole("button", { name: "Rodar Notas" })).not.toBeInTheDocument()
+  expect(screen.getByText("No ar")).toBeInTheDocument()
+})
+
+test("does not offer Abrir for a draft shared app", async () => {
+  vi.spyOn(api, "apps").mockResolvedValue([appSummary({ name: "Notas", shared: { status: "draft", url: "http://notas.localhost:8080", slug: "notas" } })])
+  mount()
+  await screen.findByText("Notas")
+  expect(screen.queryByRole("link", { name: "Abrir Notas" })).not.toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "Rodar Notas" })).toBeInTheDocument()
+})
