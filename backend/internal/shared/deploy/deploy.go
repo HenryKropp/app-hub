@@ -301,14 +301,34 @@ func (s *Service) runJob(ctx context.Context, j job) {
 	}
 }
 
+// ErrNotBuilding means the deployment was no longer "building" when it was
+// finished (another Hub process, or the supervisor, already cleared it).
+var ErrNotBuilding = errors.New("a implantação não está mais em montagem")
+
+// Finish records the end of a deployment that is still "building". It
+// returns ErrNotBuilding when nothing was updated.
+func (s *Service) Finish(ctx context.Context, p sqlc.FinishDeploymentParams) error {
+	n, err := s.q.FinishDeployment(ctx, p)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotBuilding
+	}
+	return nil
+}
+
 // fail records a failed deployment (the version in the air does not change).
 func (s *Service) fail(ctx context.Context, j job, f *failure) {
 	slog.Warn("shared deploy failed", "app", j.app.ID, "deployment", j.dep.ID, "msg", f.msg, "log", lastLines(f.log, 10))
 	if !j.test && !j.sa.CurrentDeploymentID.Valid {
 		logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: j.app.ID, Status: "draft", StatusMessage: f.msg}), "set status", "app", j.app.ID)
 	}
-	if err := s.q.FinishDeployment(ctx, sqlc.FinishDeploymentParams{ID: j.dep.ID, Status: "failed",
-		Port: int32(j.rec.Port), BuildLog: lastLines(f.log, 40), ErrorMessage: f.msg}); err != nil {
+	if err := s.Finish(ctx, sqlc.FinishDeploymentParams{ID: j.dep.ID, Status: "failed",
+		Port: int32(j.rec.Port), BuildLog: lastLines(f.log, 40), ErrorMessage: f.msg}); errors.Is(err, ErrNotBuilding) {
+		// Already recorded live/ready by this job (a later step failed), or cleared by someone else.
+		logErr(s.q.FailFinishedDeployment(ctx, sqlc.FailFinishedDeploymentParams{ID: j.dep.ID, ErrorMessage: f.msg}), "fail finished deployment", "deployment", j.dep.ID)
+	} else if err != nil {
 		slog.Error("shared deploy: record failure", "deployment", j.dep.ID, "err", err)
 	}
 }
@@ -416,7 +436,7 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 	// Record the new version (the only write with its image, container and
 	// port), then point the app at it. Until both succeed the old version
 	// stays in the air and the new one is thrown away.
-	if err := s.q.FinishDeployment(ctx, sqlc.FinishDeploymentParams{ID: j.dep.ID, Status: "live", ImageID: img, ContainerID: cid,
+	if err := s.Finish(ctx, sqlc.FinishDeploymentParams{ID: j.dep.ID, Status: "live", ImageID: img, ContainerID: cid,
 		Port: int32(j.rec.Port), BuildLog: lastLines(log, 40)}); err != nil {
 		s.discard(ctx, cid, img)
 		return &failure{msg: msgRecord, log: log + "\n" + err.Error()}
@@ -491,7 +511,7 @@ func (s *Service) runTest(ctx context.Context, j job) *failure {
 		f.log = log + "\n" + f.log
 		return f
 	}
-	if err := s.q.FinishDeployment(ctx, sqlc.FinishDeploymentParams{ID: j.dep.ID, Status: "ready", ImageID: img, ContainerID: cid,
+	if err := s.Finish(ctx, sqlc.FinishDeploymentParams{ID: j.dep.ID, Status: "ready", ImageID: img, ContainerID: cid,
 		Port: int32(j.rec.Port), BuildLog: lastLines(log, 40)}); err != nil {
 		s.discard(ctx, cid, img)
 		dropDB()
@@ -514,6 +534,9 @@ func (s *Service) EndTest(ctx context.Context, depID int64) error {
 	}
 	if d.Status == "building" {
 		return ErrBusy
+	}
+	if d.Status == "retired" {
+		return nil // already ended: its data and target may now belong to a newer test
 	}
 	if d.ContainerID != "" {
 		logErr(s.eng.Remove(ctx, d.ContainerID), "remove test container", "container", d.ContainerID)

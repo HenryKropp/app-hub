@@ -61,11 +61,28 @@ func (q *Queries) DeleteUsageBefore(ctx context.Context, at pgtype.Timestamptz) 
 	return err
 }
 
-const finishDeployment = `-- name: FinishDeployment :exec
+const failFinishedDeployment = `-- name: FailFinishedDeployment :exec
+UPDATE shared_deployments SET status = 'failed', image_id = '', container_id = '', error_message = $2
+WHERE id = $1 AND status IN ('live', 'ready')
+`
+
+type FailFinishedDeploymentParams struct {
+	ID           int64  `json:"id"`
+	ErrorMessage string `json:"error_message"`
+}
+
+// Undo a deployment this same job had already recorded as live/ready (the swap
+// after it could not be recorded): it never became the version in the air.
+func (q *Queries) FailFinishedDeployment(ctx context.Context, arg FailFinishedDeploymentParams) error {
+	_, err := q.db.Exec(ctx, failFinishedDeployment, arg.ID, arg.ErrorMessage)
+	return err
+}
+
+const finishDeployment = `-- name: FinishDeployment :execrows
 UPDATE shared_deployments
 SET status = $1, image_id = $2, container_id = $3,
     port = $4, build_log = $5, error_message = $6, finished_at = now()
-WHERE id = $7
+WHERE id = $7 AND status = 'building'
 `
 
 type FinishDeploymentParams struct {
@@ -78,8 +95,8 @@ type FinishDeploymentParams struct {
 	ID           int64  `json:"id"`
 }
 
-func (q *Queries) FinishDeployment(ctx context.Context, arg FinishDeploymentParams) error {
-	_, err := q.db.Exec(ctx, finishDeployment,
+func (q *Queries) FinishDeployment(ctx context.Context, arg FinishDeploymentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, finishDeployment,
 		arg.Status,
 		arg.ImageID,
 		arg.ContainerID,
@@ -88,7 +105,10 @@ func (q *Queries) FinishDeployment(ctx context.Context, arg FinishDeploymentPara
 		arg.ErrorMessage,
 		arg.ID,
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const getBackup = `-- name: GetBackup :one

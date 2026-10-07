@@ -62,11 +62,17 @@ RETURNING *;
 -- name: GetDeployment :one
 SELECT * FROM shared_deployments WHERE id = $1;
 
--- name: FinishDeployment :exec
+-- name: FinishDeployment :execrows
 UPDATE shared_deployments
 SET status = sqlc.arg(status), image_id = sqlc.arg(image_id), container_id = sqlc.arg(container_id),
     port = sqlc.arg(port), build_log = sqlc.arg(build_log), error_message = sqlc.arg(error_message), finished_at = now()
-WHERE id = sqlc.arg(id);
+WHERE id = sqlc.arg(id) AND status = 'building';
+
+-- name: FailFinishedDeployment :exec
+-- Undo a deployment this same job had already recorded as live/ready (the swap
+-- after it could not be recorded): it never became the version in the air.
+UPDATE shared_deployments SET status = 'failed', image_id = '', container_id = '', error_message = $2
+WHERE id = $1 AND status IN ('live', 'ready');
 
 -- name: SetDeploymentStatus :exec
 UPDATE shared_deployments SET status = $2 WHERE id = $1;
