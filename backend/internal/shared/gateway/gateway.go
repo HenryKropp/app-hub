@@ -148,7 +148,7 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case verdictGone:
 			found = false
 		default:
-			s = g.snapshot(tok)
+			s, found = g.snapshot(tok)
 		}
 	}
 	if !found {
@@ -211,6 +211,11 @@ func (g *Gateway) enter(w http.ResponseWriter, r *http.Request, t Target, slug s
 		g.show(w, r, http.StatusForbidden, page{App: t.Name, Title: "Sem acesso", Message: "Você não tem acesso a este app. Peça acesso a " + owner(t) + ".", HubURL: g.hubURL})
 		return
 	}
+	if !id.valid() {
+		slog.Error("gateway enter: identity without id or e-mail", "app", t.AppID, "person", personID)
+		g.show(w, r, http.StatusInternalServerError, page{App: t.Name, Title: "Algo deu errado", Message: "Tente de novo em instantes.", HubURL: g.hubURL})
+		return
+	}
 	tok := token()
 	now := g.now()
 	g.mu.Lock()
@@ -244,14 +249,20 @@ func (g *Gateway) session(r *http.Request, appID int64, test bool) (string, sess
 	return "", session{}, false
 }
 
-func (g *Gateway) snapshot(tok string) session {
+// snapshot copies the session; ok is false when it is gone (or carries no
+// identity to give the app), and the person must enter again.
+func (g *Gateway) snapshot(tok string) (session, bool) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if s := g.sessions[tok]; s != nil {
-		return *s
+	s := g.sessions[tok]
+	if s == nil || !s.id.valid() {
+		return session{}, false
 	}
-	return session{}
+	return *s, true
 }
+
+// valid: the app is only ever told about a real person.
+func (id Identity) valid() bool { return id.ID != 0 && id.Email != "" }
 
 type verdict int
 
@@ -370,8 +381,8 @@ func (g *Gateway) proxy(w http.ResponseWriter, r *http.Request, t Target, tok st
 			pr.Out.Host = pr.In.Host // o app vê o próprio endereço
 			pr.SetXForwarded()
 			for k := range pr.Out.Header {
-				if strings.HasPrefix(strings.ToLower(k), "x-apphub-") {
-					pr.Out.Header.Del(k)
+				if hubHeader(k) {
+					delete(pr.Out.Header, k) // Del would canonicalize "X_AppHub_…" and miss it
 				}
 			}
 			pr.Out.Header.Set("X-AppHub-User-Id", strconv.FormatInt(id.ID, 10))
@@ -403,6 +414,12 @@ func (g *Gateway) proxy(w http.ResponseWriter, r *http.Request, t Target, tok st
 		return
 	}
 	rp.ServeHTTP(w, r)
+}
+
+// hubHeader reports whether a header name is (or could pass for) one of the
+// Hub's: case-insensitive, with "_" read as "-" (some servers do).
+func hubHeader(name string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.ReplaceAll(name, "_", "-")), "x-apphub-")
 }
 
 // stripCookie removes the gateway cookie, keeping the app's own cookies.
