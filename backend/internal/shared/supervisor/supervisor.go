@@ -48,11 +48,12 @@ type Supervisor struct {
 	lastUsage   time.Time
 	lastCleanup time.Time
 	backupDay   string
+	backupTry   map[int64]time.Time // last failed daily copy per app
 	down        bool
 }
 
 func New(q *sqlc.Queries, eng engine.Engine, svc *deploy.Service) *Supervisor {
-	return &Supervisor{Interval: 30 * time.Second, BackupHour: 3, q: q, eng: eng, svc: svc, now: time.Now, access: map[int64]time.Time{}}
+	return &Supervisor{Interval: 30 * time.Second, BackupHour: 3, q: q, eng: eng, svc: svc, now: time.Now, access: map[int64]time.Time{}, backupTry: map[int64]time.Time{}}
 }
 
 func (s *Supervisor) SetNow(fn func() time.Time) { s.now = fn }
@@ -87,7 +88,7 @@ func (s *Supervisor) Reconcile(ctx context.Context) error {
 	if err := s.eng.Available(ctx); err != nil {
 		return err
 	}
-	s.clearStaleBuilding(ctx, s.now())
+	s.clearStaleBuilding(ctx, s.now(), 0) // no job of this process exists yet: every non-busy row is lost
 	if tests, err := s.q.ListAllOpenTests(ctx); err == nil {
 		for _, d := range tests {
 			if err := s.svc.EndTest(ctx, d.ID); err != nil {
@@ -143,7 +144,7 @@ func (s *Supervisor) Reconcile(ctx context.Context) error {
 // (or lost the database) in the middle of a publish or test. An app this Hub
 // is working on right now (Busy) is never touched: its "building" is real.
 // A first publish goes back to draft, as deploy's own failure path does.
-func (s *Supervisor) clearStaleBuilding(ctx context.Context, now time.Time) {
+func (s *Supervisor) clearStaleBuilding(ctx context.Context, now time.Time, minAge time.Duration) {
 	list, err := s.q.ListBuildingDeployments(ctx)
 	if err != nil {
 		slog.Warn("supervisor stale deployments", "err", err)
@@ -154,7 +155,7 @@ func (s *Supervisor) clearStaleBuilding(ctx context.Context, now time.Time) {
 		running, _ = s.eng.List(ctx)
 	}
 	for _, d := range list {
-		if s.svc.Busy(d.AppID) || now.Sub(d.CreatedAt.Time) < staleAfter {
+		if s.svc.Busy(d.AppID) || now.Sub(d.CreatedAt.Time) < minAge {
 			continue
 		}
 		if cur, err := s.q.GetDeployment(ctx, d.ID); err != nil || cur.Status != "building" || s.svc.Busy(d.AppID) {
@@ -211,7 +212,8 @@ func (s *Supervisor) Tick(ctx context.Context) {
 		if a.Status == "crashed" {
 			// A restart that failed health leaves "crashed": keep trying inside
 			// the window, and say so once when giving up.
-			if a.RestartWindowStart.Valid && now.Sub(a.RestartWindowStart.Time) <= restartWindow && a.StatusMessage != msgGaveUp {
+			// (restart opens a fresh window when the old one has passed.)
+			if a.RestartWindowStart.Valid && a.StatusMessage != msgGaveUp {
 				s.restart(ctx, a, now)
 			}
 			continue
@@ -358,8 +360,13 @@ func (s *Supervisor) dailyBackups(ctx context.Context, apps []sqlc.ListSharedApp
 			done = false
 			continue
 		}
+		if t, ok := s.backupTry[a.AppID]; ok && now.Sub(t) < time.Hour {
+			done = false // failed recently: try again later, not every tick
+			continue
+		}
 		if _, err := s.svc.Backup(ctx, a.AppID, "daily", nil, nil); err != nil {
 			slog.Error("supervisor daily backup", "app", a.AppID, "err", err)
+			s.backupTry[a.AppID] = now
 			done = false
 		}
 	}
@@ -368,7 +375,7 @@ func (s *Supervisor) dailyBackups(ctx context.Context, apps []sqlc.ListSharedApp
 
 func (s *Supervisor) cleanup(ctx context.Context, now time.Time) {
 	ts := func(t time.Time) pgtype.Timestamptz { return pgtype.Timestamptz{Time: t, Valid: true} }
-	s.clearStaleBuilding(ctx, s.now()) // a building deployment nobody is working on can never finish
+	s.clearStaleBuilding(ctx, now, staleAfter) // a building deployment nobody is working on can never finish
 	if tests, err := s.q.ListExpiredTests(ctx, ts(now)); err == nil {
 		for _, d := range tests {
 			if s.svc.Busy(d.AppID) {

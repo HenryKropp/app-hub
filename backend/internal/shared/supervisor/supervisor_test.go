@@ -2,8 +2,10 @@ package supervisor
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -367,13 +369,11 @@ func TestBusyAppIsLeftAlone(t *testing.T) {
 	}
 }
 
-func TestRecentBuildingIsNotStale(t *testing.T) {
+func TestRecentBuildingIsNotStaleInHourlyCleanup(t *testing.T) {
 	ctx := context.Background()
 	e, _, _ := live(t)
 	d, _ := insertBuilding(t, e, "live")
-	if err := New(e.Q, e.Eng, e.NewService()).Reconcile(ctx); err != nil { // real clock: row is seconds old
-		t.Fatal(err)
-	}
+	New(e.Q, e.Eng, e.NewService()).Tick(ctx) // hourly path, real clock: row is seconds old
 	if got, _ := e.Q.GetDeployment(ctx, d.ID); got.Status != "building" {
 		t.Fatalf("a recent deployment (maybe another process) was cleared: %s", got.Status)
 	}
@@ -504,6 +504,93 @@ func TestDailyBackupWaitsForBusyApp(t *testing.T) {
 	s.Tick(ctx)
 	if count() != 1 {
 		t.Fatalf("daily copies after the app was free: %d", count())
+	}
+}
+
+func TestReconcileClearsRecentBuilding(t *testing.T) {
+	ctx := context.Background()
+	e, _, _ := live(t)
+	d, _ := insertBuilding(t, e, "live")
+	if err := New(e.Q, e.Eng, e.NewService()).Reconcile(ctx); err != nil { // startup: nothing of this process is running
+		t.Fatal(err)
+	}
+	if got, _ := e.Q.GetDeployment(ctx, d.ID); got.Status != "failed" {
+		t.Fatalf("recent leftover at startup: %s", got.Status)
+	}
+}
+
+func TestLateCleanupOfLostTestKeepsNewerTest(t *testing.T) {
+	ctx := context.Background()
+	e, _, _ := live(t)
+	x, _ := insertBuilding(t, e, "test") // lost by a restart
+	// The supervisor claims it (building -> failed); only then can a new test start.
+	if err := e.Q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: x.ID, Status: "failed"}); err != nil {
+		t.Fatal(err)
+	}
+	y := e.StartTest(t)
+	if got, _ := e.Q.GetDeployment(ctx, y.ID); got.Status != "ready" {
+		t.Fatalf("Y %s", got.Status)
+	}
+	marker := filepath.Join(e.DataDir(), "apps", deploytest.Itoa(e.App.ID), "test-data", "marker")
+	if err := os.WriteFile(marker, []byte("y"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// ...and X's own cleanup arrives late
+	if err := e.S.EndTest(ctx, x.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(marker); err != nil {
+		t.Fatal("the lost test's cleanup wiped test Y's data")
+	}
+	if _, ok := e.S.Target(e.App.ID, true); !ok {
+		t.Fatal("the lost test's cleanup took away test Y's route")
+	}
+	// ending Y itself still cleans everything
+	if err := e.S.EndTest(ctx, y.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("test data kept after ending the current test")
+	}
+}
+
+func TestCrashedRetryCrossesWindowBoundary(t *testing.T) {
+	ctx := context.Background()
+	e, s, c := live(t)
+	e.Eng.Crash(currentContainer(t, e))
+	e.Eng.Handler = http500{}
+	s.Tick(ctx)
+	s.Tick(ctx) // two failed tries inside the window
+	c.add(11 * time.Minute)
+	s.Tick(ctx) // the window passed: a fresh one starts, with a new try
+	sa := e.Shared(t)
+	if sa.Status != "crashed" || sa.StatusMessage == msgGaveUp || sa.RestartCount != 1 {
+		t.Fatalf("%s %q count %d", sa.Status, sa.StatusMessage, sa.RestartCount)
+	}
+}
+
+func TestFailingDailyCopyRetriedOncePerHour(t *testing.T) {
+	ctx := context.Background()
+	e, s, c := live(t)
+	n := time.Now().AddDate(0, 0, 1)
+	c.t = time.Date(n.Year(), n.Month(), n.Day(), 3, 5, 0, 0, time.Local)
+	s.Touch(e.App.ID)
+	e.DBs.FailDump = errors.New("sem espaço")
+	s.Tick(ctx) // fails
+	e.DBs.FailDump = nil
+	s.Tick(ctx) // same hour: not tried again
+	count := func() int {
+		var n int
+		pool.QueryRow(ctx, "SELECT count(*) FROM shared_backups WHERE app_id = $1 AND kind = 'daily'", e.App.ID).Scan(&n)
+		return n
+	}
+	if count() != 0 {
+		t.Fatal("retried within the hour")
+	}
+	c.add(61 * time.Minute)
+	s.Tick(ctx)
+	if count() != 1 {
+		t.Fatalf("copies after an hour: %d", count())
 	}
 }
 
