@@ -177,3 +177,18 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 ### Depois
 - Subir na nuvem (por último).
 - Sistema Alis V2 para a equipe (antes, só a checagem).
+- Linha "Versão nova pronta para publicar" na ficha (spec 4.3).
+- Nome da versão no ar montado a partir da pasta publicada (hoje vem do número da implantação).
+- Cofre: amarrar cada segredo ao seu app (dados associados por app) e permitir trocar a chave (`HUB_SECRET_KEY`).
+- Uso do computador (`hostinfo`) fora do Linux: hoje a página Servidor e gastos mostra zero em outros sistemas.
+- Fotos do porteiro (páginas "acordando", "entre de novo", "teste encerrado") no script `e2e/compartilhados.mjs`.
+- Rodar os testes com `-race` num computador com `gcc`.
+- Pequenas sobras guardadas na revisão (baixa prioridade):
+  - Motor: `Fake` com `sync.Mutex` sobrando; `Inspect`/`Logs`/`Exec` aceitam caixa desconhecida; "no such image" vira "não encontrado"; motor fora do ar soma até 10 s por comando.
+  - Bancos: testes do `appdb` mais firmes (erros ignorados, sem teste de senha errada); `Fake` aceitar só nomes válidos; bancos de teste também trancados; `LockDown` tira `CONNECT` de `PUBLIC` no banco do Hub a cada início (avisar o Henry).
+  - Receitas e checagem: subpasta no módulo (`src/app.py`), imports separados por vírgula, `requirements.txt` com comentários, `process.env["X"]`, arquivos acima de 1 MB ignorados sem aviso, porta 0 sem `EXPOSE`.
+  - Montagem: `.dockerignore` simples (sem `**`); `Wait` pode passar do tempo em até 5 s.
+  - Implantação: "Voltar para a anterior" não marca acesso (pode descansar logo); `Unshare` ignora erros ao remover caixa e imagem (registrar); `deploy.go` grande (separar); imagens de montagens que falharam ficam para trás.
+  - Porteiro: `stripCookie` também tirar `hub_session`; vigia de WebSocket com tempo-limite; "fail closed" contar do primeiro erro; testes de não acordar em pedido cancelado e da página de teste encerrado.
+  - Vigia: uma checagem de saúde que falha já religa; app que caiu depois de "Ligar" manual não é tentado de novo.
+  - Telas: "Abrir" aparece também para app parado ou que caiu; ficha guarda informação velha sem avisar quando um GET falha depois; quem só vê o app recebe erro em vez da linha com "Abrir" se a primeira leitura falha; `hostinfo` com erro dá custo zero sem aviso (falta `host_ok`); testes de permissão e de "Ligar" na página Servidor e gastos.
