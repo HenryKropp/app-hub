@@ -33,6 +33,8 @@ type DBs interface {
 	Dump(ctx context.Context, name string, w io.Writer) error // formato custom do pg_dump
 	Restore(ctx context.Context, name string, r io.Reader) error
 	Size(ctx context.Context, name string) (int64, error)
+	Name(appID int64) string                   // banco do app no ar
+	TestName(appID, deploymentID int64) string // banco vazio da caixa de teste
 }
 
 type Admin struct {
@@ -188,6 +190,10 @@ func (f *Fake) Restore(_ context.Context, n string, r io.Reader) error {
 	f.Data[n] = strings.TrimPrefix(string(b), "dump:")
 	return err
 }
+
+func (f *Fake) Name(appID int64) string { return fmt.Sprintf("app_%d", appID) }
+
+func (f *Fake) TestName(appID, dep int64) string { return fmt.Sprintf("app_%d_test_%d", appID, dep) }
 
 func (f *Fake) Size(_ context.Context, n string) (int64, error) { return 8 << 20, nil }
 
