@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -28,6 +29,7 @@ const (
 	busyMsg          = "Já tem uma mudança em andamento neste app. Espere terminar e tente de novo."
 	engineDownMsg    = "O servidor de apps não está disponível. Confira se o Podman está ligado."
 	folderUnreadable = "Não consegui ler a pasta do app. Confira se ela existe e está sincronizada."
+	noVaultMsg       = "Os apps compartilhados ainda não foram configurados neste servidor. Peça ao administrador para terminar a configuração."
 )
 
 // knownAcks are the checklist warnings a person may mark "estou ciente".
@@ -126,7 +128,8 @@ func sharedError(w http.ResponseWriter, err error) {
 		slog.Warn("shared: engine unavailable", "err", err)
 		writeError(w, http.StatusServiceUnavailable, engineDownMsg)
 	case errors.Is(err, deploy.ErrNoVault):
-		writeError(w, http.StatusServiceUnavailable, err.Error())
+		slog.Error("shared: HUB_SECRET_KEY is not set; shared apps cannot keep settings or database passwords")
+		writeError(w, http.StatusServiceUnavailable, noVaultMsg)
 	case errors.Is(err, deploy.ErrNoPrevious), errors.Is(err, deploy.ErrNotShared), errors.Is(err, deploy.ErrBadSlug):
 		writeError(w, http.StatusBadRequest, err.Error())
 	case isPortuguese(err):
@@ -353,6 +356,12 @@ func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "Para deixar de compartilhar, use o botão Deixar de compartilhar.")
 		return
 	}
+	if body.Enabled { // what Configure would refuse, refused before the ficha is saved
+		if _, err := h.shared.Svc.Slug(a.Slug); err != nil {
+			sharedError(w, err)
+			return
+		}
+	}
 	m := manifestOf(a)
 	if body.Enabled {
 		sh := manifest.Shared{Enabled: true, AlwaysOn: body.AlwaysOn, IdleMin: body.IdleMin, MemoryMB: body.MemoryMB,
@@ -385,11 +394,15 @@ func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	needsRestart := false
 	if body.Enabled {
-		if _, err := h.shared.Svc.Configure(r.Context(), saved, manifestOf(saved)); err != nil {
+		now, err := h.shared.Svc.Configure(r.Context(), saved, manifestOf(saved))
+		if err != nil {
 			sharedError(w, err)
 			return
 		}
+		needsRestart = live && sa.Status == "running" && (now.MemoryMb != sa.MemoryMb || numericFloat(now.Cpus) != numericFloat(sa.Cpus) ||
+			now.Port != sa.Port || !envDefaultsEqual(manifestOf(a).Shared, manifestOf(saved).Shared))
 		acks := []string{}
 		for _, k := range body.Acks {
 			if slices.Contains(knownAcks, k) && !slices.Contains(acks, k) {
@@ -400,8 +413,37 @@ func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
 			internalError(w, "set acks", err)
 			return
 		}
+	} else if sa != nil && !sa.UnsharedAt.Valid { // turned off before the first publish: no draft left behind
+		if err := h.shared.Svc.Unshare(r.Context(), a.ID, me.ID); err != nil {
+			sharedError(w, err)
+			return
+		}
 	}
-	h.writeDetail(w, r, me, saved, http.StatusOK)
+	h.writeDetailWith(w, r, me, saved, http.StatusOK, func(d *appDetail) { d.NeedsRestart = needsRestart })
+}
+
+// envDefaultsEqual: the settings' names and default values reach the
+// container only when it starts.
+func envDefaultsEqual(a, b *manifest.Shared) bool {
+	pairs := func(s *manifest.Shared) map[string]string {
+		out := map[string]string{}
+		if s != nil {
+			for _, e := range s.Env {
+				out[e.Name] = e.Default
+			}
+		}
+		return out
+	}
+	pa, pb := pairs(a), pairs(b)
+	if len(pa) != len(pb) {
+		return false
+	}
+	for k, v := range pa {
+		if w, ok := pb[k]; !ok || w != v {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *Handler) getSharedDeployment(w http.ResponseWriter, r *http.Request) {
@@ -511,10 +553,23 @@ func (h *Handler) sharedLogs(w http.ResponseWriter, r *http.Request) {
 				}
 				slog.Warn("shared logs", "app", a.ID, "err", err)
 			}
-			text = scanner.MaskSecrets(logs)
+			text = maskLogSecrets(scanner.MaskSecrets(logs))
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"text": text})
+}
+
+// logSecretRe finds "password=…", "token: …" and the like anywhere in a log
+// line; logURLPassRe finds the password in "scheme://user:password@host".
+var (
+	logSecretRe  = regexp.MustCompile(`(?i)\b([\w.-]*(?:pass(?:word|wd)?|senha|secret|token|api[_-]?key)["']?\s*[:=]\s*["']?)([^\s"'&,;]+)`)
+	logURLPassRe = regexp.MustCompile(`(://[^\s:/@]+:)([^\s@/]+)(@)`)
+)
+
+// maskLogSecrets hides passwords that an app prints in its messages.
+func maskLogSecrets(text string) string {
+	text = logURLPassRe.ReplaceAllString(text, "${1}****${3}")
+	return logSecretRe.ReplaceAllString(text, "${1}****")
 }
 
 type usagePoint struct {

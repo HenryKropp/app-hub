@@ -33,6 +33,14 @@ type Fake struct {
 	Down       bool                           // Available devolve ErrUnavailable
 	Calls      []string                       // "build <tag>", "start <name>", "stop <id>", "remove <id>", "exec <container> <cmd>"
 	ExecFn     func(container string, stdin io.Reader, stdout io.Writer, cmd []string) error
+	logs       string // SetLogs; "" = two plain lines
+}
+
+// SetLogs sets what Logs answers.
+func (f *Fake) SetLogs(text string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.logs = text
 }
 
 type FakeContainer struct {
@@ -238,6 +246,11 @@ func (f *Fake) Stats(_ context.Context, ids []string) ([]Usage, error) {
 }
 
 func (f *Fake) Logs(_ context.Context, id string, lines int) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.logs != "" {
+		return f.logs, nil
+	}
 	return "linha 1\nlinha 2\n", nil
 }
 
