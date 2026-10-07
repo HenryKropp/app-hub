@@ -175,3 +175,7 @@ UPDATE server_settings SET monthly_cost_cents = $1, updated_by = $2, updated_at 
 -- name: InsertHubChange :exec
 -- An event in the app's timeline without a person (the Hub itself).
 INSERT INTO app_changes (app_id, person_id, changes) VALUES ($1, NULL, $2);
+
+-- name: ListBuildingDeployments :many
+-- Deployments still marked "building": after a Hub restart those are leftovers.
+SELECT * FROM shared_deployments WHERE status = 'building';

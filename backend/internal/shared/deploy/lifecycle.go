@@ -243,3 +243,27 @@ func (s *Service) Purge(ctx context.Context, appID int64) error {
 	}
 	return s.q.DeleteSharedApp(ctx, appID)
 }
+
+// Adopt looks at the live container after a Hub restart: if it is running,
+// the gateway target is restored and true is returned.
+func (s *Service) Adopt(ctx context.Context, appID int64) (bool, error) {
+	sa, err := s.q.GetSharedApp(ctx, appID)
+	if err != nil || !sa.CurrentDeploymentID.Valid {
+		return false, err
+	}
+	d, err := s.q.GetDeployment(ctx, sa.CurrentDeploymentID.Int64)
+	if err != nil || d.ContainerID == "" {
+		return false, err
+	}
+	st, err := s.eng.Inspect(ctx, d.ContainerID)
+	if err != nil || !st.Running || st.HostPort == 0 {
+		return false, err
+	}
+	s.setTarget(appID, false, st.HostPort)
+	return true, nil
+}
+
+// HubEvent records a line on the app's timeline with no person ("Hub").
+func (s *Service) HubEvent(ctx context.Context, appID int64, label string) {
+	s.event(ctx, appID, nil, label)
+}
