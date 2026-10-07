@@ -707,3 +707,24 @@ func TestRecoveredAppGetsFreshTries(t *testing.T) {
 type http500 struct{}
 
 func (http500) ServeHTTP(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }
+
+// A test box goes away at its 30 minutes, not at the next hourly cleanup.
+func TestExpiredTestEndedOnTime(t *testing.T) {
+	ctx := context.Background()
+	e, s, c := live(t)
+	s.Tick(ctx) // the hourly cleanup has just run
+	d := e.StartTest(t)
+	c.add(29 * time.Minute)
+	s.Tick(ctx)
+	if got, _ := e.Q.GetDeployment(ctx, d.ID); got.Status != "ready" {
+		t.Fatalf("ended before its time: %s", got.Status)
+	}
+	c.add(2 * time.Minute)
+	s.Tick(ctx)
+	if got, _ := e.Q.GetDeployment(ctx, d.ID); got.Status != "retired" {
+		t.Fatalf("test status %s 31 min later", got.Status)
+	}
+	if _, open := e.S.Target(e.App.ID, true); open {
+		t.Fatal("test address still open")
+	}
+}

@@ -37,6 +37,7 @@ var (
 	ErrNoVault    = errors.New("Os apps compartilhados precisam da chave HUB_SECRET_KEY no servidor. Peça ao administrador para configurá-la.")
 	ErrNoPrevious = errors.New("Não há versão anterior para voltar.")
 	ErrNotShared  = errors.New("Este app ainda não é compartilhado.")
+	ErrStopped    = errors.New("O app está parado. Use Ligar para ligá-lo de novo.")
 	ErrBadSlug    = errors.New("O nome curto do app só pode ter letras minúsculas, números e hífens (sem dois hífens seguidos) para virar endereço.")
 )
 

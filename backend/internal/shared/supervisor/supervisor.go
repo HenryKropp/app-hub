@@ -251,6 +251,7 @@ func (s *Supervisor) Tick(ctx context.Context) {
 			s.backupDay = day
 		}
 	}
+	s.endExpiredTests(ctx, now)
 	if now.Sub(s.lastCleanup) >= time.Hour {
 		s.lastCleanup = now
 		s.cleanup(ctx, now)
@@ -311,7 +312,7 @@ func (s *Supervisor) restart(ctx context.Context, a sqlc.ListSharedAppsRow, now 
 	}
 	slog.Info("supervisor restarts app", "app", a.AppID, "try", count+1)
 	if err := s.svc.Run(ctx, a.AppID); err != nil {
-		if errors.Is(err, deploy.ErrBusy) { // not a real try: give it back
+		if errors.Is(err, deploy.ErrBusy) || errors.Is(err, deploy.ErrStopped) { // not a real try: give it back
 			_ = s.q.SetSharedRestarts(ctx, sqlc.SetSharedRestartsParams{AppID: a.AppID, RestartCount: a.RestartCount, RestartWindowStart: a.RestartWindowStart})
 			return
 		}
@@ -383,19 +384,27 @@ func (s *Supervisor) dailyBackups(ctx context.Context, apps []sqlc.ListSharedApp
 	return done
 }
 
+// endExpiredTests turns off the test boxes past their 30 minutes (every tick,
+// so they go away on time).
+func (s *Supervisor) endExpiredTests(ctx context.Context, now time.Time) {
+	tests, err := s.q.ListExpiredTests(ctx, pgtype.Timestamptz{Time: now, Valid: true})
+	if err != nil {
+		slog.Warn("supervisor expired tests", "err", err)
+		return
+	}
+	for _, d := range tests {
+		if s.svc.Busy(d.AppID) {
+			continue // a publish or a newer test is in progress; next tick
+		}
+		if err := s.svc.EndTest(ctx, d.ID); err != nil {
+			slog.Warn("supervisor end expired test", "deployment", d.ID, "err", err)
+		}
+	}
+}
+
 func (s *Supervisor) cleanup(ctx context.Context, now time.Time) {
 	ts := func(t time.Time) pgtype.Timestamptz { return pgtype.Timestamptz{Time: t, Valid: true} }
 	s.clearStaleBuilding(ctx, now, staleAfter) // a building deployment nobody is working on can never finish
-	if tests, err := s.q.ListExpiredTests(ctx, ts(now)); err == nil {
-		for _, d := range tests {
-			if s.svc.Busy(d.AppID) {
-				continue // a publish or a newer test is in progress; next hour
-			}
-			if err := s.svc.EndTest(ctx, d.ID); err != nil {
-				slog.Warn("supervisor end expired test", "deployment", d.ID, "err", err)
-			}
-		}
-	}
 	if old, err := s.q.ListExpiredBackups(ctx, ts(now)); err == nil {
 		for _, b := range old {
 			if err := os.Remove(b.Path); err != nil && !os.IsNotExist(err) {
