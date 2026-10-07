@@ -30,8 +30,9 @@ func withShared(t *testing.T, h *Handler) sharedDeps {
 	v, _ := vault.New(vault.NewKey())
 	d := sharedDeps{eng: engine.NewFake(), dbs: appdb.NewFake(), codes: gateway.NewCodes()}
 	t.Cleanup(d.eng.Close)
-	d.svc = deploy.New(h.q, d.eng, d.dbs, v, deploy.Options{DataDir: t.TempDir(), Domain: "localhost:8080", Scheme: "http", HealthTimeout: time.Second})
-	h.SetShared(Shared{Svc: d.svc, Vault: v, DBs: d.dbs, Eng: d.eng, Codes: d.codes, DataDir: t.TempDir()})
+	dataDir := t.TempDir() // the same folder for the service and the handler (copies live there)
+	d.svc = deploy.New(h.q, d.eng, d.dbs, v, deploy.Options{DataDir: dataDir, Domain: "localhost:8080", Scheme: "http", HealthTimeout: time.Second})
+	h.SetShared(Shared{Svc: d.svc, Vault: v, DBs: d.dbs, Eng: d.eng, Codes: d.codes, DataDir: dataDir})
 	return d
 }
 
@@ -40,7 +41,7 @@ func sharedApp(t *testing.T, h *Handler, d sharedDeps, slug string) int64 {
 	t.Helper()
 	dir := t.TempDir()
 	deploytest.CopyDir(t, "../../testdata/shared/streamlit", dir)
-	m := manifest.Manifest{ManifestVersion: 1, ID: slug, Name: "Notas", Kind: manifest.KindWeb, Entrypoint: "app.py",
+	m := manifest.Manifest{ManifestVersion: 1, ID: slug, Name: "Notas", Kind: manifest.KindWeb, Entrypoint: "app.py", Area: "Research",
 		Shared: &manifest.Shared{Enabled: true}}
 	id := insertApp(t, m)
 	if _, err := testPool.Exec(context.Background(), "UPDATE apps SET folder_path = $1 WHERE id = $2", dir, id); err != nil {
