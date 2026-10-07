@@ -38,7 +38,7 @@ function Limits({ app, info, onChanged, onRestartNeeded }: { app: AppDetail; inf
       const fresh = await api.shared.get(app.id)
       const acks = fresh.shared?.acks ?? base.acks
       const next = await api.shared.save(app.id, { ...base, acks, memory_mb: mem, cpus, always_on: always, idle_minutes: idle })
-      toast.success(next.needs_restart ? "Salvo. Religue o app para valer." : "Salvo.")
+      toast.success(next.needs_restart ? "Salvo. Religue o app para valer." : next.needs_publish ? "Salvo. Publique uma versão nova para valer." : "Salvo.")
       onRestartNeeded(!!next.needs_restart)
       onChanged(next)
     } catch (e) {

@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { toast } from "sonner"
 import { beforeEach, expect, it, vi } from "vitest"
 import { api, type AppDetail, type SharedState } from "@/lib/api"
 import { detail as makeDetail, manifest } from "@/test/fixtures"
@@ -55,5 +56,16 @@ it("no Religar agora when the server says no restart is needed", async () => {
   await userEvent.selectOptions(await screen.findByLabelText("Memória"), "2048")
   await userEvent.click(screen.getByRole("button", { name: "Salvar limites" }))
   await vi.waitFor(() => expect(save).toHaveBeenCalled())
+  expect(screen.queryByRole("button", { name: "Religar agora" })).not.toBeInTheDocument()
+})
+
+it("a new port asks for a new publish, not a restart", async () => {
+  vi.spyOn(api.shared, "get").mockResolvedValue({ shared: state, deployments: [] })
+  vi.spyOn(api.shared, "save").mockResolvedValue({ ...app, needs_publish: true })
+  const ok = vi.spyOn(toast, "success")
+  render(<Tech app={app} onChanged={() => {}} />)
+  await userEvent.selectOptions(await screen.findByLabelText("Memória"), "2048")
+  await userEvent.click(screen.getByRole("button", { name: "Salvar limites" }))
+  await vi.waitFor(() => expect(ok).toHaveBeenCalledWith("Salvo. Publique uma versão nova para valer."))
   expect(screen.queryByRole("button", { name: "Religar agora" })).not.toBeInTheDocument()
 })

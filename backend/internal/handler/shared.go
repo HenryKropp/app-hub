@@ -382,6 +382,12 @@ func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
 	} else {
 		m.Shared = nil
 	}
+	if !body.Enabled && sa != nil && !sa.UnsharedAt.Valid { // turned off before the first publish: no draft left behind
+		if err := h.shared.Svc.Unshare(r.Context(), a.ID, me.ID); err != nil { // before saving, so a 409 changes nothing
+			sharedError(w, err)
+			return
+		}
+	}
 	if info, err := os.Stat(a.FolderPath); err != nil || !info.IsDir() {
 		writeError(w, http.StatusConflict, "Não consegui ler a pasta do app agora. Nada foi salvo. Confira se o OneDrive está sincronizado e tente de novo.")
 		return
@@ -394,7 +400,7 @@ func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	needsRestart := false
+	needsRestart, needsPublish := false, false
 	if body.Enabled {
 		now, err := h.shared.Svc.Configure(r.Context(), saved, manifestOf(saved))
 		if err != nil {
@@ -402,7 +408,9 @@ func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		needsRestart = live && sa.Status == "running" && (now.MemoryMb != sa.MemoryMb || numericFloat(now.Cpus) != numericFloat(sa.Cpus) ||
-			now.Port != sa.Port || !envDefaultsEqual(manifestOf(a).Shared, manifestOf(saved).Shared))
+			!envDefaultsEqual(manifestOf(a).Shared, manifestOf(saved).Shared))
+		// a restart reuses the deployment's own port: only a new publish applies a new one
+		needsPublish = live && now.Port != sa.Port
 		acks := []string{}
 		for _, k := range body.Acks {
 			if slices.Contains(knownAcks, k) && !slices.Contains(acks, k) {
@@ -413,13 +421,8 @@ func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
 			internalError(w, "set acks", err)
 			return
 		}
-	} else if sa != nil && !sa.UnsharedAt.Valid { // turned off before the first publish: no draft left behind
-		if err := h.shared.Svc.Unshare(r.Context(), a.ID, me.ID); err != nil {
-			sharedError(w, err)
-			return
-		}
 	}
-	h.writeDetailWith(w, r, me, saved, http.StatusOK, func(d *appDetail) { d.NeedsRestart = needsRestart })
+	h.writeDetailWith(w, r, me, saved, http.StatusOK, func(d *appDetail) { d.NeedsRestart, d.NeedsPublish = needsRestart, needsPublish })
 }
 
 // envDefaultsEqual: the settings' names and default values reach the

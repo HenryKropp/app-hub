@@ -114,3 +114,22 @@ func TestServerLogsDBSizeError(t *testing.T) {
 		t.Fatalf("Size error not logged: %q", buf.String())
 	}
 }
+
+// A limits save never turns the database flag off while the app has a database.
+func TestServerSettingsKeepWantsDB(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withShared(t, h)
+	id := sharedApp(t, h, d, "notas")
+	if _, err := testPool.Exec(t.Context(), "UPDATE shared_apps SET db_name = 'app_notas', wants_db = true WHERE app_id = $1", id); err != nil {
+		t.Fatal(err)
+	}
+	if code := c.do("PUT", "/api/server/apps/"+itoa(id), map[string]any{"memory_mb": 1024, "cpus": 1, "idle_minutes": 30}, nil); code != 200 {
+		t.Fatalf("save %d", code)
+	}
+	var wants bool
+	testPool.QueryRow(t.Context(), "SELECT wants_db FROM shared_apps WHERE app_id = $1", id).Scan(&wants)
+	if !wants {
+		t.Fatal("wants_db turned off while the app has a database")
+	}
+}
