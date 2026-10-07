@@ -6,7 +6,7 @@ import { detail as makeDetail, manifest } from "@/test/fixtures"
 import { Tech } from "./Tech"
 
 const state: SharedState = { status: "running", status_message: "", stopped_by: "", always_on: false, idle_minutes: 30,
-  memory_mb: 512, cpus: 0.5, wants_db: false, url: "", acks: [], has_previous: false }
+  memory_mb: 512, cpus: 1, wants_db: false, url: "", acks: [], has_previous: false }
 const app: AppDetail = makeDetail({ manifest: manifest({ kind: "web", shared: { enabled: true } }), shared: { status: "running", url: "", slug: "notas" } })
 
 beforeEach(() => {

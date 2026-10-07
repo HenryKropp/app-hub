@@ -239,7 +239,7 @@ export function MakeShared({ app, onChanged }: { app: AppDetail; onChanged: (nex
     setBusy(true)
     setError("")
     try {
-      onChanged(await api.shared.save(app.id, settingsOf(app, null, { database: "", acks: [] })))
+      onChanged(await api.shared.save(app.id, settingsOf(app, null, { acks: [] })))
     } catch (e) {
       setError(errText(e, "Não consegui tornar o app compartilhado."))
     } finally {

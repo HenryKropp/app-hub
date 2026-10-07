@@ -1,7 +1,7 @@
 import type { AppDetail, SharedSettings, SharedState } from "@/lib/api"
 
 // The values "Tornar compartilhado" starts with.
-export const SHARED_DEFAULTS = { memory_mb: 512, cpus: 0.5, idle_minutes: 30 }
+export const SHARED_DEFAULTS = { memory_mb: 512, cpus: 1, idle_minutes: 30 }
 
 // settingsOf is the whole shared block as PUT /shared wants it: what the
 // manifest says, then what the Hub already runs with, then the defaults.
