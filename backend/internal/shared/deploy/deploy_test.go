@@ -67,9 +67,14 @@ func TestDeployOneAtATime(t *testing.T) {
 	}
 	close(release)
 	e.WaitDeployment(t, first.ID)
-	if _, err := e.S.Publish(context.Background(), e.App, e.M, 1); err != nil {
+	third, err := e.S.Publish(context.Background(), e.App, e.M, 1)
+	if err != nil {
 		t.Fatalf("after finishing, publish again: %v", err)
 	}
+	// The third publish runs in the background: let it end, then shut the
+	// fake containers, before the test's folders and database go away.
+	e.WaitDeployment(t, third.ID)
+	e.Eng.Close()
 }
 
 func TestNewVersionUnhealthyKeepsOld(t *testing.T) {
