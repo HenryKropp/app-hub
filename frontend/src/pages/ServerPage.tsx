@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react"
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { TriangleAlert } from "lucide-react"
@@ -18,11 +18,13 @@ const centsText = (c: number) => (c / 100).toFixed(2).replace(".", ",")
 const ROW = "md:grid md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_0.6fr_minmax(0,1.4fr)_minmax(0,1.1fr)_0.7fr_auto] md:items-center md:gap-4"
 const CELL_LABEL = "text-xs text-muted-foreground md:hidden"
 
-/** "300" or "300,50" (also "1.300,50") in reais to cents; null when it makes no sense. */
+/** "300", "300,50", "1234,5" or "1.234,56" in reais to cents; null for anything
+ * else ("300abc", "1e3", and "300.50", which could mean either). */
 export function parseReais(v: string): number | null {
-  const n = parseFloat(v.trim().replace(/\./g, "").replace(",", "."))
-  if (!Number.isFinite(n) || n < 0) return null
-  return Math.round(n * 100)
+  const t = v.trim()
+  if (!/^(\d+|\d{1,3}(\.\d{3})+)(,\d{1,2})?$/.test(t)) return null
+  const [whole, frac = ""] = t.replace(/\./g, "").split(",")
+  return Number(whole) * 100 + Number(frac.padEnd(2, "0"))
 }
 
 function Meter({ label, used, total, warn }: { label: string; used: number; total: number; warn?: boolean }) {
@@ -121,13 +123,19 @@ export function ServerPage() {
   const [limits, setLimits] = useState<ServerApp | null>(null)
   const [busy, setBusy] = useState(false)
   const [costTouched, setCostTouched] = useState(false)
+  const touched = useRef(false) // the reload must not overwrite what the person is typing
+  const editCost = (v: string, isTouched: boolean) => {
+    setCost(v)
+    setCostTouched(isTouched)
+    touched.current = isTouched
+  }
 
   const load = useCallback(() => {
     api.server.get().then(
       (i) => {
         setInfo(i)
         setLoadError("")
-        setCost((c) => (c === "" ? centsText(i.monthly_cost_cents) : c))
+        if (!touched.current) setCost(centsText(i.monthly_cost_cents))
       },
       (e) => {
         if (e instanceof ApiError && e.status === 403) setDenied(true)
@@ -153,8 +161,7 @@ export function ServerPage() {
     try {
       await api.server.setCost(cents)
       toast.success("Custo salvo.")
-      setCost(centsText(cents))
-      setCostTouched(false)
+      editCost(centsText(cents), false)
       load()
     } catch (err) {
       toast.error(errText(err, "Não consegui salvar o custo. Tente de novo em alguns segundos."))
@@ -216,7 +223,7 @@ export function ServerPage() {
       <form onSubmit={saveCost} className="flex max-w-md flex-col gap-2" noValidate>
         <Field label="Quanto o servidor custa por mês" htmlFor="srv-cost" hint="Em reais, por exemplo 300 ou 300,50.">
           <div className="flex gap-2">
-            <Input id="srv-cost" inputMode="decimal" value={cost} aria-invalid={!!costError} onChange={(e) => { setCost(e.target.value); setCostTouched(true) }} />
+            <Input id="srv-cost" inputMode="decimal" value={cost} aria-invalid={!!costError} onChange={(e) => editCost(e.target.value, true)} />
             <Button type="submit" disabled={costBusy || (!costTouched && cost !== "")} variant="outline">{costBusy ? "Salvando…" : "Salvar custo"}</Button>
           </div>
         </Field>
