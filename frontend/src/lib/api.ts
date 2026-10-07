@@ -81,6 +81,38 @@ export type ScanItem = {
 
 export type ScanResult = { root_display: string; items: ScanItem[] }
 
+export type SharedStatus = "draft" | "starting" | "running" | "sleeping" | "stopped" | "crashed"
+export type SharedBrief = { status: SharedStatus; url: string; slug: string }
+export type SharedState = {
+  status: SharedStatus; status_message: string; stopped_by: string; always_on: boolean; idle_minutes: number
+  memory_mb: number; cpus: number; wants_db: boolean; url: string; acks: string[]; has_previous: boolean
+}
+export type Deployment = {
+  id: number; kind: "test" | "live"; status: "building" | "ready" | "live" | "failed" | "retired"
+  version_id: number | null; error_message: string; build_log: string; created_by_name: string; created_at: string
+}
+export type SharedInfo = {
+  shared: SharedState | null; test_url?: string; test_open?: boolean
+  live_version?: number; latest_version?: number; deployments?: Deployment[]
+}
+export type ReadinessItem = { key: string; status: "ok" | "auto" | "missing" | "warn"; title: string; detail: string; claude_text: string; acked: boolean }
+export type Readiness = { ready: boolean; recipe: { kind: string; command: string }; wants_db: boolean; suggest_env: EnvVar[]; items: ReadinessItem[] }
+export type SharedSettings = {
+  enabled: boolean; always_on: boolean; idle_minutes: number; memory_mb: number; cpus: number; port: number
+  health_path: string; database: "" | "postgres"; command: string; env: EnvVar[]; acks: string[]; updated_at: string
+}
+export type ConfigItem = EnvVar & { has_value: boolean; value: string }
+export type SharedBackup = { id: number; kind: "daily" | "manual" | "pre_deploy" | "pre_restore"; size_bytes: number; created_at: string; created_by_name: string; version_number: number | null }
+export type UsagePoint = { at: string; mem_mb: number; cpu: number }
+export type ServerApp = {
+  app_id: number; name: string; slug: string; status: SharedStatus; always_on: boolean; memory_mb: number; cpus: number; idle_minutes: number
+  hours_on: number; avg_mem_mb: number; max_mem_mb: number; avg_cpu: number; db_bytes: number; backup_bytes: number; cost_cents: number
+}
+export type ServerInfo = {
+  memory_total: number; memory_used: number; disk_total: number; disk_used: number; disk_warning: boolean; engine_ok: boolean
+  monthly_cost_cents: number; hub_cents: number; period_start: string; apps: ServerApp[]
+}
+
 export type AppSummary = {
   id: number
   slug: string
@@ -100,6 +132,7 @@ export type AppSummary = {
   area_id: number
   restricted: boolean
   can: Can
+  shared: SharedBrief | null
 }
 
 export type AppDetail = {
@@ -117,6 +150,7 @@ export type AppDetail = {
   area_id: number
   restricted: boolean
   can: Can
+  shared: SharedBrief | null
   depends_on_apps?: AppLink[]
   used_by?: AppLink[]
 }
@@ -259,9 +293,39 @@ export const api = {
   restorePreview: (appId: number, n: number) => request<{ plan: RestorePlan; current: number }>("GET", `/api/apps/${appId}/versions/${n}/restore-preview`),
   restore: (appId: number, n: number) => request<RestoreResult>("POST", `/api/apps/${appId}/versions/${n}/restore`),
   run: (id: number | string) => request<Run>("GET", `/api/runs/${id}`),
+  shared: {
+    get: (id: number) => request<SharedInfo>("GET", `/api/apps/${id}/shared`),
+    check: (id: number) => request<Readiness>("GET", `/api/apps/${id}/shared/check`),
+    save: (id: number, s: SharedSettings) => request<AppDetail>("PUT", `/api/apps/${id}/shared`, s),
+    test: (id: number) => request<Deployment>("POST", `/api/apps/${id}/shared/test`),
+    publish: (id: number) => request<Deployment>("POST", `/api/apps/${id}/shared/publish`),
+    deployment: (id: number, dep: number) => request<Deployment>("GET", `/api/apps/${id}/shared/deployments/${dep}`),
+    rollback: (id: number, withData: boolean) => request<object>("POST", `/api/apps/${id}/shared/rollback`, { with_data: withData }),
+    stop: (id: number) => request<object>("POST", `/api/apps/${id}/shared/stop`),
+    start: (id: number) => request<object>("POST", `/api/apps/${id}/shared/start`),
+    unshare: (id: number) => request<object>("POST", `/api/apps/${id}/shared/unshare`),
+    logs: (id: number) => request<{ text: string }>("GET", `/api/apps/${id}/shared/logs`),
+    usage: (id: number) => request<UsagePoint[]>("GET", `/api/apps/${id}/shared/usage`),
+    config: (id: number) => request<ConfigItem[]>("GET", `/api/apps/${id}/shared/config`),
+    setConfig: (id: number, name: string, value: string) => request<{ needs_restart: boolean }>("PUT", `/api/apps/${id}/shared/config`, { name, value }),
+    backups: (id: number) => request<SharedBackup[]>("GET", `/api/apps/${id}/shared/backups`),
+    backup: (id: number) => request<SharedBackup>("POST", `/api/apps/${id}/shared/backups`),
+    restore: (id: number, bid: number) => request<object>("POST", `/api/apps/${id}/shared/backups/${bid}/restore`),
+  },
+  server: {
+    get: () => request<ServerInfo>("GET", "/api/server"),
+    setCost: (cents: number) => request<object>("PUT", "/api/server/cost", { monthly_cost_cents: cents }),
+    setApp: (id: number, l: { memory_mb: number; cpus: number; always_on: boolean; idle_minutes: number }) =>
+      request<{ needs_restart: boolean }>("PUT", `/api/server/apps/${id}`, l),
+    stop: (id: number) => request<object>("POST", `/api/server/apps/${id}/stop`),
+    start: (id: number) => request<object>("POST", `/api/server/apps/${id}/start`),
+  },
 }
 
 export const AGENT_DOWNLOAD_URL = "/api/agent/download"
 export const fileUrl = (runId: number, fileId: number) => `/api/runs/${runId}/files/${fileId}`
 export const groupZipUrl = (runId: number, index: number) => `/api/runs/${runId}/groups/${index}/zip` 
 export const selectedUrl = (runId: number, fileIds: number[]) => `/api/runs/${runId}/selected?files=${fileIds.join(",")}`
+export const backupDownloadUrl = (id: number, bid: number) => `/api/apps/${id}/shared/backups/${bid}/download`
+export const openSharedUrl = (slug: string, test = false) =>
+  `/api/shared/authorize?app=${encodeURIComponent(slug)}${test ? "&teste=1" : ""}&volta=%2F`

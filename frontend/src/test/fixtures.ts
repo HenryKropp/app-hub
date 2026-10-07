@@ -81,7 +81,7 @@ export function appSummary(over: Partial<AppSummary> = {}): AppSummary {
   return { id: 3, slug: "files-prep", name: "Eq. Research Files Prep", summary: "Baixa da CVM", kind: "desktop",
     language: "python", area: "Research", folder_path: "/mnt/c/apps/fp", folder_display: "C:\\apps\\fp",
     owner_id: 1, owner_name: "Henry", backup_id: null, updated_at: "2026-09-30T10:00:00Z",
-    can_run: true, remembered_folder: "", area_id: 1, restricted: false, can: ALL_CAN, ...over }
+    can_run: true, remembered_folder: "", area_id: 1, restricted: false, can: ALL_CAN, shared: null, ...over }
 }
 
 export function detail(over: Partial<AppDetail> = {}): AppDetail {
@@ -89,6 +89,6 @@ export function detail(over: Partial<AppDetail> = {}): AppDetail {
     id: 3, folder_path: "/mnt/c/apps/fp", folder_display: "C:\\apps\\fp", owner_id: 1, backup_id: null, updated_at: "2026-09-30T10:00:00Z",
     manifest: manifest({ kind: "desktop", entrypoint: "Ferramenta CVM.exe", name: "Eq. Research Files Prep" }), can_run: true,
     version: { number: 2, created_at: "2026-09-30T10:00:00Z" }, folder_readable: true, remembered_folder: "",
-    area_id: 1, restricted: false, can: ALL_CAN, depends_on_apps: [], used_by: [], ...over,
+    area_id: 1, restricted: false, can: ALL_CAN, shared: null, depends_on_apps: [], used_by: [], ...over,
   }
 }

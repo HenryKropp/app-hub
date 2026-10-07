@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { Lock, Play, Plus, Search, X } from "lucide-react"
+import { ExternalLink, Lock, Play, Plus, Search, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
+import { SharedStatusDot } from "@/components/SharedStatus"
 import { Input } from "@/components/ui/input"
 import { EmptyState, KindTab, LoadError, PageHeader, Playing, SavedIn } from "@/components/bits"
-import { api, type AppSummary } from "@/lib/api"
+import { api, openSharedUrl, type AppSummary } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { canRegister } from "@/lib/permissions"
 import { useRuns } from "@/lib/runs-context"
@@ -105,8 +106,9 @@ export function CatalogPage() {
       <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {shown.map((a) => {
           const live = playing.has(a.id)
+          const shared = a.shared && a.shared.status !== "draft" ? a.shared : null
           const target = { id: a.id, name: a.name, folder_display: a.folder_display, remembered_folder: a.remembered_folder }
-          const saved = a.can_run ? rememberedFor(target) : ""
+          const saved = a.can_run && !shared ? rememberedFor(target) : ""
           return (
             <li key={a.id}>
               {/* The title link covers the card (after:inset-0); Rodar sits above it. */}
@@ -126,12 +128,24 @@ export function CatalogPage() {
                     </span>
                   </span>
                   <span className="flex shrink-0 flex-col items-end gap-2">
-                    {live && (
+                    {shared && <SharedStatusDot status={shared.status} />}
+                    {!shared && live && (
                       <span className="inline-flex items-center gap-1.5 font-medium text-brand">
                         <Playing /> aberto agora
                       </span>
                     )}
-                    {a.can_run && (
+                    {shared && (
+                      <a
+                        href={openSharedUrl(shared.slug)}
+                        target="_blank"
+                        rel="noopener"
+                        aria-label={`Abrir ${a.name}`}
+                        className={cn(buttonVariants({ variant: "run" }), "relative z-10 h-8 shrink-0 gap-1.5 pr-3.5 pl-3 [&_svg]:fill-none")}
+                      >
+                        <ExternalLink className="size-3.5" /> Abrir
+                      </a>
+                    )}
+                    {!shared && a.can_run && (
                       <Button
                         variant="run"
                         aria-label={`Rodar ${a.name}`}
