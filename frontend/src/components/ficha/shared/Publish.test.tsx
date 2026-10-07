@@ -93,3 +93,8 @@ it("disables publishing while the check has pending items", () => {
   expect(screen.getByRole("button", { name: "Testar" })).toBeDisabled()
   expect(screen.getByText("Resolva a checagem primeiro.")).toBeInTheDocument()
 })
+
+it("Testar is a start button, violet like Publicar", async () => {
+  render(<PublishBar appId={1} ready live={false} latest={1} liveVersion={undefined} hasPrevious={false} interval={10} onDone={() => {}} />)
+  expect(screen.getByRole("button", { name: "Testar" }).className).toContain("bg-brand")
+})

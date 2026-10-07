@@ -36,3 +36,24 @@ it("says so when it does not load, and tries again", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Tentar de novo" }))
   expect(await screen.findByLabelText("Memória")).toBeInTheDocument()
 })
+
+it("offers Religar agora when the saved limits need a restart, and restarts through the API", async () => {
+  vi.spyOn(api.shared, "get").mockResolvedValue({ shared: state, deployments: [] })
+  vi.spyOn(api.shared, "save").mockResolvedValue({ ...app, needs_restart: true })
+  const start = vi.spyOn(api.shared, "start").mockResolvedValue({})
+  render(<Tech app={app} onChanged={() => {}} />)
+  await userEvent.selectOptions(await screen.findByLabelText("Memória"), "1024")
+  await userEvent.click(screen.getByRole("button", { name: "Salvar limites" }))
+  await userEvent.click(await screen.findByRole("button", { name: "Religar agora" }))
+  expect(start).toHaveBeenCalledWith(app.id)
+})
+
+it("no Religar agora when the server says no restart is needed", async () => {
+  vi.spyOn(api.shared, "get").mockResolvedValue({ shared: state, deployments: [] })
+  const save = vi.spyOn(api.shared, "save").mockResolvedValue({ ...app, needs_restart: false })
+  render(<Tech app={app} onChanged={() => {}} />)
+  await userEvent.selectOptions(await screen.findByLabelText("Memória"), "2048")
+  await userEvent.click(screen.getByRole("button", { name: "Salvar limites" }))
+  await vi.waitFor(() => expect(save).toHaveBeenCalled())
+  expect(screen.queryByRole("button", { name: "Religar agora" })).not.toBeInTheDocument()
+})

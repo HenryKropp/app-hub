@@ -106,7 +106,7 @@ export function PublishBar({ appId, ready, live, latest, liveVersion, hasPreviou
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="outline" disabled={blocked} onClick={() => start(true)}>Testar</Button>
+        <Button variant="run" className="h-8 px-4" disabled={blocked} onClick={() => start(true)}>Testar</Button>
         {showPublish && (
           <Button variant="run" className="h-8 px-4" disabled={blocked} onClick={() => start(false)}>
             {newer ? "Publicar versão nova" : "Publicar"}

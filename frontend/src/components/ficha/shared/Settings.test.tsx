@@ -43,3 +43,16 @@ it("declares a new setting through the given save", async () => {
   expect(onAdd).toHaveBeenCalledWith({ name: "API_KEY", label: "Chave da API", secret: true, required: false })
   await vi.waitFor(() => expect(cfg).toHaveBeenCalledTimes(2))
 })
+
+it("offers Religar agora after a setting that needs a restart", async () => {
+  vi.spyOn(api.shared, "config").mockResolvedValue([
+    { name: "TITULO", label: "Título", secret: false, required: false, default: "", has_value: true, value: "Notas" },
+  ])
+  vi.spyOn(api.shared, "setConfig").mockResolvedValue({ needs_restart: true })
+  const start = vi.spyOn(api.shared, "start").mockResolvedValue({})
+  render(<SharedSettingsForm appId={1} />)
+  await userEvent.type(await screen.findByLabelText("Título"), "!")
+  await userEvent.click(screen.getByRole("button", { name: "Salvar Título" }))
+  await userEvent.click(await screen.findByRole("button", { name: "Religar agora" }))
+  expect(start).toHaveBeenCalledWith(1)
+})
