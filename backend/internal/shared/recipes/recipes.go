@@ -6,6 +6,7 @@ package recipes
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -81,12 +82,18 @@ func (f files) read(rel string) string {
 	return string(b)
 }
 
+// ErrCommandLines: the start command must be a single line.
+var ErrCommandLines = errors.New(manifest.MsgCommandLines)
+
 func Detect(src versions.Folder, m manifest.Manifest) (Recipe, error) {
 	s := manifest.Shared{Enabled: true}
 	if m.Shared != nil {
 		s = *m.Shared
 	}
 	s = s.WithDefaults()
+	if strings.ContainsAny(s.Command, "\r\n") { // would add lines to the generated Dockerfile
+		return Recipe{}, ErrCommandLines
+	}
 	f, err := list(src)
 	if err != nil {
 		return Recipe{}, err

@@ -62,3 +62,24 @@ func TestCopyOwnDockerfile(t *testing.T) {
 		t.Fatalf("%q %v", df, err)
 	}
 }
+
+func TestCopyKeepsExecutableBit(t *testing.T) {
+	src := t.TempDir()
+	write(t, src, "Dockerfile", "FROM y\nCMD ./start.sh\n")
+	write(t, src, "start.sh", "#!/bin/sh\nexec python app.py\n")
+	write(t, src, "app.py", "print(1)")
+	if err := os.Chmod(filepath.Join(src, "start.sh"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(t.TempDir(), "stage")
+	if _, err := Copy(versions.LocalFolder{Root: src}, dst, nil, recipes.Recipe{Kind: "dockerfile"}); err != nil {
+		t.Fatal(err)
+	}
+	st, err := os.Stat(filepath.Join(dst, "start.sh"))
+	if err != nil || st.Mode().Perm()&0o100 == 0 {
+		t.Fatalf("start.sh lost its executable bit: %v %v", st.Mode(), err)
+	}
+	if st, _ := os.Stat(filepath.Join(dst, "app.py")); st.Mode().Perm()&0o111 != 0 {
+		t.Fatalf("app.py became executable: %v", st.Mode())
+	}
+}

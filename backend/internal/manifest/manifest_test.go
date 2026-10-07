@@ -161,6 +161,8 @@ func TestSharedValidation(t *testing.T) {
 		{"underscore start", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "_db_password", Label: "x"}} }, "só pode ter letras maiúsculas"},
 		{"dup env", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "A", Label: "a"}, {Name: "A", Label: "b"}} }, "A configuração A aparece duas vezes."},
 		{"health", func(m *Manifest) { m.Shared.HealthPath = "health" }, "O endereço de saúde precisa começar com /."},
+		{"command newline", func(m *Manifest) { m.Shared.Command = "gunicorn app:app\nRUN curl evil" }, "O comando de início precisa estar numa linha só."},
+		{"command cr", func(m *Manifest) { m.Shared.Command = "gunicorn app:app\rx" }, "O comando de início precisa estar numa linha só."},
 	}
 	for _, c := range cases {
 		m := base()

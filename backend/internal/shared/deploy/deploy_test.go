@@ -865,3 +865,76 @@ func TestStopNotUndoneByRunOrWake(t *testing.T) {
 		t.Fatalf("Ligar after Parar: %s %v", st, e.Eng.Running())
 	}
 }
+
+// Restore stops the app first, so the "antes de restaurar" copy has
+// everything written until then; if that copy fails the app comes back.
+func TestRestoreStopsBeforeCopying(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	e.Publish(t)
+	b, err := e.S.Backup(ctx, e.App.ID, "manual", nil, ptr(int64(1)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	runningAtCopy := -1
+	e.DBs.OnDump = func(string) { runningAtCopy = len(e.Eng.Running()) }
+	if err := e.S.Restore(ctx, e.App.ID, b.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	if runningAtCopy != 0 {
+		t.Fatalf("the app was still running (%d) when its data was copied", runningAtCopy)
+	}
+	e.DBs.OnDump = nil
+	e.DBs.FailDump = errors.New("pg_dump: boom")
+	err = e.S.Restore(ctx, e.App.ID, b.ID, 1)
+	if err == nil || !strings.Contains(err.Error(), "Não foi possível copiar os dados atuais") {
+		t.Fatalf("err %v", err)
+	}
+	if st := e.Shared(t).Status; st != "running" || len(e.Eng.Running()) != 1 {
+		t.Fatalf("app not brought back: %s %v", st, e.Eng.Running())
+	}
+	if _, ok := e.S.Target(e.App.ID, false); !ok {
+		t.Fatal("no target: the app was left down")
+	}
+}
+
+// A failed copy says so plainly; the technical reason stays in the log.
+func TestBackupErrorIsPlain(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	e.Publish(t)
+	raw := errors.New(`pg_dump: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed`)
+	e.DBs.FailDump = raw
+	_, err := e.S.Backup(ctx, e.App.ID, "manual", nil, ptr(int64(1)))
+	if err == nil || err.Error() != "Não foi possível fazer a cópia agora. Tente de novo em alguns minutos." || !errors.Is(err, raw) {
+		t.Fatalf("%v", err)
+	}
+}
+
+// A test box whose database cannot be dropped still loses its address and
+// container; the drop is tried again later.
+func TestEndTestClearsTargetWhenDropFails(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	e.Publish(t)
+	d := e.StartTest(t)
+	e.DBs.FailDrop = errors.New("drop: database is being accessed by other users")
+	if err := e.S.EndTest(ctx, d.ID); err == nil {
+		t.Fatal("drop error not reported")
+	}
+	if _, open := e.S.Target(e.App.ID, true); open {
+		t.Fatal("test address still open")
+	}
+	for _, n := range e.Eng.Running() {
+		if strings.Contains(n, "teste") {
+			t.Fatalf("test container still running: %v", e.Eng.Running())
+		}
+	}
+	e.DBs.FailDrop = nil
+	if err := e.S.EndTest(ctx, d.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := e.Q.GetDeployment(ctx, d.ID); got.Status != "retired" {
+		t.Fatalf("status %s", got.Status)
+	}
+}

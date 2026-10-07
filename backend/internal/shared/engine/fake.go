@@ -26,7 +26,7 @@ type Fake struct {
 	Images     map[string]BuildSpec
 	Containers map[string]*FakeContainer
 	Networks   map[string]bool // redes criadas por Start (e não removidas)
-	BuildErr   error // próxima montagem falha com isto (e volta a nil)
+	BuildErr   error           // próxima montagem falha com isto (e volta a nil)
 	BuildLog   string
 	Handler    http.Handler                   // o que as caixas respondem; padrão: 200 "ok <nome>" + eco dos X-AppHub-*
 	HandlerFor func(name string) http.Handler // se devolve não-nil, vale para a caixa com esse nome (antes de Handler)

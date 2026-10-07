@@ -136,8 +136,10 @@ func (a *Admin) Restore(ctx context.Context, name string, r io.Reader) error {
 	if !safeName.MatchString(name) {
 		return errBadName
 	}
+	// Custom-format copies (pg_dump -Fc) load in one transaction: a failed
+	// restore leaves the database as it was.
 	return a.eng.Exec(ctx, a.container, r, io.Discard, "pg_restore", "-U", a.adminUser, "--clean", "--if-exists",
-		"--no-owner", "--role="+name, "-d", name)
+		"--single-transaction", "--exit-on-error", "--no-owner", "--role="+name, "-d", name)
 }
 
 func (a *Admin) Size(ctx context.Context, name string) (int64, error) {
@@ -153,6 +155,8 @@ type Fake struct {
 	Data        map[string]string // conteúdo "do banco", para provar restaurações
 	FailDump    error
 	FailRestore error // Restore fails with this (and changes nothing)
+	OnDump      func(name string) // called at the start of every Dump (tests)
+	FailDrop    error             // Drop fails with this (and changes nothing)
 }
 
 func NewFake() *Fake { return &Fake{DBs: map[string]string{}, Data: map[string]string{}} }
@@ -167,6 +171,9 @@ func (f *Fake) Ensure(_ context.Context, n, pw string) error {
 func (f *Fake) Drop(_ context.Context, n string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.FailDrop != nil {
+		return f.FailDrop
+	}
 	delete(f.DBs, n)
 	delete(f.Data, n)
 	return nil
@@ -177,6 +184,9 @@ func (f *Fake) URL(n, pw string) string { return "postgres://" + n + ":" + pw + 
 func (f *Fake) Dump(_ context.Context, n string, w io.Writer) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.OnDump != nil {
+		f.OnDump(n)
+	}
 	if f.FailDump != nil {
 		return f.FailDump
 	}

@@ -138,3 +138,16 @@ func TestFakeRoundTrip(t *testing.T) {
 		t.Fatal("not dropped")
 	}
 }
+
+// A copy is loaded all or nothing: one transaction, stopping at the first error.
+func TestRestoreIsAllOrNothing(t *testing.T) {
+	f := engine.NewFake()
+	a := New(nil, "db:5432", f, "app-hub-db", "postgres")
+	if err := a.Restore(context.Background(), "app_1", strings.NewReader("x")); err != nil {
+		t.Fatal(err)
+	}
+	calls := f.CallsCopy()
+	if len(calls) != 1 || !strings.Contains(calls[0], "pg_restore") || !strings.Contains(calls[0], " --single-transaction") || !strings.Contains(calls[0], " --exit-on-error") {
+		t.Fatalf("%v", calls)
+	}
+}

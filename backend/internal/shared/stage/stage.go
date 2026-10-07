@@ -53,7 +53,13 @@ func Copy(src versions.Folder, dir string, outs []manifest.Output, rec recipes.R
 		if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
 			return err
 		}
-		w, err := os.Create(dst)
+		mode := os.FileMode(0o644)
+		if f, ok := r.(*os.File); ok { // keep the executable bit (start.sh)
+			if st, err := f.Stat(); err == nil && st.Mode().Perm()&0o111 != 0 {
+				mode = 0o755
+			}
+		}
+		w, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, mode)
 		if err != nil {
 			return err
 		}
@@ -61,7 +67,10 @@ func Copy(src versions.Folder, dir string, outs []manifest.Output, rec recipes.R
 			w.Close()
 			return err
 		}
-		return w.Close()
+		if err := w.Close(); err != nil {
+			return err
+		}
+		return os.Chmod(dst, mode) // the umask may have taken bits off
 	})
 	if err != nil {
 		return "", err

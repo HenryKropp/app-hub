@@ -132,3 +132,10 @@ func TestDjango(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 }
+
+func TestCommandWithNewlineRefused(t *testing.T) {
+	m := manifest.Manifest{Entrypoint: "app.py", Shared: &manifest.Shared{Enabled: true, Command: "gunicorn app:app\nRUN rm -rf /"}}
+	if _, err := Detect(versions.LocalFolder{Root: "../../../testdata/shared/flask"}, m); err == nil || err.Error() != "O comando de início precisa estar numa linha só." {
+		t.Fatalf("%v", err)
+	}
+}
