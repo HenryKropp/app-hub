@@ -812,3 +812,25 @@ func TestPanicInJobFailsDeployment(t *testing.T) {
 		t.Fatalf("%s busy=%v %s", d.Status, s.Busy(e.App.ID), e.Shared(t).Status)
 	}
 }
+
+// Each app runs on its own network (live and test boxes), removed on unshare.
+func TestEachAppHasItsOwnNetwork(t *testing.T) {
+	e := setup(t)
+	d := e.Publish(t)
+	tst := e.StartTest(t)
+	want := "app-hub-apps-" + itoa(e.App.ID)
+	for _, c := range e.Eng.Containers {
+		if c.Spec.Network != want {
+			t.Fatalf("%s on network %q, want %q", c.Spec.Name, c.Spec.Network, want)
+		}
+	}
+	if d.Status != "live" || tst.Status != "ready" || !e.Eng.HasNetwork(want) {
+		t.Fatalf("%s %s %v", d.Status, tst.Status, e.Eng.Networks)
+	}
+	if err := e.S.Unshare(context.Background(), e.App.ID, 1); err != nil {
+		t.Fatal(err)
+	}
+	if e.Eng.HasNetwork(want) {
+		t.Fatal("network left behind after unshare")
+	}
+}

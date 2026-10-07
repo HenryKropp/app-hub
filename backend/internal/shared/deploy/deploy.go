@@ -373,7 +373,7 @@ func (s *Service) start(ctx context.Context, j job, img, dbName string) (string,
 		return "", 0, &failure{msg: "Não foi possível criar a pasta de dados do app no servidor.", log: err.Error()}
 	}
 	cid, err := s.eng.Start(ctx, engine.StartSpec{Name: name, Image: img, Env: env, Port: j.rec.Port,
-		MemoryMB: int(j.sa.MemoryMb), CPUs: toFloat(j.sa.Cpus), DataDir: data,
+		MemoryMB: int(j.sa.MemoryMb), CPUs: toFloat(j.sa.Cpus), DataDir: data, Network: engine.AppNetwork(j.app.ID),
 		Labels: map[string]string{engine.Label: strconv.FormatInt(j.app.ID, 10), "app-hub.deployment": strconv.FormatInt(j.dep.ID, 10)}})
 	if err != nil {
 		return "", 0, &failure{msg: "Não foi possível ligar o app no servidor.", log: err.Error()}
