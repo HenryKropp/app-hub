@@ -14,6 +14,18 @@ import { errText, settingsOf } from "./settings"
 
 type Confirm = "stop" | "unshare" | null
 
+const LOAD_ERR = "O Hub não respondeu sobre o app compartilhado. Tente de novo em alguns segundos."
+
+/** A load that failed: what happened and Tentar de novo. */
+export function LoadFailed({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <p className="text-sm text-destructive" role="alert">{message}</p>
+      <Button size="sm" variant="outline" onClick={onRetry}>Tentar de novo</Button>
+    </div>
+  )
+}
+
 /**
  * The "Compartilhado" part of the ficha. Whoever takes care of the app
  * (can.restore) gets all of it; everyone else only the short line with Abrir.
@@ -26,6 +38,7 @@ export function SharedSection({ app, can, onChanged }: { app: AppDetail; can: Ca
   const [checkError, setCheckError] = useState("")
   const [checking, setChecking] = useState(false)
   const [acks, setAcks] = useState<string[]>([])
+  const [loadError, setLoadError] = useState("")
   const [busy, setBusy] = useState(false)
   const [confirm, setConfirm] = useState<Confirm>(null)
   const id = app.id
@@ -36,8 +49,11 @@ export function SharedSection({ app, can, onChanged }: { app: AppDetail; can: Ca
       (i) => {
         setInfo(i)
         setAcks(i.shared?.acks ?? [])
+        setLoadError("")
       },
-      () => setInfo((i) => i ?? { shared: null }),
+      // A failed look while the part is on screen keeps what it shows; a
+      // failed first load says so instead of hiding the part.
+      (e) => setLoadError(errText(e, LOAD_ERR)),
     )
   }, [id])
   const loadCheck = useCallback(() => {
@@ -65,6 +81,13 @@ export function SharedSection({ app, can, onChanged }: { app: AppDetail; can: Ca
   }, [status, loadInfo])
 
   const state = info?.shared ?? null
+  if (!info && loadError) {
+    return (
+      <Section title="Compartilhado">
+        <LoadFailed message={loadError} onRetry={loadInfo} />
+      </Section>
+    )
+  }
   if (!cares) {
     return (
       <Section title="Compartilhado">
@@ -107,6 +130,8 @@ export function SharedSection({ app, can, onChanged }: { app: AppDetail; can: Ca
     setAcks(next)
     try {
       const saved = await api.shared.save(id, settingsOf(app, state, { acks: next }))
+      // The marks now saved are the ones every later save must carry.
+      setInfo((i) => (i?.shared ? { ...i, shared: { ...i.shared, acks: next } } : i))
       onChanged(saved)
       loadCheck()
     } catch (e) {
@@ -115,7 +140,8 @@ export function SharedSection({ app, can, onChanged }: { app: AppDetail; can: Ca
     }
   }
   const addEnv = async (e: EnvVar) => {
-    const s = settingsOf(app, state)
+    // acks: the marks on screen (the saved ones), never an older copy.
+    const s = settingsOf(app, state, { acks })
     if (s.env.some((x) => x.name === e.name)) throw new Error(`${e.name} já está na lista.`)
     const saved = await api.shared.save(id, { ...s, env: [...s.env, e] })
     onChanged(saved)

@@ -44,7 +44,12 @@ function ConfigRow({ appId, item, onChanged }: { appId: number; item: ConfigItem
   return (
     <li className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <Label htmlFor={id}>{item.label || item.name}</Label>
+        {secretSaved ? (
+          // No field to point at while the saved password is only "Guardada".
+          <span className="text-sm leading-none font-medium">{item.label || item.name}</span>
+        ) : (
+          <Label htmlFor={id}>{item.label || item.name}</Label>
+        )}
         <code className="font-mono text-xs text-muted-foreground">{item.name}</code>
         {item.required && <span className="text-xs text-muted-foreground">obrigatório</span>}
         {item.required && !item.has_value && <span className="text-xs text-warn">sem valor</span>}

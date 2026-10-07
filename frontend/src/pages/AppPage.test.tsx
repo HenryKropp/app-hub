@@ -6,6 +6,7 @@ import { api, ApiError, type AppDetail, type Person } from "@/lib/api"
 import * as auth from "@/lib/auth"
 import { RunsProvider } from "@/lib/runs-context"
 import { VIEW_ONLY, bia, detail, henry, run } from "@/test/fixtures"
+import { toast } from "sonner"
 import { AppPage } from "./AppPage"
 
 beforeEach(() => localStorage.clear())
@@ -381,4 +382,20 @@ it("a published shared app is opened, not run", async () => {
   expect(await screen.findByText("No ar · versão 2")).toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "Rodar" })).not.toBeInTheDocument()
   expect(screen.getAllByRole("link", { name: /Abrir/ })[0]).toHaveAttribute("href", "/api/shared/authorize?app=fp&volta=%2F")
+})
+
+it("says what to do when the ficha does not reload after a shared change", async () => {
+  const user = userEvent.setup()
+  const shared = detail({ manifest: { ...detail().manifest, kind: "web" }, shared: { status: "running", url: "", slug: "fp" } })
+  base(shared)
+  vi.spyOn(api, "app").mockResolvedValueOnce(shared).mockRejectedValue(new Error("boom"))
+  vi.spyOn(api.shared, "get").mockResolvedValue({ shared: { status: "running", status_message: "", stopped_by: "", always_on: false, idle_minutes: 30, memory_mb: 512, cpus: 0.5, wants_db: false, url: "", acks: [], has_previous: false }, live_version: 2, latest_version: 2, deployments: [] })
+  vi.spyOn(api.shared, "check").mockResolvedValue({ ready: true, recipe: { kind: "flask", command: "", dockerfile: "", port: 0, needs_confirm: false, requirements: null }, wants_db: false, suggest_env: [], items: [] })
+  vi.spyOn(api.shared, "config").mockResolvedValue([])
+  vi.spyOn(api.shared, "stop").mockResolvedValue({})
+  const err = vi.spyOn(toast, "error")
+  renderPage()
+  await user.click(await screen.findByRole("button", { name: "Parar" }))
+  await user.click(screen.getByRole("button", { name: "Sim, parar" }))
+  await vi.waitFor(() => expect(err).toHaveBeenCalledWith("Não consegui atualizar a ficha. Recarregue a página para ver o estado novo."))
 })

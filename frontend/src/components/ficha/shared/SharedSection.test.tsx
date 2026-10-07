@@ -77,3 +77,28 @@ it("marking 'estou ciente' saves the marks and checks again", async () => {
   expect(save).toHaveBeenCalledWith(detail.id, expect.objectContaining({ enabled: true, acks: ["file_data"], updated_at: detail.updated_at }))
   await vi.waitFor(() => expect(check).toHaveBeenCalledTimes(2))
 })
+
+it("a setting added after 'estou ciente' keeps the mark", async () => {
+  vi.spyOn(api.shared, "get").mockResolvedValue({ shared: { ...running, status: "draft" }, deployments: [] })
+  vi.spyOn(api.shared, "check").mockResolvedValue({ ready: false, recipe: { kind: "flask", command: "", dockerfile: "", port: 0, needs_confirm: false, requirements: null }, wants_db: false, suggest_env: [], items: [
+    { key: "file_data", status: "warn", title: "Dados em arquivo", detail: "Grava notas.json.", claude_text: "Use APPHUB_DATA_DIR.", acked: false },
+  ] })
+  const save = vi.spyOn(api.shared, "save").mockResolvedValue(detail)
+  render(<SharedSection app={detail} can={{ ...can, restore: true }} onChanged={() => {}} />)
+  await userEvent.click(await screen.findByRole("checkbox", { name: /estou ciente/i }))
+  await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
+  await userEvent.click(await screen.findByRole("button", { name: "Adicionar configuração" }))
+  await userEvent.type(screen.getByLabelText("Nome no código"), "API_KEY")
+  await userEvent.click(screen.getByRole("button", { name: "Adicionar" }))
+  await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2))
+  expect(save.mock.calls[1][1]).toMatchObject({ acks: ["file_data"], env: [{ name: "API_KEY" }] })
+})
+
+it("says so when the shared part does not load, and tries again", async () => {
+  const get = vi.spyOn(api.shared, "get").mockRejectedValueOnce(new Error("O Hub não respondeu. Espere um pouco e tente de novo."))
+  render(<SharedSection app={detail} can={{ ...can, restore: true }} onChanged={() => {}} />)
+  expect(await screen.findByText("O Hub não respondeu. Espere um pouco e tente de novo.")).toBeInTheDocument()
+  await userEvent.click(screen.getByRole("button", { name: "Tentar de novo" }))
+  expect(await screen.findByRole("button", { name: "Parar" })).toBeInTheDocument()
+  expect(get).toHaveBeenCalledTimes(2)
+})
