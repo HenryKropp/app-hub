@@ -15,7 +15,9 @@ INSERT INTO shared_apps (app_id, slug, always_on, idle_minutes, memory_mb, cpus,
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 ON CONFLICT (app_id) DO UPDATE SET
     always_on = EXCLUDED.always_on, idle_minutes = EXCLUDED.idle_minutes, memory_mb = EXCLUDED.memory_mb,
-    cpus = EXCLUDED.cpus, health_path = EXCLUDED.health_path, port = EXCLUDED.port, wants_db = EXCLUDED.wants_db,
+    cpus = EXCLUDED.cpus, health_path = EXCLUDED.health_path, port = EXCLUDED.port,
+    -- never off while the app has a database
+    wants_db = EXCLUDED.wants_db OR shared_apps.db_name <> '',
     -- shared again after "Deixar de compartilhar": starts over as a draft
     status = CASE WHEN shared_apps.unshared_at IS NULL THEN shared_apps.status ELSE 'draft' END,
     status_message = CASE WHEN shared_apps.unshared_at IS NULL THEN shared_apps.status_message ELSE '' END,

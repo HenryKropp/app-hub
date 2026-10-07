@@ -155,6 +155,8 @@ export type AppDetail = {
   shared: SharedBrief | null
   /** Only in the answer of PUT /shared: the running app must start again for the change to count. */
   needs_restart?: boolean
+  /** Only in the answer of PUT /shared: a new port counts only after a new publish. */
+  needs_publish?: boolean
   depends_on_apps?: AppLink[]
   used_by?: AppLink[]
 }

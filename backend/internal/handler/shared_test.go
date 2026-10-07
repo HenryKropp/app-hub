@@ -586,3 +586,77 @@ func TestSharedSettingsSayWhenRestartNeeded(t *testing.T) {
 		t.Fatal("new memory on a running app needs a restart")
 	}
 }
+
+// Turning sharing off while a publish is running is refused, and the ficha stays as it was.
+func TestSharedUnshareBusySavesNothing(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withShared(t, h)
+	id := sharedApp(t, h, d, "notas")
+	release := make(chan struct{})
+	d.svc.SetSpawn(func(f func()) { go func() { <-release; f() }() })
+	var first struct {
+		ID int64 `json:"id"`
+	}
+	c.do("POST", appPath(id, "/shared/publish"), nil, &first)
+	defer func() {
+		close(release)
+		for i := 0; i < 200; i++ {
+			dep, err := h.q.GetDeployment(context.Background(), first.ID)
+			if err == nil && dep.Status != "building" && !d.svc.Busy(id) {
+				return
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
+		t.Error("publish never finished")
+	}()
+	type ficha struct {
+		UpdatedAt string `json:"updated_at"`
+		Manifest  struct {
+			Shared any `json:"shared"`
+		} `json:"manifest"`
+	}
+	var before ficha
+	c.do("GET", appPath(id, ""), nil, &before)
+	var e struct{ Error string }
+	if code := c.do("PUT", appPath(id, "/shared"), map[string]any{"enabled": false, "updated_at": before.UpdatedAt}, &e); code != http.StatusConflict {
+		t.Fatalf("unshare while busy: %d %s", code, e.Error)
+	}
+	var after ficha
+	c.do("GET", appPath(id, ""), nil, &after)
+	if after.UpdatedAt != before.UpdatedAt || after.Manifest.Shared == nil {
+		t.Fatalf("ficha was saved: %+v", after)
+	}
+}
+
+// A new port needs a new publish, not a restart.
+func TestSharedPortChangeAsksForPublish(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withShared(t, h)
+	id := sharedApp(t, h, d, "notas")
+	c.do("POST", appPath(id, "/shared/publish"), nil, nil)
+	waitShared(t, c, id, "running")
+	type out struct {
+		UpdatedAt    string `json:"updated_at"`
+		NeedsRestart bool   `json:"needs_restart"`
+		NeedsPublish bool   `json:"needs_publish"`
+	}
+	var app out
+	c.do("GET", appPath(id, ""), nil, &app)
+	put := func(port int) out {
+		t.Helper()
+		var o out
+		if code := c.do("PUT", appPath(id, "/shared"), map[string]any{"enabled": true, "port": port, "updated_at": app.UpdatedAt}, &o); code != 200 {
+			t.Fatalf("put %d", code)
+		}
+		app = o
+		return o
+	}
+	if o := put(8600); o.NeedsRestart || !o.NeedsPublish {
+		t.Fatalf("port change: %+v", o)
+	}
+	if o := put(8600); o.NeedsPublish {
+		t.Fatalf("same port: %+v", o)
+	}
+}

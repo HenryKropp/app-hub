@@ -192,6 +192,7 @@ type appDetail struct {
 	UsedBy           []appLink          `json:"used_by,omitempty"`
 	Shared           *sharedBrief       `json:"shared"`
 	NeedsRestart     bool               `json:"needs_restart,omitempty"` // PUT /shared: the running app must be turned on again
+	NeedsPublish     bool               `json:"needs_publish,omitempty"` // PUT /shared: a new port only counts after a new publish
 }
 
 type appLink struct {
