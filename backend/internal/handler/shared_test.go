@@ -9,6 +9,10 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/HenryKropp/app-hub/backend/internal/manifest"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy/deploytest"
 )
 
 func waitShared(t *testing.T, c *client, id int64, want string) map[string]any {
@@ -421,5 +425,164 @@ func TestSharedCommandWithNewlineRefused(t *testing.T) {
 	code := c.do("PUT", appPath(id, "/shared"), map[string]any{"enabled": true, "command": "gunicorn app:app\nRUN curl x", "updated_at": app.UpdatedAt}, &e)
 	if code != 400 || !strings.Contains(e.Error, "O comando de início precisa estar numa linha só.") {
 		t.Fatalf("%d %q", code, e.Error)
+	}
+}
+
+func TestSharedLogsMaskPasswords(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withShared(t, h)
+	id := sharedApp(t, h, d, "notas")
+	c.do("POST", appPath(id, "/shared/publish"), nil, nil)
+	waitShared(t, c, id, "running")
+	d.eng.SetLogs("conectando password=abc123 no banco\nurl postgres://app_1:s3gr3d0@db/app_1\nAPI_TOKEN: tk-998877\nok\n")
+	var logs struct{ Text string }
+	if code := c.do("GET", appPath(id, "/shared/logs"), nil, &logs); code != 200 || strings.Contains(logs.Text, "abc123") || strings.Contains(logs.Text, "s3gr3d0") ||
+		strings.Contains(logs.Text, "tk-998877") || !strings.Contains(logs.Text, "conectando password=") || !strings.Contains(logs.Text, "app_1:****@db") {
+		t.Fatalf("%d %q", code, logs.Text)
+	}
+}
+
+// Only finished copies inside this app's copies folder are ever served.
+func TestSharedBackupDownloadPathGuard(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withShared(t, h)
+	id := sharedApp(t, h, d, "notas")
+	dir := filepath.Join(h.shared.DataDir, "backups", itoa(id))
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(t.TempDir(), "segredo.dump")
+	partial := filepath.Join(dir, ".partial-123")
+	sneaky := filepath.Join(dir, "..", "..", "segredo.dump")
+	for _, p := range []string{outside, partial, sneaky, filepath.Join(dir, "x.txt")} {
+		os.WriteFile(p, []byte("dados"), 0o600)
+		var bid int64
+		if err := testPool.QueryRow(context.Background(), `INSERT INTO shared_backups (app_id, kind, path, size_bytes, expires_at)
+			VALUES ($1, 'manual', $2, 5, now() + interval '1 day') RETURNING id`, id, p).Scan(&bid); err != nil {
+			t.Fatal(err)
+		}
+		res := c.raw("GET", appPath(id, "/shared/backups/"+itoa(bid)+"/download"), nil)
+		if res.StatusCode != 404 {
+			t.Errorf("%s served: %d", p, res.StatusCode)
+		}
+	}
+}
+
+// Without the key, publishers get a plain message; the key's name goes to the log.
+func TestSharedNoVaultPlainMessage(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withShared(t, h)
+	id := sharedApp(t, h, d, "notas")
+	noVault := deploy.New(h.q, d.eng, d.dbs, nil, deploy.Options{DataDir: h.shared.DataDir, Domain: "localhost:8080", Scheme: "http", HealthTimeout: time.Second})
+	sh := h.shared
+	sh.Svc, sh.Vault = noVault, nil
+	h.SetShared(sh)
+	var e struct{ Error string }
+	code := c.do("POST", appPath(id, "/shared/publish"), nil, &e)
+	if code != 503 || strings.Contains(e.Error, "HUB_SECRET_KEY") || !strings.Contains(e.Error, "administrador") {
+		t.Fatalf("%d %q", code, e.Error)
+	}
+}
+
+// Turning sharing off before the first publish leaves nothing shared behind.
+func TestSharedOffBeforeFirstPublish(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withShared(t, h)
+	id := sharedApp(t, h, d, "notas")
+	var app struct {
+		UpdatedAt string `json:"updated_at"`
+	}
+	c.do("GET", appPath(id, ""), nil, &app)
+	if code := c.do("PUT", appPath(id, "/shared"), map[string]any{"enabled": false, "updated_at": app.UpdatedAt}, nil); code != 200 {
+		t.Fatalf("put %d", code)
+	}
+	var list []struct {
+		Shared *struct{ Status string } `json:"shared"`
+	}
+	c.do("GET", "/api/apps", nil, &list)
+	if len(list) != 1 || list[0].Shared != nil {
+		t.Fatalf("catalog still shows it shared: %+v", list[0].Shared)
+	}
+	var st map[string]any
+	if c.do("GET", appPath(id, "/shared"), nil, &st); st["shared"] != nil {
+		t.Fatalf("%+v", st)
+	}
+	// Sharing again starts as a draft, not as "parado".
+	c.do("GET", appPath(id, ""), nil, &app)
+	if code := c.do("PUT", appPath(id, "/shared"), map[string]any{"enabled": true, "updated_at": app.UpdatedAt}, nil); code != 200 {
+		t.Fatalf("put again %d", code)
+	}
+	if c.do("GET", appPath(id, "/shared"), nil, &st); st["shared"] == nil || st["shared"].(map[string]any)["status"] != "draft" {
+		t.Fatalf("%+v", st)
+	}
+}
+
+// A slug that cannot be an address is refused before the ficha is saved.
+func TestSharedBadSlugSavesNothing(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withShared(t, h)
+	m := manifest.Manifest{ManifestVersion: 1, ID: "notas--velhas", Name: "Notas", Kind: manifest.KindWeb, Entrypoint: "app.py", Area: "Research"}
+	id := insertApp(t, m)
+	dir := t.TempDir()
+	deploytest.CopyDir(t, "../../testdata/shared/streamlit", dir)
+	testPool.Exec(context.Background(), "UPDATE apps SET folder_path = $1 WHERE id = $2", dir, id)
+	var app struct {
+		UpdatedAt string `json:"updated_at"`
+	}
+	c.do("GET", appPath(id, ""), nil, &app)
+	var e struct{ Error string }
+	if code := c.do("PUT", appPath(id, "/shared"), map[string]any{"enabled": true, "updated_at": app.UpdatedAt}, &e); code != 400 || !strings.Contains(e.Error, "nome curto") {
+		t.Fatalf("%d %q", code, e.Error)
+	}
+	var after struct {
+		UpdatedAt string `json:"updated_at"`
+		Manifest  struct {
+			Shared any `json:"shared"`
+		} `json:"manifest"`
+	}
+	c.do("GET", appPath(id, ""), nil, &after)
+	if after.UpdatedAt != app.UpdatedAt || after.Manifest.Shared != nil {
+		t.Fatalf("ficha was saved: %+v", after)
+	}
+}
+
+// PUT /shared says when the running app must be turned on again for the change to count.
+func TestSharedSettingsSayWhenRestartNeeded(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withShared(t, h)
+	id := sharedApp(t, h, d, "notas")
+	type out struct {
+		UpdatedAt    string `json:"updated_at"`
+		NeedsRestart bool   `json:"needs_restart"`
+	}
+	var app out
+	c.do("GET", appPath(id, ""), nil, &app)
+	put := func(body map[string]any) out {
+		t.Helper()
+		body["enabled"], body["updated_at"] = true, app.UpdatedAt
+		var o out
+		if code := c.do("PUT", appPath(id, "/shared"), body, &o); code != 200 {
+			t.Fatalf("put %d", code)
+		}
+		app = o
+		return o
+	}
+	if put(map[string]any{"memory_mb": 1024}).NeedsRestart {
+		t.Fatal("a draft needs no restart")
+	}
+	c.do("POST", appPath(id, "/shared/publish"), nil, nil)
+	waitShared(t, c, id, "running")
+	c.do("GET", appPath(id, ""), nil, &app)
+	if put(map[string]any{"memory_mb": 1024, "always_on": true}).NeedsRestart {
+		t.Fatal("always on does not need a restart")
+	}
+	if !put(map[string]any{"memory_mb": 2048, "always_on": true}).NeedsRestart {
+		t.Fatal("new memory on a running app needs a restart")
 	}
 }

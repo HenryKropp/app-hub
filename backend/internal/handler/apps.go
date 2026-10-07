@@ -191,6 +191,7 @@ type appDetail struct {
 	DependsOn        []appLink          `json:"depends_on_apps,omitempty"`
 	UsedBy           []appLink          `json:"used_by,omitempty"`
 	Shared           *sharedBrief       `json:"shared"`
+	NeedsRestart     bool               `json:"needs_restart,omitempty"` // PUT /shared: the running app must be turned on again
 }
 
 type appLink struct {
@@ -222,6 +223,11 @@ func (h *Handler) getApp(w http.ResponseWriter, r *http.Request) {
 // writeDetail answers with the full ficha of a: version, remembered folder,
 // what me can do and, for whoever sees the technical part, the links to other apps.
 func (h *Handler) writeDetail(w http.ResponseWriter, r *http.Request, me sqlc.Person, a sqlc.App, status int) {
+	h.writeDetailWith(w, r, me, a, status, nil)
+}
+
+// writeDetailWith is writeDetail with a last touch on the answer.
+func (h *Handler) writeDetailWith(w http.ResponseWriter, r *http.Request, me sqlc.Person, a sqlc.App, status int, edit func(*appDetail)) {
 	d, err := toAppDetail(a)
 	if err != nil {
 		internalError(w, "decode manifest", err)
@@ -255,6 +261,9 @@ func (h *Handler) writeDetail(w http.ResponseWriter, r *http.Request, me sqlc.Pe
 			internalError(w, "app links", err)
 			return
 		}
+	}
+	if edit != nil {
+		edit(&d)
 	}
 	writeJSON(w, status, d)
 }
