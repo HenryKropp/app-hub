@@ -4,6 +4,7 @@ package supervisor
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -18,6 +19,17 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/shared/engine"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/health"
 )
+
+// staleAfter is how old a "building" deployment must be before it can be
+// called lost: well beyond the longest build plus the 90 s health wait, so a
+// second Hub process (or a late job) is never cut off.
+const staleAfter = 30 * time.Minute
+
+// msgGaveUp is the status message once the supervisor stops restarting.
+const msgGaveUp = "O app parou de responder 3 vezes em 10 minutos."
+
+// restartWindow is how long restart tries are counted.
+const restartWindow = 10 * time.Minute
 
 // msgStale is the reason shown for a deployment the Hub lost track of.
 const msgStale = "O Hub reiniciou durante a montagem. Publique de novo."
@@ -75,7 +87,7 @@ func (s *Supervisor) Reconcile(ctx context.Context) error {
 	if err := s.eng.Available(ctx); err != nil {
 		return err
 	}
-	s.clearStaleBuilding(ctx)
+	s.clearStaleBuilding(ctx, s.now())
 	if tests, err := s.q.ListAllOpenTests(ctx); err == nil {
 		for _, d := range tests {
 			if err := s.svc.EndTest(ctx, d.ID); err != nil {
@@ -96,6 +108,9 @@ func (s *Supervisor) Reconcile(ctx context.Context) error {
 		return err
 	}
 	for _, c := range list {
+		if id, err := strconv.ParseInt(c.Labels[engine.Label], 10, 64); err == nil && s.svc.Busy(id) {
+			continue // being built or started right now by this Hub
+		}
 		if !expected[c.ID] {
 			slog.Info("supervisor removes orphan", "name", c.Name)
 			if err := s.eng.Remove(ctx, c.ID); err != nil {
@@ -111,10 +126,14 @@ func (s *Supervisor) Reconcile(ctx context.Context) error {
 		if (a.Status != "running" && a.Status != "starting") || s.svc.Busy(a.AppID) {
 			continue
 		}
-		if ok, _ := s.svc.Adopt(ctx, a.AppID); !ok {
-			if err := s.svc.Run(ctx, a.AppID); err != nil {
-				slog.Warn("supervisor start on boot", "app", a.AppID, "err", err)
+		if ok, _ := s.svc.Adopt(ctx, a.AppID); ok {
+			if a.Status == "starting" { // the Hub died before saying "running"
+				if err := s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: a.AppID, Status: "running"}); err != nil {
+					slog.Warn("supervisor set running", "app", a.AppID, "err", err)
+				}
 			}
+		} else if err := s.svc.Run(ctx, a.AppID); err != nil {
+			slog.Warn("supervisor start on boot", "app", a.AppID, "err", err)
 		}
 	}
 	return nil
@@ -124,7 +143,7 @@ func (s *Supervisor) Reconcile(ctx context.Context) error {
 // (or lost the database) in the middle of a publish or test. An app this Hub
 // is working on right now (Busy) is never touched: its "building" is real.
 // A first publish goes back to draft, as deploy's own failure path does.
-func (s *Supervisor) clearStaleBuilding(ctx context.Context) {
+func (s *Supervisor) clearStaleBuilding(ctx context.Context, now time.Time) {
 	list, err := s.q.ListBuildingDeployments(ctx)
 	if err != nil {
 		slog.Warn("supervisor stale deployments", "err", err)
@@ -135,13 +154,21 @@ func (s *Supervisor) clearStaleBuilding(ctx context.Context) {
 		running, _ = s.eng.List(ctx)
 	}
 	for _, d := range list {
-		if s.svc.Busy(d.AppID) {
+		if s.svc.Busy(d.AppID) || now.Sub(d.CreatedAt.Time) < staleAfter {
 			continue
 		}
 		if cur, err := s.q.GetDeployment(ctx, d.ID); err != nil || cur.Status != "building" || s.svc.Busy(d.AppID) {
 			continue // finished meanwhile
 		}
 		slog.Warn("supervisor clears stale deployment", "app", d.AppID, "deployment", d.ID)
+		// First claim the row (only a still-"building" one is updated), then clean up.
+		if err := s.svc.Finish(ctx, sqlc.FinishDeploymentParams{ID: d.ID, Status: "failed", ImageID: d.ImageID,
+			Port: d.Port, BuildLog: d.BuildLog, ErrorMessage: msgStale}); err != nil {
+			if !errors.Is(err, deploy.ErrNotBuilding) {
+				slog.Error("supervisor stale deployment", "deployment", d.ID, "err", err)
+			}
+			continue
+		}
 		if d.ContainerID != "" {
 			_ = s.eng.Remove(ctx, d.ContainerID)
 		}
@@ -152,11 +179,6 @@ func (s *Supervisor) clearStaleBuilding(ctx context.Context) {
 		}
 		if sa, err := s.q.GetSharedApp(ctx, d.AppID); err == nil && d.Kind == "live" && !sa.CurrentDeploymentID.Valid && !sa.UnsharedAt.Valid {
 			_ = s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: d.AppID, Status: "draft", StatusMessage: msgStale})
-		}
-		if err := s.q.FinishDeployment(ctx, sqlc.FinishDeploymentParams{ID: d.ID, Status: "failed", ImageID: d.ImageID,
-			Port: d.Port, BuildLog: d.BuildLog, ErrorMessage: msgStale}); err != nil {
-			slog.Error("supervisor stale deployment", "deployment", d.ID, "err", err)
-			continue
 		}
 		if d.Kind == "test" { // test database, data and container go with it
 			if err := s.svc.EndTest(ctx, d.ID); err != nil {
@@ -183,8 +205,19 @@ func (s *Supervisor) Tick(ctx context.Context) {
 		return
 	}
 	for _, a := range apps {
-		if a.Status != "running" || s.svc.Busy(a.AppID) {
+		if s.svc.Busy(a.AppID) {
 			continue // something else is working on it
+		}
+		if a.Status == "crashed" {
+			// A restart that failed health leaves "crashed": keep trying inside
+			// the window, and say so once when giving up.
+			if a.RestartWindowStart.Valid && now.Sub(a.RestartWindowStart.Time) <= restartWindow && a.StatusMessage != msgGaveUp {
+				s.restart(ctx, a, now)
+			}
+			continue
+		}
+		if a.Status != "running" {
+			continue
 		}
 		if !s.healthy(ctx, a) {
 			s.restart(ctx, a, now)
@@ -205,8 +238,9 @@ func (s *Supervisor) Tick(ctx context.Context) {
 		s.measure(ctx, apps, now)
 	}
 	if day := now.Format("2006-01-02"); now.Hour() >= s.BackupHour && s.backupDay != day {
-		s.backupDay = day
-		s.dailyBackups(ctx, apps, now)
+		if s.dailyBackups(ctx, apps, now) {
+			s.backupDay = day
+		}
 	}
 	if now.Sub(s.lastCleanup) >= time.Hour {
 		s.lastCleanup = now
@@ -251,12 +285,12 @@ func (s *Supervisor) healthy(ctx context.Context, a sqlc.ListSharedAppsRow) bool
 
 func (s *Supervisor) restart(ctx context.Context, a sqlc.ListSharedAppsRow, now time.Time) {
 	count, start := a.RestartCount, a.RestartWindowStart
-	if !start.Valid || now.Sub(start.Time) > 10*time.Minute {
+	if !start.Valid || now.Sub(start.Time) > restartWindow {
 		count, start = 0, pgtype.Timestamptz{Time: now, Valid: true}
 	}
 	if count >= 3 {
 		_ = s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: a.AppID, Status: "crashed",
-			StatusMessage: "O app parou de responder 3 vezes em 10 minutos."})
+			StatusMessage: msgGaveUp})
 		s.svc.HubEvent(ctx, a.AppID, "O app caiu e o Hub parou de tentar religar")
 		return
 	}
@@ -265,6 +299,10 @@ func (s *Supervisor) restart(ctx context.Context, a sqlc.ListSharedAppsRow, now 
 	}
 	slog.Info("supervisor restarts app", "app", a.AppID, "try", count+1)
 	if err := s.svc.Run(ctx, a.AppID); err != nil {
+		if errors.Is(err, deploy.ErrBusy) { // not a real try: give it back
+			_ = s.q.SetSharedRestarts(ctx, sqlc.SetSharedRestartsParams{AppID: a.AppID, RestartCount: a.RestartCount, RestartWindowStart: a.RestartWindowStart})
+			return
+		}
 		slog.Warn("supervisor restart", "app", a.AppID, "err", err)
 	}
 }
@@ -303,7 +341,11 @@ func (s *Supervisor) measure(ctx context.Context, apps []sqlc.ListSharedAppsRow,
 	}
 }
 
-func (s *Supervisor) dailyBackups(ctx context.Context, apps []sqlc.ListSharedAppsRow, now time.Time) {
+// dailyBackups makes today's copy of every app with a database that has none
+// yet. It reports whether every app is covered; busy or failed ones are
+// retried on a later tick.
+func (s *Supervisor) dailyBackups(ctx context.Context, apps []sqlc.ListSharedAppsRow, now time.Time) bool {
+	done := true
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	for _, a := range apps {
 		if a.DbName == "" {
@@ -312,17 +354,26 @@ func (s *Supervisor) dailyBackups(ctx context.Context, apps []sqlc.ListSharedApp
 		if b, err := s.q.LastDailyBackup(ctx, a.AppID); err == nil && !b.CreatedAt.Time.Before(today) {
 			continue
 		}
+		if s.svc.Busy(a.AppID) {
+			done = false
+			continue
+		}
 		if _, err := s.svc.Backup(ctx, a.AppID, "daily", nil, nil); err != nil {
 			slog.Error("supervisor daily backup", "app", a.AppID, "err", err)
+			done = false
 		}
 	}
+	return done
 }
 
 func (s *Supervisor) cleanup(ctx context.Context, now time.Time) {
 	ts := func(t time.Time) pgtype.Timestamptz { return pgtype.Timestamptz{Time: t, Valid: true} }
-	s.clearStaleBuilding(ctx) // a building deployment nobody is working on can never finish
+	s.clearStaleBuilding(ctx, s.now()) // a building deployment nobody is working on can never finish
 	if tests, err := s.q.ListExpiredTests(ctx, ts(now)); err == nil {
 		for _, d := range tests {
+			if s.svc.Busy(d.AppID) {
+				continue // a publish or a newer test is in progress; next hour
+			}
 			if err := s.svc.EndTest(ctx, d.ID); err != nil {
 				slog.Warn("supervisor end expired test", "deployment", d.ID, "err", err)
 			}
