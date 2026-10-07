@@ -16,6 +16,7 @@ import { useRuns } from "@/lib/runs-context"
 import { formatWhen } from "@/lib/runs"
 import { kindInfo } from "@/lib/kinds"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 type PartKey = "sobre" | "pede" | "entrega" | "pessoas" | "notas" | "outros" | "codigo"
 // updatedAt is the version the draft started from: saving it after the app
@@ -194,7 +195,7 @@ export function AppPage() {
   const opens = app.shared && app.shared.status !== "draft" ? app.shared : null
   const sharedChanged = (next?: AppDetail) => {
     if (next) setApp(next)
-    else void api.app(app.id).then(setApp, () => {})
+    else void api.app(app.id).then(setApp, () => toast.error("Não consegui atualizar a ficha. Recarregue a página para ver o estado novo."))
   }
 
   return (

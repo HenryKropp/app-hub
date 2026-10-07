@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { api, type AppDetail, type Deployment, type SharedInfo, type UsagePoint } from "@/lib/api"
 import { formatWhen } from "@/lib/runs"
+import { LoadFailed } from "./SharedSection"
 import { errText, settingsOf } from "./settings"
 
 const MEMORY = [256, 512, 1024, 2048]
@@ -35,7 +36,11 @@ function Limits({ app, info, onChanged }: { app: AppDetail; info: SharedInfo; on
   const save = async () => {
     setBusy(true)
     try {
-      const next = await api.shared.save(app.id, { ...base, memory_mb: mem, cpus, always_on: always, idle_minutes: idle })
+      // The "estou ciente" marks may have changed in the Compartilhado part
+      // since this part loaded; take them fresh so this save does not undo them.
+      const fresh = await api.shared.get(app.id)
+      const acks = fresh.shared?.acks ?? base.acks
+      const next = await api.shared.save(app.id, { ...base, acks, memory_mb: mem, cpus, always_on: always, idle_minutes: idle })
       toast.success(info.shared?.status === "running" ? "Salvo. Religue o app para valer." : "Salvo.")
       onChanged(next)
     } catch (e) {
@@ -174,15 +179,31 @@ function History({ deployments }: { deployments: Deployment[] }) {
 export function Tech({ app, onChanged }: { app: AppDetail; onChanged: (next?: AppDetail) => void }) {
   const [info, setInfo] = useState<SharedInfo | null>(null)
   const [usage, setUsage] = useState<UsagePoint[] | null>(null)
+  const [error, setError] = useState("")
+  const [tries, setTries] = useState(0)
   useEffect(() => {
     let gone = false
-    api.shared.get(app.id).then((i) => !gone && setInfo(i), () => {})
+    api.shared.get(app.id).then(
+      (i) => {
+        if (gone) return
+        setInfo(i)
+        setError("")
+      },
+      (e) => !gone && setError(errText(e, "O Hub não respondeu sobre o app compartilhado. Tente de novo em alguns segundos.")),
+    )
     api.shared.usage(app.id).then((u) => !gone && setUsage(u), () => !gone && setUsage([]))
     return () => {
       gone = true
     }
-  }, [app.id, app.updated_at])
+  }, [app.id, app.updated_at, tries])
 
+  if (!info && error) {
+    return (
+      <Section title="App compartilhado">
+        <LoadFailed message={error} onRetry={() => setTries((n) => n + 1)} />
+      </Section>
+    )
+  }
   if (!info?.shared) return null
   const deps = info.deployments
   return (

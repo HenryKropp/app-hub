@@ -14,6 +14,9 @@ it("never shows a saved secret and can replace it", async () => {
   const set = vi.spyOn(api.shared, "setConfig").mockResolvedValue({ needs_restart: true })
   render(<SharedSettingsForm appId={1} />)
   expect(await screen.findByText("Guardada")).toBeInTheDocument()
+  // While only "Guardada", there is no field, so nothing is labelled by the name.
+  expect(screen.queryByLabelText("Senha do e-mail")).not.toBeInTheDocument()
+  expect(screen.getByText("Senha do e-mail").tagName).not.toBe("LABEL")
   expect(screen.getByLabelText("E-mails dos administradores")).toHaveValue("henry@alis.com")
   await userEvent.click(screen.getByRole("button", { name: "Trocar Senha do e-mail" }))
   await userEvent.type(screen.getByLabelText("Senha do e-mail"), "nova")
