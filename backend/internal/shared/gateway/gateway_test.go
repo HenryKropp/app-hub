@@ -23,6 +23,7 @@ type fakeBackend struct {
 	calls    int
 	slow     chan struct{} // when set, Allowed waits for it
 	name     string
+	email    *string // when set, the e-mail Allowed answers
 	woken    []int64
 	touched  []int64
 }
@@ -50,7 +51,11 @@ func (f *fakeBackend) Allowed(_ context.Context, pid, aid int64, test bool) (Ide
 	if name == "" {
 		name = "Ana"
 	}
-	return Identity{ID: pid, Email: "ana@alis.com", Name: name, Role: "Usuário"}, f.allowed, f.allowErr
+	email := "ana@alis.com"
+	if f.email != nil {
+		email = *f.email
+	}
+	return Identity{ID: pid, Email: email, Name: name, Role: "Usuário"}, f.allowed, f.allowErr
 }
 func (f *fakeBackend) Wake(id int64)  { f.mu.Lock(); f.woken = append(f.woken, id); f.mu.Unlock() }
 func (f *fakeBackend) Touch(id int64) { f.mu.Lock(); f.touched = append(f.touched, id); f.mu.Unlock() }
@@ -515,5 +520,64 @@ func TestOnlyOneRecheckInFlight(t *testing.T) {
 	wg.Wait()
 	if n != 1 {
 		t.Fatalf("%d parallel Allowed calls, want 1", n)
+	}
+}
+
+func TestGatewayStripsUnderscoreHeaders(t *testing.T) {
+	var got http.Header
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { got = r.Header.Clone() }))
+	t.Cleanup(srv.Close)
+	u, _ := url.Parse(srv.URL)
+	port, _ := strconv.Atoi(u.Port())
+	b := &fakeBackend{target: Target{AppID: 7, Name: "Notas", Owner: "Henry", Status: "running", Port: port}, allowed: true}
+	g := New("localhost:8080", "http://localhost:5173", false, b)
+	c := enter(t, g, "notas.localhost:8080", false)
+	r := httptest.NewRequest("GET", "http://notas.localhost:8080/", nil)
+	r.Host = "notas.localhost:8080"
+	r.AddCookie(c)
+	r.Header["X_AppHub_User_Email"] = []string{"chefe@alis.com"}
+	r.Header["X_apphub-User_Role"] = []string{"Administrador"}
+	r.Header["x-apphub_user_id"] = []string{"99"}
+	g.ServeHTTP(httptest.NewRecorder(), r)
+	if got == nil {
+		t.Fatal("not proxied")
+	}
+	for k, v := range got {
+		low := strings.ToLower(strings.ReplaceAll(k, "_", "-"))
+		if strings.HasPrefix(low, "x-apphub-") && !strings.HasPrefix(k, "X-Apphub-") {
+			t.Errorf("forged header reached the app: %s=%v", k, v)
+		}
+	}
+	if got.Get("X-AppHub-User-Email") != "ana@alis.com" || got.Get("X-AppHub-User-Id") != "1" {
+		t.Fatalf("hub headers: %v", got)
+	}
+}
+
+func TestSnapshotOfGoneSession(t *testing.T) {
+	g, _ := setup(t)
+	if _, ok := g.snapshot("nope"); ok {
+		t.Fatal("a missing session must not come back as a zero session")
+	}
+}
+
+func TestNeverForwardsWithoutIdentity(t *testing.T) {
+	g, b := setup(t)
+	now := time.Now()
+	g.SetNow(func() time.Time { return now })
+	empty := ""
+	// Entering with an identity without e-mail does not open the app.
+	b.email = &empty
+	code := g.Codes.Issue(1, 7, false)
+	if w := get(g, "notas.localhost:8080", "/__apphub/entrar?code="+code, nil, nil); w.Code == http.StatusFound || len(w.Result().Cookies()) != 0 {
+		t.Fatalf("entered without e-mail: %d", w.Code)
+	}
+	// A recheck that answers no e-mail sends the person to enter again.
+	b.email = nil
+	c := enter(t, g, "notas.localhost:8080", false)
+	b.email = &empty
+	now = now.Add(6 * time.Minute)
+	w := get(g, "notas.localhost:8080", "/", c, nil)
+	if w.Code != http.StatusFound || strings.Contains(w.Body.String(), "email=") {
+		t.Fatalf("forwarded without identity: %d %s", w.Code, w.Body.String())
 	}
 }
