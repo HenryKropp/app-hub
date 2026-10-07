@@ -159,12 +159,47 @@ func (p *Podman) exists(ctx context.Context, args ...string) (bool, error) {
 	return false, err
 }
 
-func (p *Podman) ensureNetwork(ctx context.Context) error {
-	ok, err := p.exists(ctx, "network", "exists", Network)
+// ensureNetwork creates the app's own network (labelled, and isolated from
+// the other apps' networks) if it does not exist yet.
+func (p *Podman) ensureNetwork(ctx context.Context, name, appLabel string) error {
+	if !HubNetwork(name) || !hubOwned(appLabel) {
+		return fmt.Errorf("rede %q não é de um app do Hub", name)
+	}
+	ok, err := p.exists(ctx, "network", "exists", name)
 	if err != nil || ok {
 		return err
 	}
-	_, err = p.run(ctx, shortTimeout, nil, "network", "create", Network)
+	_, err = p.run(ctx, shortTimeout, nil, "network", "create", "--label", Label+"="+appLabel, "-o", "isolate=true", "--", name)
+	if err != nil {
+		if again, xerr := p.exists(ctx, "network", "exists", name); xerr == nil && again {
+			return nil // created at the same time by the app's other box
+		}
+	}
+	return err
+}
+
+// RemoveNetwork removes an app's network. Only names the Hub gives
+// (app-hub-apps-<id>) carrying the Hub label are touched.
+func (p *Podman) RemoveNetwork(ctx context.Context, name string) error {
+	if !HubNetwork(name) {
+		slog.Error("podman: refused to remove a network that is not the Hub's", "network", name)
+		return errors.New("recusado: esta rede não é do Hub")
+	}
+	out, err := p.run(ctx, shortTimeout, nil, "network", "inspect", "--format", `{{index .Labels "`+Label+`"}}`, "--", name)
+	if err != nil {
+		if errors.Is(err, ErrNotFound) || strings.Contains(strings.ToLower(err.Error()), "network not found") {
+			return nil
+		}
+		return err
+	}
+	if !hubOwned(string(out)) {
+		slog.Error("podman: refused to remove a network without the Hub label", "network", name)
+		return errors.New("recusado: esta rede não é do Hub")
+	}
+	_, err = p.run(ctx, shortTimeout, nil, "network", "rm", "--", name)
+	if err != nil && strings.Contains(strings.ToLower(err.Error()), "network not found") {
+		return nil
+	}
 	return err
 }
 
@@ -204,7 +239,7 @@ func (p *Podman) Build(ctx context.Context, b BuildSpec) (string, string, error)
 }
 
 func (p *Podman) Start(ctx context.Context, s StartSpec) (string, error) {
-	if err := p.ensureNetwork(ctx); err != nil {
+	if err := p.ensureNetwork(ctx, s.Network, s.Labels[Label]); err != nil {
 		return "", err
 	}
 	if taken, err := p.exists(ctx, "container", "exists", "--", s.Name); err != nil {
@@ -228,7 +263,7 @@ func (p *Podman) Start(ctx context.Context, s StartSpec) (string, error) {
 	if err := envFile.Close(); err != nil {
 		return "", err
 	}
-	args := []string{"run", "-d", "--name", s.Name, "--network", Network,
+	args := []string{"run", "-d", "--name", s.Name, "--network", s.Network,
 		"--add-host", "host.containers.internal:host-gateway",
 		"-p", fmt.Sprintf("127.0.0.1::%d", s.Port),
 		"--memory", fmt.Sprintf("%dm", s.MemoryMB), "--cpus", strconv.FormatFloat(s.CPUs, 'f', 2, 64),

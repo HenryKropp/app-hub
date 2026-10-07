@@ -25,6 +25,7 @@ type Fake struct {
 	sync.Mutex
 	Images     map[string]BuildSpec
 	Containers map[string]*FakeContainer
+	Networks   map[string]bool // redes criadas por Start (e não removidas)
 	BuildErr   error // próxima montagem falha com isto (e volta a nil)
 	BuildLog   string
 	Handler    http.Handler                   // o que as caixas respondem; padrão: 200 "ok <nome>" + eco dos X-AppHub-*
@@ -56,7 +57,7 @@ func (s *swapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 var _ Engine = (*Fake)(nil)
 
 func NewFake() *Fake {
-	return &Fake{Images: map[string]BuildSpec{}, Containers: map[string]*FakeContainer{}}
+	return &Fake{Images: map[string]BuildSpec{}, Containers: map[string]*FakeContainer{}, Networks: map[string]bool{}}
 }
 
 // SetDown sets Down under the lock.
@@ -128,6 +129,9 @@ func (f *Fake) Start(_ context.Context, s StartSpec) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.record("start " + s.Name)
+	if s.Network != "" {
+		f.Networks[s.Network] = true
+	}
 	h := f.Handler
 	if f.HandlerFor != nil {
 		if hn := f.HandlerFor(s.Name); hn != nil {
@@ -259,6 +263,24 @@ func (f *Fake) List(context.Context) ([]Container, error) {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil
+}
+
+func (f *Fake) RemoveNetwork(_ context.Context, name string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.record("remove-network " + name)
+	if !HubNetwork(name) {
+		return fmt.Errorf("recusado: a rede %q não é do Hub", name)
+	}
+	delete(f.Networks, name)
+	return nil
+}
+
+// HasNetwork reports whether the network exists (under the lock).
+func (f *Fake) HasNetwork(name string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.Networks[name]
 }
 
 func (f *Fake) Running() []string {

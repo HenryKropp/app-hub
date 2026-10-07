@@ -86,3 +86,31 @@ func TestExecAllowlistDoesNotWeakenDestructiveCalls(t *testing.T) {
 		}
 	}
 }
+
+func TestNetworksOnlyTheHubs(t *testing.T) {
+	ctx := context.Background()
+	bin, logFile := fakePodman(t)
+	p := NewPodman(bin)
+	for _, name := range []string{"podman", "app-hub-apps", "app-hub-apps-", "app-hub-apps-1x", "other-net"} {
+		if err := p.RemoveNetwork(ctx, name); err == nil {
+			t.Errorf("RemoveNetwork(%q) not refused", name)
+		}
+	}
+	if got := calls(t, logFile); got != "" {
+		t.Fatalf("podman called for a foreign network: %q", got)
+	}
+	// The right name but no Hub label (the fake answers an empty label): refused.
+	if err := p.RemoveNetwork(ctx, "app-hub-apps-5"); err == nil {
+		t.Fatal("unlabelled network removed")
+	}
+	if got := calls(t, logFile); strings.Contains(got, "network rm") {
+		t.Fatalf("network rm ran: %q", got)
+	}
+	// Start refuses a network that is not an app's.
+	if _, err := p.Start(ctx, StartSpec{Name: "apphub-x-1", Labels: map[string]string{Label: "5"}, Network: "podman"}); err == nil {
+		t.Fatal("start on a foreign network")
+	}
+	if AppNetwork(42) != "app-hub-apps-42" || !HubNetwork(AppNetwork(42)) {
+		t.Fatal(AppNetwork(42))
+	}
+}

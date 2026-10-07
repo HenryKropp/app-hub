@@ -5,12 +5,25 @@ import (
 	"context"
 	"errors"
 	"io"
+	"regexp"
+	"strconv"
 )
 
 // Label marks every container and image the Hub creates. The Hub never
 // touches anything without it.
 const Label = "app-hub.app"
-const Network = "app-hub-apps"
+
+// NetworkPrefix names each app's own network ("app-hub-apps-<app_id>"): apps
+// cannot call each other, only the gateway reaches them.
+const NetworkPrefix = "app-hub-apps-"
+
+// AppNetwork is the network of one app (live and test boxes share it).
+func AppNetwork(appID int64) string { return NetworkPrefix + strconv.FormatInt(appID, 10) }
+
+var networkRe = regexp.MustCompile(`^` + regexp.QuoteMeta(NetworkPrefix) + `[0-9]+$`)
+
+// HubNetwork reports whether a network name is one the Hub creates.
+func HubNetwork(name string) bool { return networkRe.MatchString(name) }
 
 var ErrUnavailable = errors.New("o servidor de apps não está disponível")
 var ErrNotFound = errors.New("caixa não encontrada")
@@ -31,6 +44,7 @@ type StartSpec struct {
 	MemoryMB int
 	CPUs     float64
 	DataDir  string // pasta no servidor montada em /data
+	Network  string // AppNetwork(app_id); criada se não existe
 }
 
 type State struct {
@@ -65,4 +79,5 @@ type Engine interface {
 	Logs(ctx context.Context, containerID string, lines int) (string, error)
 	Exec(ctx context.Context, container string, stdin io.Reader, stdout io.Writer, cmd ...string) error
 	List(ctx context.Context) ([]Container, error) // só as que têm Label
+	RemoveNetwork(ctx context.Context, name string) error // só redes do Hub (HubNetwork + Label); sem erro se não existe
 }

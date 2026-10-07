@@ -28,12 +28,18 @@ func TestPodmanRoundTrip(t *testing.T) {
 		t.Fatalf("%v\n%s", err, log)
 	}
 	t.Cleanup(func() { p.RemoveImage(ctx, img) })
-	id, err := p.Start(ctx, StartSpec{Name: "apphub-probe-1", Image: img, Labels: labels, Port: 8080, MemoryMB: 128, CPUs: 0.5,
-		Env: map[string]string{"PORT": "8080"}, DataDir: filepath.Join(dir, "data")})
+	net := AppNetwork(999999)
+	id, err := p.Start(ctx, StartSpec{Name: "apphub-probe-1", Image: img, Labels: labels, Port: 9090, MemoryMB: 128, CPUs: 0.5,
+		Env: map[string]string{"PORT": "9090"}, DataDir: filepath.Join(dir, "data"), Network: net})
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { p.Remove(ctx, id) })
+	t.Cleanup(func() {
+		p.Remove(ctx, id)
+		if err := p.RemoveNetwork(ctx, net); err != nil {
+			t.Errorf("remove network: %v", err)
+		}
+	})
 	st, _ := p.Inspect(ctx, id)
 	if !st.Running || st.HostPort == 0 {
 		t.Fatalf("%+v", st)
@@ -76,7 +82,7 @@ func TestPodmanRoundTrip(t *testing.T) {
 		t.Fatalf("remove missing: %v", err)
 	}
 	// Same name twice: second Start must fail and leave the first running.
-	if _, err := p.Start(ctx, StartSpec{Name: "apphub-probe-1", Image: img, Labels: labels, Port: 8080, MemoryMB: 128, CPUs: 0.5}); err == nil {
+	if _, err := p.Start(ctx, StartSpec{Name: "apphub-probe-1", Image: img, Labels: labels, Port: 9090, MemoryMB: 128, CPUs: 0.5, Network: net}); err == nil {
 		t.Fatal("second Start with the same name succeeded")
 	}
 	if st2, err := p.Inspect(ctx, id); err != nil || !st2.Running {

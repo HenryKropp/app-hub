@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/engine"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/recipes"
 	"github.com/HenryKropp/app-hub/backend/internal/versions"
 )
@@ -210,6 +211,7 @@ func (s *Service) Unshare(ctx context.Context, appID, by int64) error {
 			logErr(s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: d.ID, Status: "retired"}), "retire", "deployment", d.ID)
 		}
 	}
+	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork(appID)), "remove network", "app", appID)
 	if err := s.q.MarkUnshared(ctx, appID); err != nil {
 		return err
 	}
@@ -236,6 +238,7 @@ func (s *Service) Purge(ctx context.Context, appID int64) error {
 			return fmt.Errorf("drop %s: %w", sa.DbName, err)
 		}
 	}
+	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork(appID)), "remove network", "app", appID) // if Unshare could not
 	logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "backups", strconv.FormatInt(appID, 10))), "remove backups", "app", appID)
 	logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(appID, 10))), "remove app data", "app", appID)
 	if err := s.q.DeleteBackupsOfApp(ctx, appID); err != nil {
