@@ -65,10 +65,17 @@ func (s *Supervisor) Touch(appID int64) {
 	s.mu.Unlock()
 }
 
+// Run is Reconcile followed by Loop.
 func (s *Supervisor) Run(ctx context.Context) {
 	if err := s.Reconcile(ctx); err != nil {
 		slog.Warn("supervisor reconcile", "err", err)
 	}
+	s.Loop(ctx)
+}
+
+// Loop ticks every Interval until ctx ends. The server calls Reconcile itself
+// before serving, then runs Loop in the background.
+func (s *Supervisor) Loop(ctx context.Context) {
 	t := time.NewTicker(s.Interval)
 	defer t.Stop()
 	for {

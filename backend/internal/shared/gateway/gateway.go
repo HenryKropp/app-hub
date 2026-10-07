@@ -89,9 +89,9 @@ func (g *Gateway) Match(host string) (string, bool, bool) {
 	return sub, false, true
 }
 
-// safeVolta only lets same-site paths through: browsers drop tabs/newlines
+// SafeVolta only lets same-site paths through: browsers drop tabs/newlines
 // inside URLs, so "/\t/evil.com" would otherwise become "//evil.com".
-func safeVolta(v string) string {
+func SafeVolta(v string) string {
 	for i := 0; i < len(v); i++ {
 		if v[i] < 0x20 || v[i] == 0x7f || v[i] == '\\' {
 			return "/"
@@ -181,7 +181,7 @@ func (g *Gateway) notRunning(w http.ResponseWriter, r *http.Request, t Target, t
 
 func (g *Gateway) enter(w http.ResponseWriter, r *http.Request, t Target, slug string, test bool) {
 	personID, ok := g.Codes.Redeem(r.URL.Query().Get("code"), t.AppID, test)
-	volta := safeVolta(r.URL.Query().Get("volta"))
+	volta := SafeVolta(r.URL.Query().Get("volta"))
 	if !ok {
 		// código vencido ou já usado: passa pelo Hub de novo
 		q := url.Values{"app": {slug}, "volta": {volta}}

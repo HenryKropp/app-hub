@@ -50,6 +50,9 @@ type Handler struct {
 	// mtime (OneDrive resync) are not re-read on every check.
 	scansMu sync.Mutex
 	scans   map[int64]scanCache
+
+	// Shared apps (deploy service, supervisor, gateway codes); zero = off.
+	shared Shared
 }
 
 func New(q *sqlc.Queries, cfg config.Config) *Handler {
@@ -70,6 +73,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/auth/setup", h.setup)
 	mux.HandleFunc("POST /api/auth/login", h.login)
 	mux.HandleFunc("POST /api/auth/logout", h.logout)
+	mux.HandleFunc("GET /api/shared/authorize", h.sharedAuthorize)
 	if h.cfg.DevMode {
 		mux.HandleFunc("POST /api/dev/login", h.devLogin)
 	}
