@@ -533,6 +533,48 @@ func (q *Queries) ListBackups(ctx context.Context, appID int64) ([]ListBackupsRo
 	return items, nil
 }
 
+const listBuildingDeployments = `-- name: ListBuildingDeployments :many
+SELECT id, app_id, version_id, kind, recipe, image_id, container_id, test_db_name, port, status, build_log, error_message, expires_at, created_by, created_at, finished_at FROM shared_deployments WHERE status = 'building'
+`
+
+// Deployments still marked "building": after a Hub restart those are leftovers.
+func (q *Queries) ListBuildingDeployments(ctx context.Context) ([]SharedDeployment, error) {
+	rows, err := q.db.Query(ctx, listBuildingDeployments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SharedDeployment
+	for rows.Next() {
+		var i SharedDeployment
+		if err := rows.Scan(
+			&i.ID,
+			&i.AppID,
+			&i.VersionID,
+			&i.Kind,
+			&i.Recipe,
+			&i.ImageID,
+			&i.ContainerID,
+			&i.TestDbName,
+			&i.Port,
+			&i.Status,
+			&i.BuildLog,
+			&i.ErrorMessage,
+			&i.ExpiresAt,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.FinishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDeployments = `-- name: ListDeployments :many
 SELECT d.id, d.app_id, d.version_id, d.kind, d.recipe, d.image_id, d.container_id, d.test_db_name, d.port, d.status, d.build_log, d.error_message, d.expires_at, d.created_by, d.created_at, d.finished_at, v.number AS version_number, p.name AS created_by_name
 FROM shared_deployments d
