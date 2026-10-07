@@ -96,6 +96,24 @@ func toDeploymentOut(d sqlc.SharedDeployment, tech bool) deploymentOut {
 	return out
 }
 
+// deploymentOutFull is toDeploymentOut plus the version number and the name of
+// who started it, looked up (the list endpoint gets them from its join).
+func (h *Handler) deploymentOutFull(r *http.Request, d sqlc.SharedDeployment, tech bool) deploymentOut {
+	out := toDeploymentOut(d, tech)
+	if d.VersionID.Valid {
+		if v, err := h.q.GetAppVersionByID(r.Context(), d.VersionID.Int64); err == nil {
+			n := v.Number
+			out.VersionNumber = &n
+		}
+	}
+	if d.CreatedBy.Valid {
+		if p, err := h.q.GetPerson(r.Context(), d.CreatedBy.Int64); err == nil {
+			out.CreatedByName = p.Name
+		}
+	}
+	return out
+}
+
 // sharedError maps the deploy service's errors to answers in Portuguese.
 func sharedError(w http.ResponseWriter, err error) {
 	var miss deploy.MissingSettings
@@ -295,7 +313,7 @@ func (h *Handler) startShared(w http.ResponseWriter, r *http.Request, test bool)
 		sharedError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusAccepted, toDeploymentOut(d, can.Tech))
+	writeJSON(w, http.StatusAccepted, h.deploymentOutFull(r, d, can.Tech))
 }
 
 func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
@@ -378,7 +396,7 @@ func (h *Handler) getSharedDeployment(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "get deployment", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, toDeploymentOut(d, can.Tech))
+	writeJSON(w, http.StatusOK, h.deploymentOutFull(r, d, can.Tech))
 }
 
 func (h *Handler) rollbackShared(w http.ResponseWriter, r *http.Request) {
