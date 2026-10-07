@@ -105,13 +105,13 @@ func TestUnknown(t *testing.T) {
 
 func TestGeneratedRequirementsSkipLocalAndStdlib(t *testing.T) {
 	r := detect(t, "pyimports", manifest.Manifest{Entrypoint: "app.py"})
-	if len(r.Requirements) != 1 || r.Requirements[0] != "streamlit" {
+	if len(r.Requirements) != 2 || r.Requirements[0] != "numpy" || r.Requirements[1] != "streamlit" {
 		t.Fatalf("%+v", r.Requirements)
 	}
 }
 
 func TestSkippedFoldersAndDepthCutoffAreIgnored(t *testing.T) {
-	// .venv has "import streamlit", node_modules and a/b/c have "import django":
+	// .venv, venv, node_modules and a/b/c all hold "import streamlit" (wins over flask):
 	// reading any of them would change the kind from flask.
 	r := detect(t, "skipdirs", manifest.Manifest{Entrypoint: "app.py"})
 	if r.Kind != "flask" {

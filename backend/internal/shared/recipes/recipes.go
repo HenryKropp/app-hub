@@ -34,7 +34,9 @@ type Recipe struct {
 
 var (
 	exposeRe   = regexp.MustCompile(`(?mi)^\s*EXPOSE\s+(\d+)`)
-	pyImportRe = regexp.MustCompile(`(?m)^\s*(?:from|import)\s+([A-Za-z_][A-Za-z0-9_]*)`)
+	pyFromRe   = regexp.MustCompile(`^\s*from\s+([A-Za-z_][A-Za-z0-9_]*)`)
+	pyImportRe = regexp.MustCompile(`^\s*import\s+(.+)`)
+	pyNameRe   = regexp.MustCompile(`^\s*([A-Za-z_][A-Za-z0-9_]*)`)
 	skip       = map[string]bool{".git": true, ".venv": true, "venv": true, "node_modules": true, "__pycache__": true}
 	// import name → pip name, for the common ones whose names differ.
 	pipName = map[string]string{"sklearn": "scikit-learn", "cv2": "opencv-python", "PIL": "pillow", "yaml": "pyyaml", "dotenv": "python-dotenv", "docx": "python-docx", "bs4": "beautifulsoup4"}
@@ -208,8 +210,16 @@ func (f files) pythonImports() map[string]bool {
 		}
 		sc := bufio.NewScanner(strings.NewReader(f.read(p)))
 		for sc.Scan() {
-			if m := pyImportRe.FindStringSubmatch(sc.Text()); m != nil {
+			line := sc.Text()
+			if m := pyFromRe.FindStringSubmatch(line); m != nil {
 				out[m[1]] = true
+			} else if m := pyImportRe.FindStringSubmatch(line); m != nil {
+				// "import os, numpy.linalg as la": first name of each item
+				for _, item := range strings.Split(m[1], ",") {
+					if n := pyNameRe.FindStringSubmatch(item); n != nil {
+						out[n[1]] = true
+					}
+				}
 			}
 		}
 	}
