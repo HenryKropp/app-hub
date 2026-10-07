@@ -1,0 +1,1 @@
+{"name":"x","scripts":{"start":"node server.js","build":"echo ok"}}
