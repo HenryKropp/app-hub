@@ -8,12 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { api, type AppDetail, type Deployment, type SharedInfo, type UsagePoint } from "@/lib/api"
 import { formatWhen } from "@/lib/runs"
 import { LoadFailed } from "./SharedSection"
-import { errText, settingsOf } from "./settings"
+import { CPU_CHOICES as CPUS, IDLE_CHOICES as IDLE, MEMORY_CHOICES as MEMORY, cpuText, errText, settingsOf } from "./settings"
 
-const MEMORY = [256, 512, 1024, 2048]
-const CPUS = [0.25, 0.5, 1, 2]
-const IDLE = [15, 30, 60, 120]
-const cpuText = (n: number) => String(n).replace(".", ",")
 
 const DEP_STATUS: Record<Deployment["status"], string> = {
   building: "montando",

@@ -8,6 +8,7 @@ import { CatalogPage } from "@/pages/CatalogPage"
 import { ConnectPage } from "@/pages/ConnectPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { canRegister } from "@/lib/permissions"
+import { ServerPage } from "@/pages/ServerPage"
 import { TeamPage } from "@/pages/TeamPage"
 import { RegisterPage } from "@/pages/RegisterPage"
 import { MyRunsPage } from "@/pages/MyRunsPage"
@@ -48,6 +49,7 @@ function Routed() {
           }
         />
         <Route path="equipe" element={<TeamPage />} />
+        <Route path="servidor" element={<ServerPage />} />
         <Route path="pessoas" element={<Navigate to="/equipe" replace />} />
         <Route path="configuracoes" element={<SettingsPage />} />
         <Route path="meu-computador" element={<Navigate to="/configuracoes" replace />} />

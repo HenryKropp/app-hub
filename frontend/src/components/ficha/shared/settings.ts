@@ -26,3 +26,9 @@ export function settingsOf(app: AppDetail, state?: SharedState | null, patch: Pa
 }
 
 export const errText = (e: unknown, fallback = "Não foi possível completar a ação.") => (e instanceof Error && e.message ? e.message : fallback)
+
+// The choices the Limits forms offer (ficha and Servidor e gastos).
+export const MEMORY_CHOICES = [256, 512, 1024, 2048]
+export const CPU_CHOICES = [0.25, 0.5, 1, 2]
+export const IDLE_CHOICES = [15, 30, 60, 120]
+export const cpuText = (n: number) => String(n).replace(".", ",")
