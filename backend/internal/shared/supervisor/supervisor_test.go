@@ -594,6 +594,33 @@ func TestFailingDailyCopyRetriedOncePerHour(t *testing.T) {
 	}
 }
 
+func TestSlowTicksStillGiveUpAfterThreeTries(t *testing.T) {
+	ctx := context.Background()
+	e, s, c := live(t)
+	starts := func() int {
+		n := 0
+		for _, call := range e.Eng.CallsCopy() {
+			if strings.HasPrefix(call, "start ") {
+				n++
+			}
+		}
+		return n
+	}
+	before := starts()
+	e.Eng.Crash(currentContainer(t, e))
+	e.Eng.Handler = http500{}
+	for i := 0; i < 8; i++ { // each tick lands > 200 s after the last (slow failed tries)
+		s.Tick(ctx)
+		c.add(270 * time.Second)
+	}
+	if got := starts() - before; got != 3 {
+		t.Fatalf("%d restart tries, want 3", got)
+	}
+	if sa := e.Shared(t); sa.Status != "crashed" || sa.StatusMessage != msgGaveUp {
+		t.Fatalf("%s %q", sa.Status, sa.StatusMessage)
+	}
+}
+
 type http500 struct{}
 
 func (http500) ServeHTTP(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) }

@@ -287,7 +287,11 @@ func (s *Supervisor) healthy(ctx context.Context, a sqlc.ListSharedAppsRow) bool
 
 func (s *Supervisor) restart(ctx context.Context, a sqlc.ListSharedAppsRow, now time.Time) {
 	count, start := a.RestartCount, a.RestartWindowStart
-	if !start.Valid || now.Sub(start.Time) > restartWindow {
+	// An app that is already "crashed" with 3 tries used gives up now, however
+	// long the failed tries took: a slow tick must never open a fresh window
+	// for it. Only an app that was running (it recovered) starts a new cycle.
+	exhausted := a.Status == "crashed" && count >= 3
+	if !exhausted && (!start.Valid || now.Sub(start.Time) > restartWindow) {
 		count, start = 0, pgtype.Timestamptz{Time: now, Valid: true}
 	}
 	if count >= 3 {
