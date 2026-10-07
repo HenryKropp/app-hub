@@ -4,6 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api, type ConfigItem, type EnvVar } from "@/lib/api"
+import { RestartNow } from "./RestartNow"
 import { errText } from "./settings"
 
 // Names the Hub gives the app itself; an app setting cannot take them.
@@ -14,6 +15,7 @@ function ConfigRow({ appId, item, onChanged }: { appId: number; item: ConfigItem
   const [replacing, setReplacing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState("")
+  const [restart, setRestart] = useState(false)
   const [error, setError] = useState("")
   const id = `cfg-${item.name}`
 
@@ -24,6 +26,7 @@ function ConfigRow({ appId, item, onChanged }: { appId: number; item: ConfigItem
     try {
       const r = await api.shared.setConfig(appId, item.name, v)
       setMsg(r.needs_restart ? "Salvo. Religue o app para valer." : "Salvo.")
+      setRestart(r.needs_restart)
       if (item.secret) {
         setValue("")
         setReplacing(false)
@@ -78,6 +81,7 @@ function ConfigRow({ appId, item, onChanged }: { appId: number; item: ConfigItem
         </div>
       )}
       {msg && <p className="text-xs text-ok" role="status">{msg}</p>}
+      {restart && <div><RestartNow appId={appId} onDone={() => { setRestart(false); setMsg("") }} /></div>}
       {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
     </li>
   )

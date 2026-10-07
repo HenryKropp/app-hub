@@ -153,6 +153,8 @@ export type AppDetail = {
   restricted: boolean
   can: Can
   shared: SharedBrief | null
+  /** Only in the answer of PUT /shared: the running app must start again for the change to count. */
+  needs_restart?: boolean
   depends_on_apps?: AppLink[]
   used_by?: AppLink[]
 }

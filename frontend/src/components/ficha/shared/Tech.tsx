@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { api, type AppDetail, type Deployment, type SharedInfo, type UsagePoint } from "@/lib/api"
 import { formatWhen } from "@/lib/runs"
+import { RestartNow } from "./RestartNow"
 import { LoadFailed } from "./SharedSection"
 import { CPU_CHOICES as CPUS, IDLE_CHOICES as IDLE, MEMORY_CHOICES as MEMORY, cpuText, errText, settingsOf } from "./settings"
 
@@ -19,7 +20,7 @@ const DEP_STATUS: Record<Deployment["status"], string> = {
   retired: "encerrada",
 }
 
-function Limits({ app, info, onChanged }: { app: AppDetail; info: SharedInfo; onChanged: (next?: AppDetail) => void }) {
+function Limits({ app, info, onChanged, onRestartNeeded }: { app: AppDetail; info: SharedInfo; onChanged: (next?: AppDetail) => void; onRestartNeeded: (v: boolean) => void }) {
   const base = settingsOf(app, info.shared)
   const [mem, setMem] = useState(base.memory_mb)
   const [cpus, setCpus] = useState(base.cpus)
@@ -37,7 +38,8 @@ function Limits({ app, info, onChanged }: { app: AppDetail; info: SharedInfo; on
       const fresh = await api.shared.get(app.id)
       const acks = fresh.shared?.acks ?? base.acks
       const next = await api.shared.save(app.id, { ...base, acks, memory_mb: mem, cpus, always_on: always, idle_minutes: idle })
-      toast.success(info.shared?.status === "running" ? "Salvo. Religue o app para valer." : "Salvo.")
+      toast.success(next.needs_restart ? "Salvo. Religue o app para valer." : "Salvo.")
+      onRestartNeeded(!!next.needs_restart)
       onChanged(next)
     } catch (e) {
       toast.error(errText(e, "Não consegui salvar."))
@@ -177,6 +179,7 @@ export function Tech({ app, onChanged }: { app: AppDetail; onChanged: (next?: Ap
   const [usage, setUsage] = useState<UsagePoint[] | null>(null)
   const [error, setError] = useState("")
   const [tries, setTries] = useState(0)
+  const [restart, setRestart] = useState(false)
   useEffect(() => {
     let gone = false
     api.shared.get(app.id).then(
@@ -205,7 +208,13 @@ export function Tech({ app, onChanged }: { app: AppDetail; onChanged: (next?: Ap
   return (
     <>
       <Section title="Limites do app">
-        <Limits key={app.updated_at} app={app} info={info} onChanged={onChanged} />
+        <Limits key={app.updated_at} app={app} info={info} onChanged={onChanged} onRestartNeeded={setRestart} />
+        {restart && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-muted-foreground">A mudança vale quando o app ligar de novo.</span>
+            <RestartNow appId={app.id} onDone={() => setRestart(false)} />
+          </div>
+        )}
       </Section>
       <Section title="Uso nas últimas 24 h">
         {usage ? <UsageChart points={usage} /> : <p className="text-sm text-muted-foreground">Carregando…</p>}
