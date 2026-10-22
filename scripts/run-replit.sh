@@ -9,6 +9,9 @@ if [[ -z "${DATABASE_URL:-}" ]]; then
 fi
 
 mkdir -p generated-artifacts
+if [[ ! -f dist/agent/AppHubAgente.exe ]] || [[ -n "$(find backend -type f \( -name '*.go' -o -name 'go.mod' -o -name 'go.sum' \) -newer dist/agent/AppHubAgente.exe -print -quit 2>/dev/null)" ]]; then
+  bash scripts/build-agent.sh
+fi
 if [[ ! -f frontend/dist/index.html ]] || [[ -n "$(find frontend/src frontend/index.html frontend/vite.config.ts frontend/package.json frontend/package-lock.json frontend/tsconfig*.json -type f -newer frontend/dist/index.html -print -quit 2>/dev/null)" ]]; then
   npm run build --prefix frontend
 fi

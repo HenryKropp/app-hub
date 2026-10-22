@@ -209,6 +209,17 @@ func (h *Handler) getApp(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	var m manifest.Manifest
+	if err := json.Unmarshal(a.Manifest, &m); err != nil {
+		internalError(w, "decode manifest", err)
+		return
+	}
+	if m.Kind == manifest.KindScript {
+		if err := h.hydrateImportedScript(r.Context(), a, m); err != nil {
+			internalError(w, "restore imported working copy", err)
+			return
+		}
+	}
 	h.writeDetail(w, r, me, a, http.StatusOK)
 }
 

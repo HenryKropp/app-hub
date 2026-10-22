@@ -14,7 +14,7 @@ afterEach(() => {
 
 function Starter() {
   const { run } = useRuns()
-  return <button onClick={() => run({ id: 3, name: "Files Prep", folder_display: "C:\\fp", remembered_folder: "D:\\Saídas" })}>go</button>
+  return <button onClick={() => run({ id: 3, name: "Files Prep", folder_display: "C:\\fp", remembered_folder: "D:\\Saídas", kind: "desktop" })}>go</button>
 }
 
 const mount = () =>

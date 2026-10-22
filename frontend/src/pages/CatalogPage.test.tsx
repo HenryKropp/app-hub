@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { api } from "@/lib/api"
 import * as auth from "@/lib/auth"
 import { RunsProvider } from "@/lib/runs-context"
-import { appSummary, bia, henry, run } from "@/test/fixtures"
+import { activeRun, appSummary, bia, henry } from "@/test/fixtures"
 import { CatalogPage } from "./CatalogPage"
 
 beforeEach(() => {
@@ -37,7 +37,7 @@ test("card with can_run has Rodar; a document has none", async () => {
 test("Rodar on the card runs directly with the remembered folder and stays on the catalog", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "apps").mockResolvedValue([appSummary({ remembered_folder: "D:\\Saídas" })])
-  const start = vi.spyOn(api, "startRun").mockResolvedValue(run())
+  const start = vi.spyOn(api, "startRun").mockResolvedValue(activeRun())
   mount()
   await user.click(await screen.findByRole("button", { name: "Rodar Eq. Research Files Prep" }))
   expect(start).toHaveBeenCalledWith(3, "D:\\Saídas", undefined)

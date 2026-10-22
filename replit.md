@@ -43,13 +43,16 @@ Finish this step before sharing access to this fresh instance.
 
 ## Windows agent
 
-The web interface runs on Replit; local Windows app execution still requires
-the existing Windows agent on each user's computer. No agent binary has been
-built or configured here. See `scripts/build-agent.sh`,
-`docs/INFRASTRUCTURE.md`, and `AGENT_BINARY_PATH` for the existing distribution
-mechanism. Replit cannot access the original machine's `/mnt/c` folders.
+The web interface runs on Replit; local Windows app execution requires the agent
+on each user's computer. The run script builds the Windows agent for the current
+development origin when sources change. `AGENT_BINARY_PATH` points to
+`dist/agent/AppHubAgente.exe`, served through the authenticated download route.
+Replit cannot access the original machine's `/mnt/c` folders; browser-imported
+scripts instead have their source bundles stored in PostgreSQL and sent to the
+agent. See `docs/SCRIPTS.md` for onboarding, manifest input mapping, supported
+runtimes, dependencies, trust boundaries, and current verification limits.
 
-## Checks performed
+## Initial import checks
 
 - Frontend production build and Go server build succeeded.
 - Preview rendered the first-administrator setup form.
@@ -64,3 +67,20 @@ mechanism. Replit cannot access the original machine's `/mnt/c` folders.
 
 Generated binaries are kept in ignored `generated-artifacts/`; frontend build
 output stays in the project's existing ignored `frontend/dist/`.
+
+## Onboarding and scripts
+
+- Open **Começar** (`/comecar`) for setup progress.
+- **Registrar apps** now supports importing Python/JavaScript sources directly
+  from the browser, alongside the existing folder-scanning flow.
+- The script run form is generated from the manifest. The agent is version
+  0.3.0; use **Configurações > Meu computador** to install/update it.
+- New-flow backend tests, Python/Node execution tests on Linux, 81 selected
+  frontend tests, TypeScript, lint, the production build, and Windows agent
+  compilation passed.
+- The full backend suite hit Go's global 10-minute package timeout before
+  finishing; it did not report an individual assertion failure before timeout.
+  Do not describe the full suite as passing.
+- Protected screens were tested automatically, not visually with a signed-in
+  browser. A real Windows end-to-end run remains unverified.
+- See `docs/SCRIPTS.md` for limits and security boundaries.

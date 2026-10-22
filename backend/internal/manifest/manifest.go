@@ -48,6 +48,7 @@ var KindLabels = map[string]string{
 
 // Input types and sources.
 var InputTypes = []string{"file", "folder", "text", "number", "date", "choice"}
+
 // "window" means the app's own window asks for it after opening: the Hub shows
 // it in the ficha but never asks for it before running.
 var InputSources = []string{"fixed_file", "dialog", "prompt", "argument", "window"}
@@ -101,6 +102,7 @@ type Input struct {
 	Options  []string `yaml:"options,omitempty" json:"options"`
 	Multiple bool     `yaml:"multiple,omitempty" json:"multiple"`
 	Required bool     `yaml:"required" json:"required"`
+	Flag     string   `yaml:"flag,omitempty" json:"flag,omitempty"`
 }
 
 type Output struct {
@@ -124,6 +126,9 @@ type PersonRef struct {
 // Validate returns plain-Portuguese problems that block publishing.
 func (m Manifest) Validate() []string {
 	var errs []string
+	if m.Kind == KindScript {
+		errs = append(errs, m.ScriptProblems()...)
+	}
 	if strings.TrimSpace(m.Name) == "" {
 		errs = append(errs, "O app precisa de um nome.")
 	}

@@ -5,10 +5,12 @@ package agentproto
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 )
 
 // Version is the agent version this Hub expects.
-const Version = "0.2.3"
+const Version = "0.3.0"
 
 // Job kinds.
 const (
@@ -37,10 +39,18 @@ type Job struct {
 // RunPayload opens AppFolder\Exe with OutputFolder as the place results go.
 // Paths are Windows paths ("C:\...").
 type RunPayload struct {
-	RunID        int64  `json:"run_id"`
-	AppFolder    string `json:"app_folder"`
-	Exe          string `json:"exe"`
-	OutputFolder string `json:"output_folder"`
+	RunID        int64          `json:"run_id"`
+	AppFolder    string         `json:"app_folder"`
+	Exe          string         `json:"exe"`
+	OutputFolder string         `json:"output_folder"`
+	Script       *ScriptPayload `json:"script,omitempty"`
+}
+
+type ScriptPayload struct {
+	Sources  map[string]manifest.InputFile `json:"sources,omitempty"`
+	Manifest manifest.Manifest             `json:"manifest"`
+	Inputs   map[string][]string           `json:"inputs,omitempty"`
+	Files    map[string]manifest.InputFile `json:"files,omitempty"`
 }
 
 type ChooseFolderPayload struct {

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { Lock, Play, Plus, Search, X } from "lucide-react"
+import { ArrowRight, Lock, Play, Plus, Search, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState, KindTab, LoadError, PageHeader, Playing, SavedIn } from "@/components/bits"
-import { api, type AppSummary } from "@/lib/api"
+import { api, type AppSummary, type Onboarding } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { canRegister } from "@/lib/permissions"
 import { useRuns } from "@/lib/runs-context"
@@ -19,9 +19,11 @@ export function CatalogPage() {
   const [error, setError] = useState("")
   const [q, setQ] = useState("")
   const [tries, setTries] = useState(0)
+  const [onboarding, setOnboarding] = useState<Onboarding | null>(null)
 
   useEffect(() => {
     api.apps().then(setApps, (e: Error) => setError(e.message))
+    api.onboarding().then(setOnboarding, () => {})
   }, [tries])
   const retry = () => {
     setError("")
@@ -35,6 +37,7 @@ export function CatalogPage() {
   }, [apps, q])
 
   const canReg = canRegister(person)
+  const setupDone = onboarding ? Boolean(onboarding.company_name.trim() && onboarding.computer_connected && onboarding.has_apps && onboarding.has_successful_run && onboarding.has_team) : true
 
   return (
     <>
@@ -73,6 +76,13 @@ export function CatalogPage() {
         )}
       </PageHeader>
 
+      {onboarding?.can_manage && !setupDone && (
+        <Link to="/comecar" className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-brand/20 bg-brand-soft/45 p-4 transition-colors hover:bg-brand-soft sm:px-5">
+          <span className="min-w-0"><span className="block text-xs font-medium text-brand">Configuração inicial</span><span className="mt-0.5 block text-sm font-medium">Faltam alguns passos para preparar o Hub para sua equipe.</span></span>
+          <span className="flex shrink-0 items-center gap-2 text-sm font-medium">Continuar <ArrowRight className="size-4" /></span>
+        </Link>
+      )}
+
       {error && <LoadError message={error} onRetry={retry} />}
       {apps === null && !error && <p className="text-muted-foreground">Carregando…</p>}
 
@@ -105,7 +115,7 @@ export function CatalogPage() {
       <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {shown.map((a) => {
           const live = playing.has(a.id)
-          const target = { id: a.id, name: a.name, folder_display: a.folder_display, remembered_folder: a.remembered_folder }
+          const target = { id: a.id, name: a.name, folder_display: a.folder_display, remembered_folder: a.remembered_folder, kind: a.kind }
           const saved = a.can_run ? rememberedFor(target) : ""
           return (
             <li key={a.id}>

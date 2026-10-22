@@ -105,7 +105,7 @@ export function AppPage() {
   if (!app) return <p className="text-muted-foreground">Carregando…</p>
   const m = app.manifest
   const can = app.can
-  const target = { id: app.id, name: m.name, folder_display: app.folder_display, remembered_folder: app.remembered_folder }
+  const target = { id: app.id, name: m.name, folder_display: app.folder_display, remembered_folder: app.remembered_folder, kind: m.kind }
   const saved = rememberedFor(target)
 
   const dirty = !!draft && (JSON.stringify(draft.manifest) !== JSON.stringify(app.manifest) || draft.ownerId !== app.owner_id || draft.backupId !== (app.backup_id ?? 0))

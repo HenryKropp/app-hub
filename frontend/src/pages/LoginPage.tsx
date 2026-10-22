@@ -3,11 +3,11 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field, Logo } from "@/components/bits"
-import { api } from "@/lib/api"
+import { api, OFFLINE } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 
 export function LoginPage() {
-  const { needsSetup, person, setPerson } = useAuth()
+  const { needsSetup, person, setPerson, statusError, refresh } = useAuth()
   const navigate = useNavigate()
   const from = (useLocation().state as { from?: string } | null)?.from ?? "/"
   const [name, setName] = useState("")
@@ -50,11 +50,22 @@ export function LoginPage() {
       </section>
 
       <section className="flex items-center justify-center px-4 py-12">
-        <form onSubmit={submit} className="w-full max-w-sm">
+          <form id="login-form" onSubmit={submit} className="w-full max-w-sm">
           <div className="mb-6 flex items-center gap-2 md:hidden">
             <Logo className="size-8" />
             <span className="text-lg font-semibold">App Hub</span>
           </div>
+          {statusError ? (
+            <section className="mt-5 rounded-xl border border-warn/30 bg-warn-soft p-4" aria-labelledby="status-error">
+              <h2 id="status-error" className="font-heading text-lg">Não consegui confirmar o estado do Hub</h2>
+              <p role="alert" className="mt-2 text-sm">{statusError}</p>
+              <p className="mt-2 text-sm text-muted-foreground">Confira o endereço da página e tente de novo. Não é possível saber se este Hub já foi configurado até ele responder.</p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button type="button" onClick={() => void refresh()}>Tentar novamente</Button>
+                <a className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium hover:bg-accent" href={window.location.href} target="_blank" rel="noreferrer">Abrir esta página em outra aba</a>
+              </div>
+            </section>
+          ) : <>
           <h2 className="font-heading text-2xl">{needsSetup ? "Crie a conta de administrador" : "Bem-vindo de volta"}</h2>
           {needsSetup && <p className="mt-2 text-sm text-muted-foreground">Você será o administrador. Depois pode cadastrar as outras pessoas da empresa.</p>}
 
@@ -78,14 +89,19 @@ export function LoginPage() {
               />
             </Field>
             {error && (
-              <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
-              </p>
+              <div>
+                <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+                {error === OFFLINE && <div className="mt-2 flex flex-wrap gap-3 text-xs">
+                  <button type="button" className="font-medium underline underline-offset-4" onClick={() => (document.getElementById("login-form") as HTMLFormElement | null)?.requestSubmit()}>Tentar novamente</button>
+                  <a href={window.location.href} target="_blank" rel="noreferrer" className="text-muted-foreground underline underline-offset-4">Abrir esta página em outra aba</a>
+                </div>}
+              </div>
             )}
             <Button type="submit" size="lg" disabled={busy} className="mt-2 h-10">
               {busy ? "Aguarde…" : needsSetup ? "Criar conta e entrar" : "Entrar"}
             </Button>
           </div>
+          </>}
         </form>
       </section>
     </div>

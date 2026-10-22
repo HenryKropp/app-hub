@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, test, vi } from "vitest"
 import { api, ApiError, type AppDetail, type Person } from "@/lib/api"
 import * as auth from "@/lib/auth"
 import { RunsProvider } from "@/lib/runs-context"
-import { VIEW_ONLY, bia, detail, henry, run } from "@/test/fixtures"
+import { VIEW_ONLY, activeRun, bia, detail, henry } from "@/test/fixtures"
 import { AppPage } from "./AppPage"
 
 beforeEach(() => localStorage.clear())
@@ -90,7 +90,7 @@ test("Rodar with a remembered folder shows 'Salva em' and runs directly; trocar 
   const user = userEvent.setup()
   base({ ...detail(), remembered_folder: "D:\\Saídas" })
   vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: true, version: null })
-  const start = vi.spyOn(api, "startRun").mockResolvedValue(run({ status: "waiting" }))
+  const start = vi.spyOn(api, "startRun").mockResolvedValue(activeRun({ status: "waiting" }))
   renderAt()
   expect(await screen.findByText("D:\\Saídas")).toBeInTheDocument()
   await user.click(screen.getByRole("button", { name: "Rodar" }))
@@ -103,7 +103,7 @@ test("Rodar without a remembered folder asks, and then shows 'Salva em'", async 
   const user = userEvent.setup()
   base(detail())
   vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: true, version: null })
-  vi.spyOn(api, "startRun").mockResolvedValue(run({ status: "waiting" }))
+  vi.spyOn(api, "startRun").mockResolvedValue(activeRun({ status: "waiting" }))
   renderAt()
   await user.click(await screen.findByRole("button", { name: "Rodar" }))
   expect(screen.queryByText(/Salva em/)).not.toBeInTheDocument()
