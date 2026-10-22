@@ -9,3 +9,5 @@ e2e/node_modules/
 dist/
 .claude/worktrees/
 e2e/shots/
+/generated-artifacts/
+/generated-artifacts/
