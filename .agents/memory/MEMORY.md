@@ -1,0 +1,1 @@
+- [Replit toolchain setup](replit-toolchains.md) — retain the imported Go version; inherited checksum settings can prevent automatic toolchain downloads.
