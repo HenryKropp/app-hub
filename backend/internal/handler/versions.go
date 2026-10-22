@@ -75,6 +75,11 @@ func (h *Handler) checkVersionLocked(ctx context.Context, a sqlc.App) (sqlc.AppV
 	if err := json.Unmarshal(a.Manifest, &m); err != nil {
 		return sqlc.AppVersion{}, nil, false, err
 	}
+	if m.Kind == manifest.KindScript {
+		if err := h.hydrateImportedScript(ctx, a, m); err != nil {
+			return sqlc.AppVersion{}, nil, false, err
+		}
+	}
 	latest, err := h.q.LatestAppVersion(ctx, a.ID)
 	hasLatest := err == nil
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {

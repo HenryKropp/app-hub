@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { api, type Person, type RunListItem } from "@/lib/api"
 import * as auth from "@/lib/auth"
 import { RunsProvider } from "@/lib/runs-context"
-import { activeRun, bia, henry, run } from "@/test/fixtures"
+import { activeRun, bia, detail, henry, manifest } from "@/test/fixtures"
 import { MyRunsPage } from "./MyRunsPage"
 
 beforeEach(() => vi.spyOn(api, "activeRuns").mockResolvedValue([]))
@@ -30,13 +30,14 @@ const mount = (person: Person = henry) => {
 test("lists my runs with Ver e baixar and Rodar de novo in the same folder", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "runs").mockResolvedValue({ items: [item()], more: false })
-  const start = vi.spyOn(api, "startRun").mockResolvedValue(run())
+  vi.spyOn(api, "app").mockResolvedValue(detail({ manifest: manifest({ kind: "desktop" }) }))
+  const start = vi.spyOn(api, "startRun").mockResolvedValue(activeRun())
   mount()
   expect(await screen.findByRole("link", { name: "Eq. Research Files Prep" })).toHaveAttribute("href", "/apps/3")
   expect(screen.getByText(/4 arquivos/)).toBeInTheDocument()
   expect(screen.getByRole("link", { name: "Ver e baixar" })).toHaveAttribute("href", "/execucoes/9")
   await user.click(screen.getByRole("button", { name: "Rodar de novo" }))
-  expect(start).toHaveBeenCalledWith(3, "E:\\Velha", undefined)
+  await vi.waitFor(() => expect(start).toHaveBeenCalledWith(3, "E:\\Velha", undefined))
 })
 
 test("admin can switch to De todos and sees who ran", async () => {

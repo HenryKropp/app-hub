@@ -58,6 +58,7 @@ UPDATE roles SET name = 'Administrador', permissions = ARRAY['register_apps','ed
 UPDATE roles SET name = 'Criador', permissions = ARRAY['register_apps'] WHERE key = 'criador';
 UPDATE roles SET name = 'Usuário', permissions = ARRAY[]::text[] WHERE key = 'usuario';
 INSERT INTO areas (name) VALUES ('Research'), ('Investimentos');
+UPDATE hub_settings SET company_name='' WHERE id=TRUE;
 `
 
 type client struct {

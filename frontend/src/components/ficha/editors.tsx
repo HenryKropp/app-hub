@@ -119,8 +119,25 @@ export function InputsEditor({ value, onChange }: Edit<AppInput[]>) {
                   </div>
                 </div>
               )}
+              <div className="col-span-full grid gap-3 pl-1 sm:grid-cols-2">
+                <Field label="Como o app recebe" htmlFor={`f-source-${i}`} hint={inp.source === "dialog" ? `O script deve ler APP_HUB_INPUT_${inp.id.toUpperCase()}.` : inp.source === "prompt" ? "O valor é enviado ao script pela entrada padrão." : undefined}>
+                  <NativeSelect id={`f-source-${i}`} value={inp.source} onChange={(e) => setInput(i, { source: e.target.value as AppInput["source"] })}>
+                    {Object.entries(INPUT_SOURCES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+                  </NativeSelect>
+                </Field>
+                {inp.source === "argument" && <Field label="Parâmetro (opcional)" htmlFor={`f-flag-${i}`} hint="Ex.: --arquivo. Deixe vazio para enviar só o valor.">
+                  <Input id={`f-flag-${i}`} value={inp.flag ?? ""} placeholder={`--${inp.id}`} onChange={(e) => setInput(i, { flag: e.target.value })} className="font-mono text-xs" />
+                </Field>}
+                {inp.source === "fixed_file" && <Field label="Caminho dentro da pasta do app" htmlFor={`f-path-${i}`} hint="O arquivo enviado será copiado para este caminho relativo.">
+                  <Input id={`f-path-${i}`} value={inp.path ?? ""} placeholder="dados/entrada.xlsx" onChange={(e) => setInput(i, { path: e.target.value })} className="font-mono text-xs" />
+                </Field>}
+                <label className="flex items-center gap-2 text-sm sm:col-span-2">
+                  <Checkbox checked={inp.required} onCheckedChange={(checked) => setInput(i, { required: checked === true })} />
+                  Obrigatório para executar
+                </label>
+              </div>
               <p className="col-span-full text-xs text-muted-foreground">
-                Via {INPUT_SOURCES[inp.source]}
+                No formulário: {inp.type}
                 {inp.path && (
                   <>
                     : <code className="font-mono">{inp.path}</code>

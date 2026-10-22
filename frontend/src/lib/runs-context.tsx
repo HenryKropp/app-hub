@@ -1,9 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { RunDialog } from "@/components/RunDialog"
-import { api, ApiError, type ActiveRun } from "@/lib/api"
+import type { Submission } from "@/components/RunDialog"
+import { api, ApiError, type ActiveRun, type Kind } from "@/lib/api"
 import { isLive } from "@/lib/runs"
 
-export type RunTarget = { id: number; name: string; folder_display: string; remembered_folder: string }
+export type RunTarget = { id: number; name: string; folder_display: string; remembered_folder: string; kind?: Kind }
 // folder: run right away in this folder (Rodar de novo); ask: always open the dialog ("trocar").
 export type RunOptions = { folder?: string; ask?: boolean }
 // runId: the request succeeded; the notice stays until the server lists that run.
@@ -64,12 +65,14 @@ export function RunsProvider({ children }: { children: ReactNode }) {
   const rememberedFor = useCallback((t: RunTarget) => (t.id in remembered ? remembered[t.id] : t.remembered_folder), [remembered])
 
   const send = useCallback(
-    (t: RunTarget, folder: string, remember?: boolean) => {
+    (t: RunTarget, folder: string, remember?: boolean, inputs?: Record<string, string | string[]>, files?: Record<string, { name: string; content_base64: string }>) => {
       const key = `n${++seq}`
       setNotices((ns) => [...ns, { key, app_name: t.name, kind: "starting", folder }])
       setBusy((b) => new Set(b).add(t.id))
-      api
-        .startRun(t.id, folder, remember)
+      const request = Object.keys(inputs ?? {}).length || Object.keys(files ?? {}).length
+        ? api.startRun(t.id, folder, remember, inputs, files)
+        : api.startRun(t.id, folder, remember)
+      request
         .then(
           (r) => {
             if (remember !== undefined) setRemembered((m) => ({ ...m, [t.id]: remember ? folder : "" }))
@@ -96,10 +99,38 @@ export function RunsProvider({ children }: { children: ReactNode }) {
   const run = useCallback(
     (t: RunTarget, o: RunOptions = {}) => {
       if (busy.has(t.id)) return
-      if (o.folder) return send(t, o.folder)
-      const saved = rememberedFor(t)
-      if (o.ask || saved === "") return setAsking({ ...t, remembered_folder: saved })
-      send(t, saved)
+      const decide = (target: RunTarget) => {
+        if (o.folder) {
+          if (target.kind === "script") setAsking({ ...target, remembered_folder: o.folder! })
+          else send(target, o.folder)
+          return
+        }
+        if (target.kind === "script") return setAsking({ ...target, remembered_folder: rememberedFor(target) })
+        const saved = rememberedFor(target)
+        if (o.ask || saved === "") return setAsking({ ...target, remembered_folder: saved })
+        send(target, saved)
+      }
+      if (t.kind) return decide(t)
+      // Older run-history links do not include the app kind. Resolve it before
+      // deciding whether this is the desktop folder dialog or the script form.
+      setBusy((current) => new Set(current).add(t.id))
+      api.app(t.id).then((detail) => {
+        setBusy((current) => {
+          const next = new Set(current)
+          next.delete(t.id)
+          return next
+        })
+        decide({ ...t, kind: detail.manifest.kind })
+      }, (e: unknown) => {
+        setBusy((current) => {
+          const next = new Set(current)
+          next.delete(t.id)
+          return next
+        })
+        const key = `n${++seq}`
+        const message = e instanceof Error ? e.message : "Não consegui carregar os dados do app."
+        setNotices((current) => [...current, { key, app_name: t.name, kind: "error", message, target: t }])
+      })
     },
     [busy, send, rememberedFor],
   )
@@ -123,10 +154,10 @@ export function RunsProvider({ children }: { children: ReactNode }) {
       <RunDialog
         target={asking}
         onCancel={() => setAsking(null)}
-        onConfirm={(folder, remember) => {
+        onConfirm={(submission: Submission) => {
           const t = asking
           setAsking(null)
-          if (t) send(t, folder, remember)
+          if (t) send(t, submission.folder, submission.remember, submission.inputs, submission.files)
         }}
       />
     </RunsCtx.Provider>

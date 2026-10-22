@@ -34,7 +34,8 @@ var windowsAbs = regexp.MustCompile(`^[A-Za-z]:\\`)
 func canRun(m manifest.Manifest) bool { return canRunKind(m.Kind, m.Entrypoint) }
 
 func canRunKind(kind, entrypoint string) bool {
-	return kind == "desktop" && strings.HasSuffix(strings.ToLower(entrypoint), ".exe")
+	return (kind == "desktop" && manifest.SafeRelative(entrypoint) && strings.HasSuffix(strings.ToLower(entrypoint), ".exe")) ||
+		(kind == manifest.KindScript && manifest.ScriptRuntime(entrypoint) != "")
 }
 
 func tsPtr(t pgtype.Timestamptz) *time.Time {
@@ -50,10 +51,19 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		OutputFolder string `json:"output_folder"`
-		Remember     *bool  `json:"remember"`
+		OutputFolder string                        `json:"output_folder"`
+		Remember     *bool                         `json:"remember"`
+		Inputs       map[string]json.RawMessage    `json:"inputs"`
+		Files        map[string]manifest.InputFile `json:"files"`
 	}
-	if !readJSON(w, r, &body) {
+	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 15<<20))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&body); err != nil {
+		writeError(w, http.StatusBadRequest, "O formulário é inválido ou ultrapassou o limite de 10 MB de arquivos.")
+		return
+	}
+	if dec.Decode(&struct{}{}) != io.EOF {
+		writeError(w, http.StatusBadRequest, "Envie apenas um formulário por execução.")
 		return
 	}
 	ctx := r.Context()
@@ -64,6 +74,29 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 	}
 	if !canRun(m) {
 		writeError(w, http.StatusBadRequest, "Este app ainda não pode rodar pelo Hub.")
+		return
+	}
+	values := map[string][]string{}
+	if m.Kind == manifest.KindScript {
+		for id, raw := range body.Inputs {
+			var value string
+			if json.Unmarshal(raw, &value) == nil {
+				values[id] = []string{value}
+				continue
+			}
+			var list []string
+			if json.Unmarshal(raw, &list) != nil {
+				writeError(w, http.StatusBadRequest, "As entradas devem ser texto ou listas de opções.")
+				return
+			}
+			values[id] = list
+		}
+		if err := m.ValidateRunInputs(values, body.Files); err != nil {
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	} else if len(body.Inputs) > 0 || len(body.Files) > 0 {
+		writeError(w, http.StatusBadRequest, "Este app não recebe um formulário de script.")
 		return
 	}
 	appFolder := hostpath.ToDisplay(a.FolderPath)
@@ -84,6 +117,10 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "connected computer", err)
 		return
 	}
+	if m.Kind == manifest.KindScript && comp.AgentVersion != agentproto.Version {
+		writeError(w, http.StatusConflict, "Atualize o Agente em Configurações › Meu computador para rodar scripts.")
+		return
+	}
 	// Hold the app lock from the version check until the job is queued, so a
 	// restore cannot rewrite the folder between recording the version and the run.
 	unlock := h.lockApp(a.ID)
@@ -100,6 +137,14 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	payload := agentproto.RunPayload{RunID: run.ID, AppFolder: appFolder, Exe: m.Entrypoint, OutputFolder: out}
+	if m.Kind == manifest.KindScript {
+		sources, err := h.importedSources(r, a.ID)
+		if err != nil {
+			internalError(w, "script sources", err)
+			return
+		}
+		payload.Script = &agentproto.ScriptPayload{Manifest: m, Inputs: values, Files: body.Files, Sources: sources}
+	}
 	_, err = h.enqueue(ctx, comp.ID, &run.ID, agentproto.KindRun, payload)
 	unlock()
 	if err != nil {
@@ -149,7 +194,11 @@ func (h *Handler) onRunResult(ctx context.Context, j sqlc.AgentJob, res agentpro
 			return err
 		}
 		for _, f := range res.Files {
-			idx, label := outputs.Match(m.Outputs, f.Path)
+			matchPath := f.Path
+			if m.Kind == manifest.KindScript {
+				matchPath = strings.TrimPrefix(matchPath, fmt.Sprintf("Execucao-%d/", runID))
+			}
+			idx, label := outputs.Match(m.Outputs, matchPath)
 			if err := h.q.AddRunFile(ctx, sqlc.AddRunFileParams{
 				RunID: runID, RelPath: f.Path, Size: f.Size,
 				ModifiedAt: pgtype.Timestamptz{Time: f.Modified, Valid: true},
@@ -161,9 +210,9 @@ func (h *Handler) onRunResult(ctx context.Context, j sqlc.AgentJob, res agentpro
 		status, msg := "done", ""
 		if len(res.Files) == 0 {
 			status = "no_files"
-			if res.ExitCode != 0 {
-				status, msg = "error", "O app fechou com erro (código "+strconv.Itoa(res.ExitCode)+") e não gerou arquivos."
-			}
+		}
+		if res.ExitCode != 0 {
+			status, msg = "error", "O app fechou com erro (código "+strconv.Itoa(res.ExitCode)+"). Confira os arquivos de diagnóstico e peça ajuda ao responsável."
 		}
 		if err := h.q.FinishRun(ctx, sqlc.FinishRunParams{ID: runID, Status: status,
 			ExitCode: pgtype.Int4{Int32: int32(res.ExitCode), Valid: true}, ErrorMessage: msg}); err != nil {

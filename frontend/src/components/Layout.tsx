@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
-import { Gauge, History, KeyRound, LibraryBig, LogOut, Settings, Users } from "lucide-react"
+import { Gauge, History, KeyRound, LibraryBig, ListChecks, LogOut, Settings, Users } from "lucide-react"
 import { api, type Person } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { canRegister, canSeeTeam } from "@/lib/permissions"
@@ -20,6 +20,7 @@ const NAV = [
   { to: "/", label: "Catálogo", icon: LibraryBig, show: (_p: Person) => true },
   { to: "/execucoes", label: "Minhas execuções", icon: History, show: (_p: Person) => true },
   { to: "/equipe", label: "Equipe", icon: Users, show: canSeeTeam },
+  { to: "/comecar", label: "Começar", icon: ListChecks, show: (_p: Person) => true },
 ]
 
 const NAV_ITEM = "flex shrink-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors"

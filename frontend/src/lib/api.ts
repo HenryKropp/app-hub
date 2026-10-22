@@ -23,6 +23,7 @@ export type Input = {
   options?: string[] | null
   multiple?: boolean
   required: boolean
+  flag?: string
 }
 
 export type Output = { label: string; pattern: string }
@@ -138,6 +139,15 @@ export type RunListItem = {
 }
 export type RunList = { items: RunListItem[]; more: boolean }
 export type AppCheck = { folder_readable: boolean; version: { number: number; created_at: string } | null }
+export type Onboarding = {
+  company_name: string
+  can_manage: boolean
+  agent_available: boolean
+  computer_connected: boolean
+  has_apps: boolean
+  has_successful_run: boolean
+  has_team: boolean
+}
 export type RunSummary = { id: number; status: RunStatus; person_name: string; created_at: string; started_at: string | null; finished_at: string | null; file_count: number }
 
 export type VersionSummary = { added: number; removed: number; modified: number; binaries: string[] | null }
@@ -172,7 +182,7 @@ export class ApiError extends Error {
 }
 
 // The browser's own errors ("Failed to fetch") are English and say nothing; these say what to do.
-export const OFFLINE = "Não consegui falar com o Hub. Confira sua internet e tente de novo."
+export const OFFLINE = "Não consegui falar com o Hub. Confira se esta página ainda está aberta no endereço certo e tente novamente."
 const DOWN = "O Hub não respondeu. Espere um pouco e tente de novo."
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -197,6 +207,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 export const api = {
   status: () => request<{ needs_setup: boolean; person: Person | null }>("GET", "/api/auth/status"),
+  onboarding: () => request<Onboarding>("GET", "/api/onboarding"),
+  saveCompanyName: (company_name: string) => request<Onboarding>("PUT", "/api/onboarding", { company_name }),
   setup: (b: { name: string; email: string; password: string }) => request<Person>("POST", "/api/auth/setup", b),
   login: (b: { email: string; password: string }) => request<Person>("POST", "/api/auth/login", b),
   logout: () => request<void>("POST", "/api/auth/logout"),
@@ -207,6 +219,8 @@ export const api = {
   app: (id: number | string) => request<AppDetail>("GET", `/api/apps/${id}`),
   saveApp: (b: { folder_path: string; owner_id: number; backup_id: number | null; manifest: Manifest }) =>
     request<AppDetail>("POST", "/api/apps", b),
+  importScript: (b: { manifest: Manifest; files: Record<string, { name: string; content_base64: string }> }) =>
+    request<{ id: number }>("POST", "/api/scripts/import", b),
   updateApp: (id: number, b: { owner_id: number; backup_id: number | null; manifest: Manifest; updated_at: string }) =>
     request<AppDetail>("PUT", `/api/apps/${id}`, b),
   setPersonRole: (id: number, role_id: number) => request<PersonRow>("PUT", `/api/people/${id}`, { role_id }),
@@ -230,8 +244,19 @@ export const api = {
   pairing: (code: string) => request<Pairing>("GET", `/api/pairings/${encodeURIComponent(code)}`),
   approvePairing: (code: string) => request<void>("POST", `/api/pairings/${encodeURIComponent(code)}/approve`),
   chooseFolder: (initial: string) => request<{ folder: string; canceled: boolean }>("POST", "/api/choose-folder", { initial }),
-  startRun: (appId: number, output_folder: string, remember?: boolean) =>
-    request<Run>("POST", `/api/apps/${appId}/runs`, remember === undefined ? { output_folder } : { output_folder, remember }),
+  startRun: (
+    appId: number,
+    output_folder: string,
+    remember?: boolean,
+    inputs?: Record<string, string | string[]>,
+    files?: Record<string, { name: string; content_base64: string }>,
+  ) => {
+    const body: { output_folder: string; remember?: boolean; inputs?: Record<string, string | string[]>; files?: Record<string, { name: string; content_base64: string }> } = { output_folder }
+    if (remember !== undefined) body.remember = remember
+    if (inputs && Object.keys(inputs).length) body.inputs = inputs
+    if (files && Object.keys(files).length) body.files = files
+    return request<ActiveRun>("POST", `/api/apps/${appId}/runs`, body)
+  },
   checkApp: (id: number | string) => request<AppCheck>("POST", `/api/apps/${id}/check`),
   activeRuns: () => request<ActiveRun[]>("GET", "/api/runs/active"),
   dismissRun: (id: number) => request<void>("POST", `/api/runs/${id}/dismiss`),

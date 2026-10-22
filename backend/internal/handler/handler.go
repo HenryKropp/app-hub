@@ -70,6 +70,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/auth/setup", h.setup)
 	mux.HandleFunc("POST /api/auth/login", h.login)
 	mux.HandleFunc("POST /api/auth/logout", h.logout)
+	mux.HandleFunc("GET /api/onboarding", h.onboarding)
+	mux.HandleFunc("PUT /api/onboarding", h.updateOnboarding)
 	if h.cfg.DevMode {
 		mux.HandleFunc("POST /api/dev/login", h.devLogin)
 	}
@@ -105,6 +107,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/apps/{id}/versions/{n}/restore-preview", h.restorePreview)
 	mux.HandleFunc("POST /api/apps/{id}/versions/{n}/restore", h.restoreVersion)
 	mux.HandleFunc("POST /api/apps", h.saveApp)
+	mux.HandleFunc("POST /api/scripts/import", h.importScript)
 	mux.HandleFunc("POST /api/apps/{id}/runs", h.startRun)
 	mux.HandleFunc("GET /api/apps/{id}/runs", h.listAppRuns)
 	mux.HandleFunc("GET /api/runs", h.listRuns)

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { KindTab, PageHeader } from "@/components/bits"
 import { ReviewForm } from "@/components/ReviewForm"
+import { ScriptImportForm } from "@/components/ScriptImportForm"
 import { api, type Area, type AppSummary, type PersonRow, type ScanItem, type ScanResult } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { cn } from "@/lib/utils"
@@ -94,6 +95,8 @@ export function RegisterPage() {
         <ArrowLeft className="size-4" /> Catálogo
       </Link>
       <PageHeader title="Traga os apps para o catálogo" />
+
+      <ScriptImportForm />
 
       <form onSubmit={scan} className="mb-10 rounded-xl border border-border bg-card p-5 md:p-6">
         <label htmlFor="scan-path" className="text-sm font-semibold">

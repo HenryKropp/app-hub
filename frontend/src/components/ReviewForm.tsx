@@ -130,6 +130,9 @@ export function ReviewForm({ item, people, areas, apps, me, onPublished, onSkip 
 
       {runnable && (
         <Block title="Como ele roda" icon={<FileCog className="size-3.5" />}>
+          {m.kind === "script" && <p className="mb-4 rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground">
+            Scripts rodam em uma pasta isolada. Caminhos relativos ficam nessa pasta; para escrever diretamente na pasta escolhida pela pessoa, use a variável <code className="font-mono text-xs text-foreground">APP_HUB_OUTPUT_DIR</code>.
+          </p>}
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label={<>Arquivo que inicia o app<Confirm on={asks.has("entrypoint")} /></>} htmlFor="f-entry">
               {entryOptions.length > 1 ? (
@@ -144,6 +147,16 @@ export function ReviewForm({ item, people, areas, apps, me, onPublished, onSkip 
                 <Input id="f-entry" value={m.entrypoint} onChange={(e) => set("entrypoint", e.target.value)} className="font-mono text-xs" />
               )}
             </Field>
+            {m.kind === "script" && <>
+              <Field label="Linguagem do script" htmlFor="f-runtime-language" hint="O Hub usa Python para .py e Node.js para .js ou .mjs.">
+                <NativeSelect id="f-runtime-language" value={m.runtime.language || "python"} onChange={(e) => set("runtime", { ...m.runtime, language: e.target.value })}>
+                  <option value="python">Python</option><option value="node">Node.js</option>
+                </NativeSelect>
+              </Field>
+              <Field label="Arquivo de dependências" htmlFor="f-dependencies-file" hint="Ex.: requirements.txt para Python ou package.json para Node.js.">
+                <Input id="f-dependencies-file" value={m.runtime.dependencies_file} onChange={(e) => set("runtime", { ...m.runtime, dependencies_file: e.target.value })} placeholder="requirements.txt" className="font-mono text-xs" />
+              </Field>
+            </>}
             <Field label="Comando" htmlFor="f-cmd" hint="Como o Hub vai iniciar o app.">
               <Input id="f-cmd" value={m.run.command} onChange={(e) => set("run", { ...m.run, command: e.target.value })} className="font-mono text-xs" />
             </Field>

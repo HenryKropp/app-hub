@@ -2,12 +2,12 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, expect, test, vi } from "vitest"
 import { api, ApiError } from "@/lib/api"
-import { activeRun, run as runFx } from "@/test/fixtures"
+import { activeRun, detail, manifest } from "@/test/fixtures"
 import { RunsProvider, useRuns, type RunTarget } from "./runs-context"
 
 afterEach(() => vi.restoreAllMocks())
 
-const target = (remembered = ""): RunTarget => ({ id: 3, name: "Files Prep", folder_display: "C:\\apps\\fp", remembered_folder: remembered })
+const target = (remembered = ""): RunTarget => ({ id: 3, name: "Files Prep", folder_display: "C:\\apps\\fp", remembered_folder: remembered, kind: "desktop" })
 
 function Probe({ t, folder, ask }: { t: RunTarget; folder?: string; ask?: boolean }) {
   const { run, notices, busy } = useRuns()
@@ -28,7 +28,7 @@ const mount = (ui: React.ReactNode) => render(<RunsProvider>{ui}</RunsProvider>)
 test("first time asks with no default folder and Lembrar checked, and sends remember", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "activeRuns").mockResolvedValue([])
-  const start = vi.spyOn(api, "startRun").mockResolvedValue(runFx({ status: "waiting" }))
+  const start = vi.spyOn(api, "startRun").mockResolvedValue(activeRun({ status: "waiting" }))
   mount(<Probe t={target()} />)
   await user.click(screen.getByText("go"))
   expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("")
@@ -37,6 +37,16 @@ test("first time asks with no default folder and Lembrar checked, and sends reme
   await user.type(screen.getByLabelText("Onde salvar os resultados?"), "D:\\Saídas")
   await user.click(screen.getByRole("button", { name: "Abrir app" }))
   expect(start).toHaveBeenCalledWith(3, "D:\\Saídas", true)
+})
+
+test("run-again from history resolves the kind and opens the script form instead of skipping it", async () => {
+  vi.spyOn(api, "app").mockResolvedValue(detail({ manifest: manifest() }))
+  const start = vi.spyOn(api, "startRun").mockResolvedValue(activeRun())
+  mount(<Probe t={{ id: 3, name: "Rentabilidade", folder_display: "C:\\apps", remembered_folder: "" }} folder="D:\Saídas" />)
+  await userEvent.setup().click(screen.getByText("go"))
+  expect(await screen.findByLabelText("Arquivo cnpjs.csv")).toBeInTheDocument()
+  expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("D:\\Saídas")
+  expect(start).not.toHaveBeenCalled()
 })
 
 test("a long path is spelled out in full under the field", async () => {
@@ -51,7 +61,7 @@ test("a long path is spelled out in full under the field", async () => {
 test("unchecking Lembrar sends remember false", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "activeRuns").mockResolvedValue([])
-  const start = vi.spyOn(api, "startRun").mockResolvedValue(runFx())
+  const start = vi.spyOn(api, "startRun").mockResolvedValue(activeRun())
   mount(<Probe t={target()} />)
   await user.click(screen.getByText("go"))
   await user.type(screen.getByLabelText("Onde salvar os resultados?"), "D:\\Saídas")
@@ -63,7 +73,7 @@ test("unchecking Lembrar sends remember false", async () => {
 test("remembered folder runs in one click without remember", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "activeRuns").mockResolvedValue([])
-  const start = vi.spyOn(api, "startRun").mockResolvedValue(runFx())
+  const start = vi.spyOn(api, "startRun").mockResolvedValue(activeRun())
   mount(<Probe t={target("D:\\Saídas")} />)
   await user.click(screen.getByText("go"))
   expect(screen.queryByLabelText("Onde salvar os resultados?")).not.toBeInTheDocument()
@@ -73,7 +83,7 @@ test("remembered folder runs in one click without remember", async () => {
 test("Rodar de novo uses the given folder", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "activeRuns").mockResolvedValue([])
-  const start = vi.spyOn(api, "startRun").mockResolvedValue(runFx())
+  const start = vi.spyOn(api, "startRun").mockResolvedValue(activeRun())
   mount(<Probe t={target("D:\\Saídas")} folder={"E:\\Velha"} />)
   await user.click(screen.getByText("go"))
   expect(start).toHaveBeenCalledWith(3, "E:\\Velha", undefined)
@@ -90,7 +100,7 @@ test("ask opens the dialog with the remembered folder", async () => {
 test("after remembering, the next click runs directly", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "activeRuns").mockResolvedValue([])
-  const start = vi.spyOn(api, "startRun").mockResolvedValue(runFx())
+  const start = vi.spyOn(api, "startRun").mockResolvedValue(activeRun())
   mount(<Probe t={target()} />)
   await user.click(screen.getByText("go"))
   await user.type(screen.getByLabelText("Onde salvar os resultados?"), "D:\\Saídas")
@@ -149,7 +159,7 @@ test("the starting notice stays until the server lists the run, then the run rep
   const user = userEvent.setup()
   const pending: ((v: ReturnType<typeof activeRun>[]) => void)[] = []
   const active = vi.spyOn(api, "activeRuns").mockResolvedValueOnce([])
-  vi.spyOn(api, "startRun").mockResolvedValue(runFx({ id: 7, status: "waiting" }))
+  vi.spyOn(api, "startRun").mockResolvedValue(activeRun({ id: 7, status: "waiting" }))
   mount(<><Probe t={target("D:\\Saídas")} /><Cards /></>)
   await vi.waitFor(() => expect(active).toHaveBeenCalledTimes(1))
   active.mockImplementation(() => new Promise((r) => void pending.push(r)))

@@ -68,10 +68,16 @@ func (r *Runner) Run(ctx context.Context, p agentproto.RunPayload, report func(a
 	}
 	defer r.mu.Unlock()
 
+	if p.Script != nil {
+		return r.runScript(ctx, p, report)
+	}
 	exe := filepath.Join(p.AppFolder, p.Exe)
 	info, err := os.Stat(exe)
 	if err != nil {
 		return failed("Não encontrei o arquivo " + p.Exe + " na pasta do app.")
+	}
+	if !safeAppPath(p.AppFolder, p.Exe) {
+		return failed("O arquivo que inicia o app precisa ficar dentro da pasta do app.")
 	}
 	if err := checkWritable(p.OutputFolder); err != nil {
 		return failed("Não consegui usar a pasta " + p.OutputFolder + ": ela não existe ou não aceita gravação.")

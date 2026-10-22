@@ -4,6 +4,7 @@ import { api, type Person } from "./api"
 type AuthCtx = {
   loading: boolean
   needsSetup: boolean
+  statusError?: string
   person: Person | null
   refresh: () => Promise<void>
   setPerson: (p: Person | null) => void
@@ -12,6 +13,7 @@ type AuthCtx = {
 const Ctx = createContext<AuthCtx>({
   loading: true,
   needsSetup: false,
+  statusError: "",
   person: null,
   refresh: async () => {},
   setPerson: () => {},
@@ -20,15 +22,18 @@ const Ctx = createContext<AuthCtx>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [needsSetup, setNeedsSetup] = useState(false)
+  const [statusError, setStatusError] = useState("")
   const [person, setPerson] = useState<Person | null>(null)
 
   const refresh = useCallback(async () => {
+    setLoading(true)
+    setStatusError("")
     try {
       const s = await api.status()
       setNeedsSetup(s.needs_setup)
       setPerson(s.person)
-    } catch {
-      setPerson(null)
+    } catch (e) {
+      setStatusError(e instanceof Error ? e.message : "Não foi possível confirmar o estado do Hub.")
     } finally {
       setLoading(false)
     }
@@ -43,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (p) setNeedsSetup(false)
   }
 
-  return <Ctx.Provider value={{ loading, needsSetup, person, refresh, setPerson: set }}>{children}</Ctx.Provider>
+  return <Ctx.Provider value={{ loading, needsSetup, statusError, person, refresh, setPerson: set }}>{children}</Ctx.Provider>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components

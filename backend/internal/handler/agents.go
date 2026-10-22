@@ -418,7 +418,10 @@ func (h *Handler) finishJob(ctx context.Context, id int64, status string, res ag
 	if err != nil {
 		return err
 	}
-	return h.q.FinishJob(ctx, sqlc.FinishJobParams{ID: id, Status: status, Result: raw})
+	if err := h.q.FinishJob(ctx, sqlc.FinishJobParams{ID: id, Status: status, Result: raw}); err != nil {
+		return err
+	}
+	return h.q.ClearRunInputs(ctx, id)
 }
 func (h *Handler) agentDownload(w http.ResponseWriter, r *http.Request) {
 	if _, ok := h.currentPerson(w, r); !ok {

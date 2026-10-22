@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { api } from "@/lib/api"
 import { RunsProvider } from "@/lib/runs-context"
-import { run } from "@/test/fixtures"
+import { activeRun, run } from "@/test/fixtures"
 import { RunPage } from "./RunPage"
 
 beforeEach(() => vi.spyOn(api, "activeRuns").mockResolvedValue([]))
@@ -64,7 +64,7 @@ test("mark all in a group", async () => {
 test("Rodar de novo uses the same folder; back goes to Minhas execuções; app name links to the ficha", async () => {
   const user = (await import("@testing-library/user-event")).default.setup()
   vi.spyOn(api, "run").mockResolvedValue(run({ status: "done", output_folder: "E:\\Velha", app_id: 3 }))
-  const start = vi.spyOn(api, "startRun").mockResolvedValue(run())
+  const start = vi.spyOn(api, "startRun").mockResolvedValue(activeRun())
   renderAt()
   await user.click(await screen.findByRole("button", { name: "Rodar de novo" }))
   expect(start).toHaveBeenCalledWith(3, "E:\\Velha", undefined)

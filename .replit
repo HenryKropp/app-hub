@@ -12,6 +12,7 @@ expertMode = true
 BASE_URL = "https://d8b51bed-d483-4654-af88-b7340389c831-00-pzpeyw2cylsm.riker.replit.dev"
 GOSUMDB = "sum.golang.org"
 PORT = "5000"
+AGENT_BINARY_PATH = "dist/agent/AppHubAgente.exe"
 
 [workflows]
 runButton = "Project"

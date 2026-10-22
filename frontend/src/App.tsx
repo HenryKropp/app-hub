@@ -14,11 +14,12 @@ import { MyRunsPage } from "@/pages/MyRunsPage"
 import { RunPage } from "@/pages/RunPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { VersionPage } from "@/pages/VersionPage"
+import { SetupPage } from "@/pages/SetupPage"
 
 function Protected() {
   const { loading, person } = useAuth()
   const location = useLocation()
-  if (loading) return null
+  if (loading) return <div className="mx-auto mt-20 w-full max-w-sm space-y-3 px-4" role="status" aria-label="Verificando acesso"><div className="h-7 w-2/3 animate-pulse rounded bg-muted" /><div className="h-4 w-full animate-pulse rounded bg-muted" /><div className="h-10 w-full animate-pulse rounded bg-muted" /></div>
   if (!person) return <Navigate to="/entrar" replace state={{ from: location.pathname + location.search }} />
   return <Layout />
 }
@@ -31,7 +32,7 @@ function CreatorsOnly({ children }: { children: React.ReactNode }) {
 
 function Routed() {
   const { loading } = useAuth()
-  if (loading) return null
+  if (loading) return <div className="mx-auto mt-20 w-full max-w-sm space-y-3 px-4" role="status" aria-label="Conectando ao App Hub"><div className="h-7 w-2/3 animate-pulse rounded bg-muted" /><div className="h-4 w-full animate-pulse rounded bg-muted" /><div className="h-10 w-full animate-pulse rounded bg-muted" /></div>
   return (
     <Routes>
       <Route path="/entrar" element={<LoginPage />} />
@@ -50,6 +51,7 @@ function Routed() {
         <Route path="equipe" element={<TeamPage />} />
         <Route path="pessoas" element={<Navigate to="/equipe" replace />} />
         <Route path="configuracoes" element={<SettingsPage />} />
+        <Route path="comecar" element={<SetupPage />} />
         <Route path="meu-computador" element={<Navigate to="/configuracoes" replace />} />
         <Route path="conectar" element={<ConnectPage />} />
         <Route path="execucoes" element={<MyRunsPage />} />
