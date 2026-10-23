@@ -68,6 +68,14 @@ runtimes, dependencies, trust boundaries, and current verification limits.
 Generated binaries are kept in ignored `generated-artifacts/`; frontend build
 output stays in the project's existing ignored `frontend/dist/`.
 
+## Post-merge setup
+
+`scripts/post-merge.sh` restores locked frontend dependencies, downloads Go
+modules, and builds the frontend, Windows agent, and server. It exits after
+preparation; Replit's workflow reconciliation restarts the running application.
+Embedded database migrations remain part of normal server startup. The hook is
+configured with a five-minute timeout.
+
 ## Onboarding and scripts
 
 - Open **Começar** (`/comecar`) for setup progress.
