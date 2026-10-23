@@ -1,12 +1,16 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
@@ -103,12 +107,109 @@ func TestScriptImportQueueValidationAndCleanup(t *testing.T) {
 func TestScriptImportRejectsTraversalAndCredentialFiles(t *testing.T) {
 	c, _ := newPoolClient(t)
 	setupAdmin(t, c)
-	for _, name := range []string{"../main.py", ".env", "key.pem"} {
-		body := map[string]any{"manifest": manifest.Manifest{Name: "Bad", Kind: "script", Entrypoint: "main.py", Area: "Research"}, "files": map[string]manifest.InputFile{
+	for _, name := range []string{"../main.py", ".env", "key.pem", "config/.env.local", "cert.key", "id_rsa"} {
+		body := map[string]any{"confirm_secrets": true, "manifest": manifest.Manifest{Name: "Bad", Kind: "script", Entrypoint: "main.py", Area: "Research"}, "files": map[string]manifest.InputFile{
 			"main.py": {Name: "main.py", ContentBase64: ""}, name: {Name: name, ContentBase64: ""},
 		}}
 		if code := c.do("POST", "/api/scripts/import", body, nil); code != 400 {
 			t.Fatalf("%s %d", name, code)
 		}
+	}
+}
+
+func TestScriptImportSecretsRequireConfirmationBeforePersistence(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	temp := t.TempDir()
+	t.Setenv("TMPDIR", temp)
+	var logs bytes.Buffer
+	oldLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
+	t.Cleanup(func() { slog.SetDefault(oldLogger) })
+	source := "password = 'FictitiousValue987'\nprint('ok')\n"
+	helper := "const token = 'AnotherFakeValue987';\n"
+	files := map[string]manifest.InputFile{
+		"main.py":         {Name: "main.py", ContentBase64: base64.StdEncoding.EncodeToString([]byte("print('ok')"))},
+		"lib/settings.py": {Name: "settings.py", ContentBase64: base64.StdEncoding.EncodeToString([]byte(source))},
+		"helper.js":       {Name: "helper.js", ContentBase64: base64.StdEncoding.EncodeToString([]byte(helper))},
+	}
+	body := map[string]any{"manifest": manifest.Manifest{Name: "Aviso", Kind: "script", Entrypoint: "main.py", Area: "Research"}, "files": files}
+	for _, confirmation := range []bool{false, false} {
+		body["confirm_secrets"] = confirmation
+		var out map[string]any
+		if code := c.do("POST", "/api/scripts/import", body, &out); code != http.StatusConflict {
+			t.Fatalf("unconfirmed import status %d", code)
+		}
+		if out["code"] != "script_secrets_confirmation_required" || out["secret_count"] != float64(2) || len(out) != 3 {
+			t.Fatal("unexpected confirmation response")
+		}
+		raw, _ := json.Marshal(out)
+		for _, value := range []string{"FictitiousValue987", "AnotherFakeValue987", "settings.py", "helper.js", "password", "const token"} {
+			if strings.Contains(string(raw), value) || strings.Contains(logs.String(), value) {
+				t.Fatal("response or logs exposed source data")
+			}
+		}
+		var count int
+		if err := testPool.QueryRow(context.Background(), "SELECT count(*) FROM apps").Scan(&count); err != nil || count != 0 {
+			t.Fatal("unconfirmed import persisted an app")
+		}
+		if _, err := os.Stat(filepath.Join(temp, "apphub-imports")); !os.IsNotExist(err) {
+			t.Fatal("unconfirmed import created a source folder")
+		}
+	}
+	body["confirm_secrets"] = true
+	var out struct {
+		ID int64 `json:"id"`
+	}
+	if code := c.do("POST", "/api/scripts/import", body, &out); code != http.StatusCreated {
+		t.Fatalf("confirmed import status %d", code)
+	}
+	var raw []byte
+	var folder string
+	if err := testPool.QueryRow(context.Background(), "SELECT s.files, a.folder_path FROM apps a JOIN script_sources s ON s.app_id=a.id WHERE a.id=$1", out.ID).Scan(&raw, &folder); err != nil {
+		t.Fatal(err)
+	}
+	var stored map[string]manifest.InputFile
+	if err := json.Unmarshal(raw, &stored); err != nil {
+		t.Fatal(err)
+	}
+	for name, input := range files {
+		if stored[name] != input {
+			t.Fatal("persisted source was modified")
+		}
+		disk, err := os.ReadFile(filepath.Join(folder, filepath.FromSlash(name)))
+		if err != nil || base64.StdEncoding.EncodeToString(disk) != input.ContentBase64 {
+			t.Fatal("versioning source was modified")
+		}
+	}
+	if strings.Contains(logs.String(), "FictitiousValue987") || strings.Contains(logs.String(), "AnotherFakeValue987") {
+		t.Fatal("confirmed import logged a secret")
+	}
+}
+
+func TestScriptImportPlaceholdersNeedNoConfirmation(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	t.Setenv("TMPDIR", t.TempDir())
+	body := map[string]any{
+		"manifest": manifest.Manifest{Name: "Placeholder", Kind: "script", Entrypoint: "main.py", Area: "Research"},
+		"files":    map[string]manifest.InputFile{"main.py": {Name: "main.py", ContentBase64: base64.StdEncoding.EncodeToString([]byte("password = 'your_password'\napi_key = os.getenv('API_KEY')"))}},
+	}
+	if code := c.do("POST", "/api/scripts/import", body, nil); code != http.StatusCreated {
+		t.Fatalf("placeholder import status %d", code)
+	}
+}
+
+func TestScriptImportStillRequiresPermission(t *testing.T) {
+	c, _ := newPoolClient(t)
+	if code := c.do("POST", "/api/scripts/import", map[string]any{"confirm_secrets": true}, nil); code != http.StatusUnauthorized {
+		t.Fatal(code)
+	}
+	setupAdmin(t, c)
+	c.do("POST", "/api/people", map[string]string{"name": "Pessoa", "email": "user@example.test", "password": "test-password", "role": "usuario"}, nil)
+	other := c.fresh()
+	other.do("POST", "/api/auth/login", map[string]string{"email": "user@example.test", "password": "test-password"}, nil)
+	if code := other.do("POST", "/api/scripts/import", map[string]any{"confirm_secrets": true}, nil); code != http.StatusForbidden {
+		t.Fatal(code)
 	}
 }

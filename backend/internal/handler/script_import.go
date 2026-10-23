@@ -15,6 +15,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/access"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
+	"github.com/HenryKropp/app-hub/backend/internal/scanner"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -24,8 +25,9 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var b struct {
-		Manifest manifest.Manifest             `json:"manifest"`
-		Files    map[string]manifest.InputFile `json:"files"`
+		Manifest       manifest.Manifest             `json:"manifest"`
+		Files          map[string]manifest.InputFile `json:"files"`
+		ConfirmSecrets bool                          `json:"confirm_secrets"`
 	}
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 15<<20))
 	dec.DisallowUnknownFields()
@@ -89,6 +91,21 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		decoded[name] = data
+	}
+	// Scan every file before any filesystem or database persistence. Only a count
+	// leaves this handler: filenames, variable names and source excerpts can also
+	// contain sensitive values. Confirmation never changes the executable sources.
+	secretCount := 0
+	for name, data := range decoded {
+		secretCount += len(scanner.FindSecrets(name, string(data)))
+	}
+	if secretCount > 0 && !b.ConfirmSecrets {
+		writeJSON(w, http.StatusConflict, map[string]any{
+			"code":         "script_secrets_confirmation_required",
+			"error":        "Possíveis senhas ou chaves no código. Revise os arquivos ou confirme o envio sem alterações.",
+			"secret_count": secretCount,
+		})
+		return
 	}
 	area, err := h.q.GetAreaByName(r.Context(), m.Area)
 	if err != nil {
