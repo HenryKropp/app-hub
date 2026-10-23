@@ -1,2 +1,3 @@
 - [Replit toolchain setup](replit-toolchains.md) — retain the imported Go version; inherited checksum settings can prevent automatic toolchain downloads.
 - [Login from Preview](preview-login.md) — opening the app in a separate tab resolved the user's reported connection error; root cause remains unconfirmed.
+- [Visão do marketplace](marketplace-vision.md) — hub de microapps para compartilhamento na empresa, com possível abertura ao público depois.
