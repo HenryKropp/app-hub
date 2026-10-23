@@ -1,8 +1,25 @@
 import { afterEach, expect, test, vi } from "vitest"
-import { api, OFFLINE } from "./api"
+import { api, ApiError, OFFLINE } from "./api"
 import { manifest as manifestFixture } from "@/test/fixtures"
 
 afterEach(() => vi.unstubAllGlobals())
+
+test("import retains structured confirmation errors and sends explicit consent", async () => {
+  const body = {
+    code: "script_secrets_confirmation_required",
+    error: "Possíveis senhas ou chaves no código.",
+    secret_count: 2,
+  }
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 409 }))
+  vi.stubGlobal("fetch", fetchMock)
+  const payload = { manifest: manifestFixture(), files: {}, confirm_secrets: true }
+  await expect(api.importScript(payload)).rejects.toMatchObject({
+    status: 409, body, message: body.error,
+  } satisfies Partial<ApiError>)
+  expect(fetchMock).toHaveBeenCalledWith("/api/scripts/import", expect.objectContaining({
+    method: "POST", credentials: "same-origin", body: JSON.stringify(payload),
+  }))
+})
 
 test("a request that never reaches the Hub says so in Portuguese", async () => {
   vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")))

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Field } from "@/components/bits"
 import { InputsEditor, choiceProblems } from "@/components/ficha/editors"
-import { api, type Area, type Input as AppInput, type Manifest } from "@/lib/api"
+import { api, ApiError, type Area, type Input as AppInput, type Manifest } from "@/lib/api"
 
 const MAX_BYTES = 10 * 1024 * 1024
 const MAX_FILES = 100
@@ -45,6 +45,13 @@ export function ScriptImportForm() {
   const [inputs, setInputs] = useState<AppInput[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
+  const [secretCount, setSecretCount] = useState(0)
+  const [confirmSecrets, setConfirmSecrets] = useState(false)
+
+  const resetSecretConfirmation = () => {
+    setSecretCount(0)
+    setConfirmSecrets(false)
+  }
 
   const entrypoints = useMemo(() => files.filter((file) => {
     const path = sourcePath(file).toLowerCase()
@@ -72,6 +79,7 @@ export function ScriptImportForm() {
   }
 
   const chooseFiles = (list: FileList | null, append = false) => {
+    resetSecretConfirmation()
     const next = Array.from(list ?? []) as UploadFile[]
     setFiles((current) => {
       if (!append) return next
@@ -91,6 +99,7 @@ export function ScriptImportForm() {
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     setError("")
+    if (secretCount > 0 && !confirmSecrets) return
     if (totalBytes > MAX_BYTES) {
       setError("Os arquivos passam de 10 MB no total. Remova algum arquivo e tente novamente.")
       return
@@ -147,11 +156,16 @@ export function ScriptImportForm() {
         tags: [],
         notes: ["Registrado pelo envio de arquivos do navegador."],
       }
-      const created = await api.importScript({ manifest, files: upload })
+      const created = await api.importScript({ manifest, files: upload, confirm_secrets: confirmSecrets })
       toast.success(`${name.trim()} está no catálogo`)
       navigate(`/apps/${created.id}`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Não consegui registrar este script. Confira os arquivos e tente novamente.")
+      if (e instanceof ApiError && e.status === 409 && e.body && typeof e.body === "object" && "code" in e.body && e.body.code === "script_secrets_confirmation_required") {
+        setSecretCount("secret_count" in e.body && typeof e.body.secret_count === "number" ? Math.max(1, e.body.secret_count) : 1)
+        setConfirmSecrets(false)
+      } else {
+        setError(e instanceof Error ? e.message : "Não consegui registrar este script. Confira os arquivos e tente novamente.")
+      }
     } finally {
       setBusy(false)
     }
@@ -169,7 +183,7 @@ export function ScriptImportForm() {
       <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />
       <p>Envie apenas scripts confiáveis. O Hub prepara uma pasta de trabalho separada, mas isso <strong>não é um sandbox do sistema operacional</strong>; o script ainda pode acessar recursos disponíveis para a conta que o executa.</p>
     </div>
-    <form onSubmit={submit} className="mt-5 flex flex-col gap-4">
+    <form onSubmit={submit} onChange={(event) => { if ((event.target as HTMLElement).id !== "script-confirm-secrets") resetSecretConfirmation() }} className="mt-5 flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Nome do app" htmlFor="script-name">
           <Input id="script-name" value={name} onChange={(e) => setName(e.target.value)} required disabled={busy} placeholder="Ex.: Organizar relatórios" />
@@ -196,7 +210,7 @@ export function ScriptImportForm() {
           <input id="script-folder-files" type="file" multiple disabled={busy} className="sr-only" {...({ webkitdirectory: "" } as ComponentProps<"input">)} onChange={(e) => chooseFiles(e.target.files, true)} />
         </div>
         {files.length > 0 && <ul className="mt-2 flex max-h-32 flex-col gap-1 overflow-y-auto text-xs text-muted-foreground">
-          {files.map((file) => <li key={sourcePath(file)} className="flex items-center gap-2"><FilePlus2 className="size-3.5 shrink-0" /><span className="min-w-0 flex-1 truncate font-mono">{sourcePath(file)}</span><span className="shrink-0">{(file.size / 1024).toFixed(0)} KB</span><button type="button" aria-label={`Remover ${file.name}`} className="rounded p-1 hover:bg-accent" disabled={busy} onClick={() => { setFiles((current) => current.filter((item) => item !== file)); if (entrypoint === sourcePath(file)) setEntrypoint("") }}><X className="size-3.5" /></button></li>)}
+          {files.map((file) => <li key={sourcePath(file)} className="flex items-center gap-2"><FilePlus2 className="size-3.5 shrink-0" /><span className="min-w-0 flex-1 truncate font-mono">{sourcePath(file)}</span><span className="shrink-0">{(file.size / 1024).toFixed(0)} KB</span><button type="button" aria-label={`Remover ${file.name}`} className="rounded p-1 hover:bg-accent" disabled={busy} onClick={() => { resetSecretConfirmation(); setFiles((current) => current.filter((item) => item !== file)); if (entrypoint === sourcePath(file)) setEntrypoint("") }}><X className="size-3.5" /></button></li>)}
         </ul>}
         <p className={totalBytes > MAX_BYTES ? "text-xs font-medium text-destructive" : "text-xs text-muted-foreground"} aria-live="polite">
           {files.length} / {MAX_FILES} arquivos · {(totalBytes / (1024 * 1024)).toFixed(1)} / 10 MB
@@ -225,9 +239,19 @@ export function ScriptImportForm() {
         <InputsEditor value={inputs} onChange={setInputs} />
       </div>
       {error && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+      {secretCount > 0 && <div role="alert" className="rounded-lg border border-warn/30 bg-warn-soft/60 p-3 text-sm">
+        <p className="font-semibold">Possíveis senhas ou chaves no código: {secretCount} ocorrência(s).</p>
+        <p className="mt-1">Nada foi registrado. A detecção pode gerar falsos positivos e não garante encontrar todos os segredos. Recomendamos remover as credenciais dos arquivos originais e selecioná-los novamente. Os valores não são exibidos neste aviso.</p>
+        <p className="mt-1">Se continuar, o código será salvo sem alterações no Hub e enviado ao computador que executar o script. Não há remoção automática de senhas nem cofre de credenciais.</p>
+        <label htmlFor="script-confirm-secrets" className="mt-3 flex items-start gap-2">
+          <input id="script-confirm-secrets" type="checkbox" checked={confirmSecrets} disabled={busy} onChange={(event) => setConfirmSecrets(event.target.checked)} />
+          Revisei os arquivos e aceito enviar o código sem alterações, mesmo com este aviso.
+        </label>
+        <Button type="button" variant="outline" disabled={busy} className="mt-3" onClick={resetSecretConfirmation}>Cancelar confirmação</Button>
+      </div>}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
         <p className="text-xs text-muted-foreground">Os arquivos selecionados serão enviados ao Hub para registrar este app.</p>
-        <Button type="submit" disabled={busy || loadingAreas || !area || areas.length === 0 || !name.trim() || !entrypoint || files.length === 0} className="gap-2">
+        <Button type="submit" disabled={busy || loadingAreas || !area || areas.length === 0 || !name.trim() || !entrypoint || files.length === 0 || (secretCount > 0 && !confirmSecrets)} className="gap-2">
           {busy ? "Enviando e registrando…" : "Registrar script"}
         </Button>
       </div>

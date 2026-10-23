@@ -24,6 +24,22 @@ São aceitos Python (`.py`) e JavaScript (`.js`, `.mjs`, `.cjs`). Os arquivos do
 pacote somam no máximo 10 MB, com até 100 arquivos. Arquivos de credenciais como
 `.env`, `.pem` e `.key` são recusados. Não inclua senhas no código.
 
+Antes de salvar qualquer pacote, o servidor reutiliza a detecção do registro por
+pasta em todos os arquivos enviados. Se encontrar possíveis senhas ou chaves,
+interrompe a importação sem gravar arquivos ou cadastrar o app. O aviso mostra
+somente a quantidade de ocorrências, nunca os valores ou trechos de código.
+Revise e remova as credenciais nos arquivos originais, depois selecione-os
+novamente. Como a detecção é heurística, pode haver falsos positivos e segredos
+não reconhecidos; referências a variáveis de ambiente e exemplos reconhecidos
+como placeholders não geram alerta por atribuição.
+
+Para aceitar um falso positivo ou assumir o risco, marque a confirmação
+explícita e clique novamente em **Registrar script**. Alterar a seleção ou
+cancelar descarta essa confirmação. O servidor reanalisa o pacote em cada envio.
+O código confirmado é salvo e entregue ao agente **sem alterações**: não há
+mascaramento do código executável nem cofre de credenciais. A confirmação não
+libera arquivos de credenciais bloqueados, caminhos inválidos ou outros limites.
+
 O código importado fica no PostgreSQL e é entregue ao agente autenticado na
 execução. Não depende de uma pasta Windows acessível pelo servidor Replit.
 Uma cópia temporária no servidor permite aproveitar o histórico de versões.

@@ -219,7 +219,7 @@ export const api = {
   app: (id: number | string) => request<AppDetail>("GET", `/api/apps/${id}`),
   saveApp: (b: { folder_path: string; owner_id: number; backup_id: number | null; manifest: Manifest }) =>
     request<AppDetail>("POST", "/api/apps", b),
-  importScript: (b: { manifest: Manifest; files: Record<string, { name: string; content_base64: string }> }) =>
+  importScript: (b: { manifest: Manifest; files: Record<string, { name: string; content_base64: string }>; confirm_secrets?: boolean }) =>
     request<{ id: number }>("POST", "/api/scripts/import", b),
   updateApp: (id: number, b: { owner_id: number; backup_id: number | null; manifest: Manifest; updated_at: string }) =>
     request<AppDetail>("PUT", `/api/apps/${id}`, b),

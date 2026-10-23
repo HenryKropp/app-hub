@@ -53,13 +53,16 @@ func looksLikePlaceholder(v string) bool {
 	return strings.Trim(lv, lv[:1]) == ""
 }
 
+// FindSecrets reuses folder scanning detection without retaining secret values.
+// Callers must not expose source text alongside these findings.
+func FindSecrets(rel, text string) []SecretFinding {
+	return findSecrets(rel, text)
+}
+
 // findSecrets scans text and returns probable secrets with the line where they appear.
 func findSecrets(rel, text string) []SecretFinding {
 	var out []SecretFinding
 	for i, line := range strings.Split(text, "\n") {
-		if len(line) > 2000 {
-			line = line[:2000]
-		}
 		lineNo := i + 1
 		found := false
 		if m := secretAssignment.FindStringSubmatch(line); m != nil && !looksLikePlaceholder(m[2]) {

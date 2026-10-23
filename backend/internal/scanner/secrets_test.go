@@ -1,6 +1,43 @@
 package scanner
 
-import "testing"
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+func TestFindSecretsForImport(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		text  string
+		count int
+	}{
+		{"python", "password = \"FictitiousValue987\"\nprint('ok')", 1},
+		{"javascript", "const api_key = 'FakeKeyValue987';", 1},
+		{"token", "client('ghp_0123456789abcdefghijklmnopqrstuvwxyz')", 1},
+		{"multiple lines", "senha = 'FictitiousValue987'\ntoken = 'AnotherFakeValue987'", 2},
+		{"long line", strings.Repeat(" ", 2100) + "password = 'FictitiousValue987'", 1},
+		{"clean", "print('ok')", 0},
+		{"placeholders", "password = 'your_password'\ntoken = '${TOKEN}'\napi_key = 'xxxxxxxxxxxx'", 0},
+		{"environment", "password = os.getenv('PASSWORD')\nconst token = process.env.TOKEN", 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := FindSecrets("main.py", tc.text)
+			if len(got) != tc.count {
+				t.Fatalf("finding count = %d, want %d", len(got), tc.count)
+			}
+			raw, err := json.Marshal(got)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, value := range []string{"FictitiousValue987", "FakeKeyValue987", "AnotherFakeValue987", "ghp_0123456789abcdefghijklmnopqrstuvwxyz"} {
+				if strings.Contains(string(raw), value) {
+					t.Fatal("finding leaked a value")
+				}
+			}
+		})
+	}
+}
 
 func TestMaskSecrets(t *testing.T) {
 	in := "API_KEY = \"abc123def456ghi\"\nchave = os.getenv('X')\nclient = Anthropic(api_key=\"sk-ant-abcdefghijklmnopqrstuvwxyz\")\nprint('oi')\n"
