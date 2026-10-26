@@ -211,9 +211,9 @@ func (s *Service) sealDump(ctx context.Context, db string, w io.Writer) error {
 	return sw.Close()
 }
 
-// openCopy opens a copy file for reading its plain contents. Copies made
-// before encryption existed are read as they are.
-func (s *Service) openCopy(path string) (io.Reader, io.Closer, error) {
+// OpenCopy opens a copy file for reading its plain contents (restore and
+// download). Copies made before encryption existed are read as they are.
+func (s *Service) OpenCopy(path string) (io.Reader, io.Closer, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, nil, err
@@ -237,7 +237,7 @@ func (s *Service) openCopy(path string) (io.Reader, io.Closer, error) {
 
 // loadFile loads a copy file into a database.
 func (s *Service) loadFile(ctx context.Context, db, path string) error {
-	r, c, err := s.openCopy(path)
+	r, c, err := s.OpenCopy(path)
 	if err != nil {
 		return err
 	}
@@ -257,13 +257,13 @@ func (s *Service) SealOldBackups(ctx context.Context) {
 		return
 	}
 	for _, b := range all {
-		if err := s.sealOld(b); err != nil {
+		if err := s.sealOld(ctx, b); err != nil {
 			slog.Warn("seal old backups", "backup", b.ID, "err", err)
 		}
 	}
 }
 
-func (s *Service) sealOld(b sqlc.SharedBackup) error {
+func (s *Service) sealOld(ctx context.Context, b sqlc.SharedBackup) error {
 	f, err := os.Open(b.Path)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -301,5 +301,12 @@ func (s *Service) sealOld(b sqlc.SharedBackup) error {
 	if err != nil {
 		return err
 	}
-	return os.Rename(tmp.Name(), b.Path)
+	st, err := os.Stat(tmp.Name())
+	if err != nil {
+		return err
+	}
+	if err := os.Rename(tmp.Name(), b.Path); err != nil {
+		return err
+	}
+	return s.q.UpdateBackupSize(ctx, sqlc.UpdateBackupSizeParams{ID: b.ID, SizeBytes: st.Size()})
 }

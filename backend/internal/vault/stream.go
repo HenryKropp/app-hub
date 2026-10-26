@@ -42,6 +42,9 @@ func (v *Vault) SealStream(w io.Writer) (io.WriteCloser, error) {
 }
 
 func (s *sealWriter) Write(p []byte) (int, error) {
+	if s.closed {
+		return 0, errors.New("vault: write after close")
+	}
 	if s.err != nil {
 		return 0, s.err
 	}
@@ -105,6 +108,7 @@ type openReader struct {
 	plain []byte
 	index uint64
 	done  bool
+	err   error
 }
 
 // OpenStream returns a reader with the plain contents of a stream written by
@@ -123,8 +127,11 @@ func (o *openReader) Read(p []byte) (int, error) {
 		if o.done {
 			return 0, io.EOF
 		}
-		if err := o.next(); err != nil {
-			return 0, err
+		if o.err != nil {
+			return 0, o.err
+		}
+		if o.err = o.next(); o.err != nil {
+			return 0, o.err
 		}
 	}
 	n := copy(p, o.plain)

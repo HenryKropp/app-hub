@@ -153,6 +153,9 @@ SELECT * FROM shared_backups WHERE app_id = $1 AND kind = 'daily' ORDER BY creat
 -- name: ListAllBackups :many
 SELECT * FROM shared_backups ORDER BY id;
 
+-- name: UpdateBackupSize :exec
+UPDATE shared_backups SET size_bytes = $2 WHERE id = $1;
+
 -- name: ListExpiredBackups :many
 SELECT * FROM shared_backups WHERE expires_at < $1;
 

@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"bufio"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -136,23 +138,38 @@ func (h *Handler) downloadSharedBackup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, backupNotFound)
 		return
 	}
-	f, err := os.Open(path)
-	if err != nil {
+	if st, err := os.Lstat(path); err != nil || !st.Mode().IsRegular() {
 		slog.Warn("shared backup download", "app", a.ID, "backup", b.ID, "err", err)
 		writeError(w, http.StatusNotFound, "O arquivo da cópia não foi encontrado no servidor. Faça uma cópia nova.")
 		return
 	}
+	// Copies are encrypted on disk; the person gets the plain dump that
+	// pg_restore reads.
+	plain, f, err := h.shared.Svc.OpenCopy(path)
+	if err != nil {
+		slog.Warn("shared backup download", "app", a.ID, "backup", b.ID, "err", err)
+		writeError(w, http.StatusConflict, "Não foi possível abrir esta cópia. Faça uma cópia nova.")
+		return
+	}
 	defer f.Close()
-	st, err := f.Stat()
-	if err != nil || !st.Mode().IsRegular() {
-		writeError(w, http.StatusNotFound, backupNotFound)
+	// Checking the first part before answering turns a damaged copy into a
+	// plain message instead of a broken download.
+	br := bufio.NewReader(plain)
+	if _, err := br.Peek(1); err != nil && err != io.EOF {
+		slog.Warn("shared backup download: copy unreadable", "app", a.ID, "backup", b.ID, "err", err)
+		writeError(w, http.StatusConflict, "Esta cópia está danificada e não pode ser baixada. Faça uma cópia nova.")
 		return
 	}
 	name := safeFileSlug(a.Slug) + "-" + b.CreatedAt.Time.Local().Format("2006-01-02-1504") + ".dump"
 	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	http.ServeContent(w, r, name, st.ModTime(), f)
+	if _, err := io.Copy(w, br); err != nil {
+		// A copy altered or cut on disk: break the connection so the browser
+		// marks the download as failed instead of saving a partial file.
+		slog.Warn("shared backup download interrupted", "app", a.ID, "backup", b.ID, "err", err)
+		panic(http.ErrAbortHandler)
+	}
 }
 
 // safeFileSlug keeps only [a-z0-9-] so the name is safe in Content-Disposition.

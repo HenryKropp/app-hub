@@ -91,3 +91,26 @@ func TestStreamRejectsTampering(t *testing.T) {
 		})
 	}
 }
+
+func TestStreamErrorsStick(t *testing.T) {
+	v, _ := New(NewKey())
+	sealed := sealAll(t, v, make([]byte, 2*chunkSize))
+	sealed[len(streamMagic)+10] ^= 1
+	r, err := v.OpenStream(bytes.NewReader(sealed))
+	if err != nil {
+		t.Fatal(err)
+	}
+	buf := make([]byte, 10)
+	for i := 0; i < 2; i++ {
+		if _, err := r.Read(buf); !errors.Is(err, ErrStreamCut) {
+			t.Fatalf("read %d: %v", i, err)
+		}
+	}
+
+	var out bytes.Buffer
+	w, _ := v.SealStream(&out)
+	w.Close()
+	if _, err := w.Write([]byte("x")); err == nil {
+		t.Fatal("write after close accepted")
+	}
+}
