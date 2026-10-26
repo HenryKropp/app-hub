@@ -43,9 +43,19 @@ type App struct {
 type AppChange struct {
 	ID        int64              `json:"id"`
 	AppID     int64              `json:"app_id"`
-	PersonID  int64              `json:"person_id"`
+	PersonID  pgtype.Int8        `json:"person_id"`
 	Changes   []byte             `json:"changes"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type AppConfig struct {
+	AppID       int64              `json:"app_id"`
+	Name        string             `json:"name"`
+	IsSecret    bool               `json:"is_secret"`
+	ValuePlain  string             `json:"value_plain"`
+	ValueCipher []byte             `json:"value_cipher"`
+	UpdatedBy   pgtype.Int8        `json:"updated_by"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type AppGrant struct {
@@ -118,6 +128,11 @@ type Computer struct {
 	CanUpdate    bool               `json:"can_update"`
 }
 
+type HubSetting struct {
+	ID          bool   `json:"id"`
+	CompanyName string `json:"company_name"`
+}
+
 type Pairing struct {
 	Code         string             `json:"code"`
 	SecretHash   string             `json:"secret_hash"`
@@ -178,9 +193,84 @@ type RunFolder struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type ScriptSource struct {
+	AppID int64  `json:"app_id"`
+	Files []byte `json:"files"`
+}
+
+type ServerSetting struct {
+	ID               int32              `json:"id"`
+	MonthlyCostCents int64              `json:"monthly_cost_cents"`
+	UpdatedBy        pgtype.Int8        `json:"updated_by"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Session struct {
 	Token     string             `json:"token"`
 	PersonID  int64              `json:"person_id"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type SharedApp struct {
+	AppID                int64              `json:"app_id"`
+	Slug                 string             `json:"slug"`
+	Status               string             `json:"status"`
+	AlwaysOn             bool               `json:"always_on"`
+	IdleMinutes          int32              `json:"idle_minutes"`
+	MemoryMb             int32              `json:"memory_mb"`
+	Cpus                 pgtype.Numeric     `json:"cpus"`
+	HealthPath           string             `json:"health_path"`
+	Port                 int32              `json:"port"`
+	WantsDb              bool               `json:"wants_db"`
+	DbName               string             `json:"db_name"`
+	CurrentDeploymentID  pgtype.Int8        `json:"current_deployment_id"`
+	PreviousDeploymentID pgtype.Int8        `json:"previous_deployment_id"`
+	RestartCount         int32              `json:"restart_count"`
+	RestartWindowStart   pgtype.Timestamptz `json:"restart_window_start"`
+	LastAccessAt         pgtype.Timestamptz `json:"last_access_at"`
+	StatusChangedAt      pgtype.Timestamptz `json:"status_changed_at"`
+	StatusMessage        string             `json:"status_message"`
+	Acks                 []string           `json:"acks"`
+	StoppedBy            pgtype.Int8        `json:"stopped_by"`
+	UnsharedAt           pgtype.Timestamptz `json:"unshared_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+type SharedBackup struct {
+	ID           int64              `json:"id"`
+	AppID        int64              `json:"app_id"`
+	Kind         string             `json:"kind"`
+	Path         string             `json:"path"`
+	SizeBytes    int64              `json:"size_bytes"`
+	DeploymentID pgtype.Int8        `json:"deployment_id"`
+	CreatedBy    pgtype.Int8        `json:"created_by"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type SharedDeployment struct {
+	ID           int64              `json:"id"`
+	AppID        int64              `json:"app_id"`
+	VersionID    pgtype.Int8        `json:"version_id"`
+	Kind         string             `json:"kind"`
+	Recipe       string             `json:"recipe"`
+	ImageID      string             `json:"image_id"`
+	ContainerID  string             `json:"container_id"`
+	TestDbName   string             `json:"test_db_name"`
+	Port         int32              `json:"port"`
+	Status       string             `json:"status"`
+	BuildLog     string             `json:"build_log"`
+	ErrorMessage string             `json:"error_message"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	CreatedBy    pgtype.Int8        `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
+}
+
+type SharedUsage struct {
+	AppID    int64              `json:"app_id"`
+	At       pgtype.Timestamptz `json:"at"`
+	MemBytes int64              `json:"mem_bytes"`
+	CpuPct   float32            `json:"cpu_pct"`
 }

@@ -35,7 +35,7 @@ test("scans a folder, lists apps and moves to the next after publishing", async 
       scanItem({ folder_path: "/mnt/c/apps/Sistema", folder_name: "Sistema", manifest: manifest({ name: "Sistema", kind: "web" }), similar: [{ name: "Projeto Sistema" }] }),
     ],
   })
-  vi.spyOn(api, "saveApp").mockResolvedValue({ id: 5, folder_path: "/mnt/c/apps/Rentabilidade", folder_display: "", owner_id: 1, backup_id: null, manifest: manifest(), updated_at: "", can_run: false, version: null, folder_readable: true, remembered_folder: "", area_id: 1, restricted: false, can: ALL_CAN })
+  vi.spyOn(api, "saveApp").mockResolvedValue({ id: 5, folder_path: "/mnt/c/apps/Rentabilidade", folder_display: "", owner_id: 1, backup_id: null, manifest: manifest(), updated_at: "", can_run: false, version: null, folder_readable: true, remembered_folder: "", area_id: 1, restricted: false, shared: null, can: ALL_CAN })
 
   renderPage()
   await user.type(screen.getByLabelText("Onde estão os apps?"), "C:\\apps")

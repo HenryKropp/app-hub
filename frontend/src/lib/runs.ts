@@ -23,7 +23,8 @@ export function formatDuration(startISO: string | null, endISO: string | null, n
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`
+  if (bytes < 1024 ** 3) return `${(bytes / (1024 * 1024)).toFixed(1).replace(".", ",")} MB`
+  return `${(bytes / 1024 ** 3).toFixed(1).replace(".", ",")} GB`
 }
 
 export function formatWhen(iso: string): string {
