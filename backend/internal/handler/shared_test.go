@@ -352,6 +352,10 @@ func TestSharedBackupsFlow(t *testing.T) {
 	if res.StatusCode != 200 || !strings.Contains(res.Header.Get("Content-Disposition"), "notas-") {
 		t.Fatalf("download %d %s", res.StatusCode, res.Header.Get("Content-Disposition"))
 	}
+	// The copy is encrypted on disk; the download is the plain dump.
+	if body, _ := io.ReadAll(res.Body); !strings.HasPrefix(string(body), "dump:") {
+		t.Fatalf("download body %q", body)
+	}
 	res = c.raw("GET", appPath(id, "/shared/backups"), nil)
 	buf := new(strings.Builder)
 	io.Copy(buf, res.Body)
@@ -658,5 +662,31 @@ func TestSharedPortChangeAsksForPublish(t *testing.T) {
 	}
 	if o := put(8600); o.NeedsPublish {
 		t.Fatalf("same port: %+v", o)
+	}
+}
+
+// A copy altered on disk is never handed out as if it were whole.
+func TestSharedBackupDownloadTampered(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withShared(t, h)
+	id := sharedApp(t, h, d, "notas")
+	var app struct {
+		UpdatedAt string `json:"updated_at"`
+	}
+	c.do("GET", appPath(id, ""), nil, &app)
+	c.do("PUT", appPath(id, "/shared"), map[string]any{"enabled": true, "database": "postgres", "updated_at": app.UpdatedAt}, nil)
+	c.do("POST", appPath(id, "/shared/publish"), nil, nil)
+	waitShared(t, c, id, "running")
+	b, err := d.svc.Backup(context.Background(), id, "manual", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(b.Path)
+	raw[len(raw)-1] ^= 1
+	os.WriteFile(b.Path, raw, 0o600)
+	res := c.raw("GET", appPath(id, "/shared/backups/"+itoa(b.ID)+"/download"), nil)
+	if body, _ := io.ReadAll(res.Body); res.StatusCode != 409 || !strings.Contains(string(body), "danificada") {
+		t.Fatalf("tampered copy: %d %q", res.StatusCode, body)
 	}
 }

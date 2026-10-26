@@ -298,6 +298,14 @@ func TestOldPlainBackups(t *testing.T) {
 	if !vault.Sealed(raw) || bytes.Contains(raw, []byte("antigo")) {
 		t.Fatalf("old copy not sealed: %q", raw)
 	}
+	if b, _ := e.Q.GetBackup(ctx, sqlc.GetBackupParams{ID: old.ID, AppID: e.App.ID}); b.SizeBytes != int64(len(raw)) {
+		t.Fatalf("size %d, file %d", b.SizeBytes, len(raw))
+	}
+	// A second start leaves the sealed copy as it is.
+	e.S.SealOldBackups(ctx)
+	if again, _ := os.ReadFile(path); !bytes.Equal(again, raw) {
+		t.Fatal("sealed copy sealed again")
+	}
 	e.DBs.Data[db] = "outro"
 	if err := e.S.Restore(ctx, e.App.ID, old.ID, 1); err != nil || e.DBs.Data[db] != "antigo" {
 		t.Fatalf("sealed restore: %v, data %q", err, e.DBs.Data[db])

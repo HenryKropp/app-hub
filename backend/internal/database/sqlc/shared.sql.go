@@ -1177,6 +1177,20 @@ func (q *Queries) TouchSharedAccess(ctx context.Context, arg TouchSharedAccessPa
 	return err
 }
 
+const updateBackupSize = `-- name: UpdateBackupSize :exec
+UPDATE shared_backups SET size_bytes = $2 WHERE id = $1
+`
+
+type UpdateBackupSizeParams struct {
+	ID        int64 `json:"id"`
+	SizeBytes int64 `json:"size_bytes"`
+}
+
+func (q *Queries) UpdateBackupSize(ctx context.Context, arg UpdateBackupSizeParams) error {
+	_, err := q.db.Exec(ctx, updateBackupSize, arg.ID, arg.SizeBytes)
+	return err
+}
+
 const upsertAppConfig = `-- name: UpsertAppConfig :exec
 INSERT INTO app_config (app_id, name, is_secret, value_plain, value_cipher, updated_by, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, now())

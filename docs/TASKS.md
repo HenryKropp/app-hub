@@ -181,11 +181,12 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Tasks 1 a 18 (manifesto, cofre, motor Podman, bancos por app, receitas, checagem, implantação, porteiro, vigia, API da ficha, uso e custo, catálogo, parte "Compartilhado" da ficha, página Servidor e gastos) | Done | Juntado à versão principal (`main`) em 2026-10-26, com todos os testes passando |
 | Task 19: ADR 010, PRD, TASKS, INFRASTRUCTURE e script de fotos (`e2e/compartilhados.mjs`) | Done | As fotos só rodam depois que o Henry reiniciar o Hub com o código novo |
 | Teste de ponta a ponta com o Podman de verdade (2026-10-07, num Hub de teste separado) | Done | 12 de 12 passos passaram. Os 5 defeitos achados foram corrigidos: parada do app levava 10 s (o app não recebia o sinal de parar), o vigia religava depois de uma só checagem de saúde que falhava (agora pede 2 seguidas e confere de novo antes de religar), disco "usado" contava os blocos reservados, `PUT /api/server/cost` com corpo errado gravava zero, e a resposta de `POST /api/apps` vinha sem permissões nem versão |
-| Cópias dos bancos criptografadas (2026-10-26) | Done | Com a chave do cofre, em pedaços autenticados; as cópias antigas são criptografadas quando o Hub liga. Restaurar lê as duas |
+| Cópias dos bancos criptografadas (2026-10-26) | Done | Com a chave do cofre, em pedaços autenticados; as cópias antigas são criptografadas quando o Hub liga. Restaurar lê as duas. "Baixar" entrega a cópia já aberta (`pg_restore` lê); cópia danificada dá aviso em vez de arquivo quebrado |
 | Task 19: teste de verdade com o Henry (Streamlit de exemplo, testar, publicar, descansar, voltar versão, custo, checagem do Sistema Alis V2) | Pending | Um passo por vez, conferindo pelos dados do Hub |
 
 ### Depois
 - Subir na nuvem (por último).
+- Revisão de 2026-10-26, itens pequenos: o resumo das versões antigas ainda pode citar nomes como `.env.local` (o conteúdo já saiu); amarrar cada cópia ao seu app (identificador no cabeçalho); criptografar também arquivos `.dump` soltos na pasta sem registro no banco.
 - A montagem da caixa ainda copia o `.env` da pasta para dentro da imagem. Tirar, e a checagem pedir que as senhas passem pelas configurações do app (cofre).
 - Sistema Alis V2 para a equipe (antes, só a checagem).
 - Linha "Versão nova pronta para publicar" na ficha (spec 4.3).
