@@ -1,5 +1,10 @@
 # TASKS — App Hub (Módulo 1, piloto local)
 
+> Registro histórico do piloto. Os estados abaixo não substituem as tarefas
+> atuais do projeto. Para o estado geral em 26/10/2026, consulte o
+> [README](../README.md). Em particular, não considere o fluxo Windows completo
+> validado nem a execução gerenciada na nuvem entregue.
+
 Status: Pending / In Progress / Done / Blocked
 
 ## Fase 0 — Planejamento

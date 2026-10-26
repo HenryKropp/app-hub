@@ -1,5 +1,45 @@
 # INFRASTRUCTURE — App Hub
 
+## Ambiente atual — Replit (26/10/2026)
+
+| Componente | Execução | Configuração |
+|---|---|---|
+| Interface React/Vite | Arquivos compilados servidos pelo backend | Mesma origem das APIs |
+| Backend Go | Workflow `Start application` | `bash scripts/run-replit.sh`, porta 5000 neste ambiente |
+| PostgreSQL | Banco conectado ao projeto Replit | `DATABASE_URL`, sem valor no repositório |
+| Agente Windows | Computador de cada usuário | Binário compilado para o endereço do Hub |
+
+- Consulte [replit.md](../replit.md) para inicialização e requisitos.
+- `BASE_URL` precisa corresponder à origem HTTPS acessível do Hub; é usada,
+  inclusive, no link de aprovação da conexão do agente. Não reutilize o endereço
+  de outro ambiente.
+- `AGENT_BINARY_PATH` aponta para o binário disponibilizado pelo Hub.
+- O endereço do agente é incorporado na compilação por `HUB_URL` (ou pelo domínio
+  de desenvolvimento) e pode ser substituído por `APPHUB_URL` no computador.
+  Ao mudar de endereço, recompile o agente; a verificação de datas do script de
+  inicialização não detecta, por si só, uma mudança de domínio.
+- O servidor não acessa as pastas Windows por `/mnt/c` no Replit. Scripts
+  importados pelo navegador ficam no PostgreSQL e são enviados ao agente.
+- A inicialização aplica as migrações embutidas. Publicação e migrações de
+  produção exigem planejamento separado; um push ao GitHub não as executa.
+
+### Acesso externo ao ambiente de desenvolvimento
+
+No teste Windows, uma chamada externa ao endereço de desenvolvimento recebeu
+redirecionamento para a proteção de acesso do Replit (`__replshield`), enquanto o
+pedido feito do workspace chegou ao Hub. O navegador autenticado no Replit não
+comprova que o agente tem acesso ao mesmo endereço.
+
+Ajustar a privacidade do endereço de desenvolvimento é uma decisão de exposição
+do ambiente, não uma correção das permissões do Hub. Se houver liberação pública
+temporária para teste, mantenha a autenticação do Hub e restaure a proteção ao
+terminar. Não trate esse endereço temporário como URL de produção.
+
+## Piloto local original — histórico
+
+As informações abaixo descrevem o ambiente WSL anterior, não os requisitos do
+workflow atual no Replit.
+
 | Name | Image | Local Port | Env Var | Type |
 |------|-------|-----------|---------|------|
 | db | supabase/postgres:17.6.1.160 | 5433 | DATABASE_URL | backend |
