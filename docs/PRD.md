@@ -185,6 +185,13 @@ Ideia do Henry em 2026-10-26: compartilhar skills do Claude pelo Hub, como se co
 - **Junto com o MCP (3.11):** a skill ensina o Claude a fazer a tarefa e o Hub roda o app de dentro da conversa.
 - **Por que interessa:** empresas vão acumular dezenas de skills sem dono nem versão, o mesmo problema que o Hub resolve para apps.
 
+### 3.13 Gestão de gastos com IA (ideia, não decidida)
+Ideia do Henry em 2026-10-26: gerir tokens e créditos de IA pelo Hub. Três níveis, do mais simples ao mais completo:
+1. **Painel de gastos:** o Hub lê o consumo da conta da empresa nos provedores de IA (a Anthropic tem uma API de uso e custo para administradores; falta confirmar o detalhe disponível, sobretudo para os planos do claude.ai) e mostra o gasto por mês, chave e modelo.
+2. **Chave de IA centralizada (o nível que mais vale):** os apps não guardam chave. Pedem a IA através do Hub, que usa a chave da empresa guardada no cofre. O Hub mede o gasto por app, pessoa e área, e acaba com chave escondida no código (risco já visto na importação de scripts).
+3. **Créditos e limites:** orçamento mensal por área ou pessoa, aviso em 80%, bloqueio ou aprovação ao estourar, relatório de consumo. Para vender o Hub, também serve de base para cobrança.
+- **Ligações:** cofre (1.7), página Servidor e gastos e porteiro dos apps compartilhados (3.7b), skills do Claude (3.12).
+
 ---
 
 ## 4. Fluxos principais
