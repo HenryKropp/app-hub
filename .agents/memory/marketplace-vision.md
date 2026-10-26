@@ -8,3 +8,9 @@ O usuário descreveu a ideia como “um hub de micro apps entre a empresa (e eve
 **Why:** direção de produto declarada pelo usuário; a abertura ao público é uma possibilidade futura, não uma exigência de lançamento imediato.
 
 **How to apply:** considerar compartilhamento interno e evolução para um marketplace B2B ao discutir arquitetura e escopo. O público-alvo externo são outras empresas adotando microapps, não visitantes anônimos executando aplicativos. Não presumir monetização ou publicação aberta de código.
+
+O usuário confirmou que os microapps “precisam de arquivos locais”.
+
+**Why:** requisito declarado pelo usuário ao discutir o propósito do agente Windows.
+
+**How to apply:** preservar o uso de arquivos locais ao avaliar alternativas de execução. Ainda não foi esclarecido se basta selecionar e enviar arquivos pelo navegador ou se é necessário acessar pastas diretamente; não presumir essa distinção resolvida.
