@@ -150,6 +150,9 @@ ORDER BY created_at DESC LIMIT 1;
 -- name: LastDailyBackup :one
 SELECT * FROM shared_backups WHERE app_id = $1 AND kind = 'daily' ORDER BY created_at DESC LIMIT 1;
 
+-- name: ListAllBackups :many
+SELECT * FROM shared_backups ORDER BY id;
+
 -- name: ListExpiredBackups :many
 SELECT * FROM shared_backups WHERE expires_at < $1;
 

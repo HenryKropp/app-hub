@@ -425,6 +425,40 @@ func (q *Queries) LatestPreDeployBackup(ctx context.Context, arg LatestPreDeploy
 	return i, err
 }
 
+const listAllBackups = `-- name: ListAllBackups :many
+SELECT id, app_id, kind, path, size_bytes, deployment_id, created_by, expires_at, created_at FROM shared_backups ORDER BY id
+`
+
+func (q *Queries) ListAllBackups(ctx context.Context) ([]SharedBackup, error) {
+	rows, err := q.db.Query(ctx, listAllBackups)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SharedBackup
+	for rows.Next() {
+		var i SharedBackup
+		if err := rows.Scan(
+			&i.ID,
+			&i.AppID,
+			&i.Kind,
+			&i.Path,
+			&i.SizeBytes,
+			&i.DeploymentID,
+			&i.CreatedBy,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAllOpenTests = `-- name: ListAllOpenTests :many
 SELECT id, app_id, version_id, kind, recipe, image_id, container_id, test_db_name, port, status, build_log, error_message, expires_at, created_by, created_at, finished_at FROM shared_deployments WHERE kind = 'test' AND status IN ('building','ready')
 `

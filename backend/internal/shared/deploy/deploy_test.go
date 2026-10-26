@@ -1,6 +1,7 @@
 package deploy_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy/deploytest"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/engine"
+	"github.com/HenryKropp/app-hub/backend/internal/vault"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -251,6 +253,54 @@ func TestBackupAndRestore(t *testing.T) {
 	list, _ := e.Q.ListBackups(ctx, e.App.ID)
 	if len(list) != 2 || list[0].Kind != "pre_restore" {
 		t.Fatalf("%+v", list)
+	}
+}
+
+// Copies on disk are encrypted: reading the server's disk does not show the data.
+func TestBackupIsEncrypted(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	e.Publish(t)
+	e.DBs.Data[e.Shared(t).DbName] = "cpf-12345678900"
+	b, err := e.S.Backup(ctx, e.App.ID, "manual", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(b.Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !vault.Sealed(raw) || bytes.Contains(raw, []byte("cpf-12345678900")) {
+		t.Fatalf("copy is not encrypted: %q", raw)
+	}
+}
+
+// Copies made before encryption still restore, and SealOldBackups encrypts them.
+func TestOldPlainBackups(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	e.Publish(t)
+	db := e.Shared(t).DbName
+	path := filepath.Join(t.TempDir(), "old.dump")
+	if err := os.WriteFile(path, []byte("dump:antigo"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	now := pgtype.Timestamptz{Time: time.Now(), Valid: true}
+	old, err := e.Q.InsertBackup(ctx, sqlc.InsertBackupParams{AppID: e.App.ID, Kind: "manual", Path: path, SizeBytes: 11, ExpiresAt: now, CreatedAt: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.S.Restore(ctx, e.App.ID, old.ID, 1); err != nil || e.DBs.Data[db] != "antigo" {
+		t.Fatalf("plain restore: %v, data %q", err, e.DBs.Data[db])
+	}
+	e.S.SealOldBackups(ctx)
+	raw, _ := os.ReadFile(path)
+	if !vault.Sealed(raw) || bytes.Contains(raw, []byte("antigo")) {
+		t.Fatalf("old copy not sealed: %q", raw)
+	}
+	e.DBs.Data[db] = "outro"
+	if err := e.S.Restore(ctx, e.App.ID, old.ID, 1); err != nil || e.DBs.Data[db] != "antigo" {
+		t.Fatalf("sealed restore: %v, data %q", err, e.DBs.Data[db])
 	}
 }
 
