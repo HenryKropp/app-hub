@@ -174,6 +174,17 @@ Pedido do Henry em 2026-09-30: registrar apps de dentro do Claude, sem preencher
 - A IA age com as permissões de quem gerou o código de acesso, nunca mais que isso.
 - **Não precisa de chave da Claude API:** quem lê e escreve é o Claude do criador.
 
+### 3.12 Skills do Claude no catálogo (ideia, não decidida)
+Ideia do Henry em 2026-10-26: compartilhar skills do Claude pelo Hub, como se compartilham apps.
+- **O que é uma skill:** uma pasta com um `SKILL.md` (nome e descrição no topo, depois as instruções), às vezes com scripts, modelos ou textos de referência. Não há registro central: o Claude usa as skills que estão no lugar onde ele procura.
+- **No Hub:** mais um tipo no catálogo, ao lado de script e janela, com responsável, ficha, versões, área e permissões. Mais simples que um app: não roda, não prepara ambiente, não gera resultados. Checagem de segredos no texto, como na importação de scripts.
+- **Entrega (o ponto difícil):** pôr a pasta onde o Claude de quem tem acesso procura, e tirar de quem perdeu o acesso. Caminhos possíveis:
+  1. o Agente copia a pasta para `.claude\skills` no Windows (Claude Code), com atualização automática;
+  2. o Hub serve uma loja de plugins do Claude Code, filtrada pelas permissões de cada pessoa;
+  3. claude.ai e Claude Desktop: falta pesquisar se dá para publicar skills da empresa por um sistema de fora ou só por um administrador.
+- **Junto com o MCP (3.11):** a skill ensina o Claude a fazer a tarefa e o Hub roda o app de dentro da conversa.
+- **Por que interessa:** empresas vão acumular dezenas de skills sem dono nem versão, o mesmo problema que o Hub resolve para apps.
+
 ---
 
 ## 4. Fluxos principais
