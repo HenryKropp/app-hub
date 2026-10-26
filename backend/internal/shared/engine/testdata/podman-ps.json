@@ -1,0 +1,49 @@
+[
+  {
+    "AutoRemove": false,
+    "Command": [
+      "httpd",
+      "-f",
+      "-p",
+      "80"
+    ],
+    "CreatedAt": "4 seconds ago",
+    "CIDFile": "",
+    "Exited": false,
+    "ExitedAt": -62135596800,
+    "ExitCode": 0,
+    "Id": "5ba6ab6d82b22b7b03f5d20ca43b13ee9144baa46e8c6ab20f3d7cf498eedce0",
+    "Image": "docker.io/library/busybox:latest",
+    "ImageID": "aaef90e065235eb0b2d9938be85d1b81add2902cf89affe2cdfa19be33476ac0",
+    "IsInfra": false,
+    "Labels": {
+      "app-hub.app": "0"
+    },
+    "Mounts": [],
+    "Names": [
+      "apphub-probe"
+    ],
+    "Namespaces": {
+      
+    },
+    "Networks": [],
+    "Pid": 181287,
+    "Pod": "",
+    "PodName": "",
+    "Ports": [
+      {
+        "host_ip": "127.0.0.1",
+        "container_port": 80,
+        "host_port": 39379,
+        "range": 1,
+        "protocol": "tcp"
+      }
+    ],
+    "Restarts": 0,
+    "Size": null,
+    "StartedAt": 1791328481,
+    "State": "running",
+    "Status": "Up 3 seconds",
+    "Created": 1791328480
+  }
+]

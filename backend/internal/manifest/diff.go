@@ -42,6 +42,7 @@ func Diff(a, b Manifest) []Change {
 	add("depends_on", "Depende de", jsonText(a.DependsOn), jsonText(b.DependsOn), true)
 	add("build", "Como recompilar", jsonText(a.Build), jsonText(b.Build), true)
 	add("notes", "Observações", jsonText(a.Notes), jsonText(b.Notes), true)
+	add("shared", "Compartilhado", jsonText(a.Shared), jsonText(b.Shared), true)
 	return out
 }
 

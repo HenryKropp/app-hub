@@ -59,3 +59,12 @@ test("shows Equipe only to who takes care of the team", async () => {
   mount(henry)
   expect(screen.getAllByRole("link", { name: /Equipe/ }).length).toBeGreaterThan(0)
 })
+
+test("shows Servidor only to who can manage the server", async () => {
+  vi.spyOn(api, "activeRuns").mockResolvedValue([])
+  mount(bia)
+  expect(screen.queryByRole("link", { name: /Servidor/ })).toBeNull()
+  cleanup()
+  mount(henry)
+  expect(screen.getAllByRole("link", { name: /Servidor/ })[0]).toHaveAttribute("href", "/servidor")
+})

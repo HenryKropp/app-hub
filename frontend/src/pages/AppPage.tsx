@@ -1,18 +1,22 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, FolderOpen, KeyRound, Play, TriangleAlert } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { ArrowLeft, ExternalLink, FolderOpen, KeyRound, Play, TriangleAlert } from "lucide-react"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { HistoryTimeline } from "@/components/HistoryTimeline"
 import { KindTab, LoadError, SavedIn } from "@/components/bits"
 import { AccessSection } from "@/components/ficha/AccessSection"
 import { BuildEditor, choiceProblems, DependsEditor, IdentityEditor, InputsEditor, NotesEditor, OutputsEditor, PeopleEditor } from "@/components/ficha/editors"
 import { EditLink, Part, SaveBar, Section } from "@/components/ficha/Part"
 import { BuildView, InputList, Notes, OtherApps, OutputList, People, RunList } from "@/components/ficha/views"
-import { api, type AppDetail, type AppSummary, type Area, type Manifest, type PersonRow, type RunSummary } from "@/lib/api"
+import { MakeShared, SharedSection } from "@/components/ficha/shared/SharedSection"
+import { Tech } from "@/components/ficha/shared/Tech"
+import { api, openSharedUrl, type AppDetail, type AppSummary, type Area, type Manifest, type PersonRow, type RunSummary } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
 import { formatWhen } from "@/lib/runs"
 import { kindInfo } from "@/lib/kinds"
+import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 type PartKey = "sobre" | "pede" | "entrega" | "pessoas" | "notas" | "outros" | "codigo"
 // updatedAt is the version the draft started from: saving it after the app
@@ -187,6 +191,12 @@ export function AppPage() {
   const deps = m.runtime.dependencies ?? []
   const howRuns = m.run.command || m.run.url
   const notes = m.notes ?? []
+  // A published shared app is opened at its address, not run on a computer.
+  const opens = app.shared && app.shared.status !== "draft" ? app.shared : null
+  const sharedChanged = (next?: AppDetail) => {
+    if (next) setApp(next)
+    else void api.app(app.id).then(setApp, () => toast.error("Não consegui atualizar a ficha. Recarregue a página para ver o estado novo."))
+  }
 
   return (
     <article>
@@ -226,7 +236,14 @@ export function AppPage() {
             ))}
           </p>
         </div>
-        {app.can_run && (
+        {opens && (
+          <div className="flex shrink-0 flex-col items-start gap-2 lg:items-end">
+            <a href={openSharedUrl(opens.slug)} target="_blank" rel="noopener" className={cn(buttonVariants({ variant: "run" }), "h-11 gap-2 pr-6 pl-5 text-[0.95rem] [&_svg]:fill-none")}>
+              <ExternalLink className="size-4" /> Abrir
+            </a>
+          </div>
+        )}
+        {!opens && app.can_run && (
           <div className="flex shrink-0 flex-col items-start gap-2 lg:items-end">
             <Button variant="run" onClick={() => run(target)} disabled={busy.has(app.id)} className="h-11 gap-2 pr-6 pl-5 text-[0.95rem]">
               <Play className="size-4" /> Rodar
@@ -254,6 +271,11 @@ export function AppPage() {
             <RunList runs={runs} everyone={can.runs} />
           </Section>
         )}
+        {app.shared ? (
+          <SharedSection app={app} can={can} onChanged={sharedChanged} />
+        ) : (
+          m.kind === "web" && can.restore && <MakeShared app={app} onChanged={setApp} />
+        )}
         {part("pessoas", "Quem cuida", <People owner={m.owner?.name ?? ""} backup={m.backup?.name ?? ""} />, () => (
           <PeopleEditor people={lists.people} ownerId={draft!.ownerId} backupId={draft!.backupId} onChange={(o, b) => setDraft({ ...draft!, ownerId: o, backupId: b })} />
         ), can.edit && can.access)}
@@ -267,6 +289,7 @@ export function AppPage() {
                 {notes.length > 0 && `${notes.length} ${notes.length === 1 ? "ponto" : "pontos"} de atenção · `}código, outros apps, histórico, acesso
               </small>
             </summary>
+            {techSeen && app.shared && <Tech app={app} onChanged={sharedChanged} />}
             {part("notas", "Pontos de atenção", <Notes notes={notes} />, () => (
               <NotesEditor value={draft!.manifest.notes ?? []} onChange={(v) => setManifest({ notes: v })} />
             ))}

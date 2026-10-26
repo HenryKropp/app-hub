@@ -1,8 +1,8 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
-import { Gauge, History, KeyRound, LibraryBig, ListChecks, LogOut, Settings, Users } from "lucide-react"
+import { Gauge, History, KeyRound, LibraryBig, ListChecks, LogOut, Server, Settings, Users } from "lucide-react"
 import { api, type Person } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
-import { canRegister, canSeeTeam } from "@/lib/permissions"
+import { canRegister, canSeeServer, canSeeTeam } from "@/lib/permissions"
 import { RunsProvider, useRuns } from "@/lib/runs-context"
 import { isLive } from "@/lib/runs"
 import { cn } from "@/lib/utils"
@@ -20,6 +20,7 @@ const NAV = [
   { to: "/", label: "Catálogo", icon: LibraryBig, show: (_p: Person) => true },
   { to: "/execucoes", label: "Minhas execuções", icon: History, show: (_p: Person) => true },
   { to: "/equipe", label: "Equipe", icon: Users, show: canSeeTeam },
+  { to: "/servidor", label: "Servidor", icon: Server, show: canSeeServer },
   { to: "/comecar", label: "Começar", icon: ListChecks, show: (_p: Person) => true },
 ]
 

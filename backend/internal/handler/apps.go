@@ -125,10 +125,11 @@ func (h *Handler) scan(w http.ResponseWriter, r *http.Request) {
 
 type appSummary struct {
 	sqlc.ListAppsRow
-	FolderDisplay    string     `json:"folder_display"`
-	CanRun           bool       `json:"can_run"`
-	RememberedFolder string     `json:"remembered_folder"`
-	Can              access.Can `json:"can"`
+	FolderDisplay    string       `json:"folder_display"`
+	CanRun           bool         `json:"can_run"`
+	RememberedFolder string       `json:"remembered_folder"`
+	Can              access.Can   `json:"can"`
+	Shared           *sharedBrief `json:"shared"`
 }
 
 func (h *Handler) listApps(w http.ResponseWriter, r *http.Request) {
@@ -155,6 +156,11 @@ func (h *Handler) listApps(w http.ResponseWriter, r *http.Request) {
 	for _, f := range folders {
 		remembered[f.AppID] = f.Folder
 	}
+	shared, err := h.sharedBriefs(r)
+	if err != nil {
+		internalError(w, "list shared apps", err)
+		return
+	}
 	out := make([]appSummary, 0, len(apps))
 	for _, a := range apps {
 		can := acc.For(access.App{ID: a.ID, AreaID: a.AreaID, OwnerID: a.OwnerID, BackupID: a.BackupID.Int64, Restricted: a.Restricted})
@@ -162,7 +168,7 @@ func (h *Handler) listApps(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		out = append(out, appSummary{ListAppsRow: a, FolderDisplay: hostpath.ToDisplay(a.FolderPath),
-			CanRun: canRunKind(a.Kind, a.Entrypoint), RememberedFolder: remembered[a.ID], Can: can})
+			CanRun: canRunKind(a.Kind, a.Entrypoint), RememberedFolder: remembered[a.ID], Can: can, Shared: shared[a.ID]})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -184,6 +190,9 @@ type appDetail struct {
 	Can              access.Can         `json:"can"`
 	DependsOn        []appLink          `json:"depends_on_apps,omitempty"`
 	UsedBy           []appLink          `json:"used_by,omitempty"`
+	Shared           *sharedBrief       `json:"shared"`
+	NeedsRestart     bool               `json:"needs_restart,omitempty"` // PUT /shared: the running app must be turned on again
+	NeedsPublish     bool               `json:"needs_publish,omitempty"` // PUT /shared: a new port only counts after a new publish
 }
 
 type appLink struct {
@@ -226,6 +235,11 @@ func (h *Handler) getApp(w http.ResponseWriter, r *http.Request) {
 // writeDetail answers with the full ficha of a: version, remembered folder,
 // what me can do and, for whoever sees the technical part, the links to other apps.
 func (h *Handler) writeDetail(w http.ResponseWriter, r *http.Request, me sqlc.Person, a sqlc.App, status int) {
+	h.writeDetailWith(w, r, me, a, status, nil)
+}
+
+// writeDetailWith is writeDetail with a last touch on the answer.
+func (h *Handler) writeDetailWith(w http.ResponseWriter, r *http.Request, me sqlc.Person, a sqlc.App, status int, edit func(*appDetail)) {
 	d, err := toAppDetail(a)
 	if err != nil {
 		internalError(w, "decode manifest", err)
@@ -250,11 +264,18 @@ func (h *Handler) writeDetail(w http.ResponseWriter, r *http.Request, me sqlc.Pe
 		return
 	}
 	d.Can = acc.For(appRef(a))
+	if d.Shared, err = h.sharedBriefOf(r, a.ID); err != nil {
+		internalError(w, "shared brief", err)
+		return
+	}
 	if d.Can.Tech {
 		if d.DependsOn, d.UsedBy, err = h.appLinks(r.Context(), acc, a, d.Manifest); err != nil {
 			internalError(w, "app links", err)
 			return
 		}
+	}
+	if edit != nil {
+		edit(&d)
 	}
 	writeJSON(w, status, d)
 }
@@ -366,12 +387,7 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	d, err := toAppDetail(a)
-	if err != nil {
-		internalError(w, "decode manifest", err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, d)
+	h.writeDetail(w, r, me, a, http.StatusCreated) // the same answer a GET gives
 }
 
 // updateApp saves one part of the ficha (the frontend sends the whole manifest
@@ -536,7 +552,7 @@ func (h *Handler) writeApp(w http.ResponseWriter, r *http.Request, me sqlc.Perso
 	}
 	if len(changes) > 0 {
 		raw, _ := json.Marshal(changes)
-		if err := h.q.InsertAppChange(r.Context(), sqlc.InsertAppChangeParams{AppID: a.ID, PersonID: me.ID, Changes: raw}); err != nil {
+		if err := h.q.InsertAppChange(r.Context(), sqlc.InsertAppChangeParams{AppID: a.ID, PersonID: pgtype.Int8{Int64: me.ID, Valid: true}, Changes: raw}); err != nil {
 			internalError(w, "insert app change", err)
 			return sqlc.App{}, false
 		}

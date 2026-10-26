@@ -291,6 +291,15 @@ One page, parts in this order: header (name, summary with a quiet "Editar", kind
 ### Team Page (Equipe)
 A page title, then small pill tabs (Pessoas, Áreas, Cargos); the selected tab is the neutral Ink pill, the others outline. Tabs show only what the person may use. Each tab is one hairline card of rows: name in medium weight with gray facts beside it (apps, leaders, members; permissions written in Portuguese for roles) and quiet gray text actions below (Renomear, Apagar, Editar). Creating things uses a small field and a neutral button under the card. No color besides the active nav icon.
 
+### Shared Status Dot (SharedStatusDot)
+A 8px dot plus a short Portuguese word, 12px, for a shared app's state: green for "No ar", a pulsing violet dot for "Ligando", gray for "Descansando" or "Parado", red for "Caiu", and an empty outlined dot for "Ainda não publicado". These are the exact words the app shows (`frontend/src/lib/shared.ts`). It appears on the catalog card beside "Abrir" and in the ficha line. Violet is kept only for what is starting or can be started: **Abrir**, **Testar** and **Publicar** use the violet button; Parar, Ligar and Limites stay outline.
+
+### Shared Part of the Ficha (Compartilhado)
+A part in the same label-and-content row as the others. It holds the readiness checklist ("Checagem antes de publicar"): one row per item with a status icon (green check, amber triangle, gray info), a plain sentence, an "estou ciente" mark for warnings and a "Texto para o Claude" copy action. Below it come Testar and Publicar, then the settings, backups and, for people who see the technical side, logs and usage inside "Para quem cuida do app".
+
+### Server Page (Servidor e gastos)
+A page title, then a three-column row on desktop (stacked on phones, 16px gutters): memory meter, disk meter (turns amber with a sentence past 90%) and a hairline card with the month's spending in a tabular 20px figure. Meters are 8px tall rounded bars on the Pill Gray track. Under them: the monthly cost field with an outline "Salvar custo", then one row per shared app (name link, state dot, hours on, memory average / peak / reserved, database and backups, spend, and outline Parar / Ligar / Limites). On phones each row becomes a hairline card with labelled cells.
+
 ### Load Error
 A page that didn't load shows a red warning triangle with the reason in plain Portuguese and an outline "Tentar de novo" button below. The browser's own English errors never reach the screen.
 
