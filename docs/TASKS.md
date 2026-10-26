@@ -65,6 +65,7 @@ Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep)
 6. Assinatura digital do App Hub (etapa 4), antes de vender
 7. Depois: retomar a Fase 2b (teste com mais 4 apps e MCP)
 8. **A decidir: apps para vários ao mesmo tempo** (dúvida do Henry, 2026-10-02). Ideia no PRD 3.3: opção "pessoal" ou "compartilhado" no manifesto; o compartilhado roda uma vez só no servidor central, com um banco de dados só e a senha no cofre. Decidir junto com "Rodar apps web" e antes do primeiro colega usar um app desses
+9. **Ideia: compartilhar skills do Claude pelo Hub** (Henry, 2026-10-26). Ver PRD 3.12. Antes de desenhar: pesquisar como publicar skills no claude.ai
 
 **Para a próxima sessão (deixado em 2026-10-01, à noite):**
 - Etapa 1: Hub da 8080 reiniciado em 2026-10-02 (migração 006 aplicada, `DEV_MODE=1`, registro em `backend/hub.log`). Telas conferidas com `e2e/etapa1.mjs` (só leitura; faixa e pasta lembrada simuladas): catálogo com Rodar, janela com "Lembrar esta pasta", faixa, Minhas execuções e "De todos", ficha com "salva em … · trocar", claro/escuro/celular. A barra lateral acompanha a rolagem. Sobras visuais: no celular, 3 cartões na faixa cobrem quase meia tela; o espaço embaixo da página (`pb-32`) é menor que a faixa com 3 cartões.
