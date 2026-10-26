@@ -28,7 +28,7 @@ type Snapshot []File
 
 // Scan reads the folder into a snapshot. Files whose size and modification
 // time match prev are trusted without being read, so OneDrive "online-only"
-// files stay in the cloud. It returns, by SHA-256, the contents of the code
+// files stay in the cloud. Files with passwords (SecretFile) are left out. It returns, by SHA-256, the contents of the code
 // files it had to read. Any read error fails the whole scan: a file that could
 // not be read must never look like a removed file.
 func Scan(f Folder, outs []manifest.Output, prev Snapshot) (Snapshot, map[string][]byte, error) {
@@ -45,7 +45,7 @@ func Scan(f Folder, outs []manifest.Output, prev Snapshot) (Snapshot, map[string
 			}
 			return nil
 		}
-		if !Included(rel, outs) {
+		if !Included(rel, outs) || SecretFile(rel) {
 			return nil
 		}
 		if p, ok := known[rel]; ok && p.Size == size && p.Modified.Equal(mod) {

@@ -141,7 +141,7 @@ Em linguagem de produto, quem pode o quê:
 Alguns apps precisam ficar no ar para muita gente usar ao mesmo tempo, com os mesmos dados. O Hub passa a rodá-los num servidor, em vez de abrir no computador de cada pessoa.
 - **Tornar compartilhado:** na ficha, a parte "Compartilhado" mostra a checagem do que falta (com um "texto para o Claude" para consertar), deixa **Testar** numa caixa separada, com banco próprio de teste (desliga sozinha em 30 min), e **Publicar** para a equipe. **Publicar versão nova** sobe ao lado da atual e só assume se funcionar; **Voltar para a anterior** volta só a versão ou a versão com os dados.
 - **Abrir:** o cartão do catálogo ganha **Abrir** e o status (no ar, dormindo, parado, com problema). O app abre em endereço próprio, sem outro login: vale o login do Hub e as mesmas regras de acesso da ficha. O app sabe quem é a pessoa (nome, e-mail e papel).
-- **Descanso e cópias:** o app dorme depois de 30 min sem uso e acorda no próximo acesso. Há cópia diária do banco, cópias antes de publicar e restaurar e cópia manual; a ficha restaura.
+- **Descanso e cópias:** o app dorme depois de 30 min sem uso e acorda no próximo acesso. Há cópia diária do banco, cópias antes de publicar e restaurar e cópia manual, todas criptografadas; a ficha restaura.
 - **Servidor e gastos:** o administrador informa quanto o servidor custa por mês e vê memória, disco e a parte de cada app no gasto, e pode parar, ligar ou mudar os limites de um app.
 - **O que cada papel vê:**
   - **Quem só usa:** vê o status e **Abrir** nos apps que pode ver. Nada de testar, publicar ou servidor.
@@ -233,7 +233,7 @@ Ideia do Henry em 2026-10-26: gerir tokens e créditos de IA pelo Hub. Três ní
 - **Execução isolada da pasta original:** rodar um app não pode sujar nem sobrescrever a pasta original. Arquivos gerados ficam guardados no histórico da execução.
 - **Português simples** em toda a interface, sem termos técnicos sem explicação.
 - **Manifesto aberto e legível:** o app continua compreensível fora do Hub.
-- **Segredos nunca visíveis** na interface, nos registros ou no manifesto.
+- **Segredos nunca visíveis** na interface, nos registros ou no manifesto. Arquivos de senhas (`.env`) não entram no histórico de versões, e as cópias dos bancos ficam criptografadas.
 - **Preparado para o Módulo 2:** a forma de rodar os apps fica separada do resto, para depois levar a execução para a nuvem sem refazer o Hub.
 - **Operável pela IA (MCP):** tudo o que a interface faz (registrar, ler ficha, rodar, versionar) fica disponível como operação que a IA também pode usar (3.11).
 

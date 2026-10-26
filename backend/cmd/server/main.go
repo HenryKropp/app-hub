@@ -97,6 +97,7 @@ func main() {
 	}
 	svc := deploy.New(q, eng, dbs, v, deploy.Options{DataDir: cfg.SharedDataDir, Domain: cfg.SharedDomain, Scheme: scheme})
 	sup := supervisor.New(q, eng, svc)
+	svc.SealOldBackups(ctx)
 	if cfg.BaseURL == "" {
 		slog.Warn("BASE_URL is empty: app addresses cannot send people to the Hub sign-in")
 	}

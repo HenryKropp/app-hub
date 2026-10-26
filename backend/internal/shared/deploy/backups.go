@@ -1,9 +1,11 @@
 package deploy
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -13,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
+	"github.com/HenryKropp/app-hub/backend/internal/vault"
 )
 
 var keep = map[string]time.Duration{"daily": 14 * 24 * time.Hour, "pre_deploy": 30 * 24 * time.Hour,
@@ -72,6 +75,9 @@ func (s *Service) backup(ctx context.Context, appID int64, kind string, depID, b
 	if sa.DbName == "" {
 		return sqlc.SharedBackup{}, errNoDB
 	}
+	if s.vault == nil {
+		return sqlc.SharedBackup{}, vault.ErrNoKey
+	}
 	dir := filepath.Join(s.opt.DataDir, "backups", strconv.FormatInt(appID, 10))
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return sqlc.SharedBackup{}, err
@@ -84,7 +90,9 @@ func (s *Service) backup(ctx context.Context, appID int64, kind string, depID, b
 		return sqlc.SharedBackup{}, err
 	}
 	defer os.Remove(tmp.Name())
-	err = s.dbs.Dump(ctx, sa.DbName, tmp)
+	// The copy is encrypted with the vault key: whoever reads the server's
+	// disk does not read the app's data.
+	err = s.sealDump(ctx, sa.DbName, tmp)
 	if cerr := tmp.Close(); err == nil {
 		err = cerr
 	}
@@ -192,12 +200,106 @@ func (s *Service) restoreFile(ctx context.Context, sa sqlc.SharedApp, b sqlc.Sha
 	return before, nil
 }
 
-// loadFile loads a copy file into a database.
-func (s *Service) loadFile(ctx context.Context, db, path string) error {
-	f, err := os.Open(path)
+func (s *Service) sealDump(ctx context.Context, db string, w io.Writer) error {
+	sw, err := s.vault.SealStream(w)
 	if err != nil {
 		return err
 	}
+	if err := s.dbs.Dump(ctx, db, sw); err != nil {
+		return err
+	}
+	return sw.Close()
+}
+
+// openCopy opens a copy file for reading its plain contents. Copies made
+// before encryption existed are read as they are.
+func (s *Service) openCopy(path string) (io.Reader, io.Closer, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	br := bufio.NewReader(f)
+	head, _ := br.Peek(16)
+	if !vault.Sealed(head) {
+		return br, f, nil
+	}
+	if s.vault == nil {
+		f.Close()
+		return nil, nil, vault.ErrNoKey
+	}
+	r, err := s.vault.OpenStream(br)
+	if err != nil {
+		f.Close()
+		return nil, nil, err
+	}
+	return r, f, nil
+}
+
+// loadFile loads a copy file into a database.
+func (s *Service) loadFile(ctx context.Context, db, path string) error {
+	r, c, err := s.openCopy(path)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+	return s.dbs.Restore(ctx, db, r)
+}
+
+// SealOldBackups encrypts the copies written before encryption existed, in
+// place. A copy that fails stays as it was and is tried again next start.
+func (s *Service) SealOldBackups(ctx context.Context) {
+	if s.vault == nil {
+		return
+	}
+	all, err := s.q.ListAllBackups(ctx)
+	if err != nil {
+		slog.Warn("seal old backups: list", "err", err)
+		return
+	}
+	for _, b := range all {
+		if err := s.sealOld(b); err != nil {
+			slog.Warn("seal old backups", "backup", b.ID, "err", err)
+		}
+	}
+}
+
+func (s *Service) sealOld(b sqlc.SharedBackup) error {
+	f, err := os.Open(b.Path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return err
+	}
 	defer f.Close()
-	return s.dbs.Restore(ctx, db, f)
+	head := make([]byte, 16)
+	n, _ := io.ReadFull(f, head)
+	if vault.Sealed(head[:n]) {
+		return nil
+	}
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(b.Path), ".partial-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	sw, err := s.vault.SealStream(tmp)
+	if err == nil {
+		_, err = io.Copy(sw, f)
+	}
+	if err == nil {
+		err = sw.Close()
+	}
+	if err == nil {
+		err = tmp.Sync()
+	}
+	if cerr := tmp.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), b.Path)
 }
