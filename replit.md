@@ -92,3 +92,13 @@ configured with a five-minute timeout.
 - Protected screens were tested automatically, not visually with a signed-in
   browser. A real Windows end-to-end run remains unverified.
 - See `docs/SCRIPTS.md` for limits and security boundaries.
+
+## Multi-company security pilot
+
+The original company remains at `/`; administrators can create isolated
+company workspaces under `/w/<slug>/` in **Segurança**. Their data uses separate
+PostgreSQL schemas and company-scoped sessions. `docs/MARKETPLACE_SECURITY.md`
+describes what is operational today and what is still blocked. The project's
+security reference is `threat_model.md`. No external marketplace or secret
+vault is enabled. Browser imports replace server filesystem scanning in this
+portal; existing apps remain in the original company's database namespace.

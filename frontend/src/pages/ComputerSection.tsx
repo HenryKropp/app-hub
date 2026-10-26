@@ -5,8 +5,10 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { AGENT_DOWNLOAD_URL, api, type ComputersInfo } from "@/lib/api"
 import { formatWhen } from "@/lib/runs"
 import { cn } from "@/lib/utils"
+import { useWorkspace } from "@/lib/use-workspace"
 
 export function ComputerSection() {
+  const { workspace, loading: workspaceLoading, error: workspaceError, retry: retryWorkspace } = useWorkspace()
   const [info, setInfo] = useState<ComputersInfo | null>(null)
   const [error, setError] = useState("")
 
@@ -26,12 +28,17 @@ export function ComputerSection() {
   if (error) return <p role="alert" className="text-destructive">{error}</p>
   if (!info) return <p className="text-muted-foreground">Carregando…</p>
 
-  const install = info.agent_available ? (
-    <a href={AGENT_DOWNLOAD_URL} className={cn(buttonVariants(), "gap-2")}>
-      <Download className="size-4" /> Instalar o Agente
-    </a>
+  const install = info.agent_available && workspace ? (
+    <div>
+      <a href={AGENT_DOWNLOAD_URL} className={cn(buttonVariants(), "gap-2")}>
+        <Download className="size-4" /> Baixar Agente{workspace.base_path ? " (.zip)" : ""}
+      </a>
+      {workspace.base_path && <p className="mt-2 max-w-lg text-xs text-muted-foreground">O ZIP contém o EXE e apphub-url.txt. Extraia todos os arquivos e mantenha-os juntos; não mova o EXE sozinho.</p>}
+    </div>
   ) : (
-    <p className="text-sm text-warn">O Agente ainda não foi preparado neste Hub. Peça a quem administra o Hub.</p>
+    workspaceError ? <div className="text-sm text-warn"><p role="alert">Não foi possível confirmar o tipo de pacote do Agente. O download está oculto por segurança.</p><Button type="button" variant="outline" className="mt-2" onClick={retryWorkspace}>Tentar verificar novamente</Button></div>
+      : workspaceLoading ? <p role="status" className="text-sm text-muted-foreground">Verificando o pacote deste espaço…</p>
+        : <p className="text-sm text-warn">O Agente ainda não foi preparado neste Hub. Peça a quem administra o Hub.</p>
   )
 
   return (
@@ -45,8 +52,8 @@ export function ComputerSection() {
         <div className="rounded-xl border border-border bg-card p-6">
           <h3 className="font-heading text-lg">Nenhum computador conectado</h3>
           <ol className="mt-4 flex list-decimal flex-col gap-2 pl-5 text-sm">
-            <li>Baixe o Agente pelo botão abaixo.</li>
-            <li>Abra o arquivo baixado (AppHubAgente.exe). Se o Windows perguntar, confirme que quer abrir.</li>
+             <li>Baixe o Agente pelo botão abaixo.{workspace?.base_path ? " Extraia todos os arquivos do ZIP para uma pasta." : ""}</li>
+             <li>{workspace?.base_path ? <>Abra <strong>AppHubAgente.exe</strong> de dentro da pasta extraída. O ZIP contém o EXE e apphub-url.txt; mantenha os arquivos juntos e não mova o EXE sozinho.</> : <>Abra o arquivo baixado (<strong>AppHubAgente.exe</strong>). Se o Windows perguntar, confirme que quer abrir.</>}</li>
             <li>O navegador vai abrir uma página do Hub. Clique em <strong>Conectar</strong>.</li>
           </ol>
           <div className="mt-6">{install}</div>

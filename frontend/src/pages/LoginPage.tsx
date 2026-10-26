@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { Navigate, useLocation, useNavigate } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,12 @@ export function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const [workspaceName, setWorkspaceName] = useState("")
+  useEffect(() => {
+    let active = true
+    api.workspace().then((workspace) => { if (active) setWorkspaceName(workspace.name) }).catch(() => {})
+    return () => { active = false }
+  }, [])
 
   if (person) return <Navigate to={from} replace />
 
@@ -66,6 +72,7 @@ export function LoginPage() {
               </div>
             </section>
           ) : <>
+          {workspaceName && <p className="mb-2 text-sm font-medium text-brand">{workspaceName}</p>}
           <h2 className="font-heading text-2xl">{needsSetup ? "Crie a conta de administrador" : "Bem-vindo de volta"}</h2>
           {needsSetup && <p className="mt-2 text-sm text-muted-foreground">Você será o administrador. Depois pode cadastrar as outras pessoas da empresa.</p>}
 

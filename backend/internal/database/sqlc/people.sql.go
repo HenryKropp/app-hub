@@ -55,7 +55,7 @@ func (q *Queries) CreatePerson(ctx context.Context, arg CreatePersonParams) (Per
 }
 
 const createSession = `-- name: CreateSession :exec
-INSERT INTO sessions (token, person_id, expires_at) VALUES ($1, $2, $3)
+INSERT INTO sessions (token, person_id, expires_at) VALUES (encode(sha256(convert_to($1::text,'UTF8')),'hex'), $2, $3)
 `
 
 type CreateSessionParams struct {
@@ -70,7 +70,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 }
 
 const deleteSession = `-- name: DeleteSession :exec
-DELETE FROM sessions WHERE token = $1
+DELETE FROM sessions WHERE token = encode(sha256(convert_to($1::text,'UTF8')),'hex')
 `
 
 func (q *Queries) DeleteSession(ctx context.Context, token string) error {
@@ -117,7 +117,7 @@ func (q *Queries) GetPersonByEmail(ctx context.Context, email string) (Person, e
 const getSessionPerson = `-- name: GetSessionPerson :one
 SELECT p.id, p.name, p.email, p.password_hash, p.created_at, p.role_id FROM sessions s
 JOIN people p ON p.id = s.person_id
-WHERE s.token = $1 AND s.expires_at > now()
+WHERE s.token = encode(sha256(convert_to($1::text,'UTF8')),'hex') AND s.expires_at > now()
 `
 
 func (q *Queries) GetSessionPerson(ctx context.Context, token string) (Person, error) {

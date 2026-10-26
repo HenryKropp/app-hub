@@ -1,8 +1,29 @@
 import { afterEach, expect, test, vi } from "vitest"
-import { api, ApiError, OFFLINE } from "./api"
+import { api, ApiError, fileUrl, OFFLINE, workspaceBasePath, workspaceUrl } from "./api"
 import { manifest as manifestFixture } from "@/test/fixtures"
 
 afterEach(() => vi.unstubAllGlobals())
+
+test("workspace requests and app URLs use the company path prefix", async () => {
+  const original = window.location.pathname
+  window.history.replaceState({}, "", "/w/atelier-norte/seguranca")
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ slug: "atelier-norte", name: "Ateliê Norte", base_path: "/w/atelier-norte", can_manage: true, local_execution_is_sandboxed: false }), { status: 200 }))
+  vi.stubGlobal("fetch", fetchMock)
+  expect(workspaceBasePath()).toBe("/w/atelier-norte")
+  expect(workspaceUrl("/api/agent/download")).toBe("/w/atelier-norte/api/agent/download")
+  expect(fileUrl(8, 4)).toBe("/w/atelier-norte/api/runs/8/files/4")
+  await api.workspace()
+  expect(fetchMock).toHaveBeenCalledWith("/w/atelier-norte/api/workspace", expect.anything())
+  window.history.replaceState({}, "", original)
+})
+
+test("workspace creation uses the provisioning contract", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ slug: "filial", name: "Filial", url: "/w/filial" }), { status: 201 }))
+  vi.stubGlobal("fetch", fetchMock)
+  const payload = { name: "Filial", slug: "filial", password: "senha-atual" }
+  await expect(api.createWorkspace(payload)).resolves.toMatchObject({ url: "/w/filial" })
+  expect(fetchMock).toHaveBeenCalledWith("/api/workspaces", expect.objectContaining({ method: "POST", body: JSON.stringify(payload) }))
+})
 
 test("import retains structured confirmation errors and sends explicit consent", async () => {
   const body = {

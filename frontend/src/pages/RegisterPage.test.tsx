@@ -15,6 +15,7 @@ beforeEach(() => {
   vi.spyOn(api, "people").mockResolvedValue([row(henry), row(ana)])
   vi.spyOn(api, "areas").mockResolvedValue([{ id: 1, name: "Research", app_count: 0, leaders: [], members: [] }])
   vi.spyOn(api, "apps").mockResolvedValue([])
+  vi.spyOn(api, "workspace").mockResolvedValue({ slug: "principal", name: "Empresa principal", base_path: "", can_manage: true, local_execution_is_sandboxed: false })
 })
 afterEach(() => vi.restoreAllMocks())
 
@@ -27,6 +28,7 @@ const renderPage = () =>
 
 test("scans a folder, lists apps and moves to the next after publishing", async () => {
   const user = userEvent.setup()
+  vi.spyOn(api, "workspace").mockResolvedValue({ slug: "principal", name: "Empresa principal", base_path: "", can_manage: true, local_execution_is_sandboxed: false, filesystem_registration_enabled: true })
   const scan = vi.spyOn(api, "scan").mockResolvedValue({
     root_display: "C:\\apps",
     items: [
@@ -38,7 +40,7 @@ test("scans a folder, lists apps and moves to the next after publishing", async 
   vi.spyOn(api, "saveApp").mockResolvedValue({ id: 5, folder_path: "/mnt/c/apps/Rentabilidade", folder_display: "", owner_id: 1, backup_id: null, manifest: manifest(), updated_at: "", can_run: false, version: null, folder_readable: true, remembered_folder: "", area_id: 1, restricted: false, can: ALL_CAN })
 
   renderPage()
-  await user.type(screen.getByLabelText("Onde estão os apps?"), "C:\\apps")
+  await user.type(await screen.findByLabelText("Onde estão os apps?"), "C:\\apps")
   await user.click(screen.getByRole("button", { name: /Analisar/ }))
 
   expect(scan).toHaveBeenCalledWith("C:\\apps", "batch")
@@ -55,12 +57,45 @@ test("scans a folder, lists apps and moves to the next after publishing", async 
 
 test("single-app mode and scan errors", async () => {
   const user = userEvent.setup()
+  vi.spyOn(api, "workspace").mockResolvedValue({ slug: "principal", name: "Empresa principal", base_path: "", can_manage: true, local_execution_is_sandboxed: false, filesystem_registration_enabled: true })
   const { ApiError } = await import("@/lib/api")
   const scan = vi.spyOn(api, "scan").mockRejectedValue(new ApiError(400, "Não encontrei essa pasta."))
   renderPage()
-  await user.type(screen.getByLabelText("Onde estão os apps?"), "C:\\nada")
+  await user.type(await screen.findByLabelText("Onde estão os apps?"), "C:\\nada")
   await user.click(screen.getByRole("radio", { name: "Um app só" }))
   await user.click(screen.getByRole("button", { name: /Analisar/ }))
   expect(scan).toHaveBeenCalledWith("C:\\nada", "single")
   expect(await screen.findByRole("alert")).toHaveTextContent("Não encontrei essa pasta.")
+})
+
+test("multi-company portal hides legacy folder scanning but keeps browser script import primary", async () => {
+  vi.spyOn(api, "workspace").mockResolvedValue({ slug: "filial", name: "Filial", base_path: "/w/filial", can_manage: true, local_execution_is_sandboxed: false, filesystem_registration_enabled: false })
+  const scan = vi.spyOn(api, "scan")
+  renderPage()
+  expect(await screen.findByRole("heading", { name: "Análise de pastas do computador indisponível" })).toBeInTheDocument()
+  expect(screen.getByRole("heading", { name: "Enviar um script do computador" })).toBeInTheDocument()
+  expect(screen.queryByLabelText("Onde estão os apps?")).not.toBeInTheDocument()
+  expect(scan).not.toHaveBeenCalled()
+})
+
+test("root principal hides filesystem scanning unless the workspace explicitly enables legacy registration", async () => {
+  vi.spyOn(api, "workspace").mockResolvedValue({ slug: "principal", name: "Empresa principal", base_path: "", can_manage: true, local_execution_is_sandboxed: false, filesystem_registration_enabled: false })
+  const scan = vi.spyOn(api, "scan")
+  renderPage()
+  expect(await screen.findByRole("heading", { name: "Análise de pastas do computador indisponível" })).toBeInTheDocument()
+  expect(screen.queryByLabelText("Onde estão os apps?")).not.toBeInTheDocument()
+  expect(scan).not.toHaveBeenCalled()
+})
+
+test("folder scanning stays hidden until workspace access is confirmed and can retry", async () => {
+  const user = userEvent.setup()
+  const workspace = vi.spyOn(api, "workspace")
+    .mockRejectedValueOnce(new Error("O Hub não respondeu."))
+    .mockResolvedValueOnce({ slug: "principal", name: "Empresa principal", base_path: "", can_manage: true, local_execution_is_sandboxed: false, filesystem_registration_enabled: true })
+  renderPage()
+  expect(await screen.findByText(/indisponível até o Hub confirmar o isolamento/)).toBeInTheDocument()
+  expect(screen.queryByLabelText("Onde estão os apps?")).not.toBeInTheDocument()
+  await user.click(screen.getByRole("button", { name: "Tentar novamente" }))
+  expect(await screen.findByLabelText("Onde estão os apps?")).toBeInTheDocument()
+  expect(workspace).toHaveBeenCalledTimes(2)
 })

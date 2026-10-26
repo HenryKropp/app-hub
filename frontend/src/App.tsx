@@ -15,6 +15,7 @@ import { RunPage } from "@/pages/RunPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { VersionPage } from "@/pages/VersionPage"
 import { SetupPage } from "@/pages/SetupPage"
+import { SecurityPage } from "@/pages/SecurityPage"
 
 function Protected() {
   const { loading, person } = useAuth()
@@ -51,6 +52,7 @@ function Routed() {
         <Route path="equipe" element={<TeamPage />} />
         <Route path="pessoas" element={<Navigate to="/equipe" replace />} />
         <Route path="configuracoes" element={<SettingsPage />} />
+        <Route path="seguranca" element={<SecurityPage />} />
         <Route path="comecar" element={<SetupPage />} />
         <Route path="meu-computador" element={<Navigate to="/configuracoes" replace />} />
         <Route path="conectar" element={<ConnectPage />} />
@@ -66,7 +68,7 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={window.location.pathname.match(/^\/w\/[a-z0-9-]+(?=\/|$)/)?.[0] ?? ""}>
           <Routed />
         </BrowserRouter>
         <Toaster position="bottom-right" />

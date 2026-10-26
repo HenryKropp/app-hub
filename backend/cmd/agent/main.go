@@ -22,17 +22,22 @@ import (
 // hubURL is set at build time (scripts/build-agent.sh); APPHUB_URL overrides it.
 var hubURL = "http://localhost:8080"
 
-const lockAddr = "127.0.0.1:47631"
+var lockAddr = "127.0.0.1:47631"
+var workspaceID string
 
 // connected turns true once this agent reached the Hub; /status reports it so
 // an updating agent knows the new version works.
 var connected atomic.Bool
 
 func main() {
-	if v := os.Getenv("APPHUB_URL"); v != "" {
-		hubURL = v
+	exePath, err := os.Executable()
+	if err != nil {
+		return
 	}
-	dir := stateDir()
+	dir, err := configureWorkspace(exePath, stateDir())
+	if err != nil {
+		return
+	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		os.Exit(1)
 	}
@@ -62,6 +67,10 @@ func main() {
 		return
 	}
 	go http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("workspace") != workspaceID {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 		if r.Method == http.MethodPost && r.URL.Path == "/quit" {
 			w.WriteHeader(http.StatusNoContent)
 			go func() { time.Sleep(100 * time.Millisecond); os.Exit(0) }()
@@ -140,7 +149,7 @@ func runUpdate(dir string) {
 		QuitRunning: quitRunning,
 		Start:       func(exe string) (func(), error) { return startProcess(exe) },
 		Connected: func(ctx context.Context) bool {
-			return agent.StatusConnected(ctx, "http://"+lockAddr+"/status", agentproto.Version)
+			return agent.StatusConnected(ctx, localURL("/status"), agentproto.Version)
 		},
 	}
 	switch err := s.Run(context.Background()); {
@@ -158,7 +167,7 @@ func runUpdate(dir string) {
 // blocking the swap.
 func quitRunning() {
 	hc := &http.Client{Timeout: 3 * time.Second}
-	if resp, err := hc.Post("http://"+lockAddr+"/quit", "", nil); err == nil {
+	if resp, err := hc.Post(localURL("/quit"), "", nil); err == nil {
 		resp.Body.Close()
 		time.Sleep(2 * time.Second)
 	}

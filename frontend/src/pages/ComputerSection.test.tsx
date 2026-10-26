@@ -1,19 +1,22 @@
 import { cleanup, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
-import { afterEach, expect, test, vi } from "vitest"
+import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { api, type Computer } from "@/lib/api"
 import { computer } from "@/test/fixtures"
 import { ComputerSection } from "./ComputerSection"
 
 afterEach(() => vi.restoreAllMocks())
+beforeEach(() => {
+  vi.spyOn(api, "workspace").mockResolvedValue({ slug: "principal", name: "Empresa principal", base_path: "", can_manage: true, local_execution_is_sandboxed: false })
+})
 const renderPage = () => render(<MemoryRouter><ComputerSection /></MemoryRouter>)
 
 test("no computer: shows how to install", async () => {
   vi.spyOn(api, "computers").mockResolvedValue({ computers: [], expected_version: "0.1.0", agent_available: true })
   renderPage()
   expect(await screen.findByText("Nenhum computador conectado")).toBeInTheDocument()
-  expect(screen.getByRole("link", { name: /Instalar o Agente/ })).toHaveAttribute("href", "/api/agent/download")
+  expect(screen.getByRole("link", { name: /Baixar Agente/ })).toHaveAttribute("href", "/api/agent/download")
 })
 
 test("connected computer, outdated agent, disconnect", async () => {
@@ -51,4 +54,13 @@ test("agent not built on this Hub", async () => {
   vi.spyOn(api, "computers").mockResolvedValue({ computers: [], expected_version: "0.1.0", agent_available: false })
   renderPage()
   expect(await screen.findByText(/O Agente ainda não foi preparado neste Hub/)).toBeInTheDocument()
+})
+
+test("portal agent package clearly instructs extracting every file before running", async () => {
+  vi.spyOn(api, "workspace").mockResolvedValue({ slug: "filial", name: "Filial", base_path: "/w/filial", can_manage: true, local_execution_is_sandboxed: false })
+  vi.spyOn(api, "computers").mockResolvedValue({ computers: [], expected_version: "0.1.0", agent_available: true })
+  renderPage()
+  expect(await screen.findByRole("link", { name: /Baixar Agente \(\.zip\)/ })).toBeInTheDocument()
+  expect(screen.getByText(/Extraia todos os arquivos do ZIP/)).toBeInTheDocument()
+  expect(screen.getAllByText(/apphub-url\.txt/)).toHaveLength(2)
 })

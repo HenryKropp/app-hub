@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Field, PageHeader } from "@/components/bits"
 import { AGENT_DOWNLOAD_URL, api, type Onboarding } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { useWorkspace } from "@/lib/use-workspace"
 
 const steps = [
   { id: "company", title: "Dê um nome à empresa", description: "O nome aparece no espaço da sua equipe." },
@@ -26,6 +27,7 @@ function completed(onboarding: Onboarding) {
 }
 
 export function SetupPage() {
+  const { workspace, loading: workspaceLoading, error: workspaceError, retry: retryWorkspace } = useWorkspace()
   const [onboarding, setOnboarding] = useState<Onboarding | null>(null)
   const [name, setName] = useState("")
   const [loading, setLoading] = useState(true)
@@ -85,7 +87,10 @@ export function SetupPage() {
     </form>,
     <div key="computer-actions" className="mt-4 flex flex-wrap items-center gap-2">
       <Link to="/configuracoes#computador" className={cn(buttonVariants({ variant: "outline" }), "gap-2")}><Laptop className="size-4" /> Configurar computador</Link>
-      {onboarding.agent_available && <a href={AGENT_DOWNLOAD_URL} className={cn(buttonVariants({ variant: "outline" }), "gap-2")}><Download className="size-4" /> Baixar Agente</a>}
+      {onboarding.agent_available && workspace && <a href={AGENT_DOWNLOAD_URL} className={cn(buttonVariants({ variant: "outline" }), "gap-2")}><Download className="size-4" /> Baixar Agente{workspace.base_path ? " (.zip)" : ""}</a>}
+      {onboarding.agent_available && workspace?.base_path && <p className="basis-full text-sm text-muted-foreground">O ZIP contém AppHubAgente.exe e apphub-url.txt. Extraia todos os arquivos para a mesma pasta antes de iniciar o EXE; não o mova sozinho.</p>}
+      {onboarding.agent_available && workspaceLoading && <p role="status" className="text-sm text-muted-foreground">Verificando o pacote deste espaço…</p>}
+      {onboarding.agent_available && workspaceError && <div className="text-sm text-warn"><p role="alert">Não foi possível confirmar o tipo de pacote do Agente; download oculto por segurança.</p><Button type="button" variant="outline" size="sm" className="mt-2" onClick={retryWorkspace}>Tentar novamente</Button></div>}
       {!onboarding.agent_available && <p className="text-sm text-muted-foreground">O Agente ainda não está disponível neste Hub. Peça ajuda a quem administra.</p>}
     </div>,
     <div key="apps-actions" className="mt-4 flex gap-2"><Link to="/registrar" className={cn(buttonVariants({ variant: "outline" }), "gap-2")}><WandSparkles className="size-4" /> Registrar app</Link><Link to="/" className="inline-flex h-9 items-center px-2 text-sm text-muted-foreground hover:text-foreground">Ver catálogo</Link></div>,
