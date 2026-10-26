@@ -1,7 +1,14 @@
 # PRD — App Hub (Módulo 1: Gestão e orquestração de apps)
 
-**Status:** Em construção (Fundação e Registro prontos) · **Atualizado:** 2026-09-30
+**Status:** Em construção · **Nota de estado atual:** 2026-10-26
 **Fonte:** `Documentação/Especificação do produto v3.md` (visão completa, Módulos 1 e 2; v2 e v1 guardadas como histórico)
+
+> Este PRD preserva requisitos e contexto do piloto original. O servidor atual
+> está no Replit; não depende do WSL para executar. Importação de scripts e
+> formulários já têm implementação, mas o fluxo completo em Windows ainda não
+> foi validado. Nuvem gerenciada e aplicativo desktop com janela própria são
+> evolução prevista, não entrega concluída. Consulte o [README](../README.md),
+> [infraestrutura atual](INFRASTRUCTURE.md) e [fluxo de scripts](SCRIPTS.md).
 
 ---
 
@@ -13,7 +20,7 @@ O App Hub é uma plataforma onde pequenas empresas sem TI registram, organizam, 
 
 **Princípio central: o Hub é genérico.** Ele não é feito sob medida para os apps da Alis. Qualquer app, de qualquer tipo, entra pelo mesmo caminho: é registrado, ganha um **manifesto** (a "carteira de identidade" do app, um arquivo que descreve como ele roda, o que recebe e o que devolve) e, a partir dele, ganha ficha, tela de uso e histórico. Os apps da Alis são o primeiro caso real e servem para testar essa generalidade. Novos apps, criados à mão ou pela IA via MCP (V2), entram pelo mesmo manifesto.
 
-### Piloto
+### Piloto original — contexto histórico
 
 - **Onde roda:** no computador do Henry (Windows), localmente, sem nuvem.
 - **Apps de teste:** a pasta `C:\Users\HenryKroppAlisInvest\OneDrive - Alis\ALIS\5. Operacional\8. Programação`.
