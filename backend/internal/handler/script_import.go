@@ -99,6 +99,17 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 	for name, data := range decoded {
 		secretCount += len(scanner.FindSecrets(name, string(data)))
 	}
+	if secretCount > 0 && h.workspace != nil {
+		settings, err := h.securityConfig(r.Context())
+		if err != nil {
+			internalError(w, "script security policy", err)
+			return
+		}
+		if settings.BlockSecrets {
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"code": "script_secrets_blocked", "error": "Possíveis senhas ou chaves no código. Retire as credenciais antes de importar; a política da empresa não permite ignorar este bloqueio.", "secret_count": secretCount})
+			return
+		}
+	}
 	if secretCount > 0 && !b.ConfirmSecrets {
 		writeJSON(w, http.StatusConflict, map[string]any{
 			"code":         "script_secrets_confirmation_required",

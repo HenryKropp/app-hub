@@ -148,6 +148,17 @@ export type Onboarding = {
   has_successful_run: boolean
   has_team: boolean
 }
+export type Workspace = { slug: string; name: string; base_path: string; can_manage: boolean; local_execution_is_sandboxed: false; filesystem_registration_enabled?: boolean }
+export type WorkspaceCreated = { slug: string; name: string; url: string }
+export type SecuritySettings = { retention_days: number; require_app_approval: boolean; block_embedded_secrets: boolean; local_execution_enabled: boolean }
+export type SecurityApp = { id: number; name: string; classification: string; purpose: string; external_domains: string[]; approved: boolean; suspended: boolean }
+export type SecurityInfo = {
+  can_manage: boolean
+  settings: SecuritySettings
+  limits: { sandboxed: false; vault_available: false; external_marketplace_enabled: false }
+  apps: SecurityApp[]
+}
+export type AuditInfo = { events: { id: number; actor_id: number | null; action: string; route: string; status: number; created_at: string }[] }
 export type RunSummary = { id: number; status: RunStatus; person_name: string; created_at: string; started_at: string | null; finished_at: string | null; file_count: number }
 
 export type VersionSummary = { added: number; removed: number; modified: number; binaries: string[] | null }
@@ -185,10 +196,14 @@ export class ApiError extends Error {
 export const OFFLINE = "Não consegui falar com o Hub. Confira se esta página ainda está aberta no endereço certo e tente novamente."
 const DOWN = "O Hub não respondeu. Espere um pouco e tente de novo."
 
+export const workspaceBasePath = (pathname = window.location.pathname) =>
+  pathname.match(/^\/w\/[a-z0-9-]+(?=\/|$)/)?.[0] ?? ""
+export const workspaceUrl = (path: string) => `${workspaceBasePath()}${path.startsWith("/") ? path : `/${path}`}`
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   let res: Response
   try {
-    res = await fetch(path, {
+    res = await fetch(workspaceUrl(path), {
       method,
       credentials: "same-origin",
       headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
@@ -206,6 +221,16 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 export const api = {
+  workspace: () => request<Workspace>("GET", "/api/workspace"),
+  createWorkspace: (b: { name: string; slug: string; password: string }) =>
+    request<WorkspaceCreated>("POST", "/api/workspaces", b),
+  security: () => request<SecurityInfo>("GET", "/api/security"),
+  saveSecuritySettings: (b: SecuritySettings) => request<SecuritySettings>("PUT", "/api/security/settings", b),
+  saveSecurityApp: (id: number, b: { classification: "internal" | "confidential" | "restricted"; purpose: string; external_domains: string[]; approved: boolean; suspended: boolean }) =>
+    request<SecurityApp>("PUT", `/api/security/apps/${id}`, b),
+  securityAudit: () => request<AuditInfo>("GET", "/api/security/audit"),
+  securityExport: () => request<unknown>("GET", "/api/security/export"),
+  purgeRuns: () => request<{ deleted_runs: number }>("POST", "/api/security/purge", { confirm: true }),
   status: () => request<{ needs_setup: boolean; person: Person | null }>("GET", "/api/auth/status"),
   onboarding: () => request<Onboarding>("GET", "/api/onboarding"),
   saveCompanyName: (company_name: string) => request<Onboarding>("PUT", "/api/onboarding", { company_name }),
@@ -278,7 +303,7 @@ export const api = {
   run: (id: number | string) => request<Run>("GET", `/api/runs/${id}`),
 }
 
-export const AGENT_DOWNLOAD_URL = "/api/agent/download"
-export const fileUrl = (runId: number, fileId: number) => `/api/runs/${runId}/files/${fileId}`
-export const groupZipUrl = (runId: number, index: number) => `/api/runs/${runId}/groups/${index}/zip` 
-export const selectedUrl = (runId: number, fileIds: number[]) => `/api/runs/${runId}/selected?files=${fileIds.join(",")}`
+export const AGENT_DOWNLOAD_URL = workspaceUrl("/api/agent/download")
+export const fileUrl = (runId: number, fileId: number) => workspaceUrl(`/api/runs/${runId}/files/${fileId}`)
+export const groupZipUrl = (runId: number, index: number) => workspaceUrl(`/api/runs/${runId}/groups/${index}/zip`)
+export const selectedUrl = (runId: number, fileIds: number[]) => workspaceUrl(`/api/runs/${runId}/selected?files=${fileIds.join(",")}`)

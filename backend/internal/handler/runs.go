@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +13,7 @@ import (
 	"mime"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -48,6 +51,9 @@ func tsPtr(t pgtype.Timestamptz) *time.Time {
 func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 	a, me, _, _, ok := h.appFor(w, r)
 	if !ok {
+		return
+	}
+	if !h.allowExecution(w, r, a.ID) {
 		return
 	}
 	var body struct {
@@ -128,8 +134,44 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("version check", "app", a.ID, "err", err)
 	}
+	// A scan may have discovered changed code. Recheck the reviewed version while
+	// holding the same lock used by approval and suspension.
+	if !h.allowExecution(w, r, a.ID) {
+		unlock()
+		return
+	}
 	// Only a version the Hub just confirmed in the folder is linked to the run.
 	versionID := pgtype.Int8{Int64: v.ID, Valid: readable && v.ID != 0}
+	var sources map[string]manifest.InputFile
+	if m.Kind == manifest.KindScript {
+		sources, err = h.importedSources(r, a.ID)
+		if err != nil {
+			unlock()
+			internalError(w, "script sources", err)
+			return
+		}
+		if sources != nil {
+			for name, f := range sources {
+				if !manifest.SafeRelative(name) {
+					unlock()
+					writeError(w, 409, "O pacote salvo não é seguro. Reimporte o script.")
+					return
+				}
+				original, readErr := base64.StdEncoding.DecodeString(f.ContentBase64)
+				if readErr != nil {
+					unlock()
+					writeError(w, 409, "O pacote salvo está inválido. Reimporte o script.")
+					return
+				}
+				current, readErr := os.ReadFile(filepath.Join(a.FolderPath, filepath.FromSlash(name)))
+				if readErr != nil || !bytes.Equal(current, original) {
+					unlock()
+					writeError(w, 409, "O código da pasta está diferente do pacote salvo. Reimporte o script antes de executar.")
+					return
+				}
+			}
+		}
+	}
 	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: me.ID, ComputerID: comp.ID, OutputFolder: out, VersionID: versionID})
 	if err != nil {
 		unlock()
@@ -138,11 +180,6 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 	}
 	payload := agentproto.RunPayload{RunID: run.ID, AppFolder: appFolder, Exe: m.Entrypoint, OutputFolder: out}
 	if m.Kind == manifest.KindScript {
-		sources, err := h.importedSources(r, a.ID)
-		if err != nil {
-			internalError(w, "script sources", err)
-			return
-		}
 		payload.Script = &agentproto.ScriptPayload{Manifest: m, Inputs: values, Files: body.Files, Sources: sources}
 	}
 	_, err = h.enqueue(ctx, comp.ID, &run.ID, agentproto.KindRun, payload)

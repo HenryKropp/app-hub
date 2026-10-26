@@ -5,16 +5,13 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/HenryKropp/app-hub/backend/internal/config"
 	"github.com/HenryKropp/app-hub/backend/internal/database"
-	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
-	"github.com/HenryKropp/app-hub/backend/internal/handler"
+	"github.com/HenryKropp/app-hub/backend/internal/workspace"
 )
 
 func main() {
@@ -49,30 +46,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	mux := http.NewServeMux()
-	handler.New(sqlc.New(pool), cfg).Register(mux)
-
-	frontendDist := "frontend/dist"
-	if _, err := os.Stat(frontendDist); err == nil && !cfg.DevMode {
-		fs := http.FileServer(http.Dir(frontendDist))
-		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/auth/") {
-				http.NotFound(w, r)
-				return
-			}
-			if r.URL.Path != "/" {
-				if _, err := os.Stat(filepath.Join(frontendDist, filepath.Clean(r.URL.Path))); err == nil {
-					fs.ServeHTTP(w, r)
-					return
-				}
-			}
-			http.ServeFile(w, r, filepath.Join(frontendDist, "index.html"))
-		})
-	} else if !cfg.DevMode {
-		slog.Warn("frontend dist not found — SPA routes will return 404", "path", frontendDist)
+	portal, err := workspace.New(ctx, pool, cfg)
+	if err != nil {
+		slog.Error("workspace initialization", "err", err)
+		os.Exit(1)
 	}
-
-	srv := &http.Server{Addr: ":" + cfg.Port, Handler: mux, ReadHeaderTimeout: 10 * time.Second}
+	defer portal.Close()
+	srv := &http.Server{Addr: ":" + cfg.Port, Handler: portal, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 90 * time.Second, MaxHeaderBytes: 1 << 20}
 	slog.Info("server starting", "port", cfg.Port, "dev_mode", cfg.DevMode)
 	if err := srv.ListenAndServe(); err != nil {
 		slog.Error("server", "err", err)

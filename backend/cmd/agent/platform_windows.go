@@ -36,7 +36,7 @@ func install(dir string) (bool, error) {
 		return false, nil
 	}
 	// An older agent may be running from the target; ask it to quit.
-	if resp, err := http.Post("http://"+lockAddr+"/quit", "", nil); err == nil {
+	if resp, err := http.Post(localURL("/quit"), "", nil); err == nil {
 		resp.Body.Close()
 		time.Sleep(2 * time.Second)
 	}
@@ -55,7 +55,7 @@ func install(dir string) (bool, error) {
 		return false, err
 	}
 	defer k.Close()
-	if err := k.SetStringValue("AppHubAgente", `"`+target+`"`); err != nil {
+	if err := k.SetStringValue(autostartName(), `"`+target+`"`); err != nil {
 		return false, err
 	}
 	return true, exec.Command(target).Start()
@@ -110,5 +110,5 @@ func removeAutostart() error {
 		return err
 	}
 	defer k.Close()
-	return k.DeleteValue("AppHubAgente")
+	return k.DeleteValue(autostartName())
 }

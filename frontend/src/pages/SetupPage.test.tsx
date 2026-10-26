@@ -1,11 +1,14 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
-import { afterEach, expect, test, vi } from "vitest"
+import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { api, type Onboarding } from "@/lib/api"
 import { SetupPage } from "./SetupPage"
 
 afterEach(() => vi.restoreAllMocks())
+beforeEach(() => {
+  vi.spyOn(api, "workspace").mockResolvedValue({ slug: "principal", name: "Empresa principal", base_path: "", can_manage: true, local_execution_is_sandboxed: false })
+})
 
 const state = (over: Partial<Onboarding> = {}): Onboarding => ({
   company_name: "",

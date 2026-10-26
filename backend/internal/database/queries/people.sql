@@ -8,15 +8,15 @@ SELECT * FROM people WHERE email = $1;
 SELECT * FROM people WHERE id = $1;
 
 -- name: CreateSession :exec
-INSERT INTO sessions (token, person_id, expires_at) VALUES ($1, $2, $3);
+INSERT INTO sessions (token, person_id, expires_at) VALUES (encode(sha256(convert_to($1::text,'UTF8')),'hex'), $2, $3);
 
 -- name: GetSessionPerson :one
 SELECT p.* FROM sessions s
 JOIN people p ON p.id = s.person_id
-WHERE s.token = $1 AND s.expires_at > now();
+WHERE s.token = encode(sha256(convert_to($1::text,'UTF8')),'hex') AND s.expires_at > now();
 
 -- name: DeleteSession :exec
-DELETE FROM sessions WHERE token = $1;
+DELETE FROM sessions WHERE token = encode(sha256(convert_to($1::text,'UTF8')),'hex');
 
 -- name: CreatePerson :one
 INSERT INTO people (name, email, password_hash, role_id)

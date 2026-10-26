@@ -27,8 +27,10 @@ const (
 )
 
 type Handler struct {
-	q   *sqlc.Queries
-	cfg config.Config
+	q         *sqlc.Queries
+	cfg       config.Config
+	workspace *WorkspaceOptions
+	setupMu   sync.Mutex
 
 	// Waits used by the agent endpoints; tests shorten them.
 	waitNext   time.Duration
@@ -65,6 +67,14 @@ func New(q *sqlc.Queries, cfg config.Config) *Handler {
 
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /up", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+	mux.HandleFunc("GET /api/workspace", h.workspaceInfo)
+	mux.HandleFunc("POST /api/workspaces", h.createWorkspace)
+	mux.HandleFunc("GET /api/security", h.securityOverview)
+	mux.HandleFunc("PUT /api/security/settings", h.updateSecuritySettings)
+	mux.HandleFunc("PUT /api/security/apps/{id}", h.updateSecurityApp)
+	mux.HandleFunc("GET /api/security/audit", h.securityAudit)
+	mux.HandleFunc("GET /api/security/export", h.securityExport)
+	mux.HandleFunc("POST /api/security/purge", h.securityPurge)
 
 	mux.HandleFunc("GET /api/auth/status", h.authStatus)
 	mux.HandleFunc("POST /api/auth/setup", h.setup)
@@ -191,7 +201,7 @@ func (h *Handler) startSession(w http.ResponseWriter, r *http.Request, personID 
 		return err
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name: cookieName, Value: token, Path: "/", Expires: expires,
+		Name: cookieName, Value: token, Path: h.cookiePath(), Expires: expires,
 		HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: h.cfg.SecureCookies(),
 	})
 	return nil
@@ -237,12 +247,16 @@ func validatePerson(c credentials) string {
 		return "Informe um e-mail válido."
 	case len(c.Password) < 8:
 		return "A senha precisa ter pelo menos 8 caracteres."
+	case len(c.Password) > 72:
+		return "A senha pode ter no máximo 72 bytes."
 	}
 	return ""
 }
 
 // setup creates the first person (administrator). Only works while nobody exists.
 func (h *Handler) setup(w http.ResponseWriter, r *http.Request) {
+	h.setupMu.Lock()
+	defer h.setupMu.Unlock()
 	var c credentials
 	if !readJSON(w, r, &c) {
 		return
@@ -261,7 +275,7 @@ func (h *Handler) setup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "O Hub já foi configurado. Entre com seu e-mail e senha.")
 		return
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(c.Password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(c.Password), 12)
 	if err != nil {
 		internalError(w, "hash", err)
 		return
@@ -321,7 +335,7 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("delete session", "err", err)
 		}
 	}
-	http.SetCookie(w, &http.Cookie{Name: cookieName, Value: "", Path: "/", MaxAge: -1, HttpOnly: true})
+	http.SetCookie(w, &http.Cookie{Name: cookieName, Value: "", Path: h.cookiePath(), MaxAge: -1, HttpOnly: true, Secure: h.cfg.SecureCookies(), SameSite: http.SameSiteLaxMode})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -423,7 +437,7 @@ func (h *Handler) createPerson(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "Já existe uma pessoa com esse e-mail.")
 		return
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(c.Password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(c.Password), 12)
 	if err != nil {
 		internalError(w, "hash", err)
 		return

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"archive/zip"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -8,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -342,6 +344,25 @@ func (h *Handler) agentNext(w http.ResponseWriter, r *http.Request) {
 	for {
 		j, err := h.q.ClaimJob(ctx, c.ID)
 		if err == nil {
+			if h.workspace != nil && j.Kind == agentproto.KindRun && j.RunID.Valid {
+				run, e := h.q.GetRun(ctx, j.RunID.Int64)
+				if e != nil {
+					internalError(w, "queued run policy", e)
+					return
+				}
+				reason, e := h.executionBlock(ctx, run.AppID)
+				if e != nil {
+					internalError(w, "queued execution policy", e)
+					return
+				}
+				if reason != "" {
+					if _, e = h.q.SecurityDB().Exec(ctx, `WITH cancelled AS(UPDATE agent_jobs SET status='failed',payload=payload-'script',done_at=now() WHERE id=$1 RETURNING run_id) UPDATE runs SET status='interrupted',finished_at=now(),error_message=$2 WHERE id IN(SELECT run_id FROM cancelled)`, j.ID, reason); e != nil {
+						internalError(w, "cancel blocked job", e)
+						return
+					}
+					continue
+				}
+			}
 			writeJSON(w, http.StatusOK, agentproto.Job{ID: j.ID, Kind: j.Kind, Payload: j.Payload})
 			return
 		}
@@ -433,6 +454,39 @@ func (h *Handler) agentDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := os.Stat(h.cfg.AgentBinaryPath); err != nil {
 		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Hub.")
+		return
+	}
+	if h.workspace != nil && h.workspace.BasePath != "" {
+		file, err := os.Open(h.cfg.AgentBinaryPath)
+		if err != nil {
+			internalError(w, "agent package", err)
+			return
+		}
+		defer file.Close()
+		w.Header().Set("Content-Type", "application/zip")
+		w.Header().Set("Content-Disposition", `attachment; filename="AppHubAgente-`+h.workspace.Slug+`.zip"`)
+		z := zip.NewWriter(w)
+		exe, err := z.Create("AppHubAgente.exe")
+		if err == nil {
+			_, err = io.Copy(exe, file)
+		}
+		if err == nil {
+			var sidecar io.Writer
+			sidecar, err = z.Create("apphub-url.txt")
+			if err == nil {
+				_, err = io.WriteString(sidecar, strings.TrimRight(h.cfg.BaseURL, "/")+"\n")
+			}
+		}
+		if err == nil {
+			var readme io.Writer
+			readme, err = z.Create("LEIA-ME.txt")
+			if err == nil {
+				_, err = io.WriteString(readme, "Extraia TODOS os arquivos do ZIP na mesma pasta e abra AppHubAgente.exe.\r\nO arquivo apphub-url.txt seleciona esta empresa; nao o remova antes da instalacao.\r\nScripts executam com suas permissoes do Windows, sem sandbox.\r\n")
+			}
+		}
+		if closeErr := z.Close(); err != nil || closeErr != nil {
+			slog.Error("agent zip transfer failed")
+		}
 		return
 	}
 	w.Header().Set("Content-Type", "application/vnd.microsoft.portable-executable")
