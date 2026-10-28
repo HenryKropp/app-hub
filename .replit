@@ -45,3 +45,9 @@ externalPort = 80
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 300000
+
+[deployment]
+deploymentTarget = "cloudrun"
+
+[deployment.run]
+args = ["sh", "-c", "/nix/store/60z37432vmgkg54krwr1z057bqwp7583-go-1.25.5/bin/go run $REPL_HOME"]
