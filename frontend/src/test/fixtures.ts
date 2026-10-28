@@ -61,7 +61,7 @@ export function run(over: Partial<Run> = {}): Run {
   return {
     id: 7, app_id: 3, app_name: "Eq. Research Files Prep", person_name: "Henry", computer_name: "NOTE-HENRY",
     output_folder: "C:\\apps\\Files Prep", status: "done", exit_code: 0, error_message: "", app_version: "2026-08-13 17:54 · 75,6 MB", version_number: null,
-    created_at: "2026-09-30T14:10:00Z", started_at: "2026-09-30T14:10:05Z", finished_at: "2026-09-30T14:22:05Z",
+    created_at: "2026-09-30T14:10:00Z", started_at: "2026-09-30T14:10:05Z", finished_at: "2026-09-30T14:22:05Z", can_stop: false,
     groups: [
       { index: 0, label: "Documentos da CVM", files: [{ id: 1, path: "PETROBRAS/FRE/FRE_2025.pdf", size: 2048, modified: "2026-09-30T14:20:00Z", change: "new" }] },
       { index: 1, label: "Data Pack", files: [{ id: 2, path: "PETROBRAS/MD_Output/PETROBRAS_DataPack_Consolidado.md", size: 900, modified: "2026-09-30T14:21:00Z", change: "new" }] },
@@ -74,7 +74,7 @@ export function run(over: Partial<Run> = {}): Run {
 
 export function activeRun(over: Partial<ActiveRun> = {}): ActiveRun {
   return { id: 7, app_id: 3, app_name: "Eq. Research Files Prep", app_folder_display: "C:\\apps\\fp", status: "running", error_message: "",
-    output_folder: "D:\\Saídas\\CVM", file_count: 0, created_at: "2026-10-01T14:00:00Z", finished_at: null, ...over }
+    output_folder: "D:\\Saídas\\CVM", file_count: 0, created_at: "2026-10-01T14:00:00Z", finished_at: null, can_stop: false, ...over }
 }
 
 export function appSummary(over: Partial<AppSummary> = {}): AppSummary {

@@ -10,7 +10,7 @@ import (
 )
 
 // Version is the agent version this Hub expects.
-const Version = "0.3.0"
+const Version = "0.3.1"
 
 // Job kinds.
 const (
@@ -18,6 +18,7 @@ const (
 	KindChooseFolder = "choose_folder"
 	KindSendFile     = "send_file"
 	KindUpdate       = "update"
+	KindStop         = "stop"
 )
 
 // Result events.
@@ -26,7 +27,7 @@ const (
 	EventFinished = "finished" // run: window closed, files listed
 	EventFailed   = "failed"   // any job: could not do it
 	EventMissing  = "missing"  // send_file: file no longer in the folder
-	EventDone     = "done"     // choose_folder: answered (folder or canceled)
+	EventDone     = "done"     // choose_folder: answered (folder or canceled); stop: app closed
 )
 
 // Job is what GET /api/agent/next returns.
@@ -51,6 +52,11 @@ type ScriptPayload struct {
 	Manifest manifest.Manifest             `json:"manifest"`
 	Inputs   map[string][]string           `json:"inputs,omitempty"`
 	Files    map[string]manifest.InputFile `json:"files,omitempty"`
+}
+
+// StopPayload closes the app opened for RunID, with everything it opened.
+type StopPayload struct {
+	RunID int64 `json:"run_id"`
 }
 
 type ChooseFolderPayload struct {
@@ -82,6 +88,7 @@ type Result struct {
 	Files      []FileEntry `json:"files,omitempty"`
 	Folder     string      `json:"folder,omitempty"`
 	Canceled   bool        `json:"canceled,omitempty"`
+	Stopped    bool        `json:"stopped,omitempty"` // run: closed by a stop job
 }
 
 // UpdatePayload asks the agent to replace itself with the Hub's agent binary.
@@ -95,6 +102,7 @@ type Hello struct {
 	Name      string `json:"name"`
 	Version   string `json:"version"`
 	CanUpdate bool   `json:"can_update,omitempty"` // 0.2.0+: understands update jobs
+	CanStop   bool   `json:"can_stop,omitempty"`   // 0.3.1+: understands stop jobs
 }
 
 type PairStartRequest struct {

@@ -195,13 +195,14 @@ func (r *Runner) runScript(ctx context.Context, p agentproto.RunPayload, report 
 	if err != nil {
 		return failed("Não consegui verificar os arquivos antes da execução.")
 	}
-	cmd := exec.CommandContext(ctx, executable, args...)
+	cmd := exec.Command(executable, args...)
 	cmd.Dir, cmd.Env, cmd.Stdin = work, env, strings.NewReader(stdin.String())
 	var log limitedBuffer
 	cmd.Stdout, cmd.Stderr = &log, &log
-	err = cmd.Run()
+	err = runTree(ctx, cmd)
 	exit := 0
-	if ctx.Err() != nil {
+	// A stopped script still hands over what it wrote until then.
+	if ctx.Err() != nil && !r.wasStopped() {
 		return failed("O script foi interrompido ou ultrapassou o limite de 15 minutos. Confira o script e tente novamente.")
 	}
 	var exitErr *exec.ExitError

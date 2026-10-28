@@ -34,7 +34,7 @@ SELECT * FROM computers WHERE id = $1;
 UPDATE computers SET last_seen_at = now() WHERE id = $1;
 
 -- name: HelloComputer :exec
-UPDATE computers SET last_seen_at = now(), name = $2, agent_version = $3, can_update = $4 WHERE id = $1;
+UPDATE computers SET last_seen_at = now(), name = $2, agent_version = $3, can_update = $4, can_stop = $5 WHERE id = $1;
 
 -- name: ListPersonComputers :many
 SELECT *, (last_seen_at > now() - interval '60 seconds')::boolean AS connected
@@ -100,6 +100,11 @@ WHERE status IN ('waiting', 'running') AND id IN (
     SELECT j.run_id FROM agent_jobs j
     WHERE j.computer_id = $1 AND j.status = 'taken' AND j.run_id IS NOT NULL
 );
+
+-- name: CancelPendingRunJob :execrows
+-- A run the agent has not taken yet can be called off in the Hub alone.
+UPDATE agent_jobs SET status = 'failed', done_at = now()
+WHERE run_id = $1 AND kind = 'run' AND status = 'pending';
 
 -- name: FailTakenJobs :exec
 UPDATE agent_jobs SET status = 'failed', done_at = now()

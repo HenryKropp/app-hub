@@ -120,6 +120,20 @@ func (a *Agent) handle(ctx context.Context, job agentproto.Job) {
 			slog.Error("upload", "job", job.ID, "err", err)
 		}
 		_ = pr.Close()
+	case agentproto.KindStop:
+		var p agentproto.StopPayload
+		_ = json.Unmarshal(job.Payload, &p)
+		done, ok := a.Runner.Stop(p.RunID)
+		if !ok {
+			a.report(ctx, job.ID, failed("Este app já tinha fechado."))
+			return
+		}
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return
+		}
+		a.report(ctx, job.ID, agentproto.Result{Event: agentproto.EventDone})
 	case agentproto.KindUpdate:
 		var p agentproto.UpdatePayload
 		if err := json.Unmarshal(job.Payload, &p); err != nil || a.Updater == nil {
