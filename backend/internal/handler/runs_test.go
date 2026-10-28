@@ -503,7 +503,8 @@ func TestRememberFolder(t *testing.T) {
 	if len(list) != 1 || !list[0].CanRun || list[0].RememberedFolder != `D:\Saídas` {
 		t.Fatalf("lista %+v", list)
 	}
-	c.do("POST", appPath(app, "/runs"), map[string]any{"output_folder": `D:\Saídas`, "remember": false}, nil)
+	// The first run still waits in D:\Saídas, so this one uses another folder.
+	c.do("POST", appPath(app, "/runs"), map[string]any{"output_folder": `F:\Nova`, "remember": false}, nil)
 	if f := folderOf(); f != "" {
 		t.Fatalf("esquecida %q", f)
 	}

@@ -38,7 +38,10 @@ type Updater struct {
 // After a successful start the runner stays held: no app may open in the
 // seconds before this agent is closed.
 func (u *Updater) Apply(ctx context.Context, p agentproto.UpdatePayload) error {
-	release := u.Runner.Hold()
+	release, err := u.Runner.Hold(ctx)
+	if err != nil {
+		return nil // the agent is shutting down: do not report
+	}
 	if err := u.handOver(ctx, p); err != nil {
 		release()
 		return err

@@ -45,6 +45,24 @@ func tsPtr(t pgtype.Timestamptz) *time.Time {
 	return &t.Time
 }
 
+// folderInUse explains why folder cannot take another app now: an app waiting
+// or open on the same computer uses it, or a folder inside or around it, so
+// the new files of the two could not be told apart. Scripts write into their
+// own subfolder and may share a folder with each other. The Agente checks too.
+func (h *Handler) folderInUse(ctx context.Context, computerID int64, folder string, script bool) (string, error) {
+	live, err := h.q.ListLiveRunsOnComputer(ctx, computerID)
+	if err != nil {
+		return "", err
+	}
+	for _, other := range live {
+		if (script && other.IsScript) || !agentproto.FoldersOverlap(folder, other.OutputFolder) {
+			continue
+		}
+		return "Essa pasta já está sendo usada pelo " + other.AppName + ", que está aberto agora. Escolha outra pasta ou espere ele fechar.", nil
+	}
+	return "", nil
+}
+
 func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 	a, me, _, _, ok := h.appFor(w, r)
 	if !ok {
@@ -121,6 +139,13 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "Atualize o Agente em Configurações › Meu computador para rodar scripts.")
 		return
 	}
+	if msg, err := h.folderInUse(ctx, comp.ID, out, m.Kind == manifest.KindScript); err != nil {
+		internalError(w, "live runs", err)
+		return
+	} else if msg != "" {
+		writeError(w, http.StatusConflict, msg)
+		return
+	}
 	// Hold the app lock from the version check until the job is queued, so a
 	// restore cannot rewrite the folder between recording the version and the run.
 	unlock := h.lockApp(a.ID)
@@ -136,7 +161,7 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "create run", err)
 		return
 	}
-	payload := agentproto.RunPayload{RunID: run.ID, AppFolder: appFolder, Exe: m.Entrypoint, OutputFolder: out}
+	payload := agentproto.RunPayload{RunID: run.ID, AppFolder: appFolder, Exe: m.Entrypoint, OutputFolder: out, AppName: a.Name}
 	if m.Kind == manifest.KindScript {
 		sources, err := h.importedSources(r, a.ID)
 		if err != nil {

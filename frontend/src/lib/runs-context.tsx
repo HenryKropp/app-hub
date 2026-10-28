@@ -85,7 +85,8 @@ export function RunsProvider({ children }: { children: ReactNode }) {
           },
           (e: unknown) => {
             const message = e instanceof Error ? e.message : "Não foi possível abrir o app."
-            const offline = e instanceof ApiError && e.status === 409
+            // A folder used by another open app is a 409 too, but the fix is another folder.
+            const offline = e instanceof ApiError && e.status === 409 && !/pasta/i.test(message)
             setNotices((ns) => ns.map((n) => (n.key === key ? { ...n, kind: "error", message, offline, target: t } : n)))
           },
         )

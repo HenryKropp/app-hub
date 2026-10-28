@@ -349,6 +349,46 @@ func (q *Queries) ListAppRuns(ctx context.Context, arg ListAppRunsParams) ([]Lis
 	return items, nil
 }
 
+const listLiveRunsOnComputer = `-- name: ListLiveRunsOnComputer :many
+SELECT r.id, r.output_folder, a.name AS app_name, (a.manifest->>'kind') = 'script' AS is_script
+FROM runs r
+JOIN apps a ON a.id = r.app_id
+WHERE r.computer_id = $1 AND r.status IN ('waiting', 'running')
+`
+
+type ListLiveRunsOnComputerRow struct {
+	ID           int64  `json:"id"`
+	OutputFolder string `json:"output_folder"`
+	AppName      string `json:"app_name"`
+	IsScript     bool   `json:"is_script"`
+}
+
+// Runs waiting or open on one computer, to refuse a second app in the same folder.
+func (q *Queries) ListLiveRunsOnComputer(ctx context.Context, computerID int64) ([]ListLiveRunsOnComputerRow, error) {
+	rows, err := q.db.Query(ctx, listLiveRunsOnComputer, computerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLiveRunsOnComputerRow
+	for rows.Next() {
+		var i ListLiveRunsOnComputerRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OutputFolder,
+			&i.AppName,
+			&i.IsScript,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRunFiles = `-- name: ListRunFiles :many
 SELECT id, run_id, rel_path, size, modified_at, change, group_index, group_label FROM run_files WHERE run_id = $1 ORDER BY rel_path
 `

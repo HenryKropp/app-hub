@@ -79,3 +79,10 @@ ON CONFLICT (person_id, app_id) DO UPDATE SET folder = EXCLUDED.folder, updated_
 
 -- name: ClearRunFolder :exec
 DELETE FROM run_folders WHERE person_id = $1 AND app_id = $2;
+
+-- name: ListLiveRunsOnComputer :many
+-- Runs waiting or open on one computer, to refuse a second app in the same folder.
+SELECT r.id, r.output_folder, a.name AS app_name, (a.manifest->>'kind') = 'script' AS is_script
+FROM runs r
+JOIN apps a ON a.id = r.app_id
+WHERE r.computer_id = $1 AND r.status IN ('waiting', 'running');

@@ -75,8 +75,9 @@ func TestUpdaterAppliesVerifiedDownload(t *testing.T) {
 		t.Fatalf("start %v", rec.calls)
 	}
 	// Handed over: no app may open until this agent is closed.
-	if u.Runner.mu.TryLock() {
-		t.Fatal("runner released after a successful hand-over")
+	res := u.Runner.Run(context.Background(), agentproto.RunPayload{}, func(agentproto.Result) {})
+	if !strings.Contains(res.Error, "se atualizando") {
+		t.Fatalf("runner released after a successful hand-over: %+v", res)
 	}
 }
 
@@ -104,7 +105,8 @@ func TestUpdaterRejectsBadDownload(t *testing.T) {
 
 func TestUpdaterWaitsForOpenApp(t *testing.T) {
 	u, rec := newUpdater(t, binaryHub(t, "MZ-new"))
-	u.Runner.mu.Lock() // an app is open
+	app := &openRun{id: 1, folder: `C:\Dados`, cancel: func() {}, done: make(chan struct{})}
+	u.Runner.claim(app) // an app is open
 	done := make(chan error, 1)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -114,7 +116,7 @@ func TestUpdaterWaitsForOpenApp(t *testing.T) {
 	if rec.n() != 0 {
 		t.Fatal("updated while an app was open")
 	}
-	u.Runner.mu.Unlock()
+	u.Runner.release(app)
 	if err := <-done; err != nil || rec.n() != 1 {
 		t.Fatalf("err %v starts %d", err, rec.n())
 	}
@@ -123,7 +125,7 @@ func TestUpdaterWaitsForOpenApp(t *testing.T) {
 // Review Focus 4: Rodar during an update says so.
 func TestRunDuringUpdate(t *testing.T) {
 	r := &Runner{StateDir: t.TempDir()}
-	release := r.Hold()
+	release, _ := r.Hold(context.Background())
 	defer release()
 	res := r.Run(context.Background(), agentproto.RunPayload{}, func(agentproto.Result) {})
 	if res.Event != agentproto.EventFailed || !strings.Contains(res.Error, "se atualizando") {
