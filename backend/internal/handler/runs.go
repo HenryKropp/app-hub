@@ -211,7 +211,9 @@ func (h *Handler) onRunResult(ctx context.Context, j sqlc.AgentJob, res agentpro
 		if len(res.Files) == 0 {
 			status = "no_files"
 		}
-		if res.ExitCode != 0 {
+		if res.Stopped {
+			status, msg = "stopped", stoppedMessage
+		} else if res.ExitCode != 0 {
 			status, msg = "error", "O app fechou com erro (código "+strconv.Itoa(res.ExitCode)+"). Confira os arquivos de diagnóstico e peça ajuda ao responsável."
 		}
 		if err := h.q.FinishRun(ctx, sqlc.FinishRunParams{ID: runID, Status: status,
@@ -323,7 +325,7 @@ func (h *Handler) runForPerson(w http.ResponseWriter, r *http.Request) (sqlc.Get
 }
 
 func (h *Handler) getRun(w http.ResponseWriter, r *http.Request) {
-	row, _, ok := h.runForPerson(w, r)
+	row, me, ok := h.runForPerson(w, r)
 	if !ok {
 		return
 	}
@@ -332,6 +334,8 @@ func (h *Handler) getRun(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "run json", err)
 		return
 	}
+	// Only the person who ran it stops it: the app is open on their computer.
+	j.CanStop = row.PersonID == me.ID && canStop(row.Status, row.ComputerCanStop)
 	writeJSON(w, http.StatusOK, j)
 }
 
@@ -424,6 +428,7 @@ type runJSON struct {
 	CreatedAt     time.Time      `json:"created_at"`
 	StartedAt     *time.Time     `json:"started_at"`
 	FinishedAt    *time.Time     `json:"finished_at"`
+	CanStop       bool           `json:"can_stop"`
 	Groups        []runGroupJSON `json:"groups"`
 }
 type runSummaryJSON struct {
@@ -649,6 +654,7 @@ type activeRunJSON struct {
 	FileCount    int64      `json:"file_count"`
 	CreatedAt    time.Time  `json:"created_at"`
 	FinishedAt   *time.Time `json:"finished_at"`
+	CanStop      bool       `json:"can_stop"`
 }
 
 type runListItemJSON struct {
@@ -688,7 +694,8 @@ func (h *Handler) activeRuns(w http.ResponseWriter, r *http.Request) {
 	out := make([]activeRunJSON, 0, len(rows))
 	for _, x := range rows {
 		out = append(out, activeRunJSON{ID: x.ID, AppID: x.AppID, AppName: x.AppName, AppFolder: hostpath.ToDisplay(x.AppFolderPath), Status: x.Status,
-			ErrorMessage: x.ErrorMessage, OutputFolder: x.OutputFolder, FileCount: x.FileCount, CreatedAt: x.CreatedAt.Time, FinishedAt: tsPtr(x.FinishedAt)})
+			ErrorMessage: x.ErrorMessage, OutputFolder: x.OutputFolder, FileCount: x.FileCount, CreatedAt: x.CreatedAt.Time, FinishedAt: tsPtr(x.FinishedAt),
+			CanStop: canStop(x.Status, x.ComputerCanStop)})
 	}
 	writeJSON(w, http.StatusOK, out)
 }

@@ -271,7 +271,7 @@ func (h *Handler) agentHello(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = c.Name
 	}
-	if err := h.q.HelloComputer(r.Context(), sqlc.HelloComputerParams{ID: c.ID, Name: name, AgentVersion: body.Version, CanUpdate: body.CanUpdate}); err != nil {
+	if err := h.q.HelloComputer(r.Context(), sqlc.HelloComputerParams{ID: c.ID, Name: name, AgentVersion: body.Version, CanUpdate: body.CanUpdate, CanStop: body.CanStop}); err != nil {
 		internalError(w, "hello", err)
 		return
 	}

@@ -41,6 +41,10 @@ function text(r: ActiveRun): ReactNode {
       return <>{app} terminou sem arquivos novos. Se esperava algum, confira se o app salvou nesta pasta.</>
     case "interrupted":
       return <>{app} foi interrompido: o computador parou de responder</>
+    case "stopped":
+      return n > 0
+        ? <>Você parou o {app}: {n} {n === 1 ? "arquivo novo" : "arquivos novos"} até ali</>
+        : <>Você parou o {app}, sem arquivos novos</>
     default:
       return <>Não deu para abrir o {app}: {r.error_message}</>
   }
@@ -51,6 +55,7 @@ const aboutFolder = (msg = "") => /pasta/i.test(msg)
 
 const ACTION = "rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
 const PILL = "shadow-pop pointer-events-auto rounded-md border border-border bg-popover px-3 py-1.5 text-xs font-medium"
+const STOP = "rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
 const PRIMARY = "rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/85"
 
 function Card({ tone, children, folder, actions }: { tone: Tone; children: ReactNode; folder?: string; actions: ReactNode }) {
@@ -84,7 +89,7 @@ function Dismiss({ onClick }: { onClick: () => void }) {
 // RunStrip is the bottom strip: one card per run not dismissed yet, plus the
 // "Abrindo…" and error cards of requests this tab sent.
 export function RunStrip() {
-  const { active, notices, dismiss, dropNotice, run } = useRuns()
+  const { active, notices, dismiss, dropNotice, run, askStop, stopping } = useRuns()
   const [hidden, setHidden] = useState<Set<number>>(new Set())
   const navigate = useNavigate()
   const max = useMax()
@@ -127,15 +132,24 @@ export function RunStrip() {
       .filter((r) => !(isLive(r.status) && hidden.has(r.id)))
       .map((r) => {
         const live = isLive(r.status)
-        const tone: Tone = live ? "live" : r.status === "done" ? "ok" : r.status === "no_files" ? "muted" : "bad"
+        const tone: Tone = live ? "live" : r.status === "done" ? "ok" : r.status === "no_files" || r.status === "stopped" ? "muted" : "bad"
         return { tone, node: (
           <Card
             key={r.id}
             tone={tone}
-            folder={live || r.status === "done" || r.status === "no_files" ? r.output_folder : undefined}
+            folder={tone !== "bad" ? r.output_folder : undefined}
             actions={
               live ? (
                 <>
+                  {stopping.has(r.id) ? (
+                    <span className="px-1 text-xs text-muted-foreground">Parando…</span>
+                  ) : (
+                    r.can_stop && (
+                      <button type="button" className={STOP} onClick={() => askStop({ id: r.id, app_name: r.app_name, status: r.status })}>
+                        Parar
+                      </button>
+                    )
+                  )}
                   <button type="button" className={ACTION} onClick={() => navigate(`/execucoes/${r.id}`)}>
                     Ver
                   </button>
@@ -156,8 +170,8 @@ export function RunStrip() {
                       Trocar pasta
                     </button>
                   )}
-                  <button type="button" className={r.status === "done" ? PRIMARY : ACTION} onClick={() => open(r.id)}>
-                    {r.status === "done" ? "Ver e baixar" : "Ver detalhes"}
+                  <button type="button" className={r.status === "done" || (r.status === "stopped" && r.file_count > 0) ? PRIMARY : ACTION} onClick={() => open(r.id)}>
+                    {r.status === "done" || (r.status === "stopped" && r.file_count > 0) ? "Ver e baixar" : "Ver detalhes"}
                   </button>
                   <Dismiss onClick={() => dismiss(r.id)} />
                 </>

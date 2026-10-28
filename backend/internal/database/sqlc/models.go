@@ -126,6 +126,7 @@ type Computer struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	RevokedAt    pgtype.Timestamptz `json:"revoked_at"`
 	CanUpdate    bool               `json:"can_update"`
+	CanStop      bool               `json:"can_stop"`
 }
 
 type HubSetting struct {

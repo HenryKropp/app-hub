@@ -26,7 +26,7 @@ type ExecLauncher struct{}
 func (ExecLauncher) Launch(ctx context.Context, exe, dir string) (int, error) {
 	cmd := exec.Command(exe)
 	cmd.Dir = dir
-	err := cmd.Run()
+	err := runTree(ctx, cmd)
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
 		return exitErr.ExitCode(), nil
@@ -40,6 +40,42 @@ type Runner struct {
 	StateDir string
 	mu       sync.Mutex
 	updating atomic.Bool
+	openMu   sync.Mutex
+	open     *openRun
+}
+
+// openRun is the run in progress, so a stop job can reach it.
+type openRun struct {
+	id      int64
+	cancel  context.CancelFunc
+	stopped atomic.Bool
+	done    chan struct{}
+}
+
+// Stop closes the app opened for runID and returns a channel closed once the
+// run has wrapped up. ok is false when that app is not open.
+func (r *Runner) Stop(runID int64) (done <-chan struct{}, ok bool) {
+	r.openMu.Lock()
+	defer r.openMu.Unlock()
+	if r.open == nil || r.open.id != runID {
+		return nil, false
+	}
+	r.open.stopped.Store(true)
+	r.open.cancel()
+	return r.open.done, true
+}
+
+func (r *Runner) setOpen(o *openRun) {
+	r.openMu.Lock()
+	r.open = o
+	r.openMu.Unlock()
+}
+
+// wasStopped tells whether the run in progress was closed by Stop.
+func (r *Runner) wasStopped() bool {
+	r.openMu.Lock()
+	defer r.openMu.Unlock()
+	return r.open != nil && r.open.stopped.Load()
 }
 
 // Hold waits until no app is open and keeps new runs from starting until
@@ -68,6 +104,22 @@ func (r *Runner) Run(ctx context.Context, p agentproto.RunPayload, report func(a
 	}
 	defer r.mu.Unlock()
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	o := &openRun{id: p.RunID, cancel: cancel, done: make(chan struct{})}
+	r.setOpen(o)
+	defer close(o.done)
+	defer r.setOpen(nil)
+	res := r.run(ctx, p, report)
+	if o.stopped.Load() && res.Event != agentproto.EventFinished {
+		// Stopped before the app opened, or while it was getting ready.
+		res = agentproto.Result{Event: agentproto.EventFinished}
+	}
+	res.Stopped = o.stopped.Load()
+	return res
+}
+
+func (r *Runner) run(ctx context.Context, p agentproto.RunPayload, report func(agentproto.Result)) agentproto.Result {
 	if p.Script != nil {
 		return r.runScript(ctx, p, report)
 	}

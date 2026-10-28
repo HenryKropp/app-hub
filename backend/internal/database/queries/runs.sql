@@ -18,7 +18,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7);
 
 -- name: GetRun :one
 SELECT r.*, a.name AS app_name, a.manifest AS app_manifest, p.name AS person_name, c.name AS computer_name,
-       v.number AS version_number
+       c.can_stop AS computer_can_stop, v.number AS version_number
 FROM runs r
 JOIN apps a ON a.id = r.app_id
 JOIN people p ON p.id = r.person_id
@@ -43,9 +43,10 @@ SELECT * FROM run_files WHERE id = $1 AND run_id = $2;
 
 -- name: ListActiveRuns :many
 SELECT r.id, r.app_id, a.name AS app_name, a.folder_path AS app_folder_path, r.status, r.error_message, r.output_folder, r.created_at, r.finished_at,
-       (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count
+       (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count, c.can_stop AS computer_can_stop
 FROM runs r
 JOIN apps a ON a.id = r.app_id
+JOIN computers c ON c.id = r.computer_id
 WHERE r.person_id = $1 AND r.dismissed_at IS NULL
 ORDER BY r.id DESC
 LIMIT 10;

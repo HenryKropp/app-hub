@@ -137,7 +137,7 @@ func (q *Queries) FinishRun(ctx context.Context, arg FinishRunParams) error {
 
 const getRun = `-- name: GetRun :one
 SELECT r.id, r.app_id, r.person_id, r.computer_id, r.output_folder, r.status, r.exit_code, r.error_message, r.app_version, r.created_at, r.started_at, r.finished_at, r.version_id, a.name AS app_name, a.manifest AS app_manifest, p.name AS person_name, c.name AS computer_name,
-       v.number AS version_number
+       c.can_stop AS computer_can_stop, v.number AS version_number
 FROM runs r
 JOIN apps a ON a.id = r.app_id
 JOIN people p ON p.id = r.person_id
@@ -147,24 +147,25 @@ WHERE r.id = $1
 `
 
 type GetRunRow struct {
-	ID            int64              `json:"id"`
-	AppID         int64              `json:"app_id"`
-	PersonID      int64              `json:"person_id"`
-	ComputerID    int64              `json:"computer_id"`
-	OutputFolder  string             `json:"output_folder"`
-	Status        string             `json:"status"`
-	ExitCode      pgtype.Int4        `json:"exit_code"`
-	ErrorMessage  string             `json:"error_message"`
-	AppVersion    string             `json:"app_version"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	StartedAt     pgtype.Timestamptz `json:"started_at"`
-	FinishedAt    pgtype.Timestamptz `json:"finished_at"`
-	VersionID     pgtype.Int8        `json:"version_id"`
-	AppName       string             `json:"app_name"`
-	AppManifest   []byte             `json:"app_manifest"`
-	PersonName    string             `json:"person_name"`
-	ComputerName  string             `json:"computer_name"`
-	VersionNumber pgtype.Int4        `json:"version_number"`
+	ID              int64              `json:"id"`
+	AppID           int64              `json:"app_id"`
+	PersonID        int64              `json:"person_id"`
+	ComputerID      int64              `json:"computer_id"`
+	OutputFolder    string             `json:"output_folder"`
+	Status          string             `json:"status"`
+	ExitCode        pgtype.Int4        `json:"exit_code"`
+	ErrorMessage    string             `json:"error_message"`
+	AppVersion      string             `json:"app_version"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
+	FinishedAt      pgtype.Timestamptz `json:"finished_at"`
+	VersionID       pgtype.Int8        `json:"version_id"`
+	AppName         string             `json:"app_name"`
+	AppManifest     []byte             `json:"app_manifest"`
+	PersonName      string             `json:"person_name"`
+	ComputerName    string             `json:"computer_name"`
+	ComputerCanStop bool               `json:"computer_can_stop"`
+	VersionNumber   pgtype.Int4        `json:"version_number"`
 }
 
 func (q *Queries) GetRun(ctx context.Context, id int64) (GetRunRow, error) {
@@ -188,6 +189,7 @@ func (q *Queries) GetRun(ctx context.Context, id int64) (GetRunRow, error) {
 		&i.AppManifest,
 		&i.PersonName,
 		&i.ComputerName,
+		&i.ComputerCanStop,
 		&i.VersionNumber,
 	)
 	return i, err
@@ -236,25 +238,27 @@ func (q *Queries) GetRunFolder(ctx context.Context, arg GetRunFolderParams) (str
 
 const listActiveRuns = `-- name: ListActiveRuns :many
 SELECT r.id, r.app_id, a.name AS app_name, a.folder_path AS app_folder_path, r.status, r.error_message, r.output_folder, r.created_at, r.finished_at,
-       (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count
+       (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count, c.can_stop AS computer_can_stop
 FROM runs r
 JOIN apps a ON a.id = r.app_id
+JOIN computers c ON c.id = r.computer_id
 WHERE r.person_id = $1 AND r.dismissed_at IS NULL
 ORDER BY r.id DESC
 LIMIT 10
 `
 
 type ListActiveRunsRow struct {
-	ID            int64              `json:"id"`
-	AppID         int64              `json:"app_id"`
-	AppName       string             `json:"app_name"`
-	AppFolderPath string             `json:"app_folder_path"`
-	Status        string             `json:"status"`
-	ErrorMessage  string             `json:"error_message"`
-	OutputFolder  string             `json:"output_folder"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	FinishedAt    pgtype.Timestamptz `json:"finished_at"`
-	FileCount     int64              `json:"file_count"`
+	ID              int64              `json:"id"`
+	AppID           int64              `json:"app_id"`
+	AppName         string             `json:"app_name"`
+	AppFolderPath   string             `json:"app_folder_path"`
+	Status          string             `json:"status"`
+	ErrorMessage    string             `json:"error_message"`
+	OutputFolder    string             `json:"output_folder"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	FinishedAt      pgtype.Timestamptz `json:"finished_at"`
+	FileCount       int64              `json:"file_count"`
+	ComputerCanStop bool               `json:"computer_can_stop"`
 }
 
 func (q *Queries) ListActiveRuns(ctx context.Context, personID int64) ([]ListActiveRunsRow, error) {
@@ -277,6 +281,7 @@ func (q *Queries) ListActiveRuns(ctx context.Context, personID int64) ([]ListAct
 			&i.CreatedAt,
 			&i.FinishedAt,
 			&i.FileCount,
+			&i.ComputerCanStop,
 		); err != nil {
 			return nil, err
 		}

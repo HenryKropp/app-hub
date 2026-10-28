@@ -79,3 +79,18 @@ test("live run has no Rodar de novo", async () => {
   await screen.findByText(/a janela está aberta/)
   expect(screen.queryByRole("button", { name: "Rodar de novo" })).not.toBeInTheDocument()
 })
+
+test("open run of mine offers Parar", async () => {
+  vi.spyOn(api, "run").mockResolvedValue(run({ status: "running", finished_at: null, groups: [], can_stop: true }))
+  renderAt()
+  expect(await screen.findByRole("button", { name: /Parar/ })).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: /Rodar de novo/ })).not.toBeInTheDocument()
+})
+
+test("stopped run explains and lists its files", async () => {
+  vi.spyOn(api, "run").mockResolvedValue(run({ status: "stopped" }))
+  renderAt()
+  expect(await screen.findByText("Parada")).toBeInTheDocument()
+  expect(screen.getByText(/Você parou o app pelo Hub\. Abaixo estão/)).toBeInTheDocument()
+  expect(screen.getByRole("heading", { name: /Data Pack/ })).toBeInTheDocument()
+})

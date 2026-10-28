@@ -140,6 +140,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/runs", h.listRuns)
 	mux.HandleFunc("GET /api/runs/active", h.activeRuns)
 	mux.HandleFunc("POST /api/runs/{id}/dismiss", h.dismissRun)
+	mux.HandleFunc("POST /api/runs/{id}/stop", h.stopRun)
 	mux.HandleFunc("GET /api/runs/{id}", h.getRun)
 	mux.HandleFunc("POST /api/choose-folder", h.chooseFolder)
 	mux.HandleFunc("GET /api/runs/{id}/files/{fileId}", h.downloadFile)
