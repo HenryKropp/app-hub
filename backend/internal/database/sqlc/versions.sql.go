@@ -100,6 +100,32 @@ func (q *Queries) GetAppVersion(ctx context.Context, arg GetAppVersionParams) (G
 	return i, err
 }
 
+const getAppVersionByID = `-- name: GetAppVersionByID :one
+SELECT id, app_id, number, origin, restored_from, author_id, author_probable, description, described_by, described_at, files, summary, files_changed_at, created_at FROM app_versions WHERE id = $1
+`
+
+func (q *Queries) GetAppVersionByID(ctx context.Context, id int64) (AppVersion, error) {
+	row := q.db.QueryRow(ctx, getAppVersionByID, id)
+	var i AppVersion
+	err := row.Scan(
+		&i.ID,
+		&i.AppID,
+		&i.Number,
+		&i.Origin,
+		&i.RestoredFrom,
+		&i.AuthorID,
+		&i.AuthorProbable,
+		&i.Description,
+		&i.DescribedBy,
+		&i.DescribedAt,
+		&i.Files,
+		&i.Summary,
+		&i.FilesChangedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getCodeBlob = `-- name: GetCodeBlob :one
 SELECT content FROM code_blobs WHERE sha256 = $1
 `
@@ -116,9 +142,9 @@ INSERT INTO app_changes (app_id, person_id, changes) VALUES ($1, $2, $3)
 `
 
 type InsertAppChangeParams struct {
-	AppID    int64  `json:"app_id"`
-	PersonID int64  `json:"person_id"`
-	Changes  []byte `json:"changes"`
+	AppID    int64       `json:"app_id"`
+	PersonID pgtype.Int8 `json:"person_id"`
+	Changes  []byte      `json:"changes"`
 }
 
 func (q *Queries) InsertAppChange(ctx context.Context, arg InsertAppChangeParams) error {
@@ -204,8 +230,8 @@ func (q *Queries) LatestAppVersion(ctx context.Context, appID int64) (AppVersion
 }
 
 const listChangesBefore = `-- name: ListChangesBefore :many
-SELECT c.changes, c.created_at, p.name AS person_name
-FROM app_changes c JOIN people p ON p.id = c.person_id
+SELECT c.changes, c.created_at, COALESCE(p.name, 'Hub')::text AS person_name
+FROM app_changes c LEFT JOIN people p ON p.id = c.person_id
 WHERE c.app_id = $1 AND c.created_at < $2
 ORDER BY c.created_at DESC
 LIMIT $3

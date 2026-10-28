@@ -1,7 +1,14 @@
 # PRD — App Hub (Módulo 1: Gestão e orquestração de apps)
 
-**Status:** Em construção (Fundação e Registro prontos) · **Atualizado:** 2026-09-30
+**Status:** Em construção · **Nota de estado atual:** 2026-10-26
 **Fonte:** `Documentação/Especificação do produto v3.md` (visão completa, Módulos 1 e 2; v2 e v1 guardadas como histórico)
+
+> Este PRD preserva requisitos e contexto do piloto original. O servidor atual
+> está no Replit; não depende do WSL para executar. Importação de scripts e
+> formulários já têm implementação, mas o fluxo completo em Windows ainda não
+> foi validado. Nuvem gerenciada e aplicativo desktop com janela própria são
+> evolução prevista, não entrega concluída. Consulte o [README](../README.md),
+> [infraestrutura atual](INFRASTRUCTURE.md) e [fluxo de scripts](SCRIPTS.md).
 
 ---
 
@@ -13,7 +20,7 @@ O App Hub é uma plataforma onde pequenas empresas sem TI registram, organizam, 
 
 **Princípio central: o Hub é genérico.** Ele não é feito sob medida para os apps da Alis. Qualquer app, de qualquer tipo, entra pelo mesmo caminho: é registrado, ganha um **manifesto** (a "carteira de identidade" do app, um arquivo que descreve como ele roda, o que recebe e o que devolve) e, a partir dele, ganha ficha, tela de uso e histórico. Os apps da Alis são o primeiro caso real e servem para testar essa generalidade. Novos apps, criados à mão ou pela IA via MCP (V2), entram pelo mesmo manifesto.
 
-### Piloto
+### Piloto original — contexto histórico
 
 - **Onde roda:** no computador do Henry (Windows), localmente, sem nuvem.
 - **Apps de teste:** a pasta `C:\Users\HenryKroppAlisInvest\OneDrive - Alis\ALIS\5. Operacional\8. Programação`.
@@ -130,6 +137,19 @@ Em linguagem de produto, quem pode o quê:
 - **Cofre local:** chaves e senhas guardadas criptografadas. O app recebe a chave na hora de rodar e o usuário nunca a vê. Registro de qual app usou qual chave e quando. (Pendente, Fase 6.)
 - **Empresa e times (combinado em 2026-09-30, para depois):** a empresa é a conta (nome, padrões, cofre, chave da IA); no piloto existe uma só (Alis). A Etapa 2 entregou áreas, líderes, apps restritos e acessos por app; ainda ficam para depois a pessoa em várias empresas, configurações próprias por time, limites e aprovação antes de publicar.
 
+### 3.7b Apps compartilhados (construído em 2026-10, ADR 010)
+Alguns apps precisam ficar no ar para muita gente usar ao mesmo tempo, com os mesmos dados. O Hub passa a rodá-los num servidor, em vez de abrir no computador de cada pessoa.
+- **Tornar compartilhado:** na ficha, a parte "Compartilhado" mostra a checagem do que falta (com um "texto para o Claude" para consertar), deixa **Testar** numa caixa separada, com banco próprio de teste (desliga sozinha em 30 min), e **Publicar** para a equipe. **Publicar versão nova** sobe ao lado da atual e só assume se funcionar; **Voltar para a anterior** volta só a versão ou a versão com os dados.
+- **Abrir:** o cartão do catálogo ganha **Abrir** e o status (no ar, dormindo, parado, com problema). O app abre em endereço próprio, sem outro login: vale o login do Hub e as mesmas regras de acesso da ficha. O app sabe quem é a pessoa (nome, e-mail e papel).
+- **Descanso e cópias:** o app dorme depois de 30 min sem uso e acorda no próximo acesso. Há cópia diária do banco, cópias antes de publicar e restaurar e cópia manual, todas criptografadas; a ficha restaura.
+- **Servidor e gastos:** o administrador informa quanto o servidor custa por mês e vê memória, disco e a parte de cada app no gasto, e pode parar, ligar ou mudar os limites de um app.
+- **O que cada papel vê:**
+  - **Quem só usa:** vê o status e **Abrir** nos apps que pode ver. Nada de testar, publicar ou servidor.
+  - **Quem cuida do app** (pode restaurar): torna compartilhado, testa, publica, volta versão, muda configurações e restaura cópias.
+  - **Quem vê a parte técnica:** vê mensagens do app e o uso.
+  - **Quem tem "Cuidar do servidor"** (administrador, por padrão): vê a página Servidor, age sobre qualquer app compartilhado e informa o custo.
+- **Limites:** exige Podman ligado no servidor; geração de PDF do Sistema Alis não funciona dentro da caixa (a checagem avisa). Subir na nuvem fica para depois.
+
 ### 3.8 Saúde (1.8)
 - Toda execução com erro fica registrada com a mensagem de erro.
 - Status de cada app: funcionando, com erro ou sem uso.
@@ -153,6 +173,24 @@ Pedido do Henry em 2026-09-30: registrar apps de dentro do Claude, sem preencher
 - **Confirmação humana:** cada registro passa pela confirmação do próprio Claude ("permitir registrar?"), e o app fica marcado no Hub como **registrado via IA**.
 - A IA age com as permissões de quem gerou o código de acesso, nunca mais que isso.
 - **Não precisa de chave da Claude API:** quem lê e escreve é o Claude do criador.
+
+### 3.12 Skills do Claude no catálogo (ideia, não decidida)
+Ideia do Henry em 2026-10-26: compartilhar skills do Claude pelo Hub, como se compartilham apps.
+- **O que é uma skill:** uma pasta com um `SKILL.md` (nome e descrição no topo, depois as instruções), às vezes com scripts, modelos ou textos de referência. Não há registro central: o Claude usa as skills que estão no lugar onde ele procura.
+- **No Hub:** mais um tipo no catálogo, ao lado de script e janela, com responsável, ficha, versões, área e permissões. Mais simples que um app: não roda, não prepara ambiente, não gera resultados. Checagem de segredos no texto, como na importação de scripts.
+- **Entrega (o ponto difícil):** pôr a pasta onde o Claude de quem tem acesso procura, e tirar de quem perdeu o acesso. Caminhos possíveis:
+  1. o Agente copia a pasta para `.claude\skills` no Windows (Claude Code), com atualização automática;
+  2. o Hub serve uma loja de plugins do Claude Code, filtrada pelas permissões de cada pessoa;
+  3. claude.ai e Claude Desktop: falta pesquisar se dá para publicar skills da empresa por um sistema de fora ou só por um administrador.
+- **Junto com o MCP (3.11):** a skill ensina o Claude a fazer a tarefa e o Hub roda o app de dentro da conversa.
+- **Por que interessa:** empresas vão acumular dezenas de skills sem dono nem versão, o mesmo problema que o Hub resolve para apps.
+
+### 3.13 Gestão de gastos com IA (ideia, não decidida)
+Ideia do Henry em 2026-10-26: gerir tokens e créditos de IA pelo Hub. Três níveis, do mais simples ao mais completo:
+1. **Painel de gastos:** o Hub lê o consumo da conta da empresa nos provedores de IA (a Anthropic tem uma API de uso e custo para administradores; falta confirmar o detalhe disponível, sobretudo para os planos do claude.ai) e mostra o gasto por mês, chave e modelo.
+2. **Chave de IA centralizada (o nível que mais vale):** os apps não guardam chave. Pedem a IA através do Hub, que usa a chave da empresa guardada no cofre. O Hub mede o gasto por app, pessoa e área, e acaba com chave escondida no código (risco já visto na importação de scripts).
+3. **Créditos e limites:** orçamento mensal por área ou pessoa, aviso em 80%, bloqueio ou aprovação ao estourar, relatório de consumo. Para vender o Hub, também serve de base para cobrança.
+- **Ligações:** cofre (1.7), página Servidor e gastos e porteiro dos apps compartilhados (3.7b), skills do Claude (3.12).
 
 ---
 
@@ -195,7 +233,7 @@ Pedido do Henry em 2026-09-30: registrar apps de dentro do Claude, sem preencher
 - **Execução isolada da pasta original:** rodar um app não pode sujar nem sobrescrever a pasta original. Arquivos gerados ficam guardados no histórico da execução.
 - **Português simples** em toda a interface, sem termos técnicos sem explicação.
 - **Manifesto aberto e legível:** o app continua compreensível fora do Hub.
-- **Segredos nunca visíveis** na interface, nos registros ou no manifesto.
+- **Segredos nunca visíveis** na interface, nos registros ou no manifesto. Arquivos de senhas (`.env`) não entram no histórico de versões, e as cópias dos bancos ficam criptografadas.
 - **Preparado para o Módulo 2:** a forma de rodar os apps fica separada do resto, para depois levar a execução para a nuvem sem refazer o Hub.
 - **Operável pela IA (MCP):** tudo o que a interface faz (registrar, ler ficha, rodar, versionar) fica disponível como operação que a IA também pode usar (3.11).
 

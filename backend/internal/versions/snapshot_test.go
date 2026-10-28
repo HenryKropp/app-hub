@@ -3,6 +3,7 @@ package versions
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -181,5 +182,49 @@ func TestIncludedSkipsLeftoverTempFile(t *testing.T) {
 	}
 	if !Included("a.py", nil) {
 		t.Fatal("a.py must be included")
+	}
+}
+
+// Files with passwords stay out of the history; examples go in.
+func TestScanLeavesSecretFilesOut(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "main.py", "print('oi')\n")
+	write(t, root, ".env", "API_KEY=sk-segredo\n")
+	write(t, root, "config/prod.env", "DB_PASSWORD=segredo\n")
+	write(t, root, ".env.local", "X=segredo\n")
+	write(t, root, ".env.example", "API_KEY=\n")
+	snap, contents, err := Scan(LocalFolder{Root: root}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, want := paths(snap), []string{".env.example:code", "main.py:code"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for _, data := range contents {
+		if strings.Contains(string(data), "segredo") {
+			t.Fatalf("secret stored: %q", data)
+		}
+	}
+}
+
+func TestSecretFile(t *testing.T) {
+	cases := []struct {
+		rel  string
+		want bool
+	}{
+		{".env", true},
+		{"sub/.ENV", true},
+		{"prod.env", true},
+		{".env.local", true},
+		{".env.example", false},
+		{".env.sample", false},
+		{"env.py", false},
+		{"environment.yml", false},
+	}
+	for _, c := range cases {
+		if got := SecretFile(c.rel); got != c.want {
+			t.Errorf("SecretFile(%q) = %v, want %v", c.rel, got, c.want)
+		}
 	}
 }

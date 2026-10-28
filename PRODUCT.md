@@ -20,7 +20,7 @@ Sucesso, com o mesmo peso: o analista **resolve rápido e sozinho** (achou, rodo
 Produto próprio do Henry, não da Alis. A Alis é o cliente zero; depois, vender a outras pequenas empresas sem TI. A marca e o visual são do App Hub, não precisam combinar com a Alis. O Hub é genérico: qualquer app entra pelo mesmo caminho, o **manifesto** (`app-hub.yaml`, salvo ao lado do app). A partir dele o app ganha ficha, botão Rodar e histórico. Os apps da Alis são o primeiro caso real e servem para testar essa generalidade, não para moldar o Hub.
 
 ## Operating Context
-- Piloto local no computador do Henry (Windows, Hub em WSL). Apps reais ficam numa pasta do OneDrive.
+- Ambiente atual (26/10/2026): Hub web no Replit, com PostgreSQL e execução local pelo Agente do Hub no Windows. O piloto original usava WSL e apps numa pasta do OneDrive; esse contexto não descreve o servidor atual.
 - Apps com janela abrem no Windows de quem clicou, pelo **Agente do Hub**, um programa pequeno instalado em cada computador e conectado em **Configurações › Meu computador**. Rodar = abrir o app, esperar fechar, mostrar os arquivos novos ou alterados para baixar.
 - Tipos de app encontrados: script com arquivo fixo, script com janela de seleção, app web próprio, app de desktop, tarefa agendada, executável pronto, sistema complexo (só ficha) e documento (só catálogo).
 - Rodar em poucos cliques: Rodar no cartão do catálogo, pasta lembrada por pessoa e app, faixa de andamento embaixo da tela, Minhas execuções.
@@ -30,7 +30,8 @@ Produto próprio do Henry, não da Alis. A Alis é o cliente zero; depois, vende
 - Perfis: usuário, criador (responsável/reserva de um app) e administrador.
 - Tudo que o Hub sabe de um app vem do manifesto e do diagnóstico; a ficha é editável à mão.
 - Versões e histórico: o estado original vira versão 1; mudanças na pasta viram versões novas; dá para voltar o código.
-- Em aberto: formulário automático para scripts, apps web, tarefas agendadas, cofre de segredos, painel de uso, funções de IA (sem chave configurada no piloto).
+- Implementado no fluxo de scripts: importação Python/JavaScript pelo navegador, formulário automático, upload de entrada, preparação de dependências e coleta de resultados. O fluxo completo em Windows permanece sem validação.
+- Em aberto: execução gerenciada na nuvem, evolução desktop com janela e instalador único, cofre de segredos, painel de uso e funções de IA. A visão de produto não é uma declaração de funcionalidades entregues.
 
 ## Brand Commitments
 - Nome: **App Hub**.

@@ -102,3 +102,30 @@ describes what is operational today and what is still blocked. The project's
 security reference is `threat_model.md`. No external marketplace or secret
 vault is enabled. Browser imports replace server filesystem scanning in this
 portal; existing apps remain in the original company's database namespace.
+
+## GitHub shared-app integration
+
+The GitHub shared-app implementation is integrated alongside the multi-company
+portal: shared manifests, frontend sections, server page, vault/backup libraries,
+and embedded migrations are present. API requests, download links, and login
+handoffs retain the selected workspace prefix.
+
+The executable entry point intentionally continues to use `workspace.Portal`.
+The upstream Podman supervisor/gateway is **not connected** in this portal.
+It assumes globally named app IDs, databases, containers and hostnames; simply
+attaching it to each workspace would not isolate these resources. Shared-app
+actions therefore return an explicit `shared_runtime_unavailable` error (503).
+This applies even if a vault key is configured. Do not replace this with a fake
+engine or weaken company isolation to enable a demo.
+
+Local Windows-agent scripts, approvals, auditing, retention and company creation
+continue to work as before. Running hosted shared apps requires a compatible
+execution server and a workspace-aware resource/gateway design first. The
+upstream README describes that single-company hosting deployment, not a fully
+enabled runtime in this Replit portal.
+
+The new history migration removes `.env`-style secret files from stored versions
+and deletes unreferenced code blobs. It does not delete companies or accounts.
+Pre-update database backups are restricted local operational files, not public
+download assets; they may contain sensitive historical data and must not be
+committed or published.

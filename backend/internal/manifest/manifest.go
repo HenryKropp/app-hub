@@ -6,6 +6,7 @@ package manifest
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -74,6 +75,7 @@ type Manifest struct {
 	DependsOn       []string    `yaml:"depends_on,omitempty" json:"depends_on"`
 	Build           *Build      `yaml:"build,omitempty" json:"build"`
 	Notes           []string    `yaml:"notes,omitempty" json:"notes"`
+	Shared          *Shared     `yaml:"shared,omitempty" json:"shared"`
 }
 
 type Run struct {
@@ -175,6 +177,7 @@ func (m Manifest) Validate() []string {
 	if m.Build != nil && strings.TrimSpace(m.Build.Source) == "" {
 		errs = append(errs, "Informe onde está o código usado para gerar o app.")
 	}
+	errs = append(errs, m.sharedProblems()...)
 	return errs
 }
 
@@ -198,4 +201,106 @@ func Slugify(s string) string {
 		return "app"
 	}
 	return slug
+}
+
+// Shared describes how the Hub hosts a web app for the whole team.
+type Shared struct {
+	Enabled    bool     `yaml:"enabled" json:"enabled"`
+	Port       int      `yaml:"port,omitempty" json:"port"`
+	HealthPath string   `yaml:"health_path,omitempty" json:"health_path"`
+	Database   string   `yaml:"database,omitempty" json:"database"` // "" ou "postgres"
+	AlwaysOn   bool     `yaml:"always_on,omitempty" json:"always_on"`
+	IdleMin    int      `yaml:"idle_minutes,omitempty" json:"idle_minutes"`
+	MemoryMB   int      `yaml:"memory_mb,omitempty" json:"memory_mb"`
+	CPUs       float64  `yaml:"cpus,omitempty" json:"cpus"`
+	Python     string   `yaml:"python,omitempty" json:"python"`   // versão para a receita automática; padrão 3.12
+	Node       string   `yaml:"node,omitempty" json:"node"`       // padrão 22
+	Command    string   `yaml:"command,omitempty" json:"command"` // comando de início confirmado (Python web)
+	Env        []EnvVar `yaml:"env,omitempty" json:"env"`
+}
+
+// EnvVar declares a setting the app needs. It never holds the value.
+type EnvVar struct {
+	Name     string `yaml:"name" json:"name"`
+	Label    string `yaml:"label" json:"label"`
+	Secret   bool   `yaml:"secret,omitempty" json:"secret"`
+	Required bool   `yaml:"required,omitempty" json:"required"`
+	Default  string `yaml:"default,omitempty" json:"default"`
+}
+
+// MsgCommandLines refuses a start command with line breaks.
+const MsgCommandLines = "O comando de início precisa estar numa linha só."
+
+// ReservedEnv are filled in by the Hub and cannot be declared by the app.
+var ReservedEnv = []string{"PORT", "BASE_URL", "APPHUB_DATA_DIR", "DATABASE_URL"}
+
+var envName = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
+
+// WithDefaults returns a copy with the Hub's defaults applied.
+func (s *Shared) WithDefaults() Shared {
+	d := *s
+	if d.HealthPath == "" {
+		d.HealthPath = "/"
+	}
+	if d.IdleMin == 0 {
+		d.IdleMin = 30
+	}
+	if d.MemoryMB == 0 {
+		d.MemoryMB = 512
+	}
+	if d.CPUs == 0 {
+		d.CPUs = 1
+	}
+	if d.Python == "" {
+		d.Python = "3.12"
+	}
+	if d.Node == "" {
+		d.Node = "22"
+	}
+	return d
+}
+
+func (m Manifest) sharedProblems() []string {
+	s := m.Shared
+	if s == nil || !s.Enabled {
+		return nil
+	}
+	var out []string
+	if m.Kind != KindWeb {
+		out = append(out, "Só apps com tela no navegador podem ser compartilhados.")
+	}
+	if s.Database != "" && s.Database != "postgres" {
+		out = append(out, "O banco do app compartilhado precisa ser postgres.")
+	}
+	if s.Port < 0 || s.Port > 65535 {
+		out = append(out, "A porta do app precisa estar entre 1 e 65535.")
+	}
+	if s.MemoryMB != 0 && (s.MemoryMB < 128 || s.MemoryMB > 16384) {
+		out = append(out, "A memória do app precisa estar entre 128 e 16384 MB.")
+	}
+	if s.CPUs < 0 || s.CPUs > 16 {
+		out = append(out, "O processamento do app precisa estar entre 0,1 e 16.")
+	}
+	if s.IdleMin != 0 && (s.IdleMin < 5 || s.IdleMin > 1440) {
+		out = append(out, "O tempo para dormir precisa estar entre 5 e 1440 minutos.")
+	}
+	if s.HealthPath != "" && !strings.HasPrefix(s.HealthPath, "/") {
+		out = append(out, "O endereço de saúde precisa começar com /.")
+	}
+	if strings.ContainsAny(s.Command, "\r\n") {
+		out = append(out, MsgCommandLines)
+	}
+	seen := map[string]bool{}
+	for _, e := range s.Env {
+		switch {
+		case slices.Contains(ReservedEnv, e.Name):
+			out = append(out, e.Name+" é preenchida pelo Hub; tire da lista de configurações.")
+		case !envName.MatchString(e.Name):
+			out = append(out, fmt.Sprintf("O nome da configuração %q só pode ter letras maiúsculas, números e _.", e.Name))
+		case seen[e.Name]:
+			out = append(out, "A configuração "+e.Name+" aparece duas vezes.")
+		}
+		seen[e.Name] = true
+	}
+	return out
 }

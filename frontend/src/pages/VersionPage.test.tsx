@@ -11,7 +11,7 @@ afterEach(() => vi.restoreAllMocks())
 const detail: AppDetail = {
   id: 3, folder_path: "/mnt/c/apps/fp", folder_display: "C:\\apps\\fp", owner_id: 1, backup_id: null, updated_at: "2026-09-30T10:00:00Z",
   manifest: manifest(), can_run: true, version: { number: 2, created_at: "2026-09-30T10:00:00Z" }, folder_readable: true, remembered_folder: "",
-  area_id: 1, restricted: false, can: ALL_CAN,
+  area_id: 1, restricted: false, shared: null, can: ALL_CAN,
 }
 beforeEach(() => { vi.spyOn(api, "app").mockResolvedValue(detail) })
 

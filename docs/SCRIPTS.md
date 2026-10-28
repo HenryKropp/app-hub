@@ -112,3 +112,25 @@ transporte de arquivos, execução real de Python e JavaScript em Linux e retorn
 de falha. O agente é compilado para Windows, mas a execução em um computador
 Windows real e os instaladores de dependências com rede exigem validação nesse
 ambiente. Não há bypass de login para mostrar telas protegidas.
+
+### Teste guiado em Windows — 26/10/2026
+
+O usuário encontrou avisos de download pouco frequente no Chrome e de
+fornecedor desconhecido no SmartScreen. Não relatou detecção no Histórico de
+proteção do Defender; isso não comprova que o executável seja seguro.
+
+Os arquivos de instalação e o log foram encontrados no Windows, mas o agente
+não ficou conectado. Os registros recentes mostram HTTP 403 ao iniciar o
+pareamento. Um pedido de diagnóstico externo recebeu HTTP 307 para a proteção
+de acesso do Replit (`__replshield`); o mesmo pedido inválido no workspace
+recebeu HTTP 400 do Hub.
+
+Assim, o teste permanece bloqueado na conexão: importação, formulário, upload,
+instalação de dependências, execução e download dos resultados ainda não foram
+confirmados nesse Windows. Também faltam os cenários de ausência de runtime,
+pip/npm e falha de dependências. Não remova ferramentas do computador de trabalho
+para simular essas condições; use ambiente descartável e scripts inofensivos.
+
+Consulte [infraestrutura](INFRASTRUCTURE.md) para distinguir a proteção do
+endereço de desenvolvimento das permissões do próprio Hub. Não envie
+`agente.json` nem logs com credenciais ao pedir ajuda.

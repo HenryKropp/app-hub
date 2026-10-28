@@ -30,6 +30,13 @@ export type Output = { label: string; pattern: string }
 export type SecretRef = { name: string; file: string; line: number; hint?: string }
 export type PersonRef = { name: string; email: string }
 
+export type EnvVar = { name: string; label: string; secret?: boolean; required?: boolean; default?: string }
+export type SharedSpec = {
+  enabled: boolean; port?: number; health_path?: string; database?: "" | "postgres"
+  always_on?: boolean; idle_minutes?: number; memory_mb?: number; cpus?: number
+  python?: string; node?: string; command?: string; env?: EnvVar[] | null
+}
+
 export type Manifest = {
   manifest_version: number
   id: string
@@ -51,6 +58,7 @@ export type Manifest = {
   depends_on?: string[] | null
   build?: { source: string; command: string } | null
   notes: string[] | null
+  shared?: SharedSpec | null
 }
 
 export type Question = { field: string; text: string }
@@ -74,6 +82,40 @@ export type ScanItem = {
 
 export type ScanResult = { root_display: string; items: ScanItem[] }
 
+export type SharedStatus = "draft" | "starting" | "running" | "sleeping" | "stopped" | "crashed"
+export type SharedBrief = { status: SharedStatus; url: string; slug: string }
+export type SharedState = {
+  status: SharedStatus; status_message: string; stopped_by: string; always_on: boolean; idle_minutes: number
+  memory_mb: number; cpus: number; wants_db: boolean; url: string; acks: string[]; has_previous: boolean
+}
+export type Deployment = {
+  id: number; kind: "test" | "live"; status: "building" | "ready" | "live" | "failed" | "retired"
+  version_number: number | null; error_message: string; created_by_name: string
+  created_at: string; finished_at: string | null; expires_at: string | null
+  build_log?: string; port?: number // only for whoever sees the technical part
+}
+export type SharedInfo = {
+  shared: SharedState | null; test_url?: string; test_open?: boolean
+  live_version?: number; latest_version?: number; deployments?: Deployment[]
+}
+export type ReadinessItem = { key: string; status: "ok" | "auto" | "missing" | "warn"; title: string; detail: string; claude_text: string; acked: boolean }
+export type Readiness = { ready: boolean; recipe: { kind: string; dockerfile: string; port: number; command: string; needs_confirm: boolean; requirements: string[] | null }; wants_db: boolean; suggest_env: EnvVar[] | null; items: ReadinessItem[] }
+export type SharedSettings = {
+  enabled: boolean; always_on: boolean; idle_minutes: number; memory_mb: number; cpus: number; port: number
+  health_path: string; database: "" | "postgres"; command: string; env: EnvVar[]; acks: string[]; updated_at: string
+}
+export type ConfigItem = EnvVar & { has_value: boolean; value: string }
+export type SharedBackup = { id: number; kind: "daily" | "manual" | "pre_deploy" | "pre_restore"; size_bytes: number; created_at: string; expires_at: string | null; created_by_name: string; version_number: number | null }
+export type UsagePoint = { at: string; mem_mb: number; cpu: number }
+export type ServerApp = {
+  app_id: number; name: string; slug: string; status: SharedStatus; always_on: boolean; memory_mb: number; cpus: number; idle_minutes: number
+  hours_on: number; avg_mem_mb: number; max_mem_mb: number; avg_cpu: number; db_bytes: number; backup_bytes: number; cost_cents: number
+}
+export type ServerInfo = {
+  memory_total: number; memory_used: number; disk_total: number; disk_used: number; disk_warning: boolean; engine_ok: boolean
+  monthly_cost_cents: number; hub_cents: number; period_start: string; apps: ServerApp[]
+}
+
 export type AppSummary = {
   id: number
   slug: string
@@ -93,6 +135,7 @@ export type AppSummary = {
   area_id: number
   restricted: boolean
   can: Can
+  shared: SharedBrief | null
 }
 
 export type AppDetail = {
@@ -110,6 +153,11 @@ export type AppDetail = {
   area_id: number
   restricted: boolean
   can: Can
+  shared: SharedBrief | null
+  /** Only in the answer of PUT /shared: the running app must start again for the change to count. */
+  needs_restart?: boolean
+  /** Only in the answer of PUT /shared: a new port counts only after a new publish. */
+  needs_publish?: boolean
   depends_on_apps?: AppLink[]
   used_by?: AppLink[]
 }
@@ -301,9 +349,39 @@ export const api = {
   restorePreview: (appId: number, n: number) => request<{ plan: RestorePlan; current: number }>("GET", `/api/apps/${appId}/versions/${n}/restore-preview`),
   restore: (appId: number, n: number) => request<RestoreResult>("POST", `/api/apps/${appId}/versions/${n}/restore`),
   run: (id: number | string) => request<Run>("GET", `/api/runs/${id}`),
+  shared: {
+    get: (id: number) => request<SharedInfo>("GET", `/api/apps/${id}/shared`),
+    check: (id: number) => request<Readiness>("GET", `/api/apps/${id}/shared/check`),
+    save: (id: number, s: SharedSettings) => request<AppDetail>("PUT", `/api/apps/${id}/shared`, s),
+    test: (id: number) => request<Deployment>("POST", `/api/apps/${id}/shared/test`),
+    publish: (id: number) => request<Deployment>("POST", `/api/apps/${id}/shared/publish`),
+    deployment: (id: number, dep: number) => request<Deployment>("GET", `/api/apps/${id}/shared/deployments/${dep}`),
+    rollback: (id: number, withData: boolean) => request<object>("POST", `/api/apps/${id}/shared/rollback`, { with_data: withData }),
+    stop: (id: number) => request<object>("POST", `/api/apps/${id}/shared/stop`),
+    start: (id: number) => request<object>("POST", `/api/apps/${id}/shared/start`),
+    unshare: (id: number) => request<object>("POST", `/api/apps/${id}/shared/unshare`),
+    logs: (id: number) => request<{ text: string }>("GET", `/api/apps/${id}/shared/logs`),
+    usage: (id: number) => request<UsagePoint[]>("GET", `/api/apps/${id}/shared/usage`),
+    config: (id: number) => request<ConfigItem[]>("GET", `/api/apps/${id}/shared/config`),
+    setConfig: (id: number, name: string, value: string) => request<{ needs_restart: boolean }>("PUT", `/api/apps/${id}/shared/config`, { name, value }),
+    backups: (id: number) => request<SharedBackup[]>("GET", `/api/apps/${id}/shared/backups`),
+    backup: (id: number) => request<SharedBackup>("POST", `/api/apps/${id}/shared/backups`),
+    restore: (id: number, bid: number) => request<object>("POST", `/api/apps/${id}/shared/backups/${bid}/restore`),
+  },
+  server: {
+    get: () => request<ServerInfo>("GET", "/api/server"),
+    setCost: (cents: number) => request<object>("PUT", "/api/server/cost", { monthly_cost_cents: cents }),
+    setApp: (id: number, l: { memory_mb: number; cpus: number; always_on: boolean; idle_minutes: number }) =>
+      request<{ needs_restart: boolean }>("PUT", `/api/server/apps/${id}`, l),
+    stop: (id: number) => request<object>("POST", `/api/server/apps/${id}/stop`),
+    start: (id: number) => request<object>("POST", `/api/server/apps/${id}/start`),
+  },
 }
 
 export const AGENT_DOWNLOAD_URL = workspaceUrl("/api/agent/download")
 export const fileUrl = (runId: number, fileId: number) => workspaceUrl(`/api/runs/${runId}/files/${fileId}`)
 export const groupZipUrl = (runId: number, index: number) => workspaceUrl(`/api/runs/${runId}/groups/${index}/zip`)
 export const selectedUrl = (runId: number, fileIds: number[]) => workspaceUrl(`/api/runs/${runId}/selected?files=${fileIds.join(",")}`)
+export const backupDownloadUrl = (id: number, bid: number) => workspaceUrl(`/api/apps/${id}/shared/backups/${bid}/download`)
+export const openSharedUrl = (slug: string, test = false) =>
+  workspaceUrl(`/api/shared/authorize?app=${encodeURIComponent(slug)}${test ? "&teste=1" : ""}&volta=%2F`)

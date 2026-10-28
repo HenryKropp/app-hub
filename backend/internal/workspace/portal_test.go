@@ -289,3 +289,39 @@ func TestPortalIsolationSecurityLifecycle(t *testing.T) {
 		t.Fatal("company missing after restart")
 	}
 }
+
+func TestPortalSharedRuntimeFailsClosed(t *testing.T) {
+	_, pool, srv := testPortal(t)
+	b := browser(t, srv.URL)
+	credentials := map[string]any{"name": "Test admin", "email": "admin@example.test", "password": "test-password-not-a-real-secret"}
+	b.want("POST", "/api/auth/setup", credentials, 201)
+	importApp(t, b, "", "Original company app")
+	b.want("POST", "/api/workspaces", map[string]any{"name": "Other company", "slug": "other-company", "password": credentials["password"]}, 201)
+	b.want("POST", "/w/other-company/api/auth/login", credentials, 200)
+	importApp(t, b, "/w/other-company", "Other company app")
+	for _, prefix := range []string{"", "/w/other-company"} {
+		for _, route := range []string{"/api/server", "/api/apps/1/shared"} {
+			data := b.want("GET", prefix+route, nil, 503)
+			if !bytes.Contains(data, []byte(`"code":"shared_runtime_unavailable"`)) {
+				t.Fatalf("missing explicit runtime capability error for %s", prefix+route)
+			}
+		}
+		b.want("POST", prefix+"/api/apps/1/shared/publish", map[string]any{}, 503)
+		b.want("GET", prefix+"/api/shared/authorize?app=notas", nil, 503)
+		req, _ := http.NewRequest("GET", srv.URL+prefix+"/api/shared/authorize?app=notas", nil)
+		req.Header.Set("Accept", "text/html")
+		resp, err := b.c.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil || resp.StatusCode != 503 || !bytes.Contains(data, []byte(`href="`+prefix+`/"`)) {
+			t.Fatal("unavailable page lost its company home link")
+		}
+	}
+	var jobs int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM shared_deployments`).Scan(&jobs); err != nil || jobs != 0 {
+		t.Fatalf("disabled shared runtime created deployments: count=%d err=%v", jobs, err)
+	}
+}
