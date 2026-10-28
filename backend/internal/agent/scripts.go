@@ -202,7 +202,7 @@ func (r *Runner) runScript(ctx context.Context, p agentproto.RunPayload, report 
 	err = runTree(ctx, cmd)
 	exit := 0
 	// A stopped script still hands over what it wrote until then.
-	if ctx.Err() != nil && !r.wasStopped() {
+	if ctx.Err() != nil && !r.wasStopped(p.RunID) {
 		return failed("O script foi interrompido ou ultrapassou o limite de 15 minutos. Confira o script e tente novamente.")
 	}
 	var exitErr *exec.ExitError

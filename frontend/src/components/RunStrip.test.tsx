@@ -124,6 +124,18 @@ test("other start error offers trocar pasta, which opens the dialog", async () =
   expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("D:\\Saídas")
 })
 
+test("folder in use by another open app offers trocar pasta", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "activeRuns").mockResolvedValue([])
+  vi.spyOn(api, "startRun").mockRejectedValue(new ApiError(409, "Essa pasta já está sendo usada pelo Ferramenta CVM, que está aberto agora. Escolha outra pasta ou espere ele fechar."))
+  mount()
+  await user.click(screen.getByText("go"))
+  expect(await screen.findByText(/já está sendo usada pelo Ferramenta CVM/)).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Ver Meu computador" })).not.toBeInTheDocument()
+  await user.click(screen.getByRole("button", { name: "Trocar pasta" }))
+  expect(screen.getByLabelText("Onde salvar os resultados?")).toBeInTheDocument()
+})
+
 test("interrupted run points to Meu computador", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "activeRuns").mockResolvedValue([activeRun({ status: "interrupted" })])

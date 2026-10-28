@@ -10,7 +10,7 @@ import (
 )
 
 // Version is the agent version this Hub expects.
-const Version = "0.3.1"
+const Version = "0.3.2"
 
 // Job kinds.
 const (
@@ -45,6 +45,8 @@ type RunPayload struct {
 	Exe          string         `json:"exe"`
 	OutputFolder string         `json:"output_folder"`
 	Script       *ScriptPayload `json:"script,omitempty"`
+	// AppName names the app when another run needs this folder (0.3.2+).
+	AppName string `json:"app_name,omitempty"`
 }
 
 type ScriptPayload struct {

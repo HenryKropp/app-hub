@@ -96,8 +96,9 @@ func TestListRunsScopesAndPages(t *testing.T) {
 	h.runsPage = 2
 	app := insertApp(t, filesPrepManifest())
 	pairComputer(t, admin, "PC")
-	for range 3 {
-		admin.do("POST", appPath(app, "/runs"), map[string]string{}, nil)
+	for i := range 3 {
+		// Separate folders: two apps at once never share one.
+		admin.do("POST", appPath(app, "/runs"), map[string]string{"output_folder": `C:\Saida` + strconv.Itoa(i)}, nil)
 	}
 	var page runListJSON
 	admin.do("GET", "/api/runs?scope=mine", nil, &page)
