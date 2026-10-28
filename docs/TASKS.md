@@ -79,9 +79,20 @@ Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep)
 - Nunca ligar um Hub de teste (com outro banco) na porta 8080: o Agente real fala com ele e esquece a conexão.
 - Ainda falta o Henry conferir a janela de pastas moderna (item da Fase 4).
 
+## News Scrapper no servidor do Hub, sempre ligado (← próxima sessão, decidido em 2026-10-28)
+
+Pedido do Henry: o objetivo é as pessoas pararem de rodar apps no PC e usarem pelo App Hub. O News Scrapper (`C:\Users\HenryKroppAlisInvest\OneDrive - Alis\ALIS\5. Operacional\8. Programação\News Scrapper`) hoje é um script Python (`scraper.py`, que grava `news_data.json`, `dashboard.html` e `scraper.log` na própria pasta e lê `config.json` e `watchlist.json`) rodado a cada 5 min pela tarefa agendada "NewsScrapper", mais o `server.py`, que mostra o dashboard na porta 8080. Desenho combinado:
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Modo "sempre ligado" para app compartilhado | Pending | Hoje o app dorme após 30 min sem acesso; este não pode dormir. Botão Ligar/Desligar |
+| Adaptar o News Scrapper como app compartilhado | Pending | Dados em `APPHUB_DATA_DIR`; ciclo de 5 min 24/7; serve o dashboard em `PORT`; sem auto-instalação por pip nem notificações do Windows (plyer); dependências: requests, beautifulsoup4, feedparser, Pillow |
+| Publicar e testar de verdade | Pending | Precisa da 8080 livre (o alis-research-hub-v2 usa a mesma porta) e do Podman respondendo (em 2026-10-28 `podman version` estava sendo morto) |
+| Henry desliga a tarefa agendada do PC | Pending | Depois de o app estar no ar |
+
 ## Fase 2b — Registro pelo Claude via MCP (3.11) — pausada
 
-**Próxima sessão (decidido em 2026-10-28):** Henry quer retomar esta fase. Registrar app pela tela exige saber achar pasta e .exe, o que não serve para um leigo; pelo Claude, a pessoa só conversa. O primeiro app registrado assim também libera o teste de vários apps juntos.
+**Depois do News Scrapper (decidido em 2026-10-28):** Henry quer retomar esta fase. Registrar app pela tela exige saber achar pasta e .exe, o que não serve para um leigo; pelo Claude, a pessoa só conversa. O primeiro app registrado assim também libera o teste de vários apps juntos.
 
 Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prioridade acima. Primeiro o protocolo, testado localmente; depois o MCP. Substitui a necessidade de chave da API para o diagnóstico por IA.
 
