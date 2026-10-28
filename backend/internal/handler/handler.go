@@ -52,6 +52,9 @@ type Handler struct {
 	// mtime (OneDrive resync) are not re-read on every check.
 	scansMu sync.Mutex
 	scans   map[int64]scanCache
+
+	// Shared apps (deploy service, supervisor, gateway codes); zero = off.
+	shared Shared
 }
 
 func New(q *sqlc.Queries, cfg config.Config) *Handler {
@@ -82,6 +85,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/auth/logout", h.logout)
 	mux.HandleFunc("GET /api/onboarding", h.onboarding)
 	mux.HandleFunc("PUT /api/onboarding", h.updateOnboarding)
+	mux.HandleFunc("GET /api/shared/authorize", h.sharedAuthorize)
 	if h.cfg.DevMode {
 		mux.HandleFunc("POST /api/dev/login", h.devLogin)
 	}
@@ -118,6 +122,29 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/apps/{id}/versions/{n}/restore", h.restoreVersion)
 	mux.HandleFunc("POST /api/apps", h.saveApp)
 	mux.HandleFunc("POST /api/scripts/import", h.importScript)
+	mux.HandleFunc("GET /api/server", h.getServer)
+	mux.HandleFunc("PUT /api/server/cost", h.putServerCost)
+	mux.HandleFunc("PUT /api/server/apps/{id}", h.putServerApp)
+	mux.HandleFunc("POST /api/server/apps/{id}/stop", h.stopServerApp)
+	mux.HandleFunc("POST /api/server/apps/{id}/start", h.startServerApp)
+	mux.HandleFunc("GET /api/apps/{id}/shared", h.getShared)
+	mux.HandleFunc("PUT /api/apps/{id}/shared", h.putShared)
+	mux.HandleFunc("GET /api/apps/{id}/shared/check", h.checkShared)
+	mux.HandleFunc("POST /api/apps/{id}/shared/test", func(w http.ResponseWriter, r *http.Request) { h.startShared(w, r, true) })
+	mux.HandleFunc("POST /api/apps/{id}/shared/publish", func(w http.ResponseWriter, r *http.Request) { h.startShared(w, r, false) })
+	mux.HandleFunc("GET /api/apps/{id}/shared/deployments/{dep}", h.getSharedDeployment)
+	mux.HandleFunc("POST /api/apps/{id}/shared/rollback", h.rollbackShared)
+	mux.HandleFunc("POST /api/apps/{id}/shared/stop", h.stopShared)
+	mux.HandleFunc("POST /api/apps/{id}/shared/start", h.startSharedApp)
+	mux.HandleFunc("POST /api/apps/{id}/shared/unshare", h.unshareShared)
+	mux.HandleFunc("GET /api/apps/{id}/shared/logs", h.sharedLogs)
+	mux.HandleFunc("GET /api/apps/{id}/shared/usage", h.sharedUsage)
+	mux.HandleFunc("GET /api/apps/{id}/shared/config", h.getSharedConfig)
+	mux.HandleFunc("PUT /api/apps/{id}/shared/config", h.putSharedConfig)
+	mux.HandleFunc("GET /api/apps/{id}/shared/backups", h.listSharedBackups)
+	mux.HandleFunc("POST /api/apps/{id}/shared/backups", h.createSharedBackup)
+	mux.HandleFunc("POST /api/apps/{id}/shared/backups/{bid}/restore", h.restoreSharedBackup)
+	mux.HandleFunc("GET /api/apps/{id}/shared/backups/{bid}/download", h.downloadSharedBackup)
 	mux.HandleFunc("POST /api/apps/{id}/runs", h.startRun)
 	mux.HandleFunc("GET /api/apps/{id}/runs", h.listAppRuns)
 	mux.HandleFunc("GET /api/runs", h.listRuns)

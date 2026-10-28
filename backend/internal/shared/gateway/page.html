@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+{{if .Refresh}}<meta http-equiv="refresh" content="2">{{end}}
+<title>{{.Title}} · App Hub</title>
+<style>
+  :root { --bg:#fafafa; --fg:#18181b; --muted:#71717a; --card:#fff; --line:#e4e4e7; --accent:#6d28d9; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#09090b; --fg:#fafafa; --muted:#a1a1aa; --card:#18181b; --line:#27272a; --accent:#a78bfa; } }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--fg);
+         font-family: Geist, ui-sans-serif, system-ui, sans-serif; padding:16px; box-sizing:border-box; }
+  main { max-width:420px; width:100%; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:28px; }
+  .app { color:var(--muted); font-size:14px; margin:0 0 8px; }
+  h1 { font-size:22px; margin:0 0 12px; }
+  p { line-height:1.5; margin:0 0 16px; }
+  a.btn { display:inline-block; background:var(--accent); color:#fff; text-decoration:none; padding:8px 14px; border-radius:8px; font-size:14px; }
+  .spin { width:18px; height:18px; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%;
+          animation:s 1s linear infinite; display:inline-block; vertical-align:middle; margin-right:8px; }
+  @keyframes s { to { transform:rotate(360deg) } }
+</style>
+</head>
+<body>
+<main>
+  {{if .App}}<p class="app">{{.App}}</p>{{end}}
+  <h1>{{if .Refresh}}<span class="spin"></span>{{end}}{{.Title}}</h1>
+  <p>{{.Message}}</p>
+  {{if .HubURL}}<a class="btn" href="{{.HubURL}}">Voltar ao Hub</a>{{end}}
+</main>
+</body>
+</html>

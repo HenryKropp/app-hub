@@ -6,6 +6,7 @@ import { api, ApiError, type AppDetail, type Person } from "@/lib/api"
 import * as auth from "@/lib/auth"
 import { RunsProvider } from "@/lib/runs-context"
 import { VIEW_ONLY, activeRun, bia, detail, henry } from "@/test/fixtures"
+import { toast } from "sonner"
 import { AppPage } from "./AppPage"
 
 beforeEach(() => localStorage.clear())
@@ -343,4 +344,58 @@ it("someone who cares for the app's access changes who cares and the area", asyn
   expect(await screen.findByRole("button", { name: "Editar Quem cuida" })).toBeInTheDocument()
   await userEvent.click(screen.getByRole("button", { name: "Editar Sobre" }))
   expect(within(screen.getByRole("group", { name: "Sobre" })).getByLabelText(/Área/)).toBeInTheDocument()
+})
+
+it("offers Tornar compartilhado on a web app to who takes care, not to others", async () => {
+  const web = detail({ manifest: { ...detail().manifest, kind: "web" } })
+  base(web)
+  const { unmount } = renderPage()
+  expect(await screen.findByRole("button", { name: "Tornar compartilhado" })).toBeInTheDocument()
+  expect(screen.getByText("Fica num endereço só, para várias pessoas usarem ao mesmo tempo, com os dados guardados no Hub.")).toBeInTheDocument()
+  unmount()
+  base({ ...web, can: { ...web.can, restore: false } })
+  renderPage(bia)
+  expect(await screen.findByRole("heading", { name: "Eq. Research Files Prep" })).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Tornar compartilhado" })).not.toBeInTheDocument()
+})
+
+it("Tornar compartilhado saves the defaults and shows the shared part", async () => {
+  const user = userEvent.setup()
+  const web = detail({ manifest: { ...detail().manifest, kind: "web" } })
+  base(web)
+  const shared = { ...web, shared: { status: "draft" as const, url: "", slug: "fp" } }
+  const save = vi.spyOn(api.shared, "save").mockResolvedValue(shared)
+  vi.spyOn(api.shared, "get").mockResolvedValue({ shared: { status: "draft", status_message: "", stopped_by: "", always_on: false, idle_minutes: 30, memory_mb: 512, cpus: 1, wants_db: false, url: "", acks: [], has_previous: false }, deployments: [] })
+  const check = vi.spyOn(api.shared, "check").mockResolvedValue({ ready: true, recipe: { kind: "flask", command: "", dockerfile: "", port: 0, needs_confirm: false, requirements: null }, wants_db: false, suggest_env: [], items: [] })
+  vi.spyOn(api.shared, "config").mockResolvedValue([])
+  renderPage()
+  await user.click(await screen.findByRole("button", { name: "Tornar compartilhado" }))
+  expect(save).toHaveBeenCalledWith(3, expect.objectContaining({ enabled: true, memory_mb: 512, cpus: 1, idle_minutes: 30, database: "", updated_at: web.updated_at }))
+  expect(await screen.findByText("Tudo certo para publicar.")).toBeInTheDocument()
+  expect(check).toHaveBeenCalled()
+})
+
+it("a published shared app is opened, not run", async () => {
+  base(detail({ manifest: { ...detail().manifest, kind: "web" }, shared: { status: "running", url: "http://fp.localhost", slug: "fp" }, can: VIEW_ONLY }))
+  vi.spyOn(api.shared, "get").mockResolvedValue({ shared: { status: "running", status_message: "", stopped_by: "", always_on: false, idle_minutes: 30, memory_mb: 512, cpus: 1, wants_db: false, url: "", acks: [], has_previous: false }, live_version: 2 })
+  renderPage(bia)
+  expect(await screen.findByText("No ar · versão 2")).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Rodar" })).not.toBeInTheDocument()
+  expect(screen.getAllByRole("link", { name: /Abrir/ })[0]).toHaveAttribute("href", "/api/shared/authorize?app=fp&volta=%2F")
+})
+
+it("says what to do when the ficha does not reload after a shared change", async () => {
+  const user = userEvent.setup()
+  const shared = detail({ manifest: { ...detail().manifest, kind: "web" }, shared: { status: "running", url: "", slug: "fp" } })
+  base(shared)
+  vi.spyOn(api, "app").mockResolvedValueOnce(shared).mockRejectedValue(new Error("boom"))
+  vi.spyOn(api.shared, "get").mockResolvedValue({ shared: { status: "running", status_message: "", stopped_by: "", always_on: false, idle_minutes: 30, memory_mb: 512, cpus: 1, wants_db: false, url: "", acks: [], has_previous: false }, live_version: 2, latest_version: 2, deployments: [] })
+  vi.spyOn(api.shared, "check").mockResolvedValue({ ready: true, recipe: { kind: "flask", command: "", dockerfile: "", port: 0, needs_confirm: false, requirements: null }, wants_db: false, suggest_env: [], items: [] })
+  vi.spyOn(api.shared, "config").mockResolvedValue([])
+  vi.spyOn(api.shared, "stop").mockResolvedValue({})
+  const err = vi.spyOn(toast, "error")
+  renderPage()
+  await user.click(await screen.findByRole("button", { name: "Parar" }))
+  await user.click(screen.getByRole("button", { name: "Sim, parar" }))
+  await vi.waitFor(() => expect(err).toHaveBeenCalledWith("Não consegui atualizar a ficha. Recarregue a página para ver o estado novo."))
 })

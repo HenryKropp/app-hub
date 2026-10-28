@@ -48,11 +48,14 @@ LIMIT sqlc.arg(lim);
 INSERT INTO app_changes (app_id, person_id, changes) VALUES ($1, $2, $3);
 
 -- name: ListChangesBefore :many
-SELECT c.changes, c.created_at, p.name AS person_name
-FROM app_changes c JOIN people p ON p.id = c.person_id
+SELECT c.changes, c.created_at, COALESCE(p.name, 'Hub')::text AS person_name
+FROM app_changes c LEFT JOIN people p ON p.id = c.person_id
 WHERE c.app_id = sqlc.arg(app_id) AND c.created_at < sqlc.arg(before)
 ORDER BY c.created_at DESC
 LIMIT sqlc.arg(lim);
 
 -- name: AppHasActiveRun :one
 SELECT EXISTS(SELECT 1 FROM runs WHERE app_id = $1 AND status IN ('waiting', 'running'));
+
+-- name: GetAppVersionByID :one
+SELECT * FROM app_versions WHERE id = $1;

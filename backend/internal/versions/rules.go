@@ -51,6 +51,19 @@ func Included(rel string, outs []manifest.Output) bool {
 	return idx < 0
 }
 
+// SecretFile reports whether a file holds passwords and keys (.env, prod.env,
+// .env.local…). Its values never go into the history: they stay only in the
+// app's folder. Examples (.env.example, .env.sample, .env.template) do go in.
+func SecretFile(rel string) bool {
+	base := strings.ToLower(path.Base(rel))
+	for _, ex := range []string{".example", ".sample", ".template"} {
+		if strings.HasSuffix(base, ex) {
+			return false
+		}
+	}
+	return base == ".env" || strings.HasSuffix(base, ".env") || strings.HasPrefix(base, ".env.")
+}
+
 func isCodeName(rel string) bool {
-	return codeExts[strings.ToLower(path.Ext(rel))]
+	return codeExts[strings.ToLower(path.Ext(rel))] || strings.HasPrefix(strings.ToLower(path.Base(rel)), ".env.")
 }

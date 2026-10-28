@@ -7486,7 +7486,7 @@ Regras para todas as telas (vêm do `DESIGN.md` e do `.impeccable.md`): fonte Ge
 
 ```ts
 // api.ts
-export type SharedStatus = "draft" | "building" | "running" | "sleeping" | "stopped" | "crashed"
+export type SharedStatus = "draft" | "starting" | "running" | "sleeping" | "stopped" | "crashed"
 export type SharedBrief = { status: SharedStatus; url: string; slug: string }
 // AppSummary e AppDetail ganham: shared: SharedBrief | null
 export type SharedState = {
@@ -7494,7 +7494,7 @@ export type SharedState = {
   memory_mb: number; cpus: number; wants_db: boolean; url: string; acks: string[]; has_previous: boolean
 }
 export type Deployment = {
-  id: number; kind: "test" | "live"; status: "building" | "starting" | "live" | "failed" | "retired" | "ended"
+  id: number; kind: "test" | "live"; status: "building" | "ready" | "live" | "failed" | "retired"
   version_id: number | null; error_message: string; build_log: string; created_by_name: string; created_at: string
 }
 export type SharedInfo = {
@@ -7589,7 +7589,7 @@ describe("sharedLine", () => {
     expect(sharedLine({ ...base, status: "crashed" })).toBe("Caiu e não voltou sozinho")
   })
   it("has a label for every status", () => {
-    for (const s of ["draft", "building", "running", "sleeping", "stopped", "crashed"] as const) expect(SHARED_STATUS[s].label).not.toBe("")
+    for (const s of ["draft", "starting", "running", "sleeping", "stopped", "crashed"] as const) expect(SHARED_STATUS[s].label).not.toBe("")
   })
 })
 
@@ -7656,7 +7656,7 @@ import { formatSize } from "./runs"
 
 export const SHARED_STATUS: Record<SharedStatus, { label: string; tone: "ok" | "live" | "muted" | "bad" | "draft" }> = {
   draft: { label: "Ainda não publicado", tone: "draft" },
-  building: { label: "Publicando", tone: "live" },
+  starting: { label: "Ligando", tone: "live" },
   running: { label: "No ar", tone: "ok" },
   sleeping: { label: "Descansando", tone: "muted" },
   stopped: { label: "Parado", tone: "muted" },
@@ -7673,8 +7673,8 @@ export function sharedLine(s: SharedState, liveVersion?: number): string {
       return s.stopped_by ? `Parado por ${s.stopped_by}` : "Parado"
     case "crashed":
       return "Caiu e não voltou sozinho"
-    case "building":
-      return "Publicando a versão nova"
+    case "starting":
+      return "Ligando"
     default:
       return "Ainda não publicado"
   }
@@ -7807,7 +7807,7 @@ beforeEach(() => vi.restoreAllMocks())
 it("publishes and follows the progress until it is live", async () => {
   vi.spyOn(api.shared, "publish").mockResolvedValue({ id: 7, kind: "live", status: "building" } as never)
   const dep = vi.spyOn(api.shared, "deployment")
-    .mockResolvedValueOnce({ id: 7, kind: "live", status: "starting" } as never)
+    .mockResolvedValueOnce({ id: 7, kind: "live", status: "building" } as never)
     .mockResolvedValueOnce({ id: 7, kind: "live", status: "live" } as never)
   const onDone = vi.fn()
   render(<PublishBar appId={1} ready live={false} latest={3} liveVersion={undefined} hasPrevious={false} interval={10} onDone={onDone} />)
@@ -7908,7 +7908,7 @@ it("asks for confirmation before unsharing", async () => {
 
 - [ ] **Step 4: `Publish.tsx`** — `PublishBar({ appId, ready, live, latest, liveVersion, hasPrevious, testUrl, testOpen, slug, interval = 2000, onDone })`:
   - Botões: "Testar" (variant outline) e "Publicar" (primeira vez) ou "Publicar versão nova" (quando `live && latest > liveVersion`). Ambos desabilitados se `!ready` ou durante uma publicação; quando desabilitado por pendência, um texto curto ao lado: "Resolva a checagem primeiro."
-  - Clicar: chama `api.shared.publish`/`test`; guarda o `id`; consulta `api.shared.deployment(appId, id)` a cada `interval` ms até `live`, `failed` ou `ended`. Enquanto isso: "Publicando…" / "Montando a caixa de teste…" com o pontinho animado.
+  - Clicar: chama `api.shared.publish`/`test`; guarda o `id`; consulta `api.shared.deployment(appId, id)` a cada `interval` ms até sair de `building` (`live` = no ar; `ready` = caixa de teste pronta; `failed`; `retired` = teste encerrado). Enquanto isso: "Publicando…" / "Montando a caixa de teste…" com o pontinho animado.
   - `live` → toast "No ar." e `onDone()`; teste pronto → link "Abrir o teste" (`openSharedUrl(slug, true)`, nova aba) e a frase "O teste fica aberto por 30 minutos, com dados separados."
   - `failed` → a `error_message` num aviso vermelho e um link "Ver detalhes" que abre um `<Dialog>` com o `build_log` (só se veio; quem não é `tech` não recebe o log, então o link não aparece).
   - Erro da API (409 em andamento, 503 Podman) → toast com a frase do servidor.

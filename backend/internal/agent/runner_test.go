@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
@@ -107,10 +108,16 @@ func TestRunBusy(t *testing.T) {
 	r := &Runner{Launcher: l, StateDir: t.TempDir()}
 	p := agentproto.RunPayload{RunID: 1, AppFolder: app, Exe: "Ferramenta CVM.exe", OutputFolder: app}
 	started := make(chan struct{})
-	go r.Run(context.Background(), p, func(agentproto.Result) { close(started) })
+	first := make(chan struct{})
+	go func() {
+		defer close(first)
+		var once sync.Once
+		r.Run(context.Background(), p, func(agentproto.Result) { once.Do(func() { close(started) }) })
+	}()
 	<-started
 	res := r.Run(context.Background(), p, func(agentproto.Result) {})
 	close(l.block)
+	<-first // the first run must end before the test's folders go away
 	if res.Event != agentproto.EventFailed || !strings.Contains(res.Error, "Já tem um app aberto") {
 		t.Fatalf("busy %+v", res)
 	}

@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"encoding/json"
+	"context"
 	"net/http"
 	"net/url"
 	"os"
@@ -101,7 +101,9 @@ func TestDescribeVersion(t *testing.T) {
 	}
 }
 
-func TestVersionContentMasksEnvFile(t *testing.T) {
+// A .env file never enters the history: no new version, no content, no value
+// anywhere in the Hub's database.
+func TestVersionLeavesEnvFileOut(t *testing.T) {
 	c, _ := newPoolClient(t)
 	setupAdmin(t, c)
 	id, dir := codeApp(t, c)
@@ -109,18 +111,14 @@ func TestVersionContentMasksEnvFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	c.do("POST", appPath(id, "/check"), nil, nil)
-	var got struct{ Path, Text string }
-	if code := c.do("GET", appPath(id, "/versions/2/content?path="+url.QueryEscape(".env")), nil, &got); code != http.StatusOK {
+	if code := c.do("GET", appPath(id, "/versions/2/changes"), nil, nil); code != http.StatusNotFound {
+		t.Fatalf("a .env alone must not make a version: %d", code)
+	}
+	if code := c.do("GET", appPath(id, "/versions/1/content?path="+url.QueryEscape(".env")), nil, nil); code != http.StatusNotFound {
 		t.Fatalf("content %d", code)
 	}
-	if got.Text != "HOST=••••\nDB_PASSWORD=••••\n" {
-		t.Fatalf("masked %q", got.Text)
-	}
-	var ch json.RawMessage
-	if code := c.do("GET", appPath(id, "/versions/2/changes"), nil, &ch); code != http.StatusOK {
-		t.Fatalf("changes %d", code)
-	}
-	if b := string(ch); !strings.Contains(b, ".env") || strings.Contains(b, "Sup3rSecret99") || strings.Contains(b, "db.local") {
-		t.Fatalf("changes must list .env without its values: %s", b)
+	var n int
+	if err := testPool.QueryRow(context.Background(), `SELECT count(*) FROM code_blobs WHERE convert_from(content, 'UTF8') LIKE '%Sup3rSecret99%'`).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("secret stored: %d %v", n, err)
 	}
 }

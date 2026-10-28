@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from "vitest"
-import { api, ApiError, fileUrl, OFFLINE, workspaceBasePath, workspaceUrl } from "./api"
+import { api, ApiError, backupDownloadUrl, fileUrl, openSharedUrl, OFFLINE, workspaceBasePath, workspaceUrl } from "./api"
 import { manifest as manifestFixture } from "@/test/fixtures"
 
 afterEach(() => vi.unstubAllGlobals())
@@ -23,6 +23,24 @@ test("workspace creation uses the provisioning contract", async () => {
   const payload = { name: "Filial", slug: "filial", password: "senha-atual" }
   await expect(api.createWorkspace(payload)).resolves.toMatchObject({ url: "/w/filial" })
   expect(fetchMock).toHaveBeenCalledWith("/api/workspaces", expect.objectContaining({ method: "POST", body: JSON.stringify(payload) }))
+})
+
+test("shared app APIs and navigation never fall back to the original company", async () => {
+  const original = window.location.pathname
+  try {
+    window.history.replaceState({}, "", "/w/filial/apps/1")
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+    await api.server.get()
+    await api.shared.publish(1)
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/w/filial/api/server", expect.anything())
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/w/filial/api/apps/1/shared/publish", expect.anything())
+    expect(backupDownloadUrl(1, 2)).toBe("/w/filial/api/apps/1/shared/backups/2/download")
+    expect(openSharedUrl("notas")).toBe("/w/filial/api/shared/authorize?app=notas&volta=%2F")
+    expect(openSharedUrl("notas", true)).toContain("/w/filial/api/shared/authorize?app=notas&teste=1")
+  } finally {
+    window.history.replaceState({}, "", original)
+  }
 })
 
 test("import retains structured confirmation errors and sends explicit consent", async () => {

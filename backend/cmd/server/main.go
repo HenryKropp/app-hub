@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,7 +23,8 @@ func main() {
 		slog.Error("config", "err", err)
 		os.Exit(1)
 	}
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	var pool *pgxpool.Pool
 	for i := range 6 {
@@ -45,17 +49,30 @@ func main() {
 		slog.Error("migrate", "err", err)
 		os.Exit(1)
 	}
-
 	portal, err := workspace.New(ctx, pool, cfg)
 	if err != nil {
 		slog.Error("workspace initialization", "err", err)
 		os.Exit(1)
 	}
 	defer portal.Close()
+
+	// The upstream single-company runtime uses globally named containers,
+	// databases and app hosts. Do not connect it to this multi-company portal
+	// until those resources and the gateway are workspace-scoped.
+	slog.Warn("shared runtime disabled in multi-company portal; workspace-aware execution required")
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: portal, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 90 * time.Second, MaxHeaderBytes: 1 << 20}
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(shutdownCtx)
+	}()
 	slog.Info("server starting", "port", cfg.Port, "dev_mode", cfg.DevMode)
-	if err := srv.ListenAndServe(); err != nil {
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("server", "err", err)
 		os.Exit(1)
 	}
+	<-stopped
 }
