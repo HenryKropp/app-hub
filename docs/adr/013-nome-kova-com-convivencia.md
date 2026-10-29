@@ -1,6 +1,6 @@
 # ADR 013 — O App Hub vira Kova, com convivência dos nomes antigos
 
-Data: 2026-10-29. Status: aceita. Desenho: `docs/superpowers/specs/2026-10-28-kova-identidade-design.md`.
+Data: 2026-10-29. Status: aceita; o nome Kova foi trocado por Ziv no mesmo dia (ADR 014), que mantém este mecanismo de convivência e acrescenta uma geração. Desenho: `docs/superpowers/specs/2026-10-28-kova-identidade-design.md`.
 
 ## Contexto
 O nome "App Hub" era genérico e não se sustentava para vender a outras empresas. O Henry escolheu **Kova** (de *cove*, enseada protegida), um símbolo novo e um visual neutro com uma só cor viva, o coral. Ele também decidiu trocar os nomes técnicos `app-hub` por `kova`, sem quebrar nenhum app já registrado ou compartilhado.

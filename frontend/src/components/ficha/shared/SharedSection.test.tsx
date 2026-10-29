@@ -95,9 +95,9 @@ it("a setting added after 'estou ciente' keeps the mark", async () => {
 })
 
 it("says so when the shared part does not load, and tries again", async () => {
-  const get = vi.spyOn(api.shared, "get").mockRejectedValueOnce(new Error("O Kova não respondeu. Espere um pouco e tente de novo."))
+  const get = vi.spyOn(api.shared, "get").mockRejectedValueOnce(new Error("O Ziv não respondeu. Espere um pouco e tente de novo."))
   render(<SharedSection app={detail} can={{ ...can, restore: true }} onChanged={() => {}} />)
-  expect(await screen.findByText("O Kova não respondeu. Espere um pouco e tente de novo.")).toBeInTheDocument()
+  expect(await screen.findByText("O Ziv não respondeu. Espere um pouco e tente de novo.")).toBeInTheDocument()
   await userEvent.click(screen.getByRole("button", { name: "Tentar de novo" }))
   expect(await screen.findByRole("button", { name: "Parar" })).toBeInTheDocument()
   expect(get).toHaveBeenCalledTimes(2)

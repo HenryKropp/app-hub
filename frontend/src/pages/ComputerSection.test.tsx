@@ -50,5 +50,5 @@ test("update states", async () => {
 test("agent not built on this Hub", async () => {
   vi.spyOn(api, "computers").mockResolvedValue({ computers: [], expected_version: "0.1.0", agent_available: false })
   renderPage()
-  expect(await screen.findByText(/O Agente ainda não foi preparado neste Kova/)).toBeInTheDocument()
+  expect(await screen.findByText(/O Agente ainda não foi preparado neste Ziv/)).toBeInTheDocument()
 })

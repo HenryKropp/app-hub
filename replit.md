@@ -1,4 +1,4 @@
-# Running Kova on Replit
+# Running Ziv on Replit
 
 The imported React/Vite frontend and Go backend retain their original structure.
 

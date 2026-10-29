@@ -313,8 +313,9 @@ func (s *Service) sealOld(ctx context.Context, b sqlc.SharedBackup) error {
 }
 
 // MoveBackupPaths points backup rows recorded under oldDir to the same file
-// under newDir. Paths are absolute, so after the App Hub's data folder is
-// adopted under Kova's name (ADR 013) every older copy would look missing.
+// under newDir. Paths are absolute, so after an older data folder (Ziv's or
+// the App Hub's) is adopted under Ziv's name (ADR 013, 014) every older copy
+// would look missing.
 // Safe to run on every start: it only touches rows still under oldDir.
 func MoveBackupPaths(ctx context.Context, db interface {
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)

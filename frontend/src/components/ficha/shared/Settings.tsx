@@ -102,7 +102,7 @@ function AddSetting({ onAdd, onDone }: { onAdd: (e: EnvVar) => Promise<void>; on
       return
     }
     if (HUB_NAMES.includes(n)) {
-      setError(`${n} é dado pelo Kova. Escolha outro nome.`)
+      setError(`${n} é dado pelo Ziv. Escolha outro nome.`)
       return
     }
     setBusy(true)

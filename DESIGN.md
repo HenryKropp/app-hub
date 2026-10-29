@@ -1,5 +1,5 @@
 ---
-name: Kova
+name: Ziv
 description: A neutral, fast work tool where only what you can start, and what is running now, is colored.
 colors:
   run-coral: "#FF6B4A"
@@ -143,15 +143,15 @@ components:
     padding: "12px 16px"
 ---
 
-# Design System: Kova
+# Design System: Ziv
 
 ## Overview
 
 **Creative North Star: "The Play Button in a Quiet Room"**
 
-Kova is the category standard played straight: the clean, neutral work tool people already know from Notion and Vercel. White ground, a faintly gray sidebar, one-pixel hairlines, near-black text, gray secondary text, and Geist everywhere. Nothing decorates. The density is that of a tool used in a hurry between other tasks: cards with three lines of meaning, a page title, a search field, and the button you came for.
+Ziv is the category standard played straight: the clean, neutral work tool people already know from Notion and Vercel. White ground, a faintly gray sidebar, one-pixel hairlines, near-black text, gray secondary text, and Geist everywhere. Nothing decorates. The density is that of a tool used in a hurry between other tasks: cards with three lines of meaning, a page title, a search field, and the button you came for.
 
-Into that quiet room goes exactly one vivid color, used the way Spotify uses its green. Coral (`#FF6B4A`) marks only two things: what you can start (the Rodar pill) and what is running right now (the animated "playing" bars). Coral is always a fill, never the color of a word or an icon. Because nothing else is colored, the eye finds Rodar and the live run without searching. Identity comes from that coral, the bars and the Kova mark (a petrol square with a sand-colored cove and a coral dot), not from the layout, which is intentionally familiar.
+Into that quiet room goes exactly one vivid color, used the way Spotify uses its green. Coral (`#FF6B4A`) marks only two things: what you can start (the Rodar pill) and what is running right now (the animated "playing" bars). Coral is always a fill, never the color of a word or an icon. Because nothing else is colored, the eye finds Rodar and the live run without searching. Identity comes from that coral, the bars and the Ziv logo (the word "ziv" drawn in round strokes, the dot of the i in coral with three thin rays, like a lighthouse), not from the layout, which is intentionally familiar.
 
 Light is the default theme; dark is a full peer, not an afterthought, with the same coral, which holds on near-black too. The system rejects the App Hub's earlier archive look (cream paper, serif, red stamp, a different color per app kind) and rejects rainbow status chips.
 
@@ -172,7 +172,7 @@ A grayscale world with a single coral and three small status hues. Values live a
 - **Run Coral** (`--brand`, `#FF6B4A`, both themes): fills only. The Rodar pill (label `--brand-foreground` `#11161A`, 6.5:1), "Abrir app" in the run dialog, the "playing" bars, the 3px marker left of the active nav item, the pulsing "Ligando" dot. Never text, icons or decoration.
 - **Run Coral Hover** (`--brand-hover`, `#F0562F`): Rodar on hover (label 5.3:1).
 - **Focus** (`--ring`): neutral, `#11161A` in light and `#EEF0F1` in dark. Rodar gets a 2px ring with a 2px offset so the ring never sits on the coral.
-- **Logo Petrol** (`--logo-square`, `#0E3B43`, dark `#256A75`): only in the Kova mark. Text selection uses Run Coral at 22% mixed into transparent; the caret is Ink.
+- **Logo Petrol** (`--logo-square`, `#0E3B43`, dark `#256A75`): only in the Ziv icon. Text selection uses Run Coral at 22% mixed into transparent; the caret is Ink.
 
 ### Neutral
 - **Paper White**: page ground, cards, popovers and dialogs in light mode.
@@ -222,9 +222,9 @@ A grayscale world with a single coral and three small status hues. Values live a
 
 ## Layout
 
-A two-zone shell. On desktop (md, 768px and up) a 240px sticky sidebar runs full height on the left: logo and wordmark at top, nav, then a Configurações link and the account row pinned to the bottom, the account behind a hairline. The theme choice (Claro, Escuro, Igual ao sistema) lives on the Configurações page, below Meu computador; on phones, Configurações is in the avatar menu. Main content sits right with 48px side padding (32px at sm, 16px on phones), 40px top padding, and a centered max width of 72rem. Bottom padding is generous (160px) so the run strip never covers the last row.
+A two-zone shell. On desktop (md, 768px and up) a 240px sticky sidebar runs full height on the left: the wordmark at top, nav, then a Configurações link and the account row pinned to the bottom, the account behind a hairline. The theme choice (Claro, Escuro, Igual ao sistema) lives on the Configurações page, below Meu computador; on phones, Configurações is in the avatar menu. Main content sits right with 48px side padding (32px at sm, 16px on phones), 40px top padding, and a centered max width of 72rem. Bottom padding is generous (160px) so the run strip never covers the last row.
 
-On mobile the sidebar becomes a top bar: logo, wordmark and an avatar menu (theme and Sair live in that menu), with the nav as a horizontally scrolling row that fades out at the right edge.
+On mobile the sidebar becomes a top bar: the wordmark and an avatar menu (theme and Sair live in that menu), with the nav as a horizontally scrolling row that fades out at the right edge.
 
 The catalog is a grid of cards: one column on phones, two from sm, three from xl, 16px gaps. Page headers put the h1 left and the search (288px) right on desktop, stacked on mobile, with 32px below. The app page puts the name and summary left and the large Rodar right, then a bordered facts row (five columns on lg, two below), then label-and-value sections split by hairlines.
 
@@ -248,7 +248,7 @@ The system is flat. Depth comes from tonal layering (Sidebar Mist beside Paper W
 
 ## Shapes
 
-Soft, small radii from one 0.5rem base. Nav items and small controls use the medium step (6.4px), buttons and inputs the large step (8px), cards, the facts row, dialogs and strip cards the extra-large step (11.2px). Pills are fully round: the Rodar button, kind pills and avatar circles. Rodar is the only fully round button, which is part of how it is found. Empty states use a dashed Field Stroke border; everything else is a solid hairline. The logo is the Kova mark: a Logo Petrol square (rx 12 of 48) holding a Logo Sand cove arc open to the right (stroke 5, round caps) and a coral dot (r 5) at the center; the square turns Logo Petrol Night in dark mode. Wordmark "Kova" set in Geist.
+Soft, small radii from one 0.5rem base. Nav items and small controls use the medium step (6.4px), buttons and inputs the large step (8px), cards, the facts row, dialogs and strip cards the extra-large step (11.2px). Pills are fully round: the Rodar button, kind pills and avatar circles. Rodar is the only fully round button, which is part of how it is found. Empty states use a dashed Field Stroke border; everything else is a solid hairline. The logo is the Ziv wordmark: "ziv" drawn in round strokes (stroke 5 of a 60 by 50 box) in the text color, the dot of the i a coral circle (r 4) with three thin coral rays above it (straight up and at 45°). It sits alone at the top of the sidebar and on the sign-in page, with no separate text name. The icon (browser tab, small places) is a Logo Petrol square (rx 12 of 48) holding only the i: a Logo Sand stem, the coral dot and the rays; the square turns Logo Petrol Night in dark mode.
 
 ## Components
 

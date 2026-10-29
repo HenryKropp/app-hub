@@ -12,15 +12,15 @@ import (
 )
 
 // ErrForeignFile means a file with the Hub's name exists but was not written by the Hub.
-var ErrForeignFile = errors.New("já existe um arquivo com esse nome na pasta que não foi criado pelo Kova")
+var ErrForeignFile = errors.New("já existe um arquivo com esse nome na pasta que não foi criado pelo Ziv")
 
 // Marshal renders the manifest as commented YAML.
 func Marshal(m Manifest) ([]byte, error) {
 	m.ManifestVersion = Version
 	var buf bytes.Buffer
 	buf.WriteString(headerMarker + "\n")
-	buf.WriteString("# Gerado e mantido pelo Kova. Descreve como o app roda, o que recebe e o que devolve.\n")
-	buf.WriteString("# Pode ser lido e editado fora do Kova. Nunca coloque senhas ou chaves aqui.\n\n")
+	buf.WriteString("# Gerado e mantido pelo Ziv. Descreve como o app roda, o que recebe e o que devolve.\n")
+	buf.WriteString("# Pode ser lido e editado fora do Ziv. Nunca coloque senhas ou chaves aqui.\n\n")
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)
 	if err := enc.Encode(m); err != nil {
@@ -39,28 +39,39 @@ func Parse(data []byte) (Manifest, error) {
 	return m, err
 }
 
-// Locate returns the path of the manifest in use in dir: kova.yaml if it
-// exists, else app-hub.yaml if it exists, else where kova.yaml would go.
+// Locate returns the path of the manifest in use in dir: ziv.yaml if it
+// exists, else the newest legacy name that exists (kova.yaml, then
+// app-hub.yaml), else where ziv.yaml would go.
 func Locate(dir string) string {
 	path := filepath.Join(dir, FileName)
 	if _, err := os.Stat(path); err == nil {
 		return path
 	}
-	legacy := filepath.Join(dir, LegacyFileName)
-	if _, err := os.Stat(legacy); err == nil {
-		return legacy
+	for _, name := range LegacyFileNames {
+		legacy := filepath.Join(dir, name)
+		if _, err := os.Stat(legacy); err == nil {
+			return legacy
+		}
 	}
 	return path
 }
 
 // IsManifestName reports whether a file name is the manifest, new or legacy.
 func IsManifestName(name string) bool {
-	return strings.EqualFold(name, FileName) || strings.EqualFold(name, LegacyFileName)
+	if strings.EqualFold(name, FileName) {
+		return true
+	}
+	for _, legacy := range LegacyFileNames {
+		if strings.EqualFold(name, legacy) {
+			return true
+		}
+	}
+	return false
 }
 
 // WriteToFolder saves the manifest (the path Locate finds) and FICHA.md in dir.
 // It only ever creates or replaces those two files, and refuses to replace a
-// file Kova (or the App Hub before it) did not write.
+// file Ziv (or Kova and the App Hub before it) did not write.
 func WriteToFolder(dir string, m Manifest) error {
 	manifestBytes, err := Marshal(m)
 	if err != nil {
@@ -71,12 +82,12 @@ func WriteToFolder(dir string, m Manifest) error {
 		markers []string
 		content []byte
 	}{
-		{Locate(dir), []string{headerMarker, legacyHeaderMarker}, manifestBytes},
-		{filepath.Join(dir, FichaName), []string{fichaMarker, legacyFichaMarker}, []byte(RenderFicha(m))},
+		{Locate(dir), append([]string{headerMarker}, legacyHeaderMarkers...), manifestBytes},
+		{filepath.Join(dir, FichaName), append([]string{fichaMarker}, legacyFichaMarkers...), []byte(RenderFicha(m))},
 	}
 	for _, f := range files {
 		if existing, err := os.ReadFile(f.path); err == nil {
-			if !bytes.Contains(existing, []byte(f.markers[0])) && !bytes.Contains(existing, []byte(f.markers[1])) {
+			if !containsAny(existing, f.markers) {
 				return fmt.Errorf("%s: %w", filepath.Base(f.path), ErrForeignFile)
 			}
 		} else if !errors.Is(err, os.ErrNotExist) {
@@ -89,6 +100,15 @@ func WriteToFolder(dir string, m Manifest) error {
 		}
 	}
 	return nil
+}
+
+func containsAny(data []byte, markers []string) bool {
+	for _, m := range markers {
+		if bytes.Contains(data, []byte(m)) {
+			return true
+		}
+	}
+	return false
 }
 
 var inputTypeLabels = map[string]string{
@@ -198,6 +218,6 @@ func RenderFicha(m Manifest) string {
 			fmt.Fprintf(&b, "- %s\n", n)
 		}
 	}
-	b.WriteString("\n---\n_Ficha gerada pelo Kova a partir do manifesto do app._\n")
+	b.WriteString("\n---\n_Ficha gerada pelo Ziv a partir do manifesto do app._\n")
 	return b.String()
 }

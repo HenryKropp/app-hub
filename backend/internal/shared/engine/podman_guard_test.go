@@ -99,7 +99,7 @@ func TestNetworksOnlyTheHubs(t *testing.T) {
 	if got := calls(t, logFile); got != "" {
 		t.Fatalf("podman called for a foreign network: %q", got)
 	}
-	// The right name but no Kova label (the fake answers an empty label): refused.
+	// The right name but no Ziv label (the fake answers an empty label): refused.
 	if err := p.RemoveNetwork(ctx, "app-hub-apps-5"); err == nil {
 		t.Fatal("unlabelled network removed")
 	}
@@ -110,13 +110,13 @@ func TestNetworksOnlyTheHubs(t *testing.T) {
 	if _, err := p.Start(ctx, StartSpec{Name: "apphub-x-1", Labels: map[string]string{Label: "5"}, Network: "podman"}); err == nil {
 		t.Fatal("start on a foreign network")
 	}
-	if AppNetwork(42) != "kova-apps-42" || !HubNetwork(AppNetwork(42)) {
+	if AppNetwork(42) != "ziv-apps-42" || !HubNetwork(AppNetwork(42)) {
 		t.Fatal(AppNetwork(42))
 	}
 }
 
-// legacyPodman answers every inspect as an App Hub object: no kova.app label,
-// app-hub.app=5 (the format asks for both, separated by "|").
+// legacyPodman answers every inspect as an older object: no ziv.app label,
+// an old label =5 (the format asks for all of them, separated by "|").
 func legacyPodman(t *testing.T) (bin, logFile string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -139,11 +139,13 @@ func TestGuardAcceptsLegacyLabel(t *testing.T) {
 	if err := p.Remove(ctx, "velho"); err != nil {
 		t.Fatalf("remove legacy container: %v", err)
 	}
-	if err := p.RemoveNetwork(ctx, "app-hub-apps-5"); err != nil {
-		t.Fatalf("remove legacy network: %v", err)
+	for _, n := range []string{"app-hub-apps-5", "kova-apps-5"} {
+		if err := p.RemoveNetwork(ctx, n); err != nil {
+			t.Fatalf("remove legacy network %s: %v", n, err)
+		}
 	}
 	got := calls(t, logFile)
-	if !strings.Contains(got, "stop") || !strings.Contains(got, "network rm -- app-hub-apps-5") {
+	if !strings.Contains(got, "stop") || !strings.Contains(got, "network rm -- app-hub-apps-5") || !strings.Contains(got, "network rm -- kova-apps-5") {
 		t.Fatalf("calls: %q", got)
 	}
 }
@@ -153,26 +155,29 @@ func TestLabelsReadNewThenLegacy(t *testing.T) {
 		t.Errorf("legacy: %q %v", id, ok)
 	}
 	if id, _ := AppLabel(map[string]string{"app-hub.app": "5", "kova.app": "7"}); id != "7" {
-		t.Errorf("both: %q", id)
+		t.Errorf("kova over app-hub: %q", id)
+	}
+	if id, _ := AppLabel(map[string]string{"app-hub.app": "5", "kova.app": "7", "ziv.app": "8"}); id != "8" {
+		t.Errorf("all three: %q", id)
 	}
 	if _, ok := AppLabel(map[string]string{"x": "1"}); ok {
-		t.Error("foreign container read as Kova's")
+		t.Error("foreign container read as Ziv's")
 	}
-	if DeploymentID(map[string]string{"app-hub.deployment": "9"}) != "9" || DeploymentID(map[string]string{"kova.deployment": "3", "app-hub.deployment": "9"}) != "3" {
+	if DeploymentID(map[string]string{"app-hub.deployment": "9"}) != "9" || DeploymentID(map[string]string{"kova.deployment": "3", "app-hub.deployment": "9"}) != "3" || DeploymentID(map[string]string{"ziv.deployment": "4", "kova.deployment": "3"}) != "4" {
 		t.Error("DeploymentID")
 	}
-	if !HubNetwork("app-hub-apps-5") || !HubNetwork("kova-apps-5") || AppNetwork(5) != "kova-apps-5" || LegacyAppNetwork(5) != "app-hub-apps-5" {
+	if !HubNetwork("app-hub-apps-5") || !HubNetwork("kova-apps-5") || !HubNetwork("ziv-apps-5") || HubNetwork("ziv-apps-x") || AppNetwork(5) != "ziv-apps-5" || strings.Join(LegacyAppNetworks(5), ",") != "kova-apps-5,app-hub-apps-5" {
 		t.Error("networks")
 	}
-	if !imageAllowed("", []string{"localhost/apphub/notas:3"}) || !imageAllowed("", []string{"localhost/kova/notas:3"}) || imageAllowed("", []string{"docker.io/x"}) {
+	if !imageAllowed("", []string{"localhost/apphub/notas:3"}) || !imageAllowed("", []string{"localhost/kova/notas:3"}) || !imageAllowed("", []string{"localhost/ziv/notas:3"}) || imageAllowed("", []string{"docker.io/x"}) {
 		t.Error("imageAllowed")
 	}
 }
 
 func TestParsePSKeepsLegacyAndNew(t *testing.T) {
-	raw := []byte(`[{"Id":"a","Names":["apphub-x-1"],"State":"running","Labels":{"app-hub.app":"1"}},{"Id":"b","Names":["kova-x-2"],"State":"running","Labels":{"kova.app":"1"}},{"Id":"c","Names":["alheio"],"State":"running","Labels":{}}]`)
+	raw := []byte(`[{"Id":"a","Names":["apphub-x-1"],"State":"running","Labels":{"app-hub.app":"1"}},{"Id":"b","Names":["kova-x-2"],"State":"running","Labels":{"kova.app":"1"}},{"Id":"d","Names":["ziv-x-3"],"State":"running","Labels":{"ziv.app":"1"}},{"Id":"c","Names":["alheio"],"State":"running","Labels":{}}]`)
 	got, err := parsePS(raw)
-	if err != nil || len(got) != 2 {
+	if err != nil || len(got) != 3 {
 		t.Fatalf("%+v %v", got, err)
 	}
 }

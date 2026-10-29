@@ -27,7 +27,7 @@ func TestConfigHidesSecrets(t *testing.T) {
 	}
 }
 
-func TestDefaultsUseKovaNamesAndAreNotExplicit(t *testing.T) {
+func TestDefaultsUseZivNamesAndAreNotExplicit(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://x")
 	t.Setenv("APPS_DB_CONTAINER", "")
 	t.Setenv("SHARED_DATA_DIR", "")
@@ -35,10 +35,10 @@ func TestDefaultsUseKovaNamesAndAreNotExplicit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.AppsDBContainer != "kova-db" || cfg.AppsDBContainerExplicit {
+	if cfg.AppsDBContainer != "ziv-db" || cfg.AppsDBContainerExplicit {
 		t.Errorf("container %q explicit=%v", cfg.AppsDBContainer, cfg.AppsDBContainerExplicit)
 	}
-	if !strings.HasSuffix(cfg.SharedDataDir, "/.local/share/kova/shared") || cfg.SharedDataDirExplicit {
+	if !strings.HasSuffix(cfg.SharedDataDir, "/.local/share/ziv/shared") || cfg.SharedDataDirExplicit {
 		t.Errorf("data dir %q explicit=%v", cfg.SharedDataDir, cfg.SharedDataDirExplicit)
 	}
 	t.Setenv("APPS_DB_CONTAINER", "meu-db")

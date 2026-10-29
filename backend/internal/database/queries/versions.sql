@@ -48,7 +48,7 @@ LIMIT sqlc.arg(lim);
 INSERT INTO app_changes (app_id, person_id, changes) VALUES ($1, $2, $3);
 
 -- name: ListChangesBefore :many
-SELECT c.changes, c.created_at, COALESCE(p.name, 'Kova')::text AS person_name
+SELECT c.changes, c.created_at, COALESCE(p.name, 'Ziv')::text AS person_name
 FROM app_changes c LEFT JOIN people p ON p.id = c.person_id
 WHERE c.app_id = sqlc.arg(app_id) AND c.created_at < sqlc.arg(before)
 ORDER BY c.created_at DESC

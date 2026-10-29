@@ -7,7 +7,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
-  Direção visual do Kova: limpo e neutro, com uma só cor viva.
+  Direção visual do Ziv: limpo e neutro, com uma só cor viva.
   O coral só preenche: o botão Rodar, as barrinhas do que está rodando agora
   e o marcador do item ativo. Nunca é cor de texto, ícone ou decoração.
   Todo o resto é branco, cinza e quase preto. O petróleo fica só no logo.

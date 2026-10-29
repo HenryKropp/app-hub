@@ -37,7 +37,7 @@ func TestHubChangeShowsAsHub(t *testing.T) {
 	if code := c.do("GET", "/api/apps/"+itoa(id)+"/history?type=ficha", nil, &hist); code != http.StatusOK {
 		t.Fatalf("history %d", code)
 	}
-	if len(hist.Items) == 0 || hist.Items[0].Ficha == nil || hist.Items[0].Ficha.Person != "Kova" {
+	if len(hist.Items) == 0 || hist.Items[0].Ficha == nil || hist.Items[0].Ficha.Person != "Ziv" {
 		t.Fatalf("history %+v", hist.Items)
 	}
 }

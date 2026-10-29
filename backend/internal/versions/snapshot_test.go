@@ -229,16 +229,16 @@ func TestSecretFile(t *testing.T) {
 	}
 }
 
-func TestIncludedSkipsBothManifestNames(t *testing.T) {
-	for _, rel := range []string{"kova.yaml", "app-hub.yaml", "FICHA.md"} {
+func TestIncludedSkipsAllManifestNames(t *testing.T) {
+	for _, rel := range []string{"ziv.yaml", "kova.yaml", "app-hub.yaml", "FICHA.md"} {
 		if Included(rel, nil) {
-			t.Errorf("%s is written by Kova and must not enter a version as code", rel)
+			t.Errorf("%s is written by Ziv and must not enter a version as code", rel)
 		}
 	}
 }
 
-func TestIncludedSkipsBothTrashAndTempNames(t *testing.T) {
-	for _, rel := range []string{".app-hub-lixeira/x.py", ".kova-lixeira/x.py", "a.py.app-hub-tmp", "a.py.kova-tmp"} {
+func TestIncludedSkipsAllTrashAndTempNames(t *testing.T) {
+	for _, rel := range []string{".app-hub-lixeira/x.py", ".kova-lixeira/x.py", ".ziv-lixeira/x.py", "a.py.app-hub-tmp", "a.py.kova-tmp", "a.py.ziv-tmp"} {
 		if Included(rel, nil) {
 			t.Errorf("%s must not enter a version", rel)
 		}

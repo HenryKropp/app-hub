@@ -53,7 +53,7 @@ test("explains files without a copy that go to the trash before coming back", as
     plan: { rewrite: ["dados.json"], recreate: [], to_trash: ["dados.json"], binaries: [] }, current: 3,
   })
   render(<RestoreDialog appId={3} number={1} open onOpenChange={vi.fn()} onDone={vi.fn()} />)
-  expect(await screen.findByText("Arquivos que ainda não têm cópia no Kova vão para a lixeira antes de voltar.")).toBeInTheDocument()
+  expect(await screen.findByText("Arquivos que ainda não têm cópia no Ziv vão para a lixeira antes de voltar.")).toBeInTheDocument()
   expect(screen.getAllByText("dados.json")).toHaveLength(2)
 })
 

@@ -6,7 +6,7 @@ import { canRegister, canSeeServer, canSeeTeam } from "@/lib/permissions"
 import { RunsProvider, useRuns } from "@/lib/runs-context"
 import { isLive } from "@/lib/runs"
 import { cn } from "@/lib/utils"
-import { Logo, Playing } from "./bits"
+import { Playing, Wordmark } from "./bits"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
 import { RunStrip } from "./RunStrip"
-import { PRODUCT_NAME } from "@/lib/brand"
 
 const NAV = [
   { to: "/", label: "Catálogo", icon: LibraryBig, show: (_p: Person) => true },
@@ -68,8 +67,7 @@ function Shell() {
       </a>
       <aside className="relative z-10 flex shrink-0 flex-col border-b border-sidebar-border bg-sidebar md:sticky md:top-0 md:h-svh md:w-60 md:border-r md:border-b-0">
         <div className="flex items-center gap-2.5 px-5 pt-4 pb-3 md:pt-5 md:pb-6">
-          <Logo className="size-7" />
-          <p className="text-[0.95rem] font-semibold tracking-[-0.01em]">{PRODUCT_NAME}</p>
+          <Wordmark className="h-9 w-auto" />
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Sua conta"

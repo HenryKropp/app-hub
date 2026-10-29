@@ -1,4 +1,4 @@
-// Command validate-manifest checks a draft kova.yaml (or a legacy app-hub.yaml) with Kova's own
+// Command validate-manifest checks a draft ziv.yaml (or a legacy kova.yaml or app-hub.yaml) with Ziv's own
 // reader and rules, and prints the ficha people would see. Used by the
 // registration protocol tests (docs/PROTOCOLO-REGISTRO.md) before showing a draft.
 package main
@@ -12,7 +12,7 @@ import (
 
 func main() {
 	if len(os.Args) != 2 {
-		fmt.Fprintln(os.Stderr, "uso: validate-manifest <caminho/kova.yaml>")
+		fmt.Fprintln(os.Stderr, "uso: validate-manifest <caminho/ziv.yaml>")
 		os.Exit(2)
 	}
 	data, err := os.ReadFile(os.Args[1])

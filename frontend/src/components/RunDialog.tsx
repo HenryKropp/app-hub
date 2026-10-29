@@ -39,11 +39,11 @@ function ScriptField({ field, value, onChange, file, onFile, onError, disabled }
 }) {
   const id = `run-input-${field.id}`
   const hint = field.source === "argument"
-    ? `O Kova envia este valor como argumento${field.flag === "" ? " posicional" : ` ${field.flag || `--${field.id}`}`}.`
+    ? `O Ziv envia este valor como argumento${field.flag === "" ? " posicional" : ` ${field.flag || `--${field.id}`}`}.`
     : field.source === "prompt"
-      ? "O Kova envia este valor ao app quando ele solicitar uma resposta."
+      ? "O Ziv envia este valor ao app quando ele solicitar uma resposta."
       : field.source === "dialog"
-        ? `O Kova disponibiliza o valor para o app em APP_HUB_INPUT_${field.id.toUpperCase()}; o app precisa ler essa variável.`
+        ? `O Ziv disponibiliza o valor para o app em APP_HUB_INPUT_${field.id.toUpperCase()}; o app precisa ler essa variável.`
         : field.source === "fixed_file"
           ? `O arquivo será copiado para ${field.path || "o caminho definido no manifesto"}.`
           : undefined
@@ -185,7 +185,7 @@ export function RunDialog({ target, onCancel, onConfirm }: { target: RunTarget |
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>Rodar {target?.name}</DialogTitle>
-          <DialogDescription>{target?.kind === "script" ? "Preencha os dados pedidos pelo app e escolha onde salvar os resultados. A preparação das dependências pode levar até 5 minutos; a execução, até 15 minutos." : "O app vai abrir no seu computador. Use a janela normalmente e feche quando terminar. O Kova mostra os arquivos que ele gerou."}</DialogDescription>
+          <DialogDescription>{target?.kind === "script" ? "Preencha os dados pedidos pelo app e escolha onde salvar os resultados. A preparação das dependências pode levar até 5 minutos; a execução, até 15 minutos." : "O app vai abrir no seu computador. Use a janela normalmente e feche quando terminar. O Ziv mostra os arquivos que ele gerou."}</DialogDescription>
         </DialogHeader>
         {target?.kind === "script" && loadingManifest && <div className="space-y-3" aria-label="Carregando formulário"><div className="h-4 w-2/3 animate-pulse rounded bg-muted" /><div className="h-10 animate-pulse rounded bg-muted" /><div className="h-10 animate-pulse rounded bg-muted" /></div>}
         {target?.kind === "script" && !loadingManifest && manifest && scriptFields.length > 0 && (
@@ -195,7 +195,7 @@ export function RunDialog({ target, onCancel, onConfirm }: { target: RunTarget |
           </div>
         )}
         {target?.kind === "script" && !loadingManifest && manifest && scriptFields.length === 0 && <p className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground">Este script não pede informações antes de rodar.</p>}
-        <Field label="Onde salvar os resultados?" htmlFor="run-folder" hint="O Kova mostra para baixar os arquivos novos que o app criar nesta pasta.">
+        <Field label="Onde salvar os resultados?" htmlFor="run-folder" hint="O Ziv mostra para baixar os arquivos novos que o app criar nesta pasta.">
           <div className="flex gap-2">
             <Input id="run-folder" value={folder} onChange={(e) => setFolder(e.target.value)} placeholder="Escolha uma pasta" title={folder} disabled={submitting} />
             <Button type="button" variant={folder.trim() ? "outline" : "default"} onClick={chooseOutput} disabled={choosing || submitting} className="shrink-0 gap-2">

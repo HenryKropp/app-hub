@@ -11,7 +11,7 @@ import (
 
 func TestDir(t *testing.T) {
 	root := t.TempDir()
-	old, nw := filepath.Join(root, "app-hub", "shared"), filepath.Join(root, "kova", "shared")
+	old, nw := filepath.Join(root, "app-hub", "shared"), filepath.Join(root, "ziv", "shared")
 
 	// Neither exists: nothing happens.
 	if err := Dir(nw, old); err != nil {
@@ -61,20 +61,20 @@ func fakeRun(existing ...string) (func(context.Context, ...string) ([]byte, erro
 }
 
 func TestContainerRenamesOld(t *testing.T) {
-	run, calls := fakeRun("app-hub-db")
-	adopted, err := Container(context.Background(), run, "kova-db", "app-hub-db")
+	run, calls := fakeRun("kova-db")
+	adopted, err := Container(context.Background(), run, "ziv-db", "kova-db")
 	if err != nil || !adopted {
 		t.Fatalf("adopted=%v err=%v", adopted, err)
 	}
-	if last := (*calls)[len(*calls)-1]; last != "rename app-hub-db kova-db" {
+	if last := (*calls)[len(*calls)-1]; last != "rename kova-db ziv-db" {
 		t.Fatalf("calls %q", *calls)
 	}
 }
 
 func TestContainerLeavesNewAlone(t *testing.T) {
-	for _, existing := range [][]string{{"kova-db"}, {"kova-db", "app-hub-db"}, nil} {
+	for _, existing := range [][]string{{"ziv-db"}, {"ziv-db", "kova-db"}, nil} {
 		run, calls := fakeRun(existing...)
-		if adopted, err := Container(context.Background(), run, "kova-db", "app-hub-db"); err != nil || adopted {
+		if adopted, err := Container(context.Background(), run, "ziv-db", "kova-db"); err != nil || adopted {
 			t.Fatalf("%v: adopted=%v err=%v", existing, adopted, err)
 		}
 		for _, c := range *calls {
@@ -82,5 +82,60 @@ func TestContainerLeavesNewAlone(t *testing.T) {
 				t.Fatalf("%v: renamed: %q", existing, *calls)
 			}
 		}
+	}
+}
+
+func TestNewestContainerPrefersKova(t *testing.T) {
+	for _, c := range []struct {
+		existing []string
+		want     string
+	}{
+		{[]string{"kova-db", "app-hub-db"}, "kova-db"},
+		{[]string{"app-hub-db"}, "app-hub-db"},
+		{[]string{"ziv-db", "kova-db"}, ""},
+		{nil, ""},
+	} {
+		run, calls := fakeRun(c.existing...)
+		got, err := NewestContainer(context.Background(), run, "ziv-db", "kova-db", "app-hub-db")
+		if err != nil || got != c.want {
+			t.Fatalf("%v: got %q err %v (calls %q)", c.existing, got, err, *calls)
+		}
+		renames := 0
+		for _, call := range *calls {
+			if strings.HasPrefix(call, "rename") {
+				renames++
+			}
+		}
+		if (c.want == "") != (renames == 0) || renames > 1 {
+			t.Fatalf("%v: calls %q", c.existing, *calls)
+		}
+	}
+}
+
+func TestNewestDirPrefersKova(t *testing.T) {
+	root := t.TempDir()
+	nw := filepath.Join(root, "ziv", "shared")
+	kova, hub := filepath.Join(root, "kova", "shared"), filepath.Join(root, "app-hub", "shared")
+	os.MkdirAll(kova, 0o755)
+	os.WriteFile(filepath.Join(kova, "de.txt"), []byte("kova"), 0o644)
+	os.MkdirAll(hub, 0o755)
+	got, err := NewestDir(nw, kova, hub)
+	if err != nil || got != kova {
+		t.Fatalf("got %q %v", got, err)
+	}
+	if b, _ := os.ReadFile(filepath.Join(nw, "de.txt")); string(b) != "kova" {
+		t.Fatal("did not adopt the kova folder")
+	}
+	if _, err := os.Stat(hub); err != nil {
+		t.Fatal("touched the app-hub folder")
+	}
+	if got, _ := NewestDir(nw, kova, hub); got != "" {
+		t.Fatalf("second run adopted %q", got)
+	}
+
+	// Only the App Hub folder: adopted.
+	nw2 := filepath.Join(root, "ziv2", "shared")
+	if got, err := NewestDir(nw2, filepath.Join(root, "nada"), hub); err != nil || got != hub {
+		t.Fatalf("got %q %v", got, err)
 	}
 }
