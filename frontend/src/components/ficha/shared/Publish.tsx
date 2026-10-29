@@ -106,7 +106,7 @@ export function PublishBar({ appId, ready, live, latest, liveVersion, hasPreviou
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="run" className="h-8 px-4" disabled={blocked} onClick={() => start(true)}>Testar</Button>
+        <Button variant="outline" className="h-8 px-4" disabled={blocked} onClick={() => start(true)}>Testar</Button>
         {showPublish && (
           <Button variant="run" className="h-8 px-4" disabled={blocked} onClick={() => start(false)}>
             {newer ? "Publicar versão nova" : "Publicar"}
@@ -117,7 +117,7 @@ export function PublishBar({ appId, ready, live, latest, liveVersion, hasPreviou
       </div>
 
       {building && (
-        <p className="flex items-center gap-2 text-sm font-medium text-brand" role="status">
+        <p className="flex items-center gap-2 text-sm font-medium text-foreground" role="status">
           <Playing /> {testing ? "Montando a caixa de teste…" : "Publicando…"}
         </p>
       )}
@@ -134,7 +134,7 @@ export function PublishBar({ appId, ready, live, latest, liveVersion, hasPreviou
 
       {(testReady ?? !!testOpen) && slug && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-          <a href={openSharedUrl(slug, true)} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 font-medium text-brand underline-offset-4 hover:underline">
+          <a href={openSharedUrl(slug, true)} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 font-medium text-foreground underline-offset-4 hover:underline">
             <ExternalLink className="size-3.5" /> Abrir o teste
           </a>
           <span className="text-muted-foreground">O teste fica aberto por 30 minutos, com dados separados.</span>

@@ -43,7 +43,7 @@ export function KindTab({ kind, className }: { kind: Kind; className?: string })
 /** The "playing now" bars: the signature mark for whatever is open on someone's computer. */
 export function Playing({ className, label }: { className?: string; label?: string }) {
   return (
-    <span className={cn("playing text-brand", className)} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+    <span className={cn("playing", className)} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
       <i />
       <i />
       <i />
@@ -161,7 +161,7 @@ export function RunState({ status, className }: { status: RunStatus; className?:
     <span
       className={cn(
         "inline-flex items-center gap-1.5 font-medium",
-        st.tone === "live" && "text-brand",
+        st.tone === "live" && "font-medium text-foreground",
         st.tone === "ok" && "text-ok",
         st.tone === "muted" && "text-muted-foreground",
         st.tone === "bad" && "text-destructive",

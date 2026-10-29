@@ -47,7 +47,7 @@ function AsItWas({ appId, n, files }: { appId: string; n: string; files: Version
         {files.map((f) => (
           <li key={f.path}>
             <button type="button" disabled={f.kind === "binary"} onClick={() => show(f.path)}
-              className={`w-full truncate text-left font-mono text-xs ${open?.path === f.path ? "text-brand" : ""} disabled:text-muted-foreground`}
+              className={`w-full truncate text-left font-mono text-xs ${open?.path === f.path ? "font-medium text-foreground" : ""} disabled:text-muted-foreground`}
               title={f.kind === "binary" ? "Programa pronto: o Hub guarda só o tamanho e a data" : f.path}>
               {f.path}
             </button>

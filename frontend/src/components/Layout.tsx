@@ -25,7 +25,7 @@ const NAV = [
 ]
 
 const NAV_ITEM = "flex shrink-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors"
-const NAV_ON = "bg-accent font-medium text-foreground"
+const NAV_ON = "relative bg-accent font-medium text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-brand"
 const NAV_OFF = "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
 
 const SOON = [
@@ -103,10 +103,10 @@ function Shell() {
             >
               {({ isActive }) => (
                 <>
-                  <Icon className={cn("size-4", (isActive || (to === "/" && inCatalog)) && "text-brand")} />
+                  <Icon className={cn("size-4", (isActive || (to === "/" && inCatalog)) && "text-foreground")} />
                   {label}
                   {to === "/execucoes" && openCount > 0 && (
-                    <span aria-label={`${openCount} ${openCount === 1 ? "aberto" : "abertos"} agora`} className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-brand">
+                    <span aria-label={`${openCount} ${openCount === 1 ? "aberto" : "abertos"} agora`} className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
                       <Playing />
                       {openCount}
                     </span>
@@ -130,7 +130,7 @@ function Shell() {
           <NavLink to="/configuracoes" className={({ isActive }) => cn(NAV_ITEM, isActive ? NAV_ON : NAV_OFF)}>
             {({ isActive }) => (
               <>
-                <Settings className={cn("size-4", isActive && "text-brand")} />
+                <Settings className={cn("size-4", isActive && "text-foreground")} />
                 Configurações
               </>
             )}

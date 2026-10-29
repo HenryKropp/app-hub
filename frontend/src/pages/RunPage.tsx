@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 
 const SHOWN = 10
 
-const CHECK = "size-4 shrink-0 cursor-pointer accent-[var(--brand)]"
+const CHECK = "size-4 shrink-0 cursor-pointer accent-[var(--foreground)]"
 
 function Group({ run, g, selected, toggle }: { run: Run; g: RunGroup; selected: Set<number>; toggle: (ids: number[], on: boolean) => void }) {
   const [all, setAll] = useState(false)
