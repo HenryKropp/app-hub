@@ -13,13 +13,17 @@ import (
 
 const (
 	MaxCodeSize = 1 << 20
-	TrashDir    = ".app-hub-lixeira"
+	TrashDir    = ".kova-lixeira"
 	KindCode    = "code"
 	KindBinary  = "binary"
-	tempSuffix  = ".app-hub-tmp"
+	tempSuffix  = ".kova-tmp"
+
+	// Names from the App Hub, before it became Kova: still kept out of versions.
+	LegacyTrashDir   = ".app-hub-lixeira"
+	legacyTempSuffix = ".app-hub-tmp"
 )
 
-var junkDirs = map[string]bool{"__pycache__": true, ".venv": true, "venv": true, "node_modules": true, ".git": true, TrashDir: true}
+var junkDirs = map[string]bool{"__pycache__": true, ".venv": true, "venv": true, "node_modules": true, ".git": true, TrashDir: true, LegacyTrashDir: true}
 
 // hubFiles are written by the Hub; their changes enter the history through the ficha.
 var hubFiles = map[string]bool{manifest.FileName: true, manifest.LegacyFileName: true, manifest.FichaName: true}
@@ -35,7 +39,7 @@ var codeExts = map[string]bool{
 // Included reports whether a file (path relative to the app folder, forward
 // slashes) belongs in a version.
 func Included(rel string, outs []manifest.Output) bool {
-	if strings.HasSuffix(rel, tempSuffix) {
+	if strings.HasSuffix(rel, tempSuffix) || strings.HasSuffix(rel, legacyTempSuffix) {
 		return false
 	}
 	segs := strings.Split(rel, "/")

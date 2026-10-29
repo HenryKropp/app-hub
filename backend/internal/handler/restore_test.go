@@ -43,7 +43,7 @@ func TestRestoreFlow(t *testing.T) {
 	if string(b) != "print('v1')\n" {
 		t.Fatalf("main.py = %q", b)
 	}
-	matches, _ := filepath.Glob(filepath.Join(dir, ".app-hub-lixeira", "*", "src", "extra.py"))
+	matches, _ := filepath.Glob(filepath.Join(dir, versions.TrashDir, "*", "src", "extra.py"))
 	if len(matches) != 1 {
 		t.Fatal("extra.py must be in the trash")
 	}
@@ -170,7 +170,7 @@ func TestRestoreTrashesUnsavedFileFirst(t *testing.T) {
 	if b, _ := os.ReadFile(filepath.Join(dir, "src", "main.py")); string(b) != "print('v1')\n" {
 		t.Fatalf("main.py = %q", b)
 	}
-	matches, _ := filepath.Glob(filepath.Join(dir, ".app-hub-lixeira", "*", "src", "main.py"))
+	matches, _ := filepath.Glob(filepath.Join(dir, versions.TrashDir, "*", "src", "main.py"))
 	if len(matches) != 1 {
 		t.Fatal("the big main.py must be in the trash")
 	}

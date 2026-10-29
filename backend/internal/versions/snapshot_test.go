@@ -236,3 +236,11 @@ func TestIncludedSkipsBothManifestNames(t *testing.T) {
 		}
 	}
 }
+
+func TestIncludedSkipsBothTrashAndTempNames(t *testing.T) {
+	for _, rel := range []string{".app-hub-lixeira/x.py", ".kova-lixeira/x.py", "a.py.app-hub-tmp", "a.py.kova-tmp"} {
+		if Included(rel, nil) {
+			t.Errorf("%s must not enter a version", rel)
+		}
+	}
+}
