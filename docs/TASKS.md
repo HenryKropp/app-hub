@@ -1,4 +1,4 @@
-# TASKS — App Hub (Módulo 1, piloto local)
+# TASKS — Kova (Módulo 1, piloto local)
 
 > Registro histórico do piloto. Os estados abaixo não substituem as tarefas
 > atuais do projeto. Para o estado geral em 26/10/2026, consulte o
@@ -13,13 +13,13 @@ Status: Pending / In Progress / Done / Blocked
 |---|---|---|
 | Ler especificação e apps de teste | Done | Pasta `8. Programação` analisada: scripts, Streamlit, desktop, agendados, `.exe`, documentos |
 | PRD do Módulo 1 | Done | `docs/PRD.md` |
-| Decidir onde os apps executam (Windows vs WSL) | Done | ADR 001: Hub no WSL lendo `/mnt/c`; execução pelo Agente do Hub no Windows (ADR 004) |
+| Decidir onde os apps executam (Windows vs WSL) | Done | ADR 001: Hub no WSL lendo `/mnt/c`; execução pelo Agente do Kova no Windows (ADR 004) |
 
 ## Fase 1 — Fundação
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Esqueleto Go + React + Postgres local | Done | Banco `app-hub-db` na porta 5433; Dockerfile pronto |
+| Esqueleto Go + React + Postgres local | Done | Banco `kova-db` (antes `app-hub-db`) na porta 5433; Dockerfile pronto |
 | Layout base, identidade visual, navegação | Done | Estilo novo (2026-10-02): limpo e neutro como Notion/Vercel, um violeta vivo só no Rodar e no que está aberto agora; claro por padrão, com escuro; Painel e Cofre marcados "em breve" |
 | Registrar apps pelo + do catálogo | Done | 2026-10-02, pedido do Henry: saiu da barra lateral; virou o botão "+ Registrar apps" ao lado da busca (só "+" no celular), só para administrador e criador. A página tem "← Catálogo" e o Catálogo fica marcado enquanto se registra |
 | Configurações | Done | 2026-10-02, pedido do Henry: item no pé da barra lateral (no celular, no menu do avatar) com Meu computador e Aparência (claro, escuro, igual ao sistema). O endereço antigo `/meu-computador` leva para lá |
@@ -34,12 +34,12 @@ Status: Pending / In Progress / Done / Blocked
 | Detecção de segredos no código | Done | Mostra arquivo e linha, nunca o valor. "Mover para o cofre" entra na Fase 6 |
 | Varredura em lote de uma pasta | Done | Um app por subpasta; ignora `.venv`, `node_modules`, pastas ocultas; sugere pular pastas "Old/arquivo" |
 | Tela de revisão do diagnóstico + perguntas do incerto | Done | Tela Registrar apps |
-| Salvar manifesto e ficha na pasta do app | Done | Cria só `app-hub.yaml` e `FICHA.md`; recusa sobrescrever arquivo que não é do Hub |
+| Salvar manifesto e ficha na pasta do app | Done | Cria só `app-hub.yaml` e `FICHA.md`; recusa sobrescrever arquivo que não é do Kova |
 | Aviso de duplicado | Done | Por palavras do nome, contra o catálogo e dentro do lote |
 
 ## Prioridade atual (2026-10-01)
 
-Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep) antes de registrar mais apps.** Fase 4 para apps com janela e `.exe` feita e testada de verdade (2026-09-30). Ordem combinada depois da decisão do App Hub (ADR 005):
+Pedido do Henry: **deixar o Kova redondo com um app só (Eq. Research Files Prep) antes de registrar mais apps.** Fase 4 para apps com janela e `.exe` feita e testada de verdade (2026-09-30). Ordem combinada depois da decisão do Kova (ADR 005):
 1. ~~Atualização automática do Agente~~ Feita e testada de verdade (2026-09-30)
 2. ~~**Fase 5:** histórico de mudanças no código e na ficha, e voltar atrás~~ Feita e testada de verdade no Files Prep (2026-10-01)
 3. **UX em 3 etapas** (desenho: `docs/superpowers/specs/2026-10-01-etapa-1-rodar-poucos-cliques-design.md`; protótipo: `2026-10-01-prototipo-ux.html`):
@@ -51,8 +51,8 @@ Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep)
      3. ~~Mensagens~~ **feito** (2026-10-05): "sem arquivos novos" cinza e explicado na faixa e na página da execução; erros do navegador ("Failed to fetch") e respostas 5xx viram português claro; o erro do Windows ao abrir o app vira uma frase simples (o detalhe técnico fica no `hub.log`); "Tentar de novo" no catálogo, Minhas execuções, ficha e página da execução
      4. ~~Saídas~~ **feito** (2026-10-05), sem o Parar: Cancelar na janela de rodar; "Ver" na faixa enquanto o app está aberto (não tira da faixa); depois de "Ocultar", um lembrete "N aberto oculto · Mostrar". **Parar** ficou para depois, a pedido do Henry: precisa do Agente 0.2.4 e de teste de verdade
      5. ~~Acabamento~~ **feito** (2026-10-05): busca com nome para leitor de tela, X e "Limpar busca", Esc limpa; "Fechar" em vez de "Close"; "Em breve" só para administrador e criador; catálogo vazio com texto próprio para quem só usa; link "Pular para o conteúdo"; contador "abertos agora" no plural; no celular a faixa mostra um cartão só e conta o resto. O selo "Janela", as legendas, o vermelho do título e o contador vermelho já tinham sido resolvidos pelo estilo novo (conferido em foto). Fotos: `e2e/acabamento.mjs` (só leitura)
-   - **Vários apps abertos ao mesmo tempo no mesmo computador** (pedido do Henry em 2026-10-28): **código feito** (2026-10-28, ADR 012, Agente 0.3.2). O Agente abre quantos apps a pessoa quiser, desde que em pastas separadas. Pasta igual, de dentro ou de fora de uma pasta em uso é recusada, no Hub (na hora do Rodar, com "Trocar pasta") e no Agente: "Essa pasta já está sendo usada pelo X, que está aberto agora…". Assim nenhum arquivo vai parar no app errado. Scripts podem dividir a pasta entre si, porque cada um grava na sua Execucao-N. O Parar fecha só o app escolhido. A atualização automática espera todos os apps fecharem sem impedir que outros abram nesse meio-tempo. Testes automáticos passando. Agente do Henry já atualizado sozinho para 0.3.2. **Falta:** teste de verdade com dois apps diferentes abertos juntos; espera um segundo app registrado, que o Henry quer registrar pelo Claude (Fase 2b, MCP)
-   - **Parar um app aberto pelo Hub** (pedido do Henry em 2026-10-05): **código feito** (2026-10-28, ADR 011). Agente 0.3.1 com o pedido de parar (fecha o app e o que ele abriu); botão Parar com confirmação na faixa e na página da execução; estado novo "Parada" que guarda os arquivos criados até ali; pedido ainda não aberto é só cancelado. Testes automáticos passando. **Teste de verdade no PC do Henry (2026-10-28): passou** com a Ferramenta CVM, que abre um segundo programa: os dois fecharam, a execução ficou "Parada" e o Agente seguiu ligado. Antes do teste, o Agente do Henry foi trocado pelo 0.3.1 feito aqui, porque o 0.3.0 do Replit apontava para o endereço privado do Replit e tinha perdido a conexão. **Falta:** parar um script Python de verdade (ainda não há script registrado no Hub do Henry)
+   - **Vários apps abertos ao mesmo tempo no mesmo computador** (pedido do Henry em 2026-10-28): **código feito** (2026-10-28, ADR 012, Agente 0.3.2). O Agente abre quantos apps a pessoa quiser, desde que em pastas separadas. Pasta igual, de dentro ou de fora de uma pasta em uso é recusada, no Kova (na hora do Rodar, com "Trocar pasta") e no Agente: "Essa pasta já está sendo usada pelo X, que está aberto agora…". Assim nenhum arquivo vai parar no app errado. Scripts podem dividir a pasta entre si, porque cada um grava na sua Execucao-N. O Parar fecha só o app escolhido. A atualização automática espera todos os apps fecharem sem impedir que outros abram nesse meio-tempo. Testes automáticos passando. Agente do Henry já atualizado sozinho para 0.3.2. **Falta:** teste de verdade com dois apps diferentes abertos juntos; espera um segundo app registrado, que o Henry quer registrar pelo Claude (Fase 2b, MCP)
+   - **Parar um app aberto pelo Kova** (pedido do Henry em 2026-10-05): **código feito** (2026-10-28, ADR 011). Agente 0.3.1 com o pedido de parar (fecha o app e o que ele abriu); botão Parar com confirmação na faixa e na página da execução; estado novo "Parada" que guarda os arquivos criados até ali; pedido ainda não aberto é só cancelado. Testes automáticos passando. **Teste de verdade no PC do Henry (2026-10-28): passou** com a Ferramenta CVM, que abre um segundo programa: os dois fecharam, a execução ficou "Parada" e o Agente seguiu ligado. Antes do teste, o Agente do Henry foi trocado pelo 0.3.1 feito aqui, porque o 0.3.0 do Replit apontava para o endereço privado do Replit e tinha perdido a conexão. **Falta:** parar um script Python de verdade (ainda não há script registrado no Kova do Henry)
    - Ficha mais limpa (2026-10-02, pedido do Henry): quadro de 5 caixas virou uma linha discreta abaixo do resumo; entradas dizem uma vez de onde vêm ("Você preenche tudo na janela do app"); saídas sem o padrão técnico (fica no passar o mouse); pontos de atenção mostram 3 e "Ver mais N"; histórico mostra os 5 mais novos e "Ver histórico completo", com filtro em abas pequenas e ações das versões discretas; pasta sem fonte de código
    - ~~**Etapa 2, cargos, permissões e ficha editável**~~ **feita** (2026-10-05; desenho: `docs/superpowers/specs/2026-10-05-etapa-2-permissoes-e-ficha-design.md`; ADR 009). As abas Usar/Cuidar foram descartadas; a ficha ficou no desenho B:
      1. **Done:** cargos personalizáveis (Administrador, Criador, Usuário prontos) com 9 permissões; áreas com líderes e membros; acessos extras por app ou área; app aberto ou restrito (quem não vê recebe "App não encontrado"); regra única em `internal/access`; migração 007
@@ -62,26 +62,36 @@ Pedido do Henry: **deixar o Hub redondo com um app só (Eq. Research Files Prep)
      5. **Pending (fora desta etapa):** ~~Parar um app aberto~~ (feito e testado de verdade em 2026-10-28); visibilidade por time como conta separada; aprovação antes de publicar; código de acesso pessoal e MCP
    - Etapa 3, catálogo e primeiro uso (favoritos, filtro por área, status e "usado há…", guia do Agente): **Pending**, depois da Etapa 2
 4. Rodar scripts: formulário automático e ambiente preparado sozinho
-5. App Hub: ícone perto do relógio, janela própria e instalador único (etapas 2 e 3), antes de o primeiro colega entrar
-6. Assinatura digital do App Hub (etapa 4), antes de vender
+5. Kova: ícone perto do relógio, janela própria e instalador único (etapas 2 e 3), antes de o primeiro colega entrar
+6. Assinatura digital do Kova (etapa 4), antes de vender
 7. Depois: retomar a Fase 2b (teste com mais 4 apps e MCP)
 8. **A decidir: apps para vários ao mesmo tempo** (dúvida do Henry, 2026-10-02). Ideia no PRD 3.3: opção "pessoal" ou "compartilhado" no manifesto; o compartilhado roda uma vez só no servidor central, com um banco de dados só e a senha no cofre. Decidir junto com "Rodar apps web" e antes do primeiro colega usar um app desses
-9. **Ideia: compartilhar skills do Claude pelo Hub** (Henry, 2026-10-26). Ver PRD 3.12. Antes de desenhar: pesquisar como publicar skills no claude.ai
-10. **Ideia: gestão de gastos com IA** (Henry, 2026-10-26). Ver PRD 3.13. O nível 2 (chave centralizada no Hub) é o que mais vale
+9. **Ideia: compartilhar skills do Claude pelo Kova** (Henry, 2026-10-26). Ver PRD 3.12. Antes de desenhar: pesquisar como publicar skills no claude.ai
+10. **Ideia: gestão de gastos com IA** (Henry, 2026-10-26). Ver PRD 3.13. O nível 2 (chave centralizada no Kova) é o que mais vale
 
 **Para a próxima sessão (deixado em 2026-10-01, à noite):**
 - Etapa 1: Hub da 8080 reiniciado em 2026-10-02 (migração 006 aplicada, `DEV_MODE=1`, registro em `backend/hub.log`). Telas conferidas com `e2e/etapa1.mjs` (só leitura; faixa e pasta lembrada simuladas): catálogo com Rodar, janela com "Lembrar esta pasta", faixa, Minhas execuções e "De todos", ficha com "salva em … · trocar", claro/escuro/celular. A barra lateral acompanha a rolagem. Sobras visuais: no celular, 3 cartões na faixa cobrem quase meia tela; o espaço embaixo da página (`pb-32`) é menor que a faixa com 3 cartões.
-- Teste de verdade no Files Prep com o Henry (2026-10-02), conferido nos dados do Hub: sem faixa ao abrir; 1ª vez pela janela com "Lembrar esta pasta" (pasta gravada); dispensar com ✕ não volta no F5; 2ª vez direto do cartão, sem janela; Rodar de novo por Minhas execuções; "terminou: 4 arquivos novos" → Ver e baixar abre a página e tira a faixa. Execuções 3 a 5 deram "sem arquivos novos" porque o app foi fechado antes de baixar algo novo (comportamento certo).
-- Observar: na 1ª tentativa o ✕ sumiu com a faixa, mas a dispensa não chegou ao Hub (não se repetiu). A faixa "sem arquivos novos" usa o ícone vermelho de alerta, que parece erro para um resultado normal.
+- Teste de verdade no Files Prep com o Henry (2026-10-02), conferido nos dados do Kova: sem faixa ao abrir; 1ª vez pela janela com "Lembrar esta pasta" (pasta gravada); dispensar com ✕ não volta no F5; 2ª vez direto do cartão, sem janela; Rodar de novo por Minhas execuções; "terminou: 4 arquivos novos" → Ver e baixar abre a página e tira a faixa. Execuções 3 a 5 deram "sem arquivos novos" porque o app foi fechado antes de baixar algo novo (comportamento certo).
+- Observar: na 1ª tentativa o ✕ sumiu com a faixa, mas a dispensa não chegou ao Kova (não se repetiu). A faixa "sem arquivos novos" usa o ícone vermelho de alerta, que parece erro para um resultado normal.
 - Seguir o fluxo: desenho → plano → implementação para a Etapa 2.
-- O Agente no PC do Henry está na **0.2.3** e se atualiza sozinho. O código do Hub também está na 0.2.3, e `dist/agent/AppHubAgente.exe` da pasta principal já é essa versão.
-- Para publicar um Agente novo: subir `agentproto.Version`, rodar `scripts/build-agent.sh` e reiniciar o Hub.
+- O Agente no PC do Henry está na **0.2.3** e se atualiza sozinho. O código do Kova também está na 0.2.3, e `dist/agent/AppHubAgente.exe` da pasta principal já é essa versão.
+- Para publicar um Agente novo: subir `agentproto.Version`, rodar `scripts/build-agent.sh` e reiniciar o Kova.
 - Nunca ligar um Hub de teste (com outro banco) na porta 8080: o Agente real fala com ele e esquece a conexão.
 - Ainda falta o Henry conferir a janela de pastas moderna (item da Fase 4).
 
-## News Scrapper no servidor do Hub, sempre ligado (← próxima sessão, decidido em 2026-10-28)
+## Nova identidade: Kova (2026-10-29, ADR 013)
 
-Pedido do Henry: o objetivo é as pessoas pararem de rodar apps no PC e usarem pelo App Hub. O News Scrapper (`C:\Users\HenryKroppAlisInvest\OneDrive - Alis\ALIS\5. Operacional\8. Programação\News Scrapper`) hoje é um script Python (`scraper.py`, que grava `news_data.json`, `dashboard.html` e `scraper.log` na própria pasta e lê `config.json` e `watchlist.json`) rodado a cada 5 min pela tarefa agendada "NewsScrapper", mais o `server.py`, que mostra o dashboard na porta 8080. Desenho combinado:
+| Tarefa | Status | Notas |
+|---|---|---|
+| Nome num lugar só, cores, símbolo, textos "o Kova" | Done | `lib/brand.ts`, `internal/brand`; coral só como preenchimento; `scripts/contrast-check.mjs` |
+| Nomes técnicos com convivência (manifesto, lixeira, etiquetas, banco, pasta de dados) | Done | Escreve o novo, lê o antigo; `app-hub-db` e a pasta de dados são adotados na subida |
+| Atualizar o design system publicado | Todo | Tokens, README, capa, logo e prévias do artifact |
+| Renomear o repositório no GitHub e o módulo Go | Todo | Depende do Henry (Settings › Rename); depois trocar `go.mod` e imports |
+| Migração forçada dos `app-hub.yaml` e fim da convivência | Todo | Quando nenhum app registrado usar mais os nomes antigos (ver ADR 013) |
+
+## News Scrapper no servidor do Kova, sempre ligado (← próxima sessão, decidido em 2026-10-28)
+
+Pedido do Henry: o objetivo é as pessoas pararem de rodar apps no PC e usarem pelo Kova. O News Scrapper (`C:\Users\HenryKroppAlisInvest\OneDrive - Alis\ALIS\5. Operacional\8. Programação\News Scrapper`) hoje é um script Python (`scraper.py`, que grava `news_data.json`, `dashboard.html` e `scraper.log` na própria pasta e lê `config.json` e `watchlist.json`) rodado a cada 5 min pela tarefa agendada "NewsScrapper", mais o `server.py`, que mostra o dashboard na porta 8080. Desenho combinado:
 
 | Tarefa | Status | Notas |
 |---|---|---|
@@ -102,7 +112,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Teste local do protocolo em 4 apps da Alis | In Progress | Rodada 1 (Eq. Research Files Prep, app extra) aprovada. Faltam: Python Rentabilidade fundos, Research Platform, transcritor-calls, CVM Downloader (decidir aí a relação com o Files Prep) |
 | Formato v0.2 do manifesto | Done | Origem `window`, `multiple`, `depends_on`, `build`, todos opcionais; comando `cmd/validate-manifest` para validar rascunhos |
 | Tela de revisão: mostrar/editar `depends_on`, `build` e várias escolhas | Done | Etapa 2 (2026-10-05): a tela de registro usa os mesmos editores da ficha |
-| ADR: servidor MCP dentro do binário do Hub | Pending | HTTP (streamable) em `/mcp`, SDK oficial de MCP em Go; mesmas regras dos handlers |
+| ADR: servidor MCP dentro do binário do Kova | Pending | HTTP (streamable) em `/mcp`, SDK oficial de MCP em Go; mesmas regras dos handlers |
 | Código de acesso pessoal (token) | Pending | Gerado/revogado na tela Equipe (aba Pessoas); guardado com hash; a IA age com o perfil da pessoa |
 | Ferramenta: listar catálogo e ler ficha | Pending | Para achar duplicados antes de registrar |
 | Ferramenta: formato do manifesto e regras da empresa | Pending | Esquema + explicação em português (padrões 1.5) |
@@ -126,13 +136,13 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Agente do Hub no Windows (instalar, conectar, ligar com o Windows) | Done | ADR 004. `scripts/build-agent.sh`; Meu computador e Conectar. Testado de verdade em 2026-09-30 (A-HKROPP01) |
+| Agente do Kova no Windows (instalar, conectar, ligar com o Windows) | Done | ADR 004. `scripts/build-agent.sh`; Meu computador e Conectar. Testado de verdade em 2026-09-30 (A-HKROPP01) |
 | Rodar app com janela/`.exe` pelo Agente, com pasta escolhida | Done | Padrão: pasta do app; outra pasta: cópia temporária do `.exe`. Eq. Research Files Prep rodado de verdade em 2026-09-30 na pasta do app. Janela de pastas moderna (Agente 0.1.1): falta o Henry conferir |
 | Resultados agrupados pelo manifesto | Done | Arquivos novos ou alterados; grupos pelas `outputs` + "Outros arquivos". Padrões aceitam `**`; grupos calculados pela ficha atual. Ficha do Files Prep corrigida após o 1º teste (`*/*/**/*.pdf`, `*_secoes.pdf`) |
 | Baixar resultados pelo Agente (arquivo e .zip) | Done | Sob demanda; só arquivos da execução. Um arquivo, grupo inteiro, ou arquivos marcados ("Baixar selecionados", pedido do Henry). Erros viram página legível |
-| Atualização automática do Agente | Done | 2026-09-30, testada no PC do Henry (0.2.0 → 0.2.1 sozinho; 0.2.2 com defeito voltou 3 vezes e o Hub parou; 0.2.3 entrou). Para publicar: subir `agentproto.Version`, rodar `scripts/build-agent.sh` e reiniciar o Hub. Sem número novo, nada atualiza. A 0.1.x precisa de uma última instalação manual |
-| App Hub: ícone, janela própria e instalador único (B) | Pending | Decidido na ADR 005 (2026-09-30): o Agente vira o App Hub, mostrando as mesmas telas do site numa janela, com o Hub sempre num servidor central. Etapas 2 e 3, antes do primeiro colega |
-| Assinatura digital do App Hub | Pending | Etapa 4, antes de vender (certificado pago) |
+| Atualização automática do Agente | Done | 2026-09-30, testada no PC do Henry (0.2.0 → 0.2.1 sozinho; 0.2.2 com defeito voltou 3 vezes e o Kova parou; 0.2.3 entrou). Para publicar: subir `agentproto.Version`, rodar `scripts/build-agent.sh` e reiniciar o Kova. Sem número novo, nada atualiza. A 0.1.x precisa de uma última instalação manual |
+| Kova: ícone, janela própria e instalador único (B) | Pending | Decidido na ADR 005 (2026-09-30): o Agente vira o Kova, mostrando as mesmas telas do site numa janela, com o Kova sempre num servidor central. Etapas 2 e 3, antes do primeiro colega |
+| Assinatura digital do Kova | Pending | Etapa 4, antes de vender (certificado pago) |
 | Pendências menores da atualização automática | Pending | "Atualizando…" aparece enquanto o Agente espera um app fechar (pode durar horas); espera pelo app não é cancelada se o Agente fechar; uma execução nova pode passar na frente da atualização; `install()` chama `/quit` sem limite de tempo; poucos testes para falha ao abrir a versão nova e para download 404/401; uma atualização bem-sucedida antiga pode virar "falha" se outra entrar em menos de 10 min (só histórico) |
 | Pendências menores da revisão da Fase 4 | Pending | Cópia do `.exe` que sobra bloqueia a próxima execução; `entrypoint` com subpasta; pasta sem permissão interrompe a leitura; nomes com `..`; trava rara no download; trava de instância única por porta TCP; erro de uma consulta fica na tela; espera de 5 min na janela de pastas se o Agente caiu; apps em pasta do WSL; limpeza de pedidos de conexão vencidos |
 | Registro das execuções | Done | Quem, quando, duração, pasta, computador, versão do app (data e tamanho do `.exe`); Interrompida quando o Agente reinicia ou o computador não responde |
@@ -161,7 +171,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Empresa e times (time = área; pessoa em uma empresa só) | In Progress | Áreas com líderes e membros feitas na Etapa 2 (ADR 009). Falta a empresa como conta, vários times com configurações próprias, limites e aprovação antes de publicar |
 | Permissões por app (usar / editar) | Done | Etapa 2 (2026-10-05, ADR 009): cargos, líderes de área, acessos extras e app restrito. Parar um app aberto: feito e testado de verdade em 2026-10-28 (Agente 0.3.1) |
 | Arquivos de senhas (`.env`) fora do histórico de versões | Done | 2026-10-26 (ADR 006). Migração 010 limpou as versões já guardadas |
-| Cofre local criptografado + injeção na execução | Pending | Hoje as senhas dos apps que rodam no computador ficam no `.env` da pasta. Os scripts importados pelo navegador guardam seus arquivos no Hub (`script_sources`) |
+| Cofre local criptografado + injeção na execução | Pending | Hoje as senhas dos apps que rodam no computador ficam no `.env` da pasta. Os scripts importados pelo navegador guardam seus arquivos no Kova (`script_sources`) |
 | Registro de uso de chaves | Pending | |
 
 ## Fase 7 — Saúde, continuidade e painel (1.8, 1.9, 1.10)
@@ -177,7 +187,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Tarefa | Status | Notas |
 |---|---|---|
 | Configurar chave da Claude API | Blocked | Decisão adiada pelo Henry |
-| Diagnóstico e ficha escritos por IA | Pending | Resolvido pelo MCP (Fase 2b) para o registro; dentro do Hub ainda depende da chave |
+| Diagnóstico e ficha escritos por IA | Pending | Resolvido pelo MCP (Fase 2b) para o registro; dentro do Kova ainda depende da chave |
 | Explicação de erros em português | Blocked | Depende da chave |
 | Busca em linguagem natural, "pergunte ao app" | Blocked | Depende da chave |
 
@@ -193,10 +203,10 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Tarefa | Status | Notas |
 |---|---|---|
 | Tasks 1 a 18 (manifesto, cofre, motor Podman, bancos por app, receitas, checagem, implantação, porteiro, vigia, API da ficha, uso e custo, catálogo, parte "Compartilhado" da ficha, página Servidor e gastos) | Done | Juntado à versão principal (`main`) em 2026-10-26, com todos os testes passando |
-| Task 19: ADR 010, PRD, TASKS, INFRASTRUCTURE e script de fotos (`e2e/compartilhados.mjs`) | Done | As fotos só rodam depois que o Henry reiniciar o Hub com o código novo |
+| Task 19: ADR 010, PRD, TASKS, INFRASTRUCTURE e script de fotos (`e2e/compartilhados.mjs`) | Done | As fotos só rodam depois que o Henry reiniciar o Kova com o código novo |
 | Teste de ponta a ponta com o Podman de verdade (2026-10-07, num Hub de teste separado) | Done | 12 de 12 passos passaram. Os 5 defeitos achados foram corrigidos: parada do app levava 10 s (o app não recebia o sinal de parar), o vigia religava depois de uma só checagem de saúde que falhava (agora pede 2 seguidas e confere de novo antes de religar), disco "usado" contava os blocos reservados, `PUT /api/server/cost` com corpo errado gravava zero, e a resposta de `POST /api/apps` vinha sem permissões nem versão |
-| Cópias dos bancos criptografadas (2026-10-26) | Done | Com a chave do cofre, em pedaços autenticados; as cópias antigas são criptografadas quando o Hub liga. Restaurar lê as duas. "Baixar" entrega a cópia já aberta (`pg_restore` lê); cópia danificada dá aviso em vez de arquivo quebrado |
-| Task 19: teste de verdade com o Henry (Streamlit de exemplo, testar, publicar, descansar, voltar versão, custo, checagem do Sistema Alis V2) | Pending | Um passo por vez, conferindo pelos dados do Hub |
+| Cópias dos bancos criptografadas (2026-10-26) | Done | Com a chave do cofre, em pedaços autenticados; as cópias antigas são criptografadas quando o Kova liga. Restaurar lê as duas. "Baixar" entrega a cópia já aberta (`pg_restore` lê); cópia danificada dá aviso em vez de arquivo quebrado |
+| Task 19: teste de verdade com o Henry (Streamlit de exemplo, testar, publicar, descansar, voltar versão, custo, checagem do Sistema Alis V2) | Pending | Um passo por vez, conferindo pelos dados do Kova |
 
 ### Depois
 - Subir na nuvem (por último).
@@ -211,7 +221,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 - Rodar os testes com `-race` num computador com `gcc`.
 - Pequenas sobras guardadas na revisão (baixa prioridade):
   - Motor: `Fake` com `sync.Mutex` sobrando; `Inspect`/`Logs`/`Exec` aceitam caixa desconhecida; "no such image" vira "não encontrado"; motor fora do ar soma até 10 s por comando.
-  - Bancos: testes do `appdb` mais firmes (erros ignorados, sem teste de senha errada); `Fake` aceitar só nomes válidos; bancos de teste também trancados; `LockDown` tira `CONNECT` de `PUBLIC` no banco do Hub a cada início (avisar o Henry).
+  - Bancos: testes do `appdb` mais firmes (erros ignorados, sem teste de senha errada); `Fake` aceitar só nomes válidos; bancos de teste também trancados; `LockDown` tira `CONNECT` de `PUBLIC` no banco do Kova a cada início (avisar o Henry).
   - Receitas e checagem: subpasta no módulo (`src/app.py`), imports separados por vírgula, `requirements.txt` com comentários, `process.env["X"]`, arquivos acima de 1 MB ignorados sem aviso, porta 0 sem `EXPOSE`.
   - Montagem: `.dockerignore` simples (sem `**`); `Wait` pode passar do tempo em até 5 s.
   - Implantação: "Voltar para a anterior" não marca acesso (pode descansar logo); `Unshare` ignora erros ao remover caixa e imagem (registrar); `deploy.go` grande (separar); imagens de montagens que falharam ficam para trás.

@@ -1,6 +1,6 @@
 # Nova identidade: Kova
 
-Conversa em 28 e 29/10/2026. O nome, o visual, o escopo técnico e o tom dos textos estão decididos pelo Henry. O documento aguarda aprovação final antes do plano de implementação.
+Conversa em 28 e 29/10/2026. O nome, o visual, o escopo técnico e o tom dos textos estão decididos pelo Henry. Aprovado pelo Henry em 29/10 e implementado no branch `kova-identidade`.
 
 ## Por que mudar
 - "App Hub" foi improvisado: o nome e o logo são genéricos e não ficam na memória.
