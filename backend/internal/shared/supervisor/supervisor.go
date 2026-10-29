@@ -135,7 +135,8 @@ func (s *Supervisor) Reconcile(ctx context.Context) error {
 		return err
 	}
 	for _, c := range list {
-		if id, err := strconv.ParseInt(c.Labels[engine.Label], 10, 64); err == nil && s.svc.Busy(id) {
+		label, _ := engine.AppLabel(c.Labels)
+		if id, err := strconv.ParseInt(label, 10, 64); err == nil && s.svc.Busy(id) {
 			continue // being built or started right now by this Hub
 		}
 		if !expected[c.ID] {
@@ -200,7 +201,7 @@ func (s *Supervisor) clearStaleBuilding(ctx context.Context, now time.Time, minA
 			_ = s.eng.Remove(ctx, d.ContainerID)
 		}
 		for _, c := range running {
-			if c.Labels["app-hub.deployment"] == strconv.FormatInt(d.ID, 10) {
+			if engine.DeploymentID(c.Labels) == strconv.FormatInt(d.ID, 10) {
 				_ = s.eng.Remove(ctx, c.ID)
 			}
 		}

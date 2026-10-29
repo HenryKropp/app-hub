@@ -34,7 +34,7 @@ func TestPublishFirstTime(t *testing.T) {
 	if sa.Status != "running" || !sa.CurrentDeploymentID.Valid || sa.CurrentDeploymentID.Int64 != d.ID || sa.DbName != "app_"+itoa(e.App.ID) {
 		t.Fatalf("%+v", sa)
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(d.ID) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "kova-notas-"+itoa(d.ID) {
 		t.Fatalf("running %v", got)
 	}
 	var env map[string]string
@@ -48,7 +48,7 @@ func TestPublishFirstTime(t *testing.T) {
 	if _, ok := e.S.Target(e.App.ID, false); !ok {
 		t.Fatal("no target")
 	}
-	if !strings.Contains(e.Eng.Images[d.ImageID].Tag, "localhost/apphub/notas:") {
+	if !strings.Contains(e.Eng.Images[d.ImageID].Tag, "localhost/kova/notas:") {
 		t.Fatalf("tag %+v", e.Eng.Images)
 	}
 }
@@ -95,7 +95,7 @@ func TestNewVersionUnhealthyKeepsOld(t *testing.T) {
 	if port, _ := e.S.Target(e.App.ID, false); port != oldPort {
 		t.Fatal("target moved to the broken version")
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(old.ID) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "kova-notas-"+itoa(old.ID) {
 		t.Fatalf("running %v", got)
 	}
 }
@@ -111,7 +111,7 @@ func TestNewVersionSwapsAndBacksUp(t *testing.T) {
 	if sa.CurrentDeploymentID.Int64 != d.ID || sa.PreviousDeploymentID.Int64 != old.ID {
 		t.Fatalf("%+v", sa)
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(d.ID) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "kova-notas-"+itoa(d.ID) {
 		t.Fatalf("old still running: %v", got)
 	}
 	if _, err := e.Q.LatestPreDeployBackup(context.Background(), sqlc.LatestPreDeployBackupParams{AppID: e.App.ID, DeploymentID: pgtype.Int8{Int64: d.ID, Valid: true}}); err != nil {
@@ -490,7 +490,7 @@ func TestTestEnvAndNewTestEndsOld(t *testing.T) {
 		first.TestDbName != "app_"+itoa(e.App.ID)+"_test_"+itoa(first.ID) {
 		t.Fatalf("env %v db %s", env, first.TestDbName)
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-teste-"+itoa(first.ID) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "kova-notas-teste-"+itoa(first.ID) {
 		t.Fatalf("running %v", got)
 	}
 	if !first.ExpiresAt.Valid || first.ExpiresAt.Time.Sub(first.CreatedAt.Time) < 29*time.Minute {
@@ -511,7 +511,7 @@ func TestTestEnvAndNewTestEndsOld(t *testing.T) {
 	if _, ok := e.S.Target(e.App.ID, true); ok {
 		t.Fatal("test target kept after publish")
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(e.Shared(t).CurrentDeploymentID.Int64) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "kova-notas-"+itoa(e.Shared(t).CurrentDeploymentID.Int64) {
 		t.Fatalf("running %v", got)
 	}
 }
@@ -542,7 +542,7 @@ func TestDataDirMounted(t *testing.T) {
 		if want := filepath.Join(e.DataDir(), "apps", itoa(e.App.ID), "data"); c.Spec.DataDir != want {
 			t.Fatalf("data dir %q want %q", c.Spec.DataDir, want)
 		}
-		if c.Spec.Labels["app-hub.app"] != itoa(e.App.ID) || c.Spec.MemoryMB != 512 || c.Spec.CPUs != 1 {
+		if c.Spec.Labels["kova.app"] != itoa(e.App.ID) || c.Spec.Labels["kova.deployment"] == "" || c.Spec.MemoryMB != 512 || c.Spec.CPUs != 1 {
 			t.Fatalf("spec %+v", c.Spec)
 		}
 	}
@@ -687,7 +687,7 @@ func TestRollbackWithDataRestoreFailsKeepsAppUp(t *testing.T) {
 	if sa.Status != "running" || sa.CurrentDeploymentID.Int64 != d.ID {
 		t.Fatalf("%+v", sa)
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(d.ID) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "kova-notas-"+itoa(d.ID) {
 		t.Fatalf("running %v", got)
 	}
 	if _, ok := e.S.Target(e.App.ID, false); !ok {
@@ -707,7 +707,7 @@ func TestRollbackWithDataPreviousUnhealthyPutsDataBack(t *testing.T) {
 	e.DBs.Data[db] = "v2"
 	broken := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) })
 	e.Eng.HandlerFor = func(name string) http.Handler {
-		if name == "apphub-notas-"+itoa(old.ID) {
+		if name == "kova-notas-"+itoa(old.ID) {
 			return broken
 		}
 		return nil
@@ -723,7 +723,7 @@ func TestRollbackWithDataPreviousUnhealthyPutsDataBack(t *testing.T) {
 	if sa.Status != "running" || sa.CurrentDeploymentID.Int64 != d.ID || sa.PreviousDeploymentID.Int64 != old.ID {
 		t.Fatalf("%+v", sa)
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(d.ID) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "kova-notas-"+itoa(d.ID) {
 		t.Fatalf("running %v", got)
 	}
 }
@@ -758,7 +758,7 @@ func TestSwapNotRecordedKeepsOld(t *testing.T) {
 	if port, _ := e.S.Target(e.App.ID, false); port != oldPort {
 		t.Fatal("target moved")
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(old.ID) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "kova-notas-"+itoa(old.ID) {
 		t.Fatalf("running %v", got)
 	}
 	if len(e.Eng.Images) != 1 {
@@ -814,7 +814,7 @@ func TestLifecycleWhilePublishing(t *testing.T) {
 	close(release)
 	d = e.WaitDeployment(t, d.ID)
 	time.Sleep(100 * time.Millisecond) // a stray Wake would have run by now
-	if got := e.Eng.Running(); d.Status != "live" || len(got) != 1 || got[0] != "apphub-notas-"+itoa(d.ID) {
+	if got := e.Eng.Running(); d.Status != "live" || len(got) != 1 || got[0] != "kova-notas-"+itoa(d.ID) {
 		t.Fatalf("%s running %v", d.Status, got)
 	}
 	if e.Shared(t).Status != "running" {
@@ -822,7 +822,7 @@ func TestLifecycleWhilePublishing(t *testing.T) {
 	}
 	starts := 0
 	for _, c := range e.Eng.CallsCopy() {
-		if c == "start apphub-notas-"+itoa(d.ID) {
+		if c == "start kova-notas-"+itoa(d.ID) {
 			starts++
 		}
 	}
@@ -881,7 +881,7 @@ func TestEachAppHasItsOwnNetwork(t *testing.T) {
 	e := setup(t)
 	d := e.Publish(t)
 	tst := e.StartTest(t)
-	want := "app-hub-apps-" + itoa(e.App.ID)
+	want := "kova-apps-" + itoa(e.App.ID)
 	for _, c := range e.Eng.Containers {
 		if c.Spec.Network != want {
 			t.Fatalf("%s on network %q, want %q", c.Spec.Name, c.Spec.Network, want)

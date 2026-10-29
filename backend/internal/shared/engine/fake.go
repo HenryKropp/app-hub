@@ -270,7 +270,7 @@ func (f *Fake) List(context.Context) ([]Container, error) {
 	defer f.mu.Unlock()
 	var out []Container
 	for id, c := range f.Containers {
-		if _, ok := c.Spec.Labels[Label]; ok {
+		if _, ok := AppLabel(c.Spec.Labels); ok {
 			out = append(out, Container{ID: id, Name: c.Spec.Name, Running: c.Running, Labels: c.Spec.Labels})
 		}
 	}
