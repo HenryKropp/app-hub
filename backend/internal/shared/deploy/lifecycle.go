@@ -253,6 +253,7 @@ func (s *Service) Unshare(ctx context.Context, appID, by int64) error {
 		}
 	}
 	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork(appID)), "remove network", "app", appID)
+	logErr(s.eng.RemoveNetwork(ctx, engine.LegacyAppNetwork(appID)), "remove network", "app", appID)
 	if err := s.q.MarkUnshared(ctx, appID); err != nil {
 		return err
 	}
@@ -280,6 +281,7 @@ func (s *Service) Purge(ctx context.Context, appID int64) error {
 		}
 	}
 	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork(appID)), "remove network", "app", appID) // if Unshare could not
+	logErr(s.eng.RemoveNetwork(ctx, engine.LegacyAppNetwork(appID)), "remove network", "app", appID)
 	logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "backups", strconv.FormatInt(appID, 10))), "remove backups", "app", appID)
 	logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(appID, 10))), "remove app data", "app", appID)
 	if err := s.q.DeleteBackupsOfApp(ctx, appID); err != nil {

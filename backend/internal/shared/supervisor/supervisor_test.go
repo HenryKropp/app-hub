@@ -783,3 +783,15 @@ func TestExpiredTestEndedOnTime(t *testing.T) {
 		t.Fatal("test address still open")
 	}
 }
+
+func TestReconcileRemovesLegacyOrphan(t *testing.T) {
+	ctx := context.Background()
+	e, _, _ := live(t)
+	orphan := mustStart(t, e, engine.StartSpec{Name: "apphub-velho-2", Labels: map[string]string{engine.LegacyLabel: "99"}})
+	if err := New(e.Q, e.Eng, e.NewService()).Reconcile(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if st, _ := e.Eng.Inspect(ctx, orphan); st.Exists {
+		t.Fatal("orphan App Hub container not recognized")
+	}
+}

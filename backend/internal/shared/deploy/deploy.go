@@ -348,7 +348,7 @@ func (s *Service) build(ctx context.Context, j job) (string, string, *failure) {
 	}
 	labels := map[string]string{engine.Label: strconv.FormatInt(j.app.ID, 10)}
 	img, log, err := s.eng.Build(ctx, engine.BuildSpec{ContextDir: dir, DockerfilePath: df,
-		Tag: fmt.Sprintf("localhost/apphub/%s:%d", j.sa.Slug, j.dep.ID), Labels: labels})
+		Tag: fmt.Sprintf("%s%s:%d", engine.ImagePrefix, j.sa.Slug, j.dep.ID), Labels: labels})
 	if err != nil {
 		full := log + "\n" + err.Error()
 		return "", log, &failure{msg: "Não foi possível montar o app. " + explainBuild(full), log: full}
@@ -364,10 +364,10 @@ func (s *Service) start(ctx context.Context, j job, img, dbName string) (string,
 		return "", 0, &failure{msg: "Não foi possível preparar as configurações do app.", log: err.Error()}
 	}
 	appDir := filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(j.app.ID, 10))
-	name := fmt.Sprintf("apphub-%s-%d", j.sa.Slug, j.dep.ID)
+	name := fmt.Sprintf("kova-%s-%d", j.sa.Slug, j.dep.ID)
 	data := filepath.Join(appDir, "data")
 	if j.test {
-		name = fmt.Sprintf("apphub-%s-teste-%d", j.sa.Slug, j.dep.ID)
+		name = fmt.Sprintf("kova-%s-teste-%d", j.sa.Slug, j.dep.ID)
 		data = filepath.Join(appDir, "test-data")
 	}
 	if err := os.MkdirAll(data, 0o755); err != nil {
@@ -375,7 +375,7 @@ func (s *Service) start(ctx context.Context, j job, img, dbName string) (string,
 	}
 	cid, err := s.eng.Start(ctx, engine.StartSpec{Name: name, Image: img, Env: env, Port: j.rec.Port,
 		MemoryMB: int(j.sa.MemoryMb), CPUs: toFloat(j.sa.Cpus), DataDir: data, Network: engine.AppNetwork(j.app.ID),
-		Labels: map[string]string{engine.Label: strconv.FormatInt(j.app.ID, 10), "app-hub.deployment": strconv.FormatInt(j.dep.ID, 10)}})
+		Labels: map[string]string{engine.Label: strconv.FormatInt(j.app.ID, 10), engine.DeploymentLabel: strconv.FormatInt(j.dep.ID, 10)}})
 	if err != nil {
 		return "", 0, &failure{msg: "Não foi possível ligar o app no servidor.", log: err.Error()}
 	}
