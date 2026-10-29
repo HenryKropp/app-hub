@@ -75,7 +75,7 @@ func (m Manifest) ScriptProblems() []string {
 		if in.Source == "fixed_file" {
 			ext := strings.ToLower(path.Ext(in.Path))
 			executable := contains([]string{".py", ".js", ".mjs", ".cjs", ".exe", ".dll", ".bat", ".cmd", ".ps1", ".sh"}, ext)
-			if in.Type != "file" || !SafeRelative(in.Path) || executable || strings.EqualFold(in.Path, FileName) || strings.EqualFold(in.Path, "package.json") || strings.HasPrefix(strings.ToLower(in.Path), ".apphub-") {
+			if in.Type != "file" || !SafeRelative(in.Path) || executable || IsManifestName(in.Path) || strings.EqualFold(in.Path, "package.json") || strings.HasPrefix(strings.ToLower(in.Path), ".apphub-") {
 				errs = append(errs, fmt.Sprintf("Defina um caminho relativo de dados, não de código, para o arquivo %q.", in.Label))
 			}
 		}

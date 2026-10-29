@@ -258,7 +258,7 @@ export function ReviewForm({ item, people, areas, apps, me, onPublished, onSkip 
           <p className={cn("max-w-md text-xs", missing.length ? "text-warn" : "text-muted-foreground")}>
             {missing.length
               ? `Falta definir ${missing.join(", ")}.`
-              : "Vou criar app-hub.yaml e FICHA.md dentro da pasta do app. Nenhum arquivo do app é alterado."}
+              : "Vou criar kova.yaml e FICHA.md dentro da pasta do app. Nenhum arquivo do app é alterado."}
           </p>
           <div className="flex gap-2">
             <Button variant="ghost" onClick={onSkip}>

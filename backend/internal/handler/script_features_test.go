@@ -107,7 +107,7 @@ func TestScriptImportQueueValidationAndCleanup(t *testing.T) {
 func TestScriptImportRejectsTraversalAndCredentialFiles(t *testing.T) {
 	c, _ := newPoolClient(t)
 	setupAdmin(t, c)
-	for _, name := range []string{"../main.py", ".env", "key.pem", "config/.env.local", "cert.key", "id_rsa"} {
+	for _, name := range []string{"../main.py", ".env", "key.pem", "config/.env.local", "cert.key", "id_rsa", "kova.yaml", "app-hub.yaml"} {
 		body := map[string]any{"confirm_secrets": true, "manifest": manifest.Manifest{Name: "Bad", Kind: "script", Entrypoint: "main.py", Area: "Research"}, "files": map[string]manifest.InputFile{
 			"main.py": {Name: "main.py", ContentBase64: ""}, name: {Name: name, ContentBase64: ""},
 		}}

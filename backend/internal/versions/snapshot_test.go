@@ -228,3 +228,11 @@ func TestSecretFile(t *testing.T) {
 		}
 	}
 }
+
+func TestIncludedSkipsBothManifestNames(t *testing.T) {
+	for _, rel := range []string{"kova.yaml", "app-hub.yaml", "FICHA.md"} {
+		if Included(rel, nil) {
+			t.Errorf("%s is written by Kova and must not enter a version as code", rel)
+		}
+	}
+}

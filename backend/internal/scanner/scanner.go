@@ -240,7 +240,7 @@ func Scan(dir string) (Diagnosis, error) {
 		d.Findings = append(d.Findings, "A pasta é muito grande; analisei só os primeiros arquivos.")
 	}
 
-	if data, err := os.ReadFile(filepath.Join(dir, manifest.FileName)); err == nil {
+	if data, err := os.ReadFile(manifest.Locate(dir)); err == nil {
 		if m, err := manifest.Parse(data); err == nil && m.Name != "" {
 			d.Manifest = m
 			d.HasManifest = true
