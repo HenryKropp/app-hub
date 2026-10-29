@@ -63,7 +63,7 @@ export function RestoreDialog({ appId, number, open, onOpenChange, onDone }: {
         <DialogHeader>
           <DialogTitle>Voltar o código para a versão {number}</DialogTitle>
           <DialogDescription>
-            Antes de mexer, o Kova guarda o estado atual como uma versão. Nada é apagado: arquivos a mais vão para a pasta .app-hub-lixeira dentro do app.
+            Antes de mexer, o Kova guarda o estado atual como uma versão. Nada é apagado: arquivos a mais vão para a pasta .kova-lixeira dentro do app.
           </DialogDescription>
         </DialogHeader>
         {!plan && !error && <p className="text-sm text-muted-foreground">Conferindo a pasta…</p>}
