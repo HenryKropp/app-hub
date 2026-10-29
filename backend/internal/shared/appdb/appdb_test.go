@@ -26,7 +26,7 @@ func admin(t *testing.T) (*Admin, string) {
 	}
 	t.Cleanup(pool.Close)
 	u, _ := url.Parse(dev)
-	a := New(pool, u.Host, engine.NewPodman("", engine.WithExecAllowed("app-hub-db")), "app-hub-db", u.User.Username())
+	a := New(pool, u.Host, engine.NewPodman("", engine.WithExecAllowed("kova-db")), "kova-db", u.User.Username())
 	a.Prefix = "apptest_"
 	return a, dev
 }
@@ -142,7 +142,7 @@ func TestFakeRoundTrip(t *testing.T) {
 // A copy is loaded all or nothing: one transaction, stopping at the first error.
 func TestRestoreIsAllOrNothing(t *testing.T) {
 	f := engine.NewFake()
-	a := New(nil, "db:5432", f, "app-hub-db", "postgres")
+	a := New(nil, "db:5432", f, "kova-db", "postgres")
 	if err := a.Restore(context.Background(), "app_1", strings.NewReader("x")); err != nil {
 		t.Fatal(err)
 	}
