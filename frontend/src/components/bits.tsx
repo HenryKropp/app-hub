@@ -1,19 +1,19 @@
 import type { ComponentProps, ReactNode } from "react"
 import { AppWindow, Box, CalendarClock, CircleCheck, FileCode2, FileText, Globe, Info, Monitor, Moon, Network, Sun, TriangleAlert, type LucideIcon } from "lucide-react"
 import type { Kind, RunStatus } from "@/lib/api"
+import { PRODUCT_NAME } from "@/lib/brand"
 import { STATUS } from "@/lib/runs"
 import { kindInfo } from "@/lib/kinds"
 import { useTheme, type ThemePref } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 
+/** O símbolo do Kova: uma enseada (o arco) protegendo o app (o ponto). Geometria oficial no spec da identidade. */
 export function Logo({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
-      <rect width="32" height="32" rx="8" fill="var(--brand)" />
-      <rect x="7" y="7" width="8" height="8" rx="2" fill="#fff" />
-      <rect x="17" y="7" width="8" height="8" rx="2" fill="#fff" opacity="0.6" />
-      <rect x="7" y="17" width="8" height="8" rx="2" fill="#fff" opacity="0.6" />
-      <path d="M18 17.4v7.2a.6.6 0 0 0 .9.5l6-3.6a.6.6 0 0 0 0-1l-6-3.6a.6.6 0 0 0-.9.5z" fill="#fff" />
+    <svg viewBox="0 0 48 48" className={className} role="img" aria-label={PRODUCT_NAME}>
+      <rect width="48" height="48" rx="12" fill="var(--logo-square)" />
+      <path d="M33 13.5A14 14 0 1 0 33 34.5" fill="none" stroke="#F4EFE6" strokeWidth="5" strokeLinecap="round" />
+      <circle cx="24" cy="24" r="5" fill="#FF6B4A" />
     </svg>
   )
 }
