@@ -1,5 +1,5 @@
 // Package manifest defines the generic, versioned description of an app that
-// the Hub stores next to the app's code (app-hub.yaml). Every feature of the
+// the Hub stores next to the app's code (kova.yaml, or app-hub.yaml in older apps). Every feature of the
 // Hub — catalog, ficha, run form, MCP — is driven by this file.
 package manifest
 
@@ -17,10 +17,16 @@ import (
 
 const (
 	Version      = 1
-	FileName     = "app-hub.yaml"
+	FileName     = "kova.yaml"
 	FichaName    = "FICHA.md"
-	headerMarker = "# App Hub — manifesto do app"
-	fichaMarker  = "<!-- app-hub:ficha -->"
+	headerMarker = "# Kova — manifesto do app"
+	fichaMarker  = "<!-- kova:ficha -->"
+
+	// Names written by the App Hub, before it became Kova. Apps registered back
+	// then keep their app-hub.yaml: it is still read and saved in place.
+	LegacyFileName     = "app-hub.yaml"
+	legacyHeaderMarker = "# App Hub — manifesto do app"
+	legacyFichaMarker  = "<!-- app-hub:ficha -->"
 )
 
 // Kinds of app the Hub understands.

@@ -22,7 +22,7 @@ const (
 var junkDirs = map[string]bool{"__pycache__": true, ".venv": true, "venv": true, "node_modules": true, ".git": true, TrashDir: true}
 
 // hubFiles are written by the Hub; their changes enter the history through the ficha.
-var hubFiles = map[string]bool{"app-hub.yaml": true, "FICHA.md": true}
+var hubFiles = map[string]bool{manifest.FileName: true, manifest.LegacyFileName: true, manifest.FichaName: true}
 
 var codeExts = map[string]bool{
 	".py": true, ".pyw": true, ".ipynb": true, ".r": true, ".js": true, ".mjs": true, ".cjs": true, ".ts": true,

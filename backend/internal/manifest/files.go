@@ -39,32 +39,52 @@ func Parse(data []byte) (Manifest, error) {
 	return m, err
 }
 
-// WriteToFolder saves app-hub.yaml and FICHA.md in dir. It only ever creates or
-// replaces those two files, and refuses to replace a file the Hub did not write.
+// Locate returns the path of the manifest in use in dir: kova.yaml if it
+// exists, else app-hub.yaml if it exists, else where kova.yaml would go.
+func Locate(dir string) string {
+	path := filepath.Join(dir, FileName)
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	legacy := filepath.Join(dir, LegacyFileName)
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy
+	}
+	return path
+}
+
+// IsManifestName reports whether a file name is the manifest, new or legacy.
+func IsManifestName(name string) bool {
+	return strings.EqualFold(name, FileName) || strings.EqualFold(name, LegacyFileName)
+}
+
+// WriteToFolder saves the manifest (the path Locate finds) and FICHA.md in dir.
+// It only ever creates or replaces those two files, and refuses to replace a
+// file Kova (or the App Hub before it) did not write.
 func WriteToFolder(dir string, m Manifest) error {
 	manifestBytes, err := Marshal(m)
 	if err != nil {
 		return err
 	}
 	files := []struct {
-		name, marker string
-		content      []byte
+		path    string
+		markers []string
+		content []byte
 	}{
-		{FileName, headerMarker, manifestBytes},
-		{FichaName, fichaMarker, []byte(RenderFicha(m))},
+		{Locate(dir), []string{headerMarker, legacyHeaderMarker}, manifestBytes},
+		{filepath.Join(dir, FichaName), []string{fichaMarker, legacyFichaMarker}, []byte(RenderFicha(m))},
 	}
 	for _, f := range files {
-		path := filepath.Join(dir, f.name)
-		if existing, err := os.ReadFile(path); err == nil {
-			if !bytes.Contains(existing, []byte(f.marker)) {
-				return fmt.Errorf("%s: %w", f.name, ErrForeignFile)
+		if existing, err := os.ReadFile(f.path); err == nil {
+			if !bytes.Contains(existing, []byte(f.markers[0])) && !bytes.Contains(existing, []byte(f.markers[1])) {
+				return fmt.Errorf("%s: %w", filepath.Base(f.path), ErrForeignFile)
 			}
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return err
 		}
 	}
 	for _, f := range files {
-		if err := os.WriteFile(filepath.Join(dir, f.name), f.content, 0o644); err != nil {
+		if err := os.WriteFile(f.path, f.content, 0o644); err != nil {
 			return err
 		}
 	}
@@ -178,6 +198,6 @@ func RenderFicha(m Manifest) string {
 			fmt.Fprintf(&b, "- %s\n", n)
 		}
 	}
-	b.WriteString("\n---\n_Ficha gerada pelo Kova a partir do manifesto (`app-hub.yaml`)._\n")
+	b.WriteString("\n---\n_Ficha gerada pelo Kova a partir do manifesto do app._\n")
 	return b.String()
 }

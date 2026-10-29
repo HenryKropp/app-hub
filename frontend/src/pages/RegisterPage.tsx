@@ -233,7 +233,7 @@ export function RegisterPage() {
                         items: r.items.map((it) => (it.folder_path === current.folder_path ? { ...it, manifest: app.manifest, registered_app_id: app.id, questions: [] } : it)),
                       },
                     )
-                    toast.success(`${app.manifest.name} está no catálogo`, { description: "Criei app-hub.yaml e FICHA.md na pasta do app." })
+                    toast.success(`${app.manifest.name} está no catálogo`, { description: "Criei kova.yaml e FICHA.md na pasta do app." })
                     mark(current, "published")
                   }}
                   onSkip={() => mark(current, "skipped")}

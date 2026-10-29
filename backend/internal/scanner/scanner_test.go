@@ -281,3 +281,11 @@ func TestLooksDuplicate(t *testing.T) {
 		}
 	}
 }
+
+func TestLegacyManifestIsReused(t *testing.T) {
+	dir := writeApp(t, t.TempDir(), "Antigo", map[string]string{"run.py": "print(1)\n", "app-hub.yaml": "# App Hub — manifesto do app\nname: Do Hub antigo\nkind: script\nentrypoint: run.py\n"})
+	d := scan(t, dir)
+	if !d.HasManifest || d.Manifest.Name != "Do Hub antigo" {
+		t.Errorf("diagnosis = %+v", d)
+	}
+}
