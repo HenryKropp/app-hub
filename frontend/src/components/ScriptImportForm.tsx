@@ -171,9 +171,9 @@ export function ScriptImportForm() {
     }
   }
 
-  return <section aria-labelledby="script-import-title" className="mb-8 rounded-xl border border-brand/20 bg-brand-soft/25 p-5 md:p-6">
+  return <section aria-labelledby="script-import-title" className="mb-8 rounded-xl border border-border bg-muted/40 p-5 md:p-6">
     <div className="flex items-start gap-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"><FileCode2 className="size-5" /></span>
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground"><FileCode2 className="size-5" /></span>
       <div className="min-w-0">
         <h2 id="script-import-title" className="font-heading text-lg">Enviar um script do computador</h2>
         <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Use este caminho quando a pasta do script não está acessível ao Hub. Envie o arquivo principal e os arquivos de que ele depende.</p>

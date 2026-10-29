@@ -89,14 +89,14 @@ export function SetupPage() {
       {!onboarding.agent_available && <p className="text-sm text-muted-foreground">O Agente ainda não está disponível neste Hub. Peça ajuda a quem administra.</p>}
     </div>,
     <div key="apps-actions" className="mt-4 flex gap-2"><Link to="/registrar" className={cn(buttonVariants({ variant: "outline" }), "gap-2")}><WandSparkles className="size-4" /> Registrar app</Link><Link to="/" className="inline-flex h-9 items-center px-2 text-sm text-muted-foreground hover:text-foreground">Ver catálogo</Link></div>,
-    <div key="run-actions" className="mt-4 flex gap-2"><Link to="/" className={cn(buttonVariants({ variant: "run" }))}>Abrir catálogo</Link><Link to="/execucoes" className="inline-flex h-9 items-center px-2 text-sm text-muted-foreground hover:text-foreground">Ver execuções</Link></div>,
+    <div key="run-actions" className="mt-4 flex gap-2"><Link to="/" className={cn(buttonVariants({ variant: "default" }))}>Abrir catálogo</Link><Link to="/execucoes" className="inline-flex h-9 items-center px-2 text-sm text-muted-foreground hover:text-foreground">Ver execuções</Link></div>,
     <div key="team-actions" className="mt-4 flex gap-2"><Link to="/equipe?aba=pessoas" className={cn(buttonVariants({ variant: "outline" }), "gap-2")}><Users className="size-4" /> Abrir equipe</Link></div>,
   ]
 
   return <>
     <PageHeader title="Comece por aqui"><Button variant="outline" size="sm" onClick={refresh} disabled={loading} className="gap-2"><RefreshCw className={cn("size-3.5", loading && "animate-spin")} /> Atualizar</Button></PageHeader>
-    <div className="mb-7 rounded-xl border border-brand/20 bg-brand-soft/45 p-5 md:flex md:items-center md:justify-between md:p-6">
-      <div><p className="text-sm font-medium text-brand">Primeiros passos</p><h1 className="mt-1 font-heading text-2xl">Prepare o App Hub para sua equipe</h1><p className="mt-2 max-w-2xl text-sm text-muted-foreground">Faça cada etapa no seu ritmo. O progresso só muda quando o Hub confirma que algo foi concluído.</p></div>
+    <div className="mb-7 rounded-xl border border-border bg-muted/40 p-5 md:flex md:items-center md:justify-between md:p-6">
+      <div><h2 className="font-heading text-2xl">Prepare o App Hub para sua equipe</h2><p className="mt-2 max-w-2xl text-sm text-muted-foreground">Faça cada etapa no seu ritmo. O progresso só muda quando o Hub confirma que algo foi concluído.</p></div>
       <div className="mt-4 shrink-0 md:mt-0 md:text-right"><p className="font-mono text-2xl font-semibold">{totalDone}<span className="text-muted-foreground">/5</span></p><p className="text-xs text-muted-foreground">etapas concluídas</p></div>
     </div>
     {error && onboarding && <p role="alert" className="mb-4 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}

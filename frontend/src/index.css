@@ -7,9 +7,10 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
-  Direção visual: limpo e neutro (Notion, Vercel), com uma só cor viva.
-  O violeta marca só o que dá para começar (Rodar) e o que está rodando agora.
-  Todo o resto é branco, cinza e quase preto.
+  Direção visual do Kova: limpo e neutro, com uma só cor viva.
+  O coral só preenche: o botão Rodar, as barrinhas do que está rodando agora
+  e o marcador do item ativo. Nunca é cor de texto, ícone ou decoração.
+  Todo o resto é branco, cinza e quase preto. O petróleo fica só no logo.
 */
 
 @theme inline {
@@ -40,7 +41,8 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
-  --color-brand-soft: var(--brand-soft);
+  --color-brand-hover: var(--brand-hover);
+  --color-logo-square: var(--logo-square);
   --color-warn: var(--warn);
   --color-warn-soft: var(--warn-soft);
   --color-ok: var(--ok);
@@ -55,32 +57,33 @@
 :root {
   --radius: 0.5rem;
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.205 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.205 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.205 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.965 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.5 0 0);
-  --accent: oklch(0.955 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.55 0.21 27);
-  --border: oklch(0.925 0 0);
-  --input: oklch(0.88 0 0);
-  --ring: oklch(0.56 0.24 293);
+  --background: #FFFFFF;
+  --foreground: #11161A;
+  --card: #FFFFFF;
+  --card-foreground: #11161A;
+  --popover: #FFFFFF;
+  --popover-foreground: #11161A;
+  --primary: #11161A;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F2F2F2;
+  --secondary-foreground: #11161A;
+  --muted: #F2F2F2;
+  --muted-foreground: #6B6F73;
+  --accent: #F0F0F0;
+  --accent-foreground: #11161A;
+  --destructive: #B4232F;
+  --border: #EAEAEA;
+  --input: #8C9196;
+  --ring: #11161A;
 
-  --sidebar: oklch(0.982 0 0);
-  --sidebar-border: oklch(0.93 0 0);
+  --sidebar: #FAFAFA;
+  --sidebar-border: #EAEAEA;
 
-  --brand: oklch(0.53 0.25 293);
-  --brand-foreground: oklch(1 0 0);
-  --brand-soft: oklch(0.955 0.03 293);
-  --warn: oklch(0.55 0.13 65);
+  --brand: #FF6B4A;
+  --brand-hover: #F0562F;
+  --brand-foreground: #11161A;
+  --logo-square: #0E3B43;
+  --warn: oklch(0.55 0.12 85);
   --warn-soft: oklch(0.965 0.04 85);
   --ok: oklch(0.52 0.13 150);
   --ok-soft: oklch(0.96 0.035 150);
@@ -89,33 +92,34 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.94 0 0);
-  --card: oklch(0.18 0 0);
-  --card-foreground: oklch(0.94 0 0);
-  --popover: oklch(0.2 0 0);
-  --popover-foreground: oklch(0.94 0 0);
-  --primary: oklch(0.94 0 0);
-  --primary-foreground: oklch(0.18 0 0);
-  --secondary: oklch(0.235 0 0);
-  --secondary-foreground: oklch(0.94 0 0);
-  --muted: oklch(0.22 0 0);
-  --muted-foreground: oklch(0.7 0 0);
-  --accent: oklch(0.25 0 0);
-  --accent-foreground: oklch(0.94 0 0);
-  --destructive: oklch(0.68 0.19 25);
-  --border: oklch(0.27 0 0);
-  --input: oklch(0.33 0 0);
-  --ring: oklch(0.7 0.18 293);
+  --background: #11161A;
+  --foreground: #EEF0F1;
+  --card: #161C21;
+  --card-foreground: #EEF0F1;
+  --popover: #1A2127;
+  --popover-foreground: #EEF0F1;
+  --primary: #EEF0F1;
+  --primary-foreground: #11161A;
+  --secondary: #232A30;
+  --secondary-foreground: #EEF0F1;
+  --muted: #232A30;
+  --muted-foreground: #A3A9AE;
+  --accent: #1E252B;
+  --accent-foreground: #EEF0F1;
+  --destructive: #F2707B;
+  --border: #252C33;
+  --input: #5E6870;
+  --ring: #EEF0F1;
 
-  --sidebar: oklch(0.165 0 0);
-  --sidebar-border: oklch(0.25 0 0);
+  --sidebar: #141A1F;
+  --sidebar-border: #252C33;
 
-  --brand: oklch(0.62 0.22 293);
-  --brand-foreground: oklch(1 0 0);
-  --brand-soft: oklch(0.27 0.07 293);
-  --warn: oklch(0.8 0.13 80);
-  --warn-soft: oklch(0.27 0.05 80);
+  --brand: #FF6B4A;
+  --brand-hover: #F0562F;
+  --brand-foreground: #11161A;
+  --logo-square: #256A75;
+  --warn: oklch(0.8 0.13 85);
+  --warn-soft: oklch(0.27 0.05 85);
   --ok: oklch(0.77 0.14 150);
   --ok-soft: oklch(0.26 0.05 150);
 
@@ -141,7 +145,7 @@
     background: color-mix(in oklch, var(--brand) 22%, transparent);
   }
   input, textarea {
-    caret-color: var(--brand);
+    caret-color: var(--foreground);
   }
   * {
     scrollbar-color: color-mix(in oklch, var(--foreground) 22%, transparent) transparent;
@@ -186,7 +190,7 @@
   width: 3px;
   height: 100%;
   border-radius: 1px;
-  background: currentColor;
+  background: var(--brand);
   transform-origin: bottom;
   animation: playing 1s ease-in-out infinite;
 }
