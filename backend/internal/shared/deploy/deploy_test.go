@@ -1001,3 +1001,40 @@ func TestEndTestClearsTargetWhenDropFails(t *testing.T) {
 		t.Fatalf("status %s", got.Status)
 	}
 }
+
+func TestMoveBackupPathsAfterAdoptingDataDir(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	old, nw := "/home/x/.local/share/app-hub/shared", "/home/x/.local/share/kova/shared"
+	b, err := e.Q.InsertBackup(ctx, sqlc.InsertBackupParams{AppID: e.App.ID, Kind: "daily", Path: old + "/backups/1/a.dump", SizeBytes: 1, CreatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true}, ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, _ := e.Q.InsertBackup(ctx, sqlc.InsertBackupParams{AppID: e.App.ID, Kind: "daily", Path: "/elsewhere/app-hub/shared/b.dump", SizeBytes: 1, CreatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true}, ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true}})
+	n, err := deploy.MoveBackupPaths(ctx, pool, old, nw)
+	if err != nil || n != 1 {
+		t.Fatalf("moved %d %v", n, err)
+	}
+	var got, untouched string
+	pool.QueryRow(ctx, `SELECT path FROM shared_backups WHERE id = $1`, b.ID).Scan(&got)
+	pool.QueryRow(ctx, `SELECT path FROM shared_backups WHERE id = $1`, other.ID).Scan(&untouched)
+	if got != nw+"/backups/1/a.dump" || untouched != "/elsewhere/app-hub/shared/b.dump" {
+		t.Fatalf("got %q, untouched %q", got, untouched)
+	}
+	if n, _ := deploy.MoveBackupPaths(ctx, pool, old, nw); n != 0 {
+		t.Fatalf("second run moved %d", n)
+	}
+}
+
+func TestPublishRemovesLegacyNetwork(t *testing.T) {
+	e := setup(t)
+	e.Publish(t)
+	e.Publish(t)
+	want := "remove-network app-hub-apps-" + itoa(e.App.ID)
+	for _, c := range e.Eng.CallsCopy() {
+		if c == want {
+			return
+		}
+	}
+	t.Fatalf("no %q in %v", want, e.Eng.CallsCopy())
+}
