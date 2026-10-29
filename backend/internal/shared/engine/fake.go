@@ -270,7 +270,7 @@ func (f *Fake) List(context.Context) ([]Container, error) {
 	defer f.mu.Unlock()
 	var out []Container
 	for id, c := range f.Containers {
-		if _, ok := c.Spec.Labels[Label]; ok {
+		if _, ok := AppLabel(c.Spec.Labels); ok {
 			out = append(out, Container{ID: id, Name: c.Spec.Name, Running: c.Running, Labels: c.Spec.Labels})
 		}
 	}
@@ -283,7 +283,7 @@ func (f *Fake) RemoveNetwork(_ context.Context, name string) error {
 	defer f.mu.Unlock()
 	f.record("remove-network " + name)
 	if !HubNetwork(name) {
-		return fmt.Errorf("recusado: a rede %q não é do Hub", name)
+		return fmt.Errorf("recusado: a rede %q não é do Ziv", name)
 	}
 	delete(f.Networks, name)
 	return nil

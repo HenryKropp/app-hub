@@ -7,6 +7,7 @@ export const STATUS: Record<RunStatus, { label: string; tone: "live" | "ok" | "m
   no_files: { label: "Sem arquivos novos", tone: "muted" },
   error: { label: "Erro", tone: "bad" },
   interrupted: { label: "Interrompida", tone: "bad" },
+  stopped: { label: "Parada", tone: "muted" },
 }
 
 export const isLive = (s: RunStatus) => s === "waiting" || s === "running"

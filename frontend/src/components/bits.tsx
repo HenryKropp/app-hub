@@ -1,19 +1,43 @@
 import type { ComponentProps, ReactNode } from "react"
 import { AppWindow, Box, CalendarClock, CircleCheck, FileCode2, FileText, Globe, Info, Monitor, Moon, Network, Sun, TriangleAlert, type LucideIcon } from "lucide-react"
 import type { Kind, RunStatus } from "@/lib/api"
+import { PRODUCT_NAME } from "@/lib/brand"
 import { STATUS } from "@/lib/runs"
 import { kindInfo } from "@/lib/kinds"
 import { useTheme, type ThemePref } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 
+/** O ícone do Ziv: o "i" do nome, com o pingo coral brilhando como um farol. Geometria oficial no BRAND.md. */
 export function Logo({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
-      <rect width="32" height="32" rx="8" fill="var(--brand)" />
-      <rect x="7" y="7" width="8" height="8" rx="2" fill="#fff" />
-      <rect x="17" y="7" width="8" height="8" rx="2" fill="#fff" opacity="0.6" />
-      <rect x="7" y="17" width="8" height="8" rx="2" fill="#fff" opacity="0.6" />
-      <path d="M18 17.4v7.2a.6.6 0 0 0 .9.5l6-3.6a.6.6 0 0 0 0-1l-6-3.6a.6.6 0 0 0-.9.5z" fill="#fff" />
+    <svg viewBox="0 0 48 48" className={className} role="img" aria-label={PRODUCT_NAME}>
+      <rect width="48" height="48" rx="12" fill="var(--logo-square)" />
+      <g fill="none" stroke="#FF6B4A" strokeWidth="1.4" strokeLinecap="round">
+        <path d="M24 6V3.5" />
+        <path d="M18.7 8.2L16.93 6.43" />
+        <path d="M29.3 8.2L31.07 6.43" />
+      </g>
+      <path d="M24 22V36" fill="none" stroke="#F4EFE6" strokeWidth="5" strokeLinecap="round" />
+      <circle cx="24" cy="13.5" r="4" fill="#FF6B4A" />
+    </svg>
+  )
+}
+
+/** O nome "ziv" desenhado, com o pingo do i coral e três raios. As letras seguem a cor do texto (claro e escuro). */
+export function Wordmark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 -6 60 50" className={className} role="img" aria-label={PRODUCT_NAME}>
+      <g fill="none" stroke="#FF6B4A" strokeWidth="1.6" strokeLinecap="round">
+        <path d="M29 1.5V-0.5" />
+        <path d="M24.4 3.4L23 2" />
+        <path d="M33.6 3.4L35 2" />
+      </g>
+      <g fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 18H19L4 38H19" />
+        <path d="M29 18V38" />
+        <path d="M39 18L47 38L55 18" />
+      </g>
+      <circle cx="29" cy="8" r="4" fill="#FF6B4A" />
     </svg>
   )
 }
@@ -43,7 +67,7 @@ export function KindTab({ kind, className }: { kind: Kind; className?: string })
 /** The "playing now" bars: the signature mark for whatever is open on someone's computer. */
 export function Playing({ className, label }: { className?: string; label?: string }) {
   return (
-    <span className={cn("playing text-brand", className)} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+    <span className={cn("playing", className)} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
       <i />
       <i />
       <i />
@@ -161,7 +185,7 @@ export function RunState({ status, className }: { status: RunStatus; className?:
     <span
       className={cn(
         "inline-flex items-center gap-1.5 font-medium",
-        st.tone === "live" && "text-brand",
+        st.tone === "live" && "font-medium text-foreground",
         st.tone === "ok" && "text-ok",
         st.tone === "muted" && "text-muted-foreground",
         st.tone === "bad" && "text-destructive",

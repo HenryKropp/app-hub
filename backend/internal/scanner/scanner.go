@@ -240,11 +240,11 @@ func Scan(dir string) (Diagnosis, error) {
 		d.Findings = append(d.Findings, "A pasta é muito grande; analisei só os primeiros arquivos.")
 	}
 
-	if data, err := os.ReadFile(filepath.Join(dir, manifest.FileName)); err == nil {
+	if data, err := os.ReadFile(manifest.Locate(dir)); err == nil {
 		if m, err := manifest.Parse(data); err == nil && m.Name != "" {
 			d.Manifest = m
 			d.HasManifest = true
-			d.Findings = append(d.Findings, "Esta pasta já tem um manifesto do Hub. Usei o que está nele.")
+			d.Findings = append(d.Findings, "Esta pasta já tem um manifesto do Ziv. Usei o que está nele.")
 			return d, nil
 		}
 	}
@@ -395,7 +395,7 @@ func Scan(dir string) (Diagnosis, error) {
 	switch {
 	case goMod != "" && (hasFrontendDir || hasBackendDir || hasDocker):
 		m.Kind = manifest.KindSystem
-		findings = append(findings, "Parece um sistema com várias partes (servidor, tela, banco de dados). Por enquanto o Hub só registra e documenta.")
+		findings = append(findings, "Parece um sistema com várias partes (servidor, tela, banco de dados). Por enquanto o Ziv só registra e documenta.")
 	case codeFiles == 0 && len(exes) > 0:
 		m.Kind = manifest.KindExecutable
 		m.Entrypoint = pickExe(exes)
@@ -421,7 +421,7 @@ func Scan(dir string) (Diagnosis, error) {
 		if len(exes) > 0 {
 			exe := pickExe(exes)
 			findings = append(findings, "Também existe um executável pronto: "+exe+".")
-			questions = append(questions, Question{Field: "kind", Text: "O app tem o código e também um executável pronto (" + exe + "). Se o Hub deve abrir o executável, mude o tipo para \"Executável pronto\" e o arquivo de início para " + exe + "."})
+			questions = append(questions, Question{Field: "kind", Text: "O app tem o código e também um executável pronto (" + exe + "). Se o Ziv deve abrir o executável, mude o tipo para \"Executável pronto\" e o arquivo de início para " + exe + "."})
 		}
 	case packageJSON != "":
 		m.Kind = manifest.KindWeb
@@ -453,7 +453,7 @@ func Scan(dir string) (Diagnosis, error) {
 		} else {
 			m.Runtime.Dependencies = thirdParty(allImports, localModules)
 			if len(m.Runtime.Dependencies) > 0 {
-				notes = append(notes, "Não há lista de bibliotecas (requirements.txt). O Hub deduziu pelas importações do código.")
+				notes = append(notes, "Não há lista de bibliotecas (requirements.txt). O Ziv deduziu pelas importações do código.")
 			}
 		}
 		if len(m.Runtime.Dependencies) > 0 {
@@ -472,7 +472,7 @@ func Scan(dir string) (Diagnosis, error) {
 			files = append(files, f)
 		}
 		sort.Strings(files)
-		notes = append(notes, "Há chave ou senha escrita em: "+strings.Join(files, ", ")+". O ideal é guardar no cofre do Hub.")
+		notes = append(notes, "Há chave ou senha escrita em: "+strings.Join(files, ", ")+". O ideal é guardar no cofre do Ziv.")
 	}
 
 	if m.Summary == "" {
@@ -631,7 +631,7 @@ func diagnosePython(m *manifest.Manifest, pyFiles []pySignals, launcherTargets m
 			addInput(manifest.Input{ID: "pasta", Label: label, Type: "folder", Source: "dialog", Required: true})
 		}
 		if len(dialogFiles)+len(dialogDirs) > 0 {
-			*notes = append(*notes, "A entrada depende de uma janela de seleção do Windows. Para rodar pelo Hub, o Hub vai entregar o arquivo no lugar da janela.")
+			*notes = append(*notes, "A entrada depende de uma janela de seleção do Windows. Para rodar pelo Ziv, o Ziv vai entregar o arquivo no lugar da janela.")
 		}
 		for _, p := range prompts {
 			label := p
@@ -678,7 +678,7 @@ func diagnosePython(m *manifest.Manifest, pyFiles []pySignals, launcherTargets m
 		m.Outputs = append(m.Outputs, manifest.Output{Label: outputLabel(pattern), Pattern: pattern})
 	}
 	if len(m.Outputs) > 0 && m.Kind == manifest.KindScript {
-		*notes = append(*notes, "O app grava os resultados na própria pasta. No Hub, cada execução guarda seus resultados separadamente.")
+		*notes = append(*notes, "O app grava os resultados na própria pasta. No Ziv, cada execução guarda seus resultados separadamente.")
 	}
 	if m.Kind == manifest.KindScript && len(m.Outputs) == 0 {
 		*questions = append(*questions, Question{Field: "outputs", Text: "Não identifiquei os arquivos que o app gera. Se ele gera algum, adicione em \"O que ele devolve\"."})

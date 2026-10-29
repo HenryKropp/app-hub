@@ -169,17 +169,19 @@ export type Computer = {
 }
 export type ComputersInfo = { computers: Computer[]; expected_version: string; agent_available: boolean }
 export type Pairing = { code: string; computer_name: string; expired: boolean; approved: boolean }
-export type RunStatus = "waiting" | "running" | "done" | "no_files" | "error" | "interrupted"
+export type RunStatus = "waiting" | "running" | "done" | "no_files" | "error" | "interrupted" | "stopped"
 export type RunFile = { id: number; path: string; size: number; modified: string; change: "new" | "changed" }
 export type RunGroup = { index: number; label: string; files: RunFile[] }
 export type Run = {
   id: number; app_id: number; app_name: string; person_name: string; computer_name: string; output_folder: string
   status: RunStatus; exit_code: number | null; error_message: string; app_version: string; version_number: number | null
   created_at: string; started_at: string | null; finished_at: string | null; groups: RunGroup[]
+  // Only for the person who ran it, while it is open and their Agente can stop it.
+  can_stop: boolean
 }
 export type ActiveRun = {
   id: number; app_id: number; app_name: string; app_folder_display: string; status: RunStatus; error_message: string
-  output_folder: string; file_count: number; created_at: string; finished_at: string | null
+  output_folder: string; file_count: number; created_at: string; finished_at: string | null; can_stop: boolean
 }
 export type RunListItem = {
   id: number; app_id: number; app_name: string; status: RunStatus; output_folder: string; person_id: number; person_name: string
@@ -241,8 +243,8 @@ export class ApiError extends Error {
 }
 
 // The browser's own errors ("Failed to fetch") are English and say nothing; these say what to do.
-export const OFFLINE = "Não consegui falar com o Hub. Confira se esta página ainda está aberta no endereço certo e tente novamente."
-const DOWN = "O Hub não respondeu. Espere um pouco e tente de novo."
+export const OFFLINE = "Não consegui falar com o Ziv. Confira se esta página ainda está aberta no endereço certo e tente novamente."
+const DOWN = "O Ziv não respondeu. Espere um pouco e tente de novo."
 
 export const workspaceBasePath = (pathname = window.location.pathname) =>
   pathname.match(/^\/w\/[a-z0-9-]+(?=\/|$)/)?.[0] ?? ""
@@ -333,6 +335,7 @@ export const api = {
   checkApp: (id: number | string) => request<AppCheck>("POST", `/api/apps/${id}/check`),
   activeRuns: () => request<ActiveRun[]>("GET", "/api/runs/active"),
   dismissRun: (id: number) => request<void>("POST", `/api/runs/${id}/dismiss`),
+  stopRun: (id: number) => request<void>("POST", `/api/runs/${id}/stop`),
   runs: (scope: "mine" | "all", before?: number) =>
     request<RunList>("GET", `/api/runs?scope=${scope}${before ? `&before=${before}` : ""}`),
   appRuns: (appId: number | string) => request<RunSummary[]>("GET", `/api/apps/${appId}/runs`),

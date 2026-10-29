@@ -112,12 +112,12 @@ func Check(src versions.Folder, m manifest.Manifest, secrets []scanner.SecretFin
 	switch rec.Kind {
 	case "":
 		add(Item{Key: "recipe", Title: "Receita para ligar o app", Status: "missing",
-			Detail:     "O Hub não reconheceu o tipo do app (Streamlit, Flask, FastAPI, Django ou Node).",
+			Detail:     "O Ziv não reconheceu o tipo do app (Streamlit, Flask, FastAPI, Django ou Node).",
 			ClaudeText: "Escreva um Dockerfile na raiz deste app para rodá-lo num contêiner Linux. O app deve escutar em 0.0.0.0 na porta da variável de ambiente PORT. Não copie senhas para a imagem."})
 	case "dockerfile":
 		add(Item{Key: "recipe", Title: "Receita para ligar o app", Status: "ok", Detail: "O app tem Dockerfile próprio."})
 	default:
-		detail := "O Hub monta a receita sozinho (" + rec.Kind + ")."
+		detail := "O Ziv monta a receita sozinho (" + rec.Kind + ")."
 		if len(rec.Requirements) > 0 {
 			detail += " Sem requirements.txt; bibliotecas encontradas: " + strings.Join(rec.Requirements, ", ") + "."
 		}
@@ -131,7 +131,7 @@ func Check(src versions.Folder, m manifest.Manifest, secrets []scanner.SecretFin
 	// Porta
 	switch {
 	case rec.Kind != "" && rec.Kind != "dockerfile":
-		add(Item{Key: "port", Title: "Porta", Status: "auto", Detail: fmt.Sprintf("O Hub usa a porta %d.", rec.Port)})
+		add(Item{Key: "port", Title: "Porta", Status: "auto", Detail: fmt.Sprintf("O Ziv usa a porta %d.", rec.Port)})
 	case rec.Port > 0:
 		add(Item{Key: "port", Title: "Porta", Status: "ok", Detail: fmt.Sprintf("Porta %d.", rec.Port)})
 	case rec.Kind == "dockerfile":
@@ -144,7 +144,7 @@ func Check(src versions.Folder, m manifest.Manifest, secrets []scanner.SecretFin
 		r.WantsDB = true
 	}
 	if r.WantsDB {
-		add(Item{Key: "database", Title: "Banco de dados", Status: "auto", Detail: "O Hub cria um banco só deste app e entrega em DATABASE_URL."})
+		add(Item{Key: "database", Title: "Banco de dados", Status: "auto", Detail: "O Ziv cria um banco só deste app e entrega em DATABASE_URL."})
 	}
 
 	// Dados em arquivo
@@ -178,7 +178,7 @@ func Check(src versions.Folder, m manifest.Manifest, secrets []scanner.SecretFin
 	}
 	if len(names) > 0 {
 		add(Item{Key: "settings", Title: "Configurações", Status: "auto",
-			Detail: "O código lê " + strings.Join(names, ", ") + ". O Hub acrescenta à lista para você preencher."})
+			Detail: "O código lê " + strings.Join(names, ", ") + ". O Ziv acrescenta à lista para você preencher."})
 	} else if len(envSeen) > 0 || len(s.Env) > 0 {
 		add(Item{Key: "settings", Title: "Configurações", Status: "ok", Detail: "Todas as configurações estão na lista."})
 	}

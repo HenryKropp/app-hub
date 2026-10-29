@@ -374,7 +374,7 @@ func (h *Handler) securityPurge(w http.ResponseWriter, r *http.Request) {
 	}
 	// One statement is atomic; preserve active executions and audit records.
 	var n int64
-	err = h.q.SecurityDB().QueryRow(r.Context(), `WITH old AS (SELECT id FROM runs WHERE status IN ('done','no_files','error','interrupted') AND finished_at < now()-make_interval(days=>$1)), jobs AS (DELETE FROM agent_jobs WHERE run_id IN(SELECT id FROM old)), removed AS (DELETE FROM runs WHERE id IN(SELECT id FROM old) RETURNING id) SELECT count(*) FROM removed`, s.RetentionDays).Scan(&n)
+err = h.q.SecurityDB().QueryRow(r.Context(), `WITH old AS (SELECT id FROM runs WHERE status IN ('done','no_files','error','interrupted','stopped') AND finished_at < now()-make_interval(days=>$1)), jobs AS (DELETE FROM agent_jobs WHERE run_id IN(SELECT id FROM old)), removed AS (DELETE FROM runs WHERE id IN(SELECT id FROM old) RETURNING id) SELECT count(*) FROM removed`, s.RetentionDays).Scan(&n)
 	if err != nil {
 		internalError(w, "retention purge", err)
 		return

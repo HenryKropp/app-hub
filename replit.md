@@ -1,4 +1,4 @@
-# Running App Hub on Replit
+# Running Ziv on Replit
 
 The imported React/Vite frontend and Go backend retain their original structure.
 
@@ -82,7 +82,7 @@ configured with a five-minute timeout.
 - **Registrar apps** now supports importing Python/JavaScript sources directly
   from the browser, alongside the existing folder-scanning flow.
 - The script run form is generated from the manifest. The agent is version
-  0.3.0; use **Configurações > Meu computador** to install/update it.
+  0.3.2; use **Configurações > Meu computador** to install/update it.
 - New-flow backend tests, Python/Node execution tests on Linux, 81 selected
   frontend tests, TypeScript, lint, the production build, and Windows agent
   compilation passed.
@@ -129,3 +129,21 @@ and deletes unreferenced code blobs. It does not delete companies or accounts.
 Pre-update database backups are restricted local operational files, not public
 download assets; they may contain sensitive historical data and must not be
 committed or published.
+
+## Ziv identity and agent updates
+
+The GitHub Ziv identity and agent 0.3.2 are integrated without replacing the
+multi-company server. Downloads use `ZivAgente.exe` (or a company-specific ZIP
+containing that executable and `apphub-url.txt`). Installed agent filenames,
+startup settings, and the sidecar retain their legacy technical names for
+compatibility with existing computers.
+
+The new stop action and simultaneous-app support remain company-scoped. Stopped
+executions participate in the company's existing manual retention policy, and
+cancelling a pending run removes its script payload. The new stop migration
+coexists with session hashing because migrations are tracked by full filename,
+not just the numeric prefix.
+
+Upstream adoption/renaming of hosted containers, database containers and shared
+storage is intentionally not run by this portal: hosted execution is still
+disabled until runtime resources and gateway access are isolated per company.

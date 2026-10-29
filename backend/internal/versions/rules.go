@@ -13,16 +13,31 @@ import (
 
 const (
 	MaxCodeSize = 1 << 20
-	TrashDir    = ".app-hub-lixeira"
+	TrashDir    = ".ziv-lixeira"
 	KindCode    = "code"
 	KindBinary  = "binary"
-	tempSuffix  = ".app-hub-tmp"
+	tempSuffix  = ".ziv-tmp"
+)
+
+// Names from before Ziv (Kova, and the App Hub before it): still kept out of versions.
+var (
+	LegacyTrashDirs    = []string{".kova-lixeira", ".app-hub-lixeira"}
+	legacyTempSuffixes = []string{".kova-tmp", ".app-hub-tmp"}
 )
 
 var junkDirs = map[string]bool{"__pycache__": true, ".venv": true, "venv": true, "node_modules": true, ".git": true, TrashDir: true}
 
 // hubFiles are written by the Hub; their changes enter the history through the ficha.
-var hubFiles = map[string]bool{"app-hub.yaml": true, "FICHA.md": true}
+var hubFiles = map[string]bool{manifest.FileName: true, manifest.FichaName: true}
+
+func init() {
+	for _, d := range LegacyTrashDirs {
+		junkDirs[d] = true
+	}
+	for _, n := range manifest.LegacyFileNames {
+		hubFiles[n] = true
+	}
+}
 
 var codeExts = map[string]bool{
 	".py": true, ".pyw": true, ".ipynb": true, ".r": true, ".js": true, ".mjs": true, ".cjs": true, ".ts": true,
@@ -37,6 +52,11 @@ var codeExts = map[string]bool{
 func Included(rel string, outs []manifest.Output) bool {
 	if strings.HasSuffix(rel, tempSuffix) {
 		return false
+	}
+	for _, suffix := range legacyTempSuffixes {
+		if strings.HasSuffix(rel, suffix) {
+			return false
+		}
 	}
 	segs := strings.Split(rel, "/")
 	for _, s := range segs[:len(segs)-1] {

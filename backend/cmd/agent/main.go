@@ -1,4 +1,4 @@
-// Command agent is the Agente do Hub: it runs invisibly on a person's Windows
+// Command agent is the Agente do Ziv: it runs invisibly on a person's Windows
 // computer and opens apps when the Hub asks.
 package main
 

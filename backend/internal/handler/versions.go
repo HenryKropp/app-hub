@@ -299,7 +299,7 @@ func (h *Handler) versionContent(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if snap[i].Kind != versions.KindCode {
-			writeError(w, http.StatusBadRequest, "Este arquivo não é texto. O Hub guarda só o tamanho e a data dele.")
+			writeError(w, http.StatusBadRequest, "Este arquivo não é texto. O Ziv guarda só o tamanho e a data dele.")
 			return
 		}
 		text, err := h.codeText(r, &snap[i])

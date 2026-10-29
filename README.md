@@ -1,4 +1,6 @@
-# App Hub
+# Ziv
+
+Antes chamado App Hub.
 
 Plataforma para empresas registrarem, compartilharem e executarem microapps.
 Cada app tem responsável, ficha, permissões, entradas e histórico.
@@ -7,7 +9,7 @@ Cada app tem responsável, ficha, permissões, entradas e histórico.
 
 - Interface web em React/Vite, servidor em Go e banco PostgreSQL.
 - Ambiente de desenvolvimento no Replit; execução local no Windows pelo Agente
-  do Hub.
+  do Ziv.
 - Importação de scripts Python e JavaScript pelo navegador, com formulário de
   entradas, envio de arquivos, preparação de dependências e coleta de resultados.
 - Catálogo, cargos, áreas, controle de acesso e histórico de versões.
@@ -43,7 +45,7 @@ Com as dependências e variáveis configuradas:
 bash scripts/run-replit.sh
 ```
 
-O comando prepara o frontend, compila servidor e agente e inicia o Hub. No
+O comando prepara o frontend, compila servidor e agente e inicia o Ziv. No
 Replit, use o workflow **Start application**. Não inclua credenciais no código.
 
 ## Mapa da documentação
@@ -74,6 +76,6 @@ WSL, use as instruções atuais de infraestrutura e de execução no Replit.
   publicação revisada entre empresas continuam pendentes.
 - Instalador único, janela desktop e assinatura digital fazem parte da evolução
   prevista; não devem ser apresentados como concluídos.
-- Não remova o login do Hub para contornar restrições de acesso do ambiente.
+- Não remova o login do Ziv para contornar restrições de acesso do ambiente.
 
 Enviar o código ao GitHub não publica a aplicação nem conclui a validação Windows.

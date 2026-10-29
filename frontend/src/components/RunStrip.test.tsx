@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, expect, test, vi } from "vitest"
@@ -124,6 +124,18 @@ test("other start error offers trocar pasta, which opens the dialog", async () =
   expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("D:\\Saídas")
 })
 
+test("folder in use by another open app offers trocar pasta", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "activeRuns").mockResolvedValue([])
+  vi.spyOn(api, "startRun").mockRejectedValue(new ApiError(409, "Essa pasta já está sendo usada pelo Ferramenta CVM, que está aberto agora. Escolha outra pasta ou espere ele fechar."))
+  mount()
+  await user.click(screen.getByText("go"))
+  expect(await screen.findByText(/já está sendo usada pelo Ferramenta CVM/)).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Ver Meu computador" })).not.toBeInTheDocument()
+  await user.click(screen.getByRole("button", { name: "Trocar pasta" }))
+  expect(screen.getByLabelText("Onde salvar os resultados?")).toBeInTheDocument()
+})
+
 test("interrupted run points to Meu computador", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "activeRuns").mockResolvedValue([activeRun({ status: "interrupted" })])
@@ -146,7 +158,7 @@ test("trocar pasta only for folder errors", async () => {
 test("request error not about the folder has no trocar pasta", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "activeRuns").mockResolvedValue([])
-  vi.spyOn(api, "startRun").mockRejectedValue(new ApiError(400, "Este app ainda não pode rodar pelo Hub."))
+  vi.spyOn(api, "startRun").mockRejectedValue(new ApiError(400, "Este app ainda não pode rodar pelo Ziv."))
   mount()
   await user.click(screen.getByText("go"))
   await screen.findByText(/ainda não pode rodar/)
@@ -211,4 +223,48 @@ test("on a phone the strip shows one card and counts the rest", async () => {
   expect(await screen.findByText(/terminou sem arquivos novos/)).toBeInTheDocument()
   expect(screen.queryByText(/aberto no seu computador/)).not.toBeInTheDocument()
   expect(screen.getByRole("link", { name: "+1 em Minhas execuções" })).toBeInTheDocument()
+})
+
+test("Parar asks first, then stops and shows Parando…", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "activeRuns").mockResolvedValue([activeRun({ status: "running", can_stop: true })])
+  const stop = vi.spyOn(api, "stopRun").mockResolvedValue()
+  mount()
+  await user.click(await screen.findByRole("button", { name: "Parar" }))
+  expect(screen.getByText(/O que não foi salvo se perde/)).toBeInTheDocument()
+  await user.click(screen.getByRole("button", { name: "Continuar rodando" }))
+  expect(stop).not.toHaveBeenCalled()
+
+  await user.click(screen.getByRole("button", { name: "Parar" }))
+  const dialog = await screen.findByRole("dialog")
+  await user.click(within(dialog).getByRole("button", { name: "Parar" }))
+  expect(stop).toHaveBeenCalledWith(7)
+  expect(await screen.findByText("Parando…")).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Parar" })).not.toBeInTheDocument()
+})
+
+test("no Parar when the Agente can't stop", async () => {
+  vi.spyOn(api, "activeRuns").mockResolvedValue([activeRun({ status: "running", can_stop: false })])
+  mount()
+  await screen.findByText(/aberto no seu computador/)
+  expect(screen.queryByRole("button", { name: "Parar" })).not.toBeInTheDocument()
+})
+
+test("a refused stop shows why and keeps the dialog", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "activeRuns").mockResolvedValue([activeRun({ status: "running", can_stop: true })])
+  vi.spyOn(api, "stopRun").mockRejectedValue(new ApiError(409, "O NOTE-HENRY não está respondendo."))
+  mount()
+  await user.click(await screen.findByRole("button", { name: "Parar" }))
+  await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Parar" }))
+  expect(await screen.findByRole("alert")).toHaveTextContent("não está respondendo")
+  expect(screen.getByRole("dialog")).toBeInTheDocument()
+})
+
+test("stopped run tells it was stopped and offers its files", async () => {
+  vi.spyOn(api, "activeRuns").mockResolvedValue([activeRun({ status: "stopped", file_count: 2 })])
+  mount()
+  expect(await screen.findByText(/Você parou o/)).toHaveTextContent("Você parou o Eq. Research Files Prep: 2 arquivos novos até ali")
+  expect(screen.getByRole("button", { name: "Ver e baixar" })).toBeInTheDocument()
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument()
 })

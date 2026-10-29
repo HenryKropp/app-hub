@@ -26,7 +26,7 @@ type ExecLauncher struct{}
 func (ExecLauncher) Launch(ctx context.Context, exe, dir string) (int, error) {
 	cmd := exec.Command(exe)
 	cmd.Dir = dir
-	err := cmd.Run()
+	err := runTree(ctx, cmd)
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
 		return exitErr.ExitCode(), nil
@@ -34,23 +34,113 @@ func (ExecLauncher) Launch(ctx context.Context, exe, dir string) (int, error) {
 	return 0, err
 }
 
-// Runner executes run jobs, one at a time.
+// Runner executes run jobs; several apps may be open at once as long as they
+// use separate folders.
 type Runner struct {
 	Launcher Launcher
 	StateDir string
 	mu       sync.Mutex
-	updating atomic.Bool
+	open     map[int64]*openRun
+	held     bool          // updating: no new run may start
+	idle     chan struct{} // closed when the last open run ends
+}
+
+// openRun is a run in progress, so a stop job can reach it.
+type openRun struct {
+	id      int64
+	name    string
+	folder  string
+	script  bool
+	cancel  context.CancelFunc
+	stopped atomic.Bool
+	done    chan struct{}
+}
+
+// Stop closes the app opened for runID and returns a channel closed once the
+// run has wrapped up. ok is false when that app is not open.
+func (r *Runner) Stop(runID int64) (done <-chan struct{}, ok bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	o := r.open[runID]
+	if o == nil {
+		return nil, false
+	}
+	o.stopped.Store(true)
+	o.cancel()
+	return o.done, true
+}
+
+// wasStopped tells whether runID was closed by Stop.
+func (r *Runner) wasStopped(runID int64) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	o := r.open[runID]
+	return o != nil && o.stopped.Load()
 }
 
 // Hold waits until no app is open and keeps new runs from starting until
-// release is called (used while the agent updates itself).
-func (r *Runner) Hold() (release func()) {
-	r.mu.Lock()
-	r.updating.Store(true)
-	return func() {
-		r.updating.Store(false)
+// release is called (used while the agent updates itself). Apps may still
+// open while it waits, so an update never blocks someone's work.
+func (r *Runner) Hold(ctx context.Context) (release func(), err error) {
+	for {
+		r.mu.Lock()
+		if len(r.open) == 0 {
+			r.held = true
+			r.mu.Unlock()
+			return func() {
+				r.mu.Lock()
+				r.held = false
+				r.mu.Unlock()
+			}, nil
+		}
+		if r.idle == nil {
+			r.idle = make(chan struct{})
+		}
+		idle := r.idle
 		r.mu.Unlock()
+		select {
+		case <-idle:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
 	}
+}
+
+// claim records o as open, unless an update is starting or another open app
+// uses an overlapping folder (its new files would mix with this one's).
+// Scripts write only into their own Execucao-N subfolder, so two scripts
+// never clash with each other.
+func (r *Runner) claim(o *openRun) agentproto.Result {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.held {
+		return failed("O Agente está se atualizando. Tente de novo em um minuto.")
+	}
+	if r.open[o.id] != nil {
+		return failed("Esta execução já está aberta neste computador.")
+	}
+	for _, other := range r.open {
+		if (o.script && other.script) || !agentproto.FoldersOverlap(o.folder, other.folder) {
+			continue
+		}
+		return failed("Essa pasta já está sendo usada pelo " + other.name + ", que está aberto agora. Escolha outra pasta ou espere ele fechar.")
+	}
+	if r.open == nil {
+		r.open = map[int64]*openRun{}
+	}
+	r.open[o.id] = o
+	return agentproto.Result{}
+}
+
+func (r *Runner) release(o *openRun) {
+	r.mu.Lock()
+	delete(r.open, o.id)
+	if len(r.open) == 0 && r.idle != nil {
+		close(r.idle)
+		r.idle = nil
+	}
+	r.mu.Unlock()
+	close(o.done)
 }
 
 func failed(msg string) agentproto.Result {
@@ -60,14 +150,27 @@ func failed(msg string) agentproto.Result {
 // Run opens the app, waits for it to close and lists the new or changed files
 // in the output folder. report receives the "started" event.
 func (r *Runner) Run(ctx context.Context, p agentproto.RunPayload, report func(agentproto.Result)) agentproto.Result {
-	if !r.mu.TryLock() {
-		if r.updating.Load() {
-			return failed("O Agente está se atualizando. Tente de novo em um minuto.")
-		}
-		return failed("Já tem um app aberto pelo Hub neste computador. Feche-o e tente de novo.")
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	name := p.AppName
+	if name == "" {
+		name = p.Exe
 	}
-	defer r.mu.Unlock()
+	o := &openRun{id: p.RunID, name: name, folder: p.OutputFolder, script: p.Script != nil, cancel: cancel, done: make(chan struct{})}
+	if res := r.claim(o); res.Event != "" {
+		return res
+	}
+	defer r.release(o)
+	res := r.run(ctx, p, report)
+	if o.stopped.Load() && res.Event != agentproto.EventFinished {
+		// Stopped before the app opened, or while it was getting ready.
+		res = agentproto.Result{Event: agentproto.EventFinished}
+	}
+	res.Stopped = o.stopped.Load()
+	return res
+}
 
+func (r *Runner) run(ctx context.Context, p agentproto.RunPayload, report func(agentproto.Result)) agentproto.Result {
 	if p.Script != nil {
 		return r.runScript(ctx, p, report)
 	}

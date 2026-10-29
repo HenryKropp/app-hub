@@ -208,7 +208,7 @@ func TestAgentDownload(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK || !strings.Contains(resp.Header.Get("Content-Disposition"), "AppHubAgente.exe") {
+	if resp.StatusCode != http.StatusOK || !strings.Contains(resp.Header.Get("Content-Disposition"), "ZivAgente.exe") {
 		t.Fatalf("%d %q", resp.StatusCode, resp.Header.Get("Content-Disposition"))
 	}
 	if code := c.fresh().do("GET", "/api/agent/download", nil, nil); code != http.StatusUnauthorized {

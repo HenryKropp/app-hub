@@ -22,6 +22,7 @@ import (
 
 	"github.com/HenryKropp/app-hub/backend/internal/access"
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
+	"github.com/HenryKropp/app-hub/backend/internal/brand"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 )
 
@@ -273,7 +274,7 @@ func (h *Handler) agentHello(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = c.Name
 	}
-	if err := h.q.HelloComputer(r.Context(), sqlc.HelloComputerParams{ID: c.ID, Name: name, AgentVersion: body.Version, CanUpdate: body.CanUpdate}); err != nil {
+	if err := h.q.HelloComputer(r.Context(), sqlc.HelloComputerParams{ID: c.ID, Name: name, AgentVersion: body.Version, CanUpdate: body.CanUpdate, CanStop: body.CanStop}); err != nil {
 		internalError(w, "hello", err)
 		return
 	}
@@ -449,11 +450,11 @@ func (h *Handler) agentDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.cfg.AgentBinaryPath == "" {
-		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Hub.")
+		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Ziv.")
 		return
 	}
 	if _, err := os.Stat(h.cfg.AgentBinaryPath); err != nil {
-		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Hub.")
+		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Ziv.")
 		return
 	}
 	if h.workspace != nil && h.workspace.BasePath != "" {
@@ -464,9 +465,9 @@ func (h *Handler) agentDownload(w http.ResponseWriter, r *http.Request) {
 		}
 		defer file.Close()
 		w.Header().Set("Content-Type", "application/zip")
-		w.Header().Set("Content-Disposition", `attachment; filename="AppHubAgente-`+h.workspace.Slug+`.zip"`)
+w.Header().Set("Content-Disposition", `attachment; filename="ZivAgente-`+h.workspace.Slug+`.zip"`)
 		z := zip.NewWriter(w)
-		exe, err := z.Create("AppHubAgente.exe")
+exe, err := z.Create(brand.AgentFile)
 		if err == nil {
 			_, err = io.Copy(exe, file)
 		}
@@ -481,7 +482,7 @@ func (h *Handler) agentDownload(w http.ResponseWriter, r *http.Request) {
 			var readme io.Writer
 			readme, err = z.Create("LEIA-ME.txt")
 			if err == nil {
-				_, err = io.WriteString(readme, "Extraia TODOS os arquivos do ZIP na mesma pasta e abra AppHubAgente.exe.\r\nO arquivo apphub-url.txt seleciona esta empresa; nao o remova antes da instalacao.\r\nScripts executam com suas permissoes do Windows, sem sandbox.\r\n")
+_, err = io.WriteString(readme, "Extraia TODOS os arquivos do ZIP na mesma pasta e abra "+brand.AgentFile+".\r\nO arquivo apphub-url.txt seleciona esta empresa; nao o remova antes da instalacao.\r\nScripts executam com suas permissoes do Windows, sem sandbox.\r\n")
 			}
 		}
 		if closeErr := z.Close(); err != nil || closeErr != nil {
@@ -490,6 +491,6 @@ func (h *Handler) agentDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/vnd.microsoft.portable-executable")
-	w.Header().Set("Content-Disposition", `attachment; filename="AppHubAgente.exe"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+brand.AgentFile+`"`)
 	http.ServeFile(w, r, h.cfg.AgentBinaryPath)
 }

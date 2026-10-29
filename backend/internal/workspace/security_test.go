@@ -28,8 +28,12 @@ func TestPortalRetentionAndTenantAgent(t *testing.T) {
 	id := importApp(t, b, prefix, "Retention test app")
 	tenant := p.entries["secure-company"]
 	ctx := context.Background()
-	var computer, old, active int64
+	var computer, old, active, stopped int64
 	err := tenant.pool.QueryRow(ctx, `INSERT INTO computers(person_id,name,token_hash) VALUES(1,'security test agent','testhash') RETURNING id`).Scan(&computer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = tenant.pool.QueryRow(ctx, `INSERT INTO runs(app_id,person_id,computer_id,output_folder,status,finished_at) VALUES($1,1,$2,'C:\Results','stopped',now()-interval '40 days') RETURNING id`, id, computer).Scan(&stopped)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,12 +59,15 @@ func TestPortalRetentionAndTenantAgent(t *testing.T) {
 	}
 	b.want("POST", prefix+"/api/security/purge", map[string]bool{"confirm": false}, 400)
 	raw := b.want("POST", prefix+"/api/security/purge", map[string]bool{"confirm": true}, 200)
-	if !bytes.Contains(raw, []byte(`"deleted_runs":1`)) {
+	if !bytes.Contains(raw, []byte(`"deleted_runs":2`)) {
 		t.Fatalf("wrong retention result: %s", raw)
 	}
 	var n int
 	if err := tenant.pool.QueryRow(ctx, `SELECT count(*) FROM runs WHERE id=$1`, old).Scan(&n); err != nil || n != 0 {
 		t.Fatal("old run still exists")
+	}
+	if err := tenant.pool.QueryRow(ctx, `SELECT count(*) FROM runs WHERE id=$1`, stopped).Scan(&n); err != nil || n != 0 {
+		t.Fatal("old stopped run still exists")
 	}
 	if err := tenant.pool.QueryRow(ctx, `SELECT count(*) FROM runs WHERE id=$1`, active).Scan(&n); err != nil || n != 1 {
 		t.Fatal("recent run unexpectedly purged")
@@ -87,7 +94,7 @@ func TestPortalRetentionAndTenantAgent(t *testing.T) {
 	sidecar := ""
 	foundExe := false
 	for _, f := range z.File {
-		if f.Name == "AppHubAgente.exe" {
+		if f.Name == "ZivAgente.exe" {
 			foundExe = true
 		}
 		if f.Name == "apphub-url.txt" {
@@ -112,4 +119,48 @@ func TestPortalRetentionAndTenantAgent(t *testing.T) {
 	if resp.StatusCode != 200 || resp.Header.Get("Content-Type") != "application/vnd.microsoft.portable-executable" {
 		t.Fatal("legacy agent download changed")
 	}
+	if !strings.Contains(resp.Header.Get("Content-Disposition"), "ZivAgente.exe") {
+		t.Fatal("root download did not use the Ziv name")
+	}
+}
+
+func TestPortalStopStaysInsideCompany(t *testing.T) {
+	p, pool, srv := testPortal(t)
+	b := browser(t, srv.URL)
+	credentials := map[string]string{"name": "Admin", "email": "admin@example.test", "password": "test-password-not-a-real-credential"}
+	b.want("POST", "/api/auth/setup", credentials, 201)
+	rootApp := importApp(t, b, "", "Original app")
+	b.want("POST", "/api/workspaces", map[string]string{"name": "Other company", "slug": "stop-company", "password": credentials["password"]}, 201)
+	const prefix = "/w/stop-company"
+	b.want("POST", prefix+"/api/auth/login", credentials, 200)
+	importApp(t, b, prefix, "Other app")
+	ctx := context.Background()
+	seed := `INSERT INTO computers(person_id,name,token_hash) VALUES(1,'test computer','stop-test-token');
+INSERT INTO runs(app_id,person_id,computer_id,output_folder,status) VALUES(1,1,1,'C:\Results','waiting');
+INSERT INTO agent_jobs(computer_id,run_id,kind,payload) VALUES(1,1,'run','{"script":{"sources":{"private":"not-to-be-retained"}}}');`
+	if rootApp != 1 {
+		t.Fatal("expected first app ID")
+	}
+	if _, err := pool.Exec(ctx, seed); err != nil {
+		t.Fatal(err)
+	}
+	b.want("POST", prefix+"/api/runs/1/stop", nil, 404)
+	tenant := p.entries["stop-company"]
+	if _, err := tenant.pool.Exec(ctx, seed); err != nil {
+		t.Fatal(err)
+	}
+	b.want("POST", prefix+"/api/runs/1/stop", nil, 204)
+	var status, payload string
+	if err := pool.QueryRow(ctx, `SELECT status FROM runs WHERE id=1`).Scan(&status); err != nil || status != "waiting" {
+		t.Fatal("stopping tenant run changed root run")
+	}
+	if err := tenant.pool.QueryRow(ctx, `SELECT status FROM runs WHERE id=1`).Scan(&status); err != nil || status != "stopped" {
+		t.Fatal("tenant run was not stopped")
+	}
+	if err := tenant.pool.QueryRow(ctx, `SELECT payload::text FROM agent_jobs WHERE run_id=1`).Scan(&payload); err != nil || strings.Contains(payload, "private") {
+		t.Fatal("cancelled job retained script source")
+	}
+	b.want("POST", prefix+"/api/runs/1/stop", nil, 409)
+	b.want("GET", "/api/apps", nil, 200)
+	b.want("GET", prefix+"/api/apps", nil, 200)
 }

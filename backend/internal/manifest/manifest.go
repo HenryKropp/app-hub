@@ -1,5 +1,5 @@
 // Package manifest defines the generic, versioned description of an app that
-// the Hub stores next to the app's code (app-hub.yaml). Every feature of the
+// the Hub stores next to the app's code (kova.yaml, or app-hub.yaml in older apps). Every feature of the
 // Hub — catalog, ficha, run form, MCP — is driven by this file.
 package manifest
 
@@ -17,10 +17,19 @@ import (
 
 const (
 	Version      = 1
-	FileName     = "app-hub.yaml"
+	FileName     = "ziv.yaml"
 	FichaName    = "FICHA.md"
-	headerMarker = "# App Hub — manifesto do app"
-	fichaMarker  = "<!-- app-hub:ficha -->"
+	headerMarker = "# Ziv — manifesto do app"
+	fichaMarker  = "<!-- ziv:ficha -->"
+)
+
+// Names written before Ziv, newest first: by Kova, and by the App Hub before
+// it. Apps registered back then keep their kova.yaml or app-hub.yaml: it is
+// still read and saved in place.
+var (
+	LegacyFileNames     = []string{"kova.yaml", "app-hub.yaml"}
+	legacyHeaderMarkers = []string{"# Kova — manifesto do app", "# App Hub — manifesto do app"}
+	legacyFichaMarkers  = []string{"<!-- kova:ficha -->", "<!-- app-hub:ficha -->"}
 )
 
 // Kinds of app the Hub understands.
@@ -294,7 +303,7 @@ func (m Manifest) sharedProblems() []string {
 	for _, e := range s.Env {
 		switch {
 		case slices.Contains(ReservedEnv, e.Name):
-			out = append(out, e.Name+" é preenchida pelo Hub; tire da lista de configurações.")
+			out = append(out, e.Name+" é preenchida pelo Ziv; tire da lista de configurações.")
 		case !envName.MatchString(e.Name):
 			out = append(out, fmt.Sprintf("O nome da configuração %q só pode ter letras maiúsculas, números e _.", e.Name))
 		case seen[e.Name]:

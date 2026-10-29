@@ -171,17 +171,17 @@ export function ScriptImportForm() {
     }
   }
 
-  return <section aria-labelledby="script-import-title" className="mb-8 rounded-xl border border-brand/20 bg-brand-soft/25 p-5 md:p-6">
+  return <section aria-labelledby="script-import-title" className="mb-8 rounded-xl border border-border bg-muted/40 p-5 md:p-6">
     <div className="flex items-start gap-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand"><FileCode2 className="size-5" /></span>
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground"><FileCode2 className="size-5" /></span>
       <div className="min-w-0">
         <h2 id="script-import-title" className="font-heading text-lg">Enviar um script do computador</h2>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Use este caminho quando a pasta do script não está acessível ao Hub. Envie o arquivo principal e os arquivos de que ele depende.</p>
+        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Use este caminho quando a pasta do script não está acessível ao Ziv. Envie o arquivo principal e os arquivos de que ele depende.</p>
       </div>
     </div>
     <div className="mt-4 flex gap-2 rounded-lg border border-warn/30 bg-warn-soft/60 p-3 text-sm">
       <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />
-      <p>Envie apenas scripts confiáveis. O Hub prepara uma pasta de trabalho separada, mas isso <strong>não é um sandbox do sistema operacional</strong>; o script ainda pode acessar recursos disponíveis para a conta que o executa.</p>
+      <p>Envie apenas scripts confiáveis. O Ziv prepara uma pasta de trabalho separada, mas isso <strong>não é um sandbox do sistema operacional</strong>; o script ainda pode acessar recursos disponíveis para a conta que o executa.</p>
     </div>
     <form onSubmit={submit} onChange={(event) => { if ((event.target as HTMLElement).id !== "script-confirm-secrets") resetSecretConfirmation() }} className="mt-5 flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -224,7 +224,7 @@ export function ScriptImportForm() {
             {entrypoints.map((file) => <option key={sourcePath(file)} value={sourcePath(file)}>{sourcePath(file)}</option>)}
           </select>
         </Field>
-        <Field label="Arquivo de dependências (opcional)" htmlFor="script-dependencies" hint={language === "python" ? "Ex.: requirements.txt. O Hub instala as bibliotecas em uma pasta isolada." : "Ex.: package.json; envie também o lockfile, se houver. O Hub usa npm sem scripts de instalação e sem dependências de desenvolvimento (até 5 min)."}>
+        <Field label="Arquivo de dependências (opcional)" htmlFor="script-dependencies" hint={language === "python" ? "Ex.: requirements.txt. O Ziv instala as bibliotecas em uma pasta isolada." : "Ex.: package.json; envie também o lockfile, se houver. O Ziv usa npm sem scripts de instalação e sem dependências de desenvolvimento (até 5 min)."}>
           <select id="script-dependencies" value={dependenciesFile} onChange={(e) => setDependenciesFile(e.target.value)} disabled={busy} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
             <option value="">Nenhum</option>
             {files.map((file) => <option key={sourcePath(file)} value={sourcePath(file)}>{sourcePath(file)}</option>)}
@@ -235,14 +235,14 @@ export function ScriptImportForm() {
       {files.length > MAX_FILES && <p role="alert" className="text-sm text-destructive">Selecione no máximo 100 arquivos. Agora há {files.length}.</p>}
       <div className="border-t border-border pt-4">
         <h3 className="mb-1 text-sm font-semibold">O que o script recebe</h3>
-        <p className="mb-3 text-xs text-muted-foreground">Crie campos para arquivos, pastas, texto, números, datas ou opções. O Hub entrega os valores conforme a origem escolhida.</p>
+        <p className="mb-3 text-xs text-muted-foreground">Crie campos para arquivos, pastas, texto, números, datas ou opções. O Ziv entrega os valores conforme a origem escolhida.</p>
         <InputsEditor value={inputs} onChange={setInputs} />
       </div>
       {error && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
       {secretCount > 0 && <div role="alert" className="rounded-lg border border-warn/30 bg-warn-soft/60 p-3 text-sm">
         <p className="font-semibold">Possíveis senhas ou chaves no código: {secretCount} ocorrência(s).</p>
         <p className="mt-1">Nada foi registrado. A detecção pode gerar falsos positivos e não garante encontrar todos os segredos. Recomendamos remover as credenciais dos arquivos originais e selecioná-los novamente. Os valores não são exibidos neste aviso.</p>
-        <p className="mt-1">Se continuar, o código será salvo sem alterações no Hub e enviado ao computador que executar o script. Não há remoção automática de senhas nem cofre de credenciais.</p>
+        <p className="mt-1">Se continuar, o código será salvo sem alterações no Ziv e enviado ao computador que executar o script. Não há remoção automática de senhas nem cofre de credenciais.</p>
         <label htmlFor="script-confirm-secrets" className="mt-3 flex items-start gap-2">
           <input id="script-confirm-secrets" type="checkbox" checked={confirmSecrets} disabled={busy} onChange={(event) => setConfirmSecrets(event.target.checked)} />
           Revisei os arquivos e aceito enviar o código sem alterações, mesmo com este aviso.
@@ -250,7 +250,7 @@ export function ScriptImportForm() {
         <Button type="button" variant="outline" disabled={busy} className="mt-3" onClick={resetSecretConfirmation}>Cancelar confirmação</Button>
       </div>}
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-        <p className="text-xs text-muted-foreground">Os arquivos selecionados serão enviados ao Hub para registrar este app.</p>
+        <p className="text-xs text-muted-foreground">Os arquivos selecionados serão enviados ao Ziv para registrar este app.</p>
         <Button type="submit" disabled={busy || loadingAreas || !area || areas.length === 0 || !name.trim() || !entrypoint || files.length === 0 || (secretCount > 0 && !confirmSecrets)} className="gap-2">
           {busy ? "Enviando e registrando…" : "Registrar script"}
         </Button>

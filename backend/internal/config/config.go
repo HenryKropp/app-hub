@@ -23,9 +23,14 @@ type Config struct {
 	AppsDBAdminURL  string // APPS_DB_ADMIN_URL; default: DATABASE_URL
 	AppsDBHost      string // APPS_DB_HOST_FOR_CONTAINERS
 	AppsDBContainer string // APPS_DB_CONTAINER (copies via exec)
-	SharedDomain    string // SHARED_APPS_DOMAIN
-	SharedDataDir   string // SHARED_DATA_DIR
-	ContainerEngine string // CONTAINER_ENGINE
+	// AppsDBContainerExplicit is true when APPS_DB_CONTAINER was set: the
+	// server then never adopts the App Hub's app-hub-db (ADR 013).
+	AppsDBContainerExplicit bool
+	SharedDomain            string // SHARED_APPS_DOMAIN
+	SharedDataDir           string // SHARED_DATA_DIR
+	// SharedDataDirExplicit is true when SHARED_DATA_DIR was set (no adoption).
+	SharedDataDirExplicit bool
+	ContainerEngine       string // CONTAINER_ENGINE
 }
 
 func envOr(name, def string) string {
@@ -53,10 +58,12 @@ func Load() (Config, error) {
 	cfg.SecretKey = os.Getenv("HUB_SECRET_KEY")
 	cfg.AppsDBAdminURL = envOr("APPS_DB_ADMIN_URL", cfg.DatabaseURL)
 	cfg.AppsDBHost = envOr("APPS_DB_HOST_FOR_CONTAINERS", "host.containers.internal:5433")
-	cfg.AppsDBContainer = envOr("APPS_DB_CONTAINER", "app-hub-db")
+	cfg.AppsDBContainer = envOr("APPS_DB_CONTAINER", "ziv-db")
+	cfg.AppsDBContainerExplicit = os.Getenv("APPS_DB_CONTAINER") != ""
 	cfg.SharedDomain = envOr("SHARED_APPS_DOMAIN", "localhost:8080")
 	home, _ := os.UserHomeDir()
-	cfg.SharedDataDir = envOr("SHARED_DATA_DIR", filepath.Join(home, ".local", "share", "app-hub", "shared"))
+	cfg.SharedDataDir = envOr("SHARED_DATA_DIR", filepath.Join(home, ".local", "share", "ziv", "shared"))
+	cfg.SharedDataDirExplicit = os.Getenv("SHARED_DATA_DIR") != ""
 	cfg.ContainerEngine = envOr("CONTAINER_ENGINE", "podman")
 	return cfg, nil
 }

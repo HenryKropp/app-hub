@@ -45,7 +45,7 @@ export function ReadinessList({ report, acks, onAck, onRecheck, busy }: {
               <div className="min-w-0 flex-1">
                 <p className="font-medium">
                   {i.title}
-                  {i.status === "auto" && <span className="ml-2 font-normal text-muted-foreground">o Hub resolve</span>}
+                  {i.status === "auto" && <span className="ml-2 font-normal text-muted-foreground">o Ziv resolve</span>}
                 </p>
                 {i.detail && <p className={cn("mt-0.5 text-muted-foreground", i.status === "missing" && "text-foreground/80")}>{i.detail}</p>}
                 {i.status === "warn" && (

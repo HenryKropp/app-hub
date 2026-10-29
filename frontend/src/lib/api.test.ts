@@ -67,7 +67,7 @@ test("a request that never reaches the Hub says so in Portuguese", async () => {
 
 test("a Hub that answers 5xx without a message reads as not responding", async () => {
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Bad Gateway", { status: 502 })))
-  await expect(api.apps()).rejects.toThrow("O Hub não respondeu. Espere um pouco e tente de novo.")
+  await expect(api.apps()).rejects.toThrow("O Ziv não respondeu. Espere um pouco e tente de novo.")
 })
 
 test("the Hub's own message wins", async () => {

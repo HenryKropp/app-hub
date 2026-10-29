@@ -110,15 +110,15 @@ func SafeVolta(v string) string {
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	slug, test, matched := g.Match(r.Host)
 	if !matched {
-		g.show(w, r, http.StatusNotFound, page{Title: "App não encontrado", Message: "Este endereço não é de nenhum app compartilhado do Hub.", HubURL: g.hubURL})
+		g.show(w, r, http.StatusNotFound, page{Title: "App não encontrado", Message: "Este endereço não é de nenhum app compartilhado do Ziv.", HubURL: g.hubURL})
 		return
 	}
 	if g.hubURL == "" {
-		g.show(w, r, http.StatusServiceUnavailable, page{Title: "Endereços de apps não configurados", Message: "O Hub não sabe o próprio endereço (BASE_URL), então não consegue fazer você entrar no app. Peça ao administrador para configurá-lo."})
+		g.show(w, r, http.StatusServiceUnavailable, page{Title: "Endereços de apps não configurados", Message: "O Ziv não sabe o próprio endereço (BASE_URL), então não consegue fazer você entrar no app. Peça ao administrador para configurá-lo."})
 		return
 	}
 	if g.held.Load() {
-		g.show(w, r, http.StatusServiceUnavailable, page{Title: "Ligando o app…", Message: "O Hub acabou de ligar. O app abre sozinho em alguns segundos.", Refresh: true})
+		g.show(w, r, http.StatusServiceUnavailable, page{Title: "Ligando o app…", Message: "O Ziv acabou de ligar. O app abre sozinho em alguns segundos.", Refresh: true})
 		return
 	}
 	t, ok, err := g.b.Lookup(r.Context(), slug, test)
@@ -128,7 +128,7 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !ok {
-		g.show(w, r, http.StatusNotFound, page{Title: "App não encontrado", Message: "Este endereço não é de nenhum app compartilhado do Hub.", HubURL: g.hubURL})
+		g.show(w, r, http.StatusNotFound, page{Title: "App não encontrado", Message: "Este endereço não é de nenhum app compartilhado do Ziv.", HubURL: g.hubURL})
 		return
 	}
 	switch r.URL.Path {
@@ -153,7 +153,7 @@ func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if !found {
 		if !wantsHTML(r) {
-			g.show(w, r, http.StatusUnauthorized, page{Title: "Entre pelo Hub", Message: "Abra o app pelo Hub."})
+			g.show(w, r, http.StatusUnauthorized, page{Title: "Entre pelo Ziv", Message: "Abra o app pelo Ziv."})
 			return
 		}
 		q := url.Values{"app": {slug}, "volta": {r.URL.RequestURI()}}
@@ -180,7 +180,7 @@ func (g *Gateway) notRunning(w http.ResponseWriter, r *http.Request, t Target, t
 	case t.Status == "stopped":
 		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "App parado", Message: "Parado por " + t.StoppedBy + ". Peça para " + owner(t) + " ligá-lo de novo.", HubURL: g.hubURL})
 	case t.Status == "crashed":
-		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "App com problema", Message: "O app parou de responder e o Hub não conseguiu religá-lo. " + owner(t) + " já vê o aviso na ficha do app.", HubURL: g.hubURL})
+		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "App com problema", Message: "O app parou de responder e o Ziv não conseguiu religá-lo. " + owner(t) + " já vê o aviso na ficha do app.", HubURL: g.hubURL})
 	case t.Status == "draft":
 		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "Ainda não publicado", Message: "Este app ainda não foi publicado. Fale com " + owner(t) + ".", HubURL: g.hubURL})
 	default: // sleeping, starting, running sem porta (Hub acabou de ligar)
@@ -193,7 +193,7 @@ func (g *Gateway) enter(w http.ResponseWriter, r *http.Request, t Target, slug s
 	personID, ok := g.Codes.Redeem(r.URL.Query().Get("code"), t.AppID, test)
 	volta := SafeVolta(r.URL.Query().Get("volta"))
 	if !ok {
-		// código vencido ou já usado: passa pelo Hub de novo
+		// código vencido ou já usado: passa pelo Ziv de novo
 		q := url.Values{"app": {slug}, "volta": {volta}}
 		if test {
 			q.Set("teste", "1")

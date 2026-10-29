@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
@@ -309,4 +310,21 @@ func (s *Service) sealOld(ctx context.Context, b sqlc.SharedBackup) error {
 		return err
 	}
 	return s.q.UpdateBackupSize(ctx, sqlc.UpdateBackupSizeParams{ID: b.ID, SizeBytes: st.Size()})
+}
+
+// MoveBackupPaths points backup rows recorded under oldDir to the same file
+// under newDir. Paths are absolute, so after an older data folder (Ziv's or
+// the App Hub's) is adopted under Ziv's name (ADR 013, 014) every older copy
+// would look missing.
+// Safe to run on every start: it only touches rows still under oldDir.
+func MoveBackupPaths(ctx context.Context, db interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}, oldDir, newDir string) (int64, error) {
+	oldDir, newDir = filepath.Clean(oldDir), filepath.Clean(newDir)
+	tag, err := db.Exec(ctx, `UPDATE shared_backups SET path = $2 || substr(path, length($1) + 1)
+		WHERE starts_with(path, $1 || '/')`, oldDir, newDir)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }

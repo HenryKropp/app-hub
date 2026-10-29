@@ -70,7 +70,7 @@ func (h *Handler) sharedAuthorize(w http.ResponseWriter, r *http.Request) {
 	}
 	sa, err := h.q.GetSharedAppBySlug(r.Context(), slug)
 	if errors.Is(err, pgx.ErrNoRows) {
-		gateway.Page(w, r, http.StatusNotFound, "App não encontrado", "Confira o endereço ou abra o app pela lista do Hub.", "/")
+		gateway.Page(w, r, http.StatusNotFound, "App não encontrado", "Confira o endereço ou abra o app pela lista do Ziv.", "/")
 		return
 	}
 	if err != nil {

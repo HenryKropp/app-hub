@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, Download, Play, X } from "lucide-react"
+import { ArrowLeft, Download, Play, Square, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { LoadError, RunState } from "@/components/bits"
 import { api, fileUrl, groupZipUrl, selectedUrl, type Run, type RunGroup } from "@/lib/api"
@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils"
 
 const SHOWN = 10
 
-const CHECK = "size-4 shrink-0 cursor-pointer accent-[var(--brand)]"
+const CHECK = "size-4 shrink-0 cursor-pointer accent-[var(--foreground)]"
 
 function Group({ run, g, selected, toggle }: { run: Run; g: RunGroup; selected: Set<number>; toggle: (ids: number[], on: boolean) => void }) {
   const [all, setAll] = useState(false)
@@ -78,7 +78,7 @@ export function RunPage() {
   const [tries, setTries] = useState(0)
   const [, setNow] = useState(() => Date.now())
   const [selected, setSelected] = useState<Set<number>>(() => new Set())
-  const { run: runApp, busy } = useRuns()
+  const { run: runApp, busy, askStop, stopping } = useRuns()
   const toggle = (ids: number[], on: boolean) =>
     setSelected((cur) => {
       const next = new Set(cur)
@@ -134,6 +134,13 @@ export function RunPage() {
             <span className="whitespace-nowrap">· {run.person_name}</span>
           </p>
         </div>
+        {isLive(run.status) && (stopping.has(run.id) ? (
+          <span className="text-sm text-muted-foreground">Parando…</span>
+        ) : run.can_stop && (
+          <Button variant="destructive" className="h-9 shrink-0 gap-1.5 pr-4 pl-3.5" onClick={() => askStop({ id: run.id, app_name: run.app_name, status: run.status })}>
+            <Square className="size-3.5" /> Parar
+          </Button>
+        ))}
         {!isLive(run.status) && (
           <Button
             variant="run"
@@ -148,9 +155,14 @@ export function RunPage() {
       <div>
         {run.status === "running" && <p className="mt-2 text-muted-foreground">Rodando: a janela está aberta no seu computador. Quando você fechar, os arquivos aparecem aqui.</p>}
         {run.status === "waiting" && <p className="mt-2 text-muted-foreground">Esperando o computador {run.computer_name} abrir o app…</p>}
+        {run.status === "stopped" && (
+          <p className="mt-2 max-w-prose text-muted-foreground">
+            Você parou o app pelo Ziv. {run.groups.some((g) => g.files.length > 0) ? "Abaixo estão os arquivos que ele criou ou mudou até ali." : "Ele não tinha criado nem mudado arquivos na pasta abaixo."}
+          </p>
+        )}
         {run.status === "no_files" && (
           <p className="mt-2 max-w-prose text-muted-foreground">
-            O app fechou sem criar nem mudar arquivos na pasta abaixo. Se você esperava algum, confira se o app salvou nesta pasta: o Hub só vê o que fica nela.
+            O app fechou sem criar nem mudar arquivos na pasta abaixo. Se você esperava algum, confira se o app salvou nesta pasta: o Ziv só vê o que fica nela.
           </p>
         )}
         {(run.status === "error" || run.status === "interrupted") && run.error_message && (

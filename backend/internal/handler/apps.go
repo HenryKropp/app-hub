@@ -336,7 +336,7 @@ func (h *Handler) checkApp(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// saveApp publishes an app: it writes app-hub.yaml and FICHA.md into the app
+// saveApp publishes an app: it writes the manifest (ziv.yaml, or the kova.yaml or app-hub.yaml already there) and FICHA.md into the app
 // folder (never touching code) and records the app in the catalog.
 func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 	me, ok := h.currentPerson(w, r)
@@ -449,7 +449,7 @@ type appBody struct {
 }
 
 // writeApp is the one way an app reaches the catalog: it validates, writes
-// app-hub.yaml and FICHA.md into the folder (never touching code), records the
+// the manifest and FICHA.md into the folder (never touching code), records the
 // app and what changed in the ficha. old is the app being updated, or nil.
 // On failure it has already answered and returns false.
 func (h *Handler) writeApp(w http.ResponseWriter, r *http.Request, me sqlc.Person, folder string, body appBody, old *sqlc.App) (sqlc.App, bool) {

@@ -78,8 +78,8 @@ export function CatalogPage() {
       </PageHeader>
 
       {onboarding?.can_manage && !setupDone && (
-        <Link to="/comecar" className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-brand/20 bg-brand-soft/45 p-4 transition-colors hover:bg-brand-soft sm:px-5">
-          <span className="min-w-0"><span className="block text-xs font-medium text-brand">Configuração inicial</span><span className="mt-0.5 block text-sm font-medium">Faltam alguns passos para preparar o Hub para sua equipe.</span></span>
+        <Link to="/comecar" className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-colors hover:bg-muted sm:px-5">
+          <span className="min-w-0"><span className="block text-sm font-medium">Faltam alguns passos para preparar o Ziv para sua equipe.</span></span>
           <span className="flex shrink-0 items-center gap-2 text-sm font-medium">Continuar <ArrowRight className="size-4" /></span>
         </Link>
       )}
@@ -99,7 +99,7 @@ export function CatalogPage() {
           }
         >
           {canReg
-            ? "Aponte a pasta onde ficam os apps da empresa. O Hub analisa cada um e prepara a ficha para você revisar."
+            ? "Aponte a pasta onde ficam os apps da empresa. O Ziv analisa cada um e prepara a ficha para você revisar."
             : "Quando alguém registrar os apps da empresa, eles aparecem aqui para você rodar."}
         </EmptyState>
       )}
@@ -140,7 +140,7 @@ export function CatalogPage() {
                   <span className="flex shrink-0 flex-col items-end gap-2">
                     {shared && <SharedStatusDot status={shared.status} />}
                     {!shared && live && (
-                      <span className="inline-flex items-center gap-1.5 font-medium text-brand">
+                      <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
                         <Playing /> aberto agora
                       </span>
                     )}

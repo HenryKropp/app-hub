@@ -34,7 +34,7 @@ func TestPublishFirstTime(t *testing.T) {
 	if sa.Status != "running" || !sa.CurrentDeploymentID.Valid || sa.CurrentDeploymentID.Int64 != d.ID || sa.DbName != "app_"+itoa(e.App.ID) {
 		t.Fatalf("%+v", sa)
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(d.ID) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "ziv-notas-"+itoa(d.ID) {
 		t.Fatalf("running %v", got)
 	}
 	var env map[string]string
@@ -48,7 +48,7 @@ func TestPublishFirstTime(t *testing.T) {
 	if _, ok := e.S.Target(e.App.ID, false); !ok {
 		t.Fatal("no target")
 	}
-	if !strings.Contains(e.Eng.Images[d.ImageID].Tag, "localhost/apphub/notas:") {
+	if !strings.Contains(e.Eng.Images[d.ImageID].Tag, "localhost/ziv/notas:") {
 		t.Fatalf("tag %+v", e.Eng.Images)
 	}
 }
@@ -95,7 +95,7 @@ func TestNewVersionUnhealthyKeepsOld(t *testing.T) {
 	if port, _ := e.S.Target(e.App.ID, false); port != oldPort {
 		t.Fatal("target moved to the broken version")
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(old.ID) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "ziv-notas-"+itoa(old.ID) {
 		t.Fatalf("running %v", got)
 	}
 }
@@ -111,7 +111,7 @@ func TestNewVersionSwapsAndBacksUp(t *testing.T) {
 	if sa.CurrentDeploymentID.Int64 != d.ID || sa.PreviousDeploymentID.Int64 != old.ID {
 		t.Fatalf("%+v", sa)
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(d.ID) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "ziv-notas-"+itoa(d.ID) {
 		t.Fatalf("old still running: %v", got)
 	}
 	if _, err := e.Q.LatestPreDeployBackup(context.Background(), sqlc.LatestPreDeployBackupParams{AppID: e.App.ID, DeploymentID: pgtype.Int8{Int64: d.ID, Valid: true}}); err != nil {
@@ -490,7 +490,7 @@ func TestTestEnvAndNewTestEndsOld(t *testing.T) {
 		first.TestDbName != "app_"+itoa(e.App.ID)+"_test_"+itoa(first.ID) {
 		t.Fatalf("env %v db %s", env, first.TestDbName)
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-teste-"+itoa(first.ID) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "ziv-notas-teste-"+itoa(first.ID) {
 		t.Fatalf("running %v", got)
 	}
 	if !first.ExpiresAt.Valid || first.ExpiresAt.Time.Sub(first.CreatedAt.Time) < 29*time.Minute {
@@ -511,7 +511,7 @@ func TestTestEnvAndNewTestEndsOld(t *testing.T) {
 	if _, ok := e.S.Target(e.App.ID, true); ok {
 		t.Fatal("test target kept after publish")
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(e.Shared(t).CurrentDeploymentID.Int64) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "ziv-notas-"+itoa(e.Shared(t).CurrentDeploymentID.Int64) {
 		t.Fatalf("running %v", got)
 	}
 }
@@ -542,7 +542,7 @@ func TestDataDirMounted(t *testing.T) {
 		if want := filepath.Join(e.DataDir(), "apps", itoa(e.App.ID), "data"); c.Spec.DataDir != want {
 			t.Fatalf("data dir %q want %q", c.Spec.DataDir, want)
 		}
-		if c.Spec.Labels["app-hub.app"] != itoa(e.App.ID) || c.Spec.MemoryMB != 512 || c.Spec.CPUs != 1 {
+		if c.Spec.Labels["ziv.app"] != itoa(e.App.ID) || c.Spec.Labels["ziv.deployment"] == "" || c.Spec.MemoryMB != 512 || c.Spec.CPUs != 1 {
 			t.Fatalf("spec %+v", c.Spec)
 		}
 	}
@@ -687,7 +687,7 @@ func TestRollbackWithDataRestoreFailsKeepsAppUp(t *testing.T) {
 	if sa.Status != "running" || sa.CurrentDeploymentID.Int64 != d.ID {
 		t.Fatalf("%+v", sa)
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(d.ID) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "ziv-notas-"+itoa(d.ID) {
 		t.Fatalf("running %v", got)
 	}
 	if _, ok := e.S.Target(e.App.ID, false); !ok {
@@ -707,7 +707,7 @@ func TestRollbackWithDataPreviousUnhealthyPutsDataBack(t *testing.T) {
 	e.DBs.Data[db] = "v2"
 	broken := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(500) })
 	e.Eng.HandlerFor = func(name string) http.Handler {
-		if name == "apphub-notas-"+itoa(old.ID) {
+		if name == "ziv-notas-"+itoa(old.ID) {
 			return broken
 		}
 		return nil
@@ -723,7 +723,7 @@ func TestRollbackWithDataPreviousUnhealthyPutsDataBack(t *testing.T) {
 	if sa.Status != "running" || sa.CurrentDeploymentID.Int64 != d.ID || sa.PreviousDeploymentID.Int64 != old.ID {
 		t.Fatalf("%+v", sa)
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(d.ID) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "ziv-notas-"+itoa(d.ID) {
 		t.Fatalf("running %v", got)
 	}
 }
@@ -758,7 +758,7 @@ func TestSwapNotRecordedKeepsOld(t *testing.T) {
 	if port, _ := e.S.Target(e.App.ID, false); port != oldPort {
 		t.Fatal("target moved")
 	}
-	if got := e.Eng.Running(); len(got) != 1 || got[0] != "apphub-notas-"+itoa(old.ID) {
+	if got := e.Eng.Running(); len(got) != 1 || got[0] != "ziv-notas-"+itoa(old.ID) {
 		t.Fatalf("running %v", got)
 	}
 	if len(e.Eng.Images) != 1 {
@@ -814,7 +814,7 @@ func TestLifecycleWhilePublishing(t *testing.T) {
 	close(release)
 	d = e.WaitDeployment(t, d.ID)
 	time.Sleep(100 * time.Millisecond) // a stray Wake would have run by now
-	if got := e.Eng.Running(); d.Status != "live" || len(got) != 1 || got[0] != "apphub-notas-"+itoa(d.ID) {
+	if got := e.Eng.Running(); d.Status != "live" || len(got) != 1 || got[0] != "ziv-notas-"+itoa(d.ID) {
 		t.Fatalf("%s running %v", d.Status, got)
 	}
 	if e.Shared(t).Status != "running" {
@@ -822,7 +822,7 @@ func TestLifecycleWhilePublishing(t *testing.T) {
 	}
 	starts := 0
 	for _, c := range e.Eng.CallsCopy() {
-		if c == "start apphub-notas-"+itoa(d.ID) {
+		if c == "start ziv-notas-"+itoa(d.ID) {
 			starts++
 		}
 	}
@@ -881,7 +881,7 @@ func TestEachAppHasItsOwnNetwork(t *testing.T) {
 	e := setup(t)
 	d := e.Publish(t)
 	tst := e.StartTest(t)
-	want := "app-hub-apps-" + itoa(e.App.ID)
+	want := "ziv-apps-" + itoa(e.App.ID)
 	for _, c := range e.Eng.Containers {
 		if c.Spec.Network != want {
 			t.Fatalf("%s on network %q, want %q", c.Spec.Name, c.Spec.Network, want)
@@ -1000,4 +1000,41 @@ func TestEndTestClearsTargetWhenDropFails(t *testing.T) {
 	if got, _ := e.Q.GetDeployment(ctx, d.ID); got.Status != "retired" {
 		t.Fatalf("status %s", got.Status)
 	}
+}
+
+func TestMoveBackupPathsAfterAdoptingDataDir(t *testing.T) {
+	e := setup(t)
+	ctx := context.Background()
+	old, nw := "/home/x/.local/share/app-hub/shared", "/home/x/.local/share/ziv/shared"
+	b, err := e.Q.InsertBackup(ctx, sqlc.InsertBackupParams{AppID: e.App.ID, Kind: "daily", Path: old + "/backups/1/a.dump", SizeBytes: 1, CreatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true}, ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, _ := e.Q.InsertBackup(ctx, sqlc.InsertBackupParams{AppID: e.App.ID, Kind: "daily", Path: "/elsewhere/app-hub/shared/b.dump", SizeBytes: 1, CreatedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true}, ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(time.Hour), Valid: true}})
+	n, err := deploy.MoveBackupPaths(ctx, pool, old, nw)
+	if err != nil || n != 1 {
+		t.Fatalf("moved %d %v", n, err)
+	}
+	var got, untouched string
+	pool.QueryRow(ctx, `SELECT path FROM shared_backups WHERE id = $1`, b.ID).Scan(&got)
+	pool.QueryRow(ctx, `SELECT path FROM shared_backups WHERE id = $1`, other.ID).Scan(&untouched)
+	if got != nw+"/backups/1/a.dump" || untouched != "/elsewhere/app-hub/shared/b.dump" {
+		t.Fatalf("got %q, untouched %q", got, untouched)
+	}
+	if n, _ := deploy.MoveBackupPaths(ctx, pool, old, nw); n != 0 {
+		t.Fatalf("second run moved %d", n)
+	}
+}
+
+func TestPublishRemovesLegacyNetwork(t *testing.T) {
+	e := setup(t)
+	e.Publish(t)
+	e.Publish(t)
+	want := "remove-network app-hub-apps-" + itoa(e.App.ID)
+	for _, c := range e.Eng.CallsCopy() {
+		if c == want {
+			return
+		}
+	}
+	t.Fatalf("no %q in %v", want, e.Eng.CallsCopy())
 }

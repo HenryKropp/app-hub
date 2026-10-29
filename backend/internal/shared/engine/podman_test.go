@@ -66,14 +66,14 @@ func TestPodmanRoundTrip(t *testing.T) {
 		t.Fatalf("container cannot reach Postgres on host.containers.internal:5433: %v", err)
 	}
 	// Safety guard: a container without the Hub label must be refused.
-	if err := p.Remove(ctx, "app-hub-db"); err == nil {
-		t.Fatal("Remove(app-hub-db) was not refused")
+	if err := p.Remove(ctx, "ziv-db"); err == nil {
+		t.Fatal("Remove(ziv-db) was not refused")
 	}
-	if err := p.Stop(ctx, "app-hub-db"); err == nil {
-		t.Fatal("Stop(app-hub-db) was not refused")
+	if err := p.Stop(ctx, "ziv-db"); err == nil {
+		t.Fatal("Stop(ziv-db) was not refused")
 	}
-	if dbst, err := p.Inspect(ctx, "app-hub-db"); err != nil || !dbst.Running {
-		t.Fatalf("app-hub-db no longer running: %+v", dbst)
+	if dbst, err := p.Inspect(ctx, "ziv-db"); err != nil || !dbst.Running {
+		t.Fatalf("ziv-db no longer running: %+v", dbst)
 	}
 	if err := p.Stop(ctx, "apphub-does-not-exist"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("stop missing: %v", err)

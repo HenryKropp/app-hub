@@ -63,7 +63,7 @@ export function RestoreDialog({ appId, number, open, onOpenChange, onDone }: {
         <DialogHeader>
           <DialogTitle>Voltar o código para a versão {number}</DialogTitle>
           <DialogDescription>
-            Antes de mexer, o Hub guarda o estado atual como uma versão. Nada é apagado: arquivos a mais vão para a pasta .app-hub-lixeira dentro do app.
+            Antes de mexer, o Ziv guarda o estado atual como uma versão. Nada é apagado: arquivos a mais vão para a pasta .ziv-lixeira dentro do app.
           </DialogDescription>
         </DialogHeader>
         {!plan && !error && <p className="text-sm text-muted-foreground">Conferindo a pasta…</p>}
@@ -74,12 +74,12 @@ export function RestoreDialog({ appId, number, open, onOpenChange, onDone }: {
             <Files title="Voltam a existir" list={plan.recreate} />
             <Files title="Vão para a lixeira" list={plan.to_trash} />
             {trashedFirst && (
-              <p className="text-muted-foreground">Arquivos que ainda não têm cópia no Hub vão para a lixeira antes de voltar.</p>
+              <p className="text-muted-foreground">Arquivos que ainda não têm cópia no Ziv vão para a lixeira antes de voltar.</p>
             )}
             {plan.binaries.length > 0 && (
               <p className="flex gap-2 text-warn">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-                {plan.binaries.join(", ")} não volta. O Hub guarda só a impressão digital de programas prontos. Recompile depois de voltar o código.
+                {plan.binaries.join(", ")} não volta. O Ziv guarda só a impressão digital de programas prontos. Recompile depois de voltar o código.
               </p>
             )}
           </div>
