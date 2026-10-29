@@ -84,28 +84,41 @@ func (p *Podman) run(ctx context.Context, timeout time.Duration, stdin io.Reader
 	return out.Bytes(), nil
 }
 
-// hubOwned decides whether a container label value marks a Hub container.
-func hubOwned(label string) bool { return strings.TrimSpace(label) != "" }
+// hubOwned decides whether label values (the output of labelsFormat) mark a
+// Ziv container: the new label or one of the legacy ones is set.
+func hubOwned(label string) bool { return strings.Trim(strings.TrimSpace(label), "|") != "" }
+
+// labelsFormat asks inspect for every label, "new|legacy|…"; base is ".Labels"
+// or ".Config.Labels".
+func labelsFormat(base string) string {
+	parts := make([]string, 0, len(LegacyLabels)+1)
+	for _, l := range AllLabels() {
+		parts = append(parts, `{{index `+base+` "`+l+`"}}`)
+	}
+	return strings.Join(parts, "|")
+}
 
 // imageAllowed decides whether an image may be removed: it carries the Hub
-// label or one of its tags lives under localhost/apphub/.
+// label or one of its tags lives under ImagePrefix (or a LegacyImagePrefixes entry).
 func imageAllowed(label string, repoTags []string) bool {
 	if hubOwned(label) {
 		return true
 	}
 	for _, t := range repoTags {
-		if strings.HasPrefix(t, "localhost/apphub/") {
-			return true
+		for _, p := range append([]string{ImagePrefix}, LegacyImagePrefixes...) {
+			if strings.HasPrefix(t, p) {
+				return true
+			}
 		}
 	}
 	return false
 }
 
-var errNotHub = errors.New("recusado: esta caixa não é do Hub")
+var errNotHub = errors.New("recusado: esta caixa não é do Ziv")
 
 // guard refuses to act on a container without the Hub label.
 func (p *Podman) guard(ctx context.Context, id string) error {
-	out, err := p.run(ctx, shortTimeout, nil, "container", "inspect", "--format", `{{index .Config.Labels "`+Label+`"}}`, "--", id)
+	out, err := p.run(ctx, shortTimeout, nil, "container", "inspect", "--format", labelsFormat(".Config.Labels"), "--", id)
 	if err != nil {
 		return err
 	}
@@ -163,7 +176,7 @@ func (p *Podman) exists(ctx context.Context, args ...string) (bool, error) {
 // the other apps' networks) if it does not exist yet.
 func (p *Podman) ensureNetwork(ctx context.Context, name, appLabel string) error {
 	if !HubNetwork(name) || !hubOwned(appLabel) {
-		return fmt.Errorf("rede %q não é de um app do Hub", name)
+		return fmt.Errorf("rede %q não é de um app do Ziv", name)
 	}
 	ok, err := p.exists(ctx, "network", "exists", name)
 	if err != nil || ok {
@@ -179,13 +192,13 @@ func (p *Podman) ensureNetwork(ctx context.Context, name, appLabel string) error
 }
 
 // RemoveNetwork removes an app's network. Only names the Hub gives
-// (app-hub-apps-<id>) carrying the Hub label are touched.
+// (ziv-apps-<id>, or kova-apps-<id> and app-hub-apps-<id> from before) carrying the label are touched.
 func (p *Podman) RemoveNetwork(ctx context.Context, name string) error {
 	if !HubNetwork(name) {
 		slog.Error("podman: refused to remove a network that is not the Hub's", "network", name)
-		return errors.New("recusado: esta rede não é do Hub")
+		return errors.New("recusado: esta rede não é do Ziv")
 	}
-	out, err := p.run(ctx, shortTimeout, nil, "network", "inspect", "--format", `{{index .Labels "`+Label+`"}}`, "--", name)
+	out, err := p.run(ctx, shortTimeout, nil, "network", "inspect", "--format", labelsFormat(".Labels"), "--", name)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) || strings.Contains(strings.ToLower(err.Error()), "network not found") {
 			return nil
@@ -194,7 +207,7 @@ func (p *Podman) RemoveNetwork(ctx context.Context, name string) error {
 	}
 	if !hubOwned(string(out)) {
 		slog.Error("podman: refused to remove a network without the Hub label", "network", name)
-		return errors.New("recusado: esta rede não é do Hub")
+		return errors.New("recusado: esta rede não é do Ziv")
 	}
 	_, err = p.run(ctx, shortTimeout, nil, "network", "rm", "--", name)
 	if err != nil && strings.Contains(strings.ToLower(err.Error()), "network not found") {
@@ -216,7 +229,7 @@ func (p *Podman) Build(ctx context.Context, b BuildSpec) (string, string, error)
 	if df == "" {
 		df = "Dockerfile"
 	}
-	iid := filepath.Join(os.TempDir(), "apphub-iid-"+strconv.FormatInt(time.Now().UnixNano(), 10))
+	iid := filepath.Join(os.TempDir(), "ziv-iid-"+strconv.FormatInt(time.Now().UnixNano(), 10))
 	defer os.Remove(iid)
 	args := append([]string{"build", "--iidfile", iid, "-t", b.Tag, "-f", filepath.Join(b.ContextDir, df)}, labelArgs(b.Labels)...)
 	args = append(args, b.ContextDir)
@@ -252,7 +265,7 @@ func (p *Podman) Start(ctx context.Context, s StartSpec) (string, error) {
 			return "", fmt.Errorf("variável %q tem quebra de linha ou nome inválido", k)
 		}
 	}
-	envFile, err := os.CreateTemp("", "apphub-env-*")
+	envFile, err := os.CreateTemp("", "ziv-env-*")
 	if err != nil {
 		return "", err
 	}
@@ -310,21 +323,21 @@ func (p *Podman) Remove(ctx context.Context, id string) error {
 
 func (p *Podman) RemoveImage(ctx context.Context, id string) error {
 	out, err := p.run(ctx, shortTimeout, nil, "image", "inspect", "--format",
-		`{{index .Labels "`+Label+`"}}|{{join .RepoTags ","}}`, "--", id)
+		labelsFormat(".Labels")+`#{{join .RepoTags ","}}`, "--", id)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil
 		}
 		return err
 	}
-	label, tags, _ := strings.Cut(strings.TrimSpace(string(out)), "|")
+	label, tags, _ := strings.Cut(strings.TrimSpace(string(out)), "#")
 	var repoTags []string
 	if tags != "" {
 		repoTags = strings.Split(tags, ",")
 	}
 	if !imageAllowed(label, repoTags) {
 		slog.Error("podman: refused to remove an image that is not the Hub's", "id", id)
-		return errors.New("recusado: esta imagem não é do Hub")
+		return errors.New("recusado: esta imagem não é do Ziv")
 	}
 	_, err = p.run(ctx, shortTimeout, nil, "rmi", "--ignore", "--", id)
 	return err
@@ -483,11 +496,25 @@ func (p *Podman) Exec(ctx context.Context, container string, stdin io.Reader, st
 }
 
 func (p *Podman) List(ctx context.Context) ([]Container, error) {
-	out, err := p.run(ctx, shortTimeout, nil, "ps", "-a", "--filter", "label="+Label, "--format", "json")
-	if err != nil {
-		return nil, err
+	var all []Container
+	seen := map[string]bool{}
+	for _, l := range AllLabels() {
+		out, err := p.run(ctx, shortTimeout, nil, "ps", "-a", "--filter", "label="+l, "--format", "json")
+		if err != nil {
+			return nil, err
+		}
+		list, err := parsePS(out)
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range list {
+			if !seen[c.ID] {
+				seen[c.ID] = true
+				all = append(all, c)
+			}
+		}
 	}
-	return parsePS(out)
+	return all, nil
 }
 
 func parsePS(raw []byte) ([]Container, error) {
@@ -502,8 +529,8 @@ func parsePS(raw []byte) ([]Container, error) {
 	}
 	out := make([]Container, 0, len(v))
 	for _, c := range v {
-		if _, ok := c.Labels[Label]; !ok {
-			continue // nunca mexer no que não é do Hub
+		if _, ok := AppLabel(c.Labels); !ok {
+			continue // nunca mexer no que não é do Ziv
 		}
 		name := ""
 		if len(c.Names) > 0 {

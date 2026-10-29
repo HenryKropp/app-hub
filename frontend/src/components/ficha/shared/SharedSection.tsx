@@ -14,7 +14,7 @@ import { errText, settingsOf } from "./settings"
 
 type Confirm = "stop" | "unshare" | null
 
-const LOAD_ERR = "O Hub não respondeu sobre o app compartilhado. Tente de novo em alguns segundos."
+const LOAD_ERR = "O Ziv não respondeu sobre o app compartilhado. Tente de novo em alguns segundos."
 
 /** A load that failed: what happened and Tentar de novo. */
 export function LoadFailed({ message, onRetry }: { message: string; onRetry: () => void }) {
@@ -251,7 +251,7 @@ export function MakeShared({ app, onChanged }: { app: AppDetail; onChanged: (nex
       <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-border p-4">
         <p className="flex gap-2 text-sm">
           <Share2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-          Fica num endereço só, para várias pessoas usarem ao mesmo tempo, com os dados guardados no Hub.
+          Fica num endereço só, para várias pessoas usarem ao mesmo tempo, com os dados guardados no Ziv.
         </p>
         {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
         <Button size="sm" variant="outline" onClick={make} disabled={busy}>Tornar compartilhado</Button>

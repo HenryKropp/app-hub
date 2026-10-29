@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { RunDialog } from "@/components/RunDialog"
+import { StopDialog, type StopTarget } from "@/components/StopDialog"
 import type { Submission } from "@/components/RunDialog"
 import { api, ApiError, type ActiveRun, type Kind } from "@/lib/api"
 import { isLive } from "@/lib/runs"
@@ -19,6 +20,9 @@ type Ctx = {
   dropNotice: (key: string) => void
   refresh: () => void
   rememberedFor: (t: RunTarget) => string
+  // Parar: asks first, then keeps the run as "Parando…" until it closes.
+  askStop: (t: StopTarget) => void
+  stopping: Set<number>
 }
 
 const RunsCtx = createContext<Ctx | null>(null)
@@ -81,7 +85,8 @@ export function RunsProvider({ children }: { children: ReactNode }) {
           },
           (e: unknown) => {
             const message = e instanceof Error ? e.message : "Não foi possível abrir o app."
-            const offline = e instanceof ApiError && e.status === 409
+            // A folder used by another open app is a 409 too, but the fix is another folder.
+            const offline = e instanceof ApiError && e.status === 409 && !/pasta/i.test(message)
             setNotices((ns) => ns.map((n) => (n.key === key ? { ...n, kind: "error", message, offline, target: t } : n)))
           },
         )
@@ -143,9 +148,19 @@ export function RunsProvider({ children }: { children: ReactNode }) {
 
   const dropNotice = useCallback((key: string) => setNotices((ns) => ns.filter((n) => n.key !== key)), [])
 
+  const [stopAsk, setStopAsk] = useState<StopTarget | null>(null)
+  const [stopping, setStopping] = useState<Set<number>>(new Set())
+  const askStop = useCallback((t: StopTarget) => setStopAsk(t), [])
+  // A run leaves "Parando…" once the server shows it closed (or gone from the strip).
+  useEffect(() => {
+    if (stopping.size === 0) return
+    const open = new Set(active.filter((r) => isLive(r.status)).map((r) => r.id))
+    if ([...stopping].some((id) => !open.has(id))) setStopping((s) => new Set([...s].filter((id) => open.has(id))))
+  }, [active, stopping])
+
   const value = useMemo(
-    () => ({ active, notices, busy, run, dismiss, dropNotice, refresh, rememberedFor }),
-    [active, notices, busy, run, dismiss, dropNotice, refresh, rememberedFor],
+    () => ({ active, notices, busy, run, dismiss, dropNotice, refresh, rememberedFor, askStop, stopping }),
+    [active, notices, busy, run, dismiss, dropNotice, refresh, rememberedFor, askStop, stopping],
   )
 
   return (
@@ -158,6 +173,15 @@ export function RunsProvider({ children }: { children: ReactNode }) {
           const t = asking
           setAsking(null)
           if (t) send(t, submission.folder, submission.remember, submission.inputs, submission.files)
+        }}
+      />
+      <StopDialog
+        target={stopAsk}
+        onCancel={() => setStopAsk(null)}
+        onStopped={(id) => {
+          setStopAsk(null)
+          setStopping((s) => new Set(s).add(id))
+          refresh()
         }}
       />
     </RunsCtx.Provider>

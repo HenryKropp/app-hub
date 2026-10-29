@@ -150,6 +150,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/runs", h.listRuns)
 	mux.HandleFunc("GET /api/runs/active", h.activeRuns)
 	mux.HandleFunc("POST /api/runs/{id}/dismiss", h.dismissRun)
+	mux.HandleFunc("POST /api/runs/{id}/stop", h.stopRun)
 	mux.HandleFunc("GET /api/runs/{id}", h.getRun)
 	mux.HandleFunc("POST /api/choose-folder", h.chooseFolder)
 	mux.HandleFunc("GET /api/runs/{id}/files/{fileId}", h.downloadFile)
@@ -211,7 +212,7 @@ func (h *Handler) currentPerson(w http.ResponseWriter, r *http.Request) (sqlc.Pe
 			return sqlc.Person{}, false
 		}
 	}
-	writeError(w, http.StatusUnauthorized, "Entre no Hub para continuar.")
+	writeError(w, http.StatusUnauthorized, "Entre no Ziv para continuar.")
 	return sqlc.Person{}, false
 }
 
@@ -299,7 +300,7 @@ func (h *Handler) setup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if count > 0 {
-		writeError(w, http.StatusConflict, "O Hub já foi configurado. Entre com seu e-mail e senha.")
+		writeError(w, http.StatusConflict, "O Ziv já foi configurado. Entre com seu e-mail e senha.")
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(c.Password), 12)

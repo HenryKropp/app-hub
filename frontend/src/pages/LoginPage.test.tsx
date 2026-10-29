@@ -66,9 +66,9 @@ test("login shows the error from the server", async () => {
 
 test("an auth status failure does not guess whether this Hub needs setup", async () => {
   const refresh = vi.fn()
-  vi.spyOn(auth, "useAuth").mockReturnValue({ loading: false, needsSetup: false, statusError: "O Hub não respondeu.", person: null, refresh, setPerson: vi.fn() })
+  vi.spyOn(auth, "useAuth").mockReturnValue({ loading: false, needsSetup: false, statusError: "O Ziv não respondeu.", person: null, refresh, setPerson: vi.fn() })
   renderPage()
-  expect(screen.getByText("Não consegui confirmar o estado do Hub")).toBeInTheDocument()
+  expect(screen.getByText("Não consegui confirmar o estado do Ziv")).toBeInTheDocument()
   expect(screen.queryByLabelText("E-mail")).not.toBeInTheDocument()
   expect(screen.getByRole("link", { name: "Abrir esta página em outra aba" })).toHaveAttribute("target", "_blank")
   await userEvent.setup().click(screen.getByRole("button", { name: "Tentar novamente" }))

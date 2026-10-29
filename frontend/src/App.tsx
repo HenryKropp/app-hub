@@ -17,6 +17,7 @@ import { SettingsPage } from "@/pages/SettingsPage"
 import { VersionPage } from "@/pages/VersionPage"
 import { SetupPage } from "@/pages/SetupPage"
 import { SecurityPage } from "@/pages/SecurityPage"
+import { PRODUCT_NAME } from "@/lib/brand"
 
 function Protected() {
   const { loading, person } = useAuth()
@@ -34,7 +35,7 @@ function CreatorsOnly({ children }: { children: React.ReactNode }) {
 
 function Routed() {
   const { loading } = useAuth()
-  if (loading) return <div className="mx-auto mt-20 w-full max-w-sm space-y-3 px-4" role="status" aria-label="Conectando ao App Hub"><div className="h-7 w-2/3 animate-pulse rounded bg-muted" /><div className="h-4 w-full animate-pulse rounded bg-muted" /><div className="h-10 w-full animate-pulse rounded bg-muted" /></div>
+  if (loading) return <div className="mx-auto mt-20 w-full max-w-sm space-y-3 px-4" role="status" aria-label={`Conectando ao ${PRODUCT_NAME}`}><div className="h-7 w-2/3 animate-pulse rounded bg-muted" /><div className="h-4 w-full animate-pulse rounded bg-muted" /><div className="h-10 w-full animate-pulse rounded bg-muted" /></div>
   return (
     <Routes>
       <Route path="/entrar" element={<LoginPage />} />

@@ -52,7 +52,7 @@ func TestParseStats(t *testing.T) {
 func TestParsePS(t *testing.T) {
 	raw := mustRead(t, "testdata/podman-ps.json")
 	list, err := parsePS(raw)
-	if err != nil || len(list) != 1 || list[0].Labels[Label] != "0" {
+	if err != nil || len(list) != 1 || list[0].Labels["app-hub.app"] != "0" { // fixture captured in the App Hub era
 		t.Fatalf("%+v %v", list, err)
 	}
 }

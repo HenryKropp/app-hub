@@ -70,7 +70,7 @@ export function Backups({ appId, onRestored }: { appId: number; onRestored?: () 
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-sm text-muted-foreground">O Hub faz uma cópia dos dados todo dia e antes de cada versão nova.</p>
+      <p className="text-sm text-muted-foreground">O Ziv faz uma cópia dos dados todo dia e antes de cada versão nova.</p>
       {error && !list && <p className="text-sm text-destructive" role="alert">{error}</p>}
       {list && list.length === 0 && <p className="text-sm text-muted-foreground">Ainda não há cópias.</p>}
       {list && list.length > 0 && (
@@ -96,7 +96,7 @@ export function Backups({ appId, onRestored }: { appId: number; onRestored?: () 
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Restaurar a cópia de {restoring && formatWhen(restoring.created_at)}?</DialogTitle>
-            <DialogDescription>Os dados de agora são trocados pelos desta cópia. Antes disso o Hub guarda uma cópia de agora, para dar para desfazer.</DialogDescription>
+            <DialogDescription>Os dados de agora são trocados pelos desta cópia. Antes disso o Ziv guarda uma cópia de agora, para dar para desfazer.</DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRestoring(null)}>Cancelar</Button>

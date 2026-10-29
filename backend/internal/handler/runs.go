@@ -48,6 +48,24 @@ func tsPtr(t pgtype.Timestamptz) *time.Time {
 	return &t.Time
 }
 
+// folderInUse explains why folder cannot take another app now: an app waiting
+// or open on the same computer uses it, or a folder inside or around it, so
+// the new files of the two could not be told apart. Scripts write into their
+// own subfolder and may share a folder with each other. The Agente checks too.
+func (h *Handler) folderInUse(ctx context.Context, computerID int64, folder string, script bool) (string, error) {
+	live, err := h.q.ListLiveRunsOnComputer(ctx, computerID)
+	if err != nil {
+		return "", err
+	}
+	for _, other := range live {
+		if (script && other.IsScript) || !agentproto.FoldersOverlap(folder, other.OutputFolder) {
+			continue
+		}
+		return "Essa pasta já está sendo usada pelo " + other.AppName + ", que está aberto agora. Escolha outra pasta ou espere ele fechar.", nil
+	}
+	return "", nil
+}
+
 func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 	a, me, _, _, ok := h.appFor(w, r)
 	if !ok {
@@ -79,7 +97,7 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !canRun(m) {
-		writeError(w, http.StatusBadRequest, "Este app ainda não pode rodar pelo Hub.")
+		writeError(w, http.StatusBadRequest, "Este app ainda não pode rodar pelo Ziv.")
 		return
 	}
 	values := map[string][]string{}
@@ -125,6 +143,13 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 	}
 	if m.Kind == manifest.KindScript && comp.AgentVersion != agentproto.Version {
 		writeError(w, http.StatusConflict, "Atualize o Agente em Configurações › Meu computador para rodar scripts.")
+		return
+	}
+	if msg, err := h.folderInUse(ctx, comp.ID, out, m.Kind == manifest.KindScript); err != nil {
+		internalError(w, "live runs", err)
+		return
+	} else if msg != "" {
+		writeError(w, http.StatusConflict, msg)
 		return
 	}
 	// Hold the app lock from the version check until the job is queued, so a
@@ -178,7 +203,7 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "create run", err)
 		return
 	}
-	payload := agentproto.RunPayload{RunID: run.ID, AppFolder: appFolder, Exe: m.Entrypoint, OutputFolder: out}
+	payload := agentproto.RunPayload{RunID: run.ID, AppFolder: appFolder, Exe: m.Entrypoint, OutputFolder: out, AppName: a.Name}
 	if m.Kind == manifest.KindScript {
 		payload.Script = &agentproto.ScriptPayload{Manifest: m, Inputs: values, Files: body.Files, Sources: sources}
 	}
@@ -248,7 +273,9 @@ func (h *Handler) onRunResult(ctx context.Context, j sqlc.AgentJob, res agentpro
 		if len(res.Files) == 0 {
 			status = "no_files"
 		}
-		if res.ExitCode != 0 {
+		if res.Stopped {
+			status, msg = "stopped", stoppedMessage
+		} else if res.ExitCode != 0 {
 			status, msg = "error", "O app fechou com erro (código "+strconv.Itoa(res.ExitCode)+"). Confira os arquivos de diagnóstico e peça ajuda ao responsável."
 		}
 		if err := h.q.FinishRun(ctx, sqlc.FinishRunParams{ID: runID, Status: status,
@@ -360,7 +387,7 @@ func (h *Handler) runForPerson(w http.ResponseWriter, r *http.Request) (sqlc.Get
 }
 
 func (h *Handler) getRun(w http.ResponseWriter, r *http.Request) {
-	row, _, ok := h.runForPerson(w, r)
+	row, me, ok := h.runForPerson(w, r)
 	if !ok {
 		return
 	}
@@ -369,6 +396,8 @@ func (h *Handler) getRun(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "run json", err)
 		return
 	}
+	// Only the person who ran it stops it: the app is open on their computer.
+	j.CanStop = row.PersonID == me.ID && canStop(row.Status, row.ComputerCanStop)
 	writeJSON(w, http.StatusOK, j)
 }
 
@@ -461,6 +490,7 @@ type runJSON struct {
 	CreatedAt     time.Time      `json:"created_at"`
 	StartedAt     *time.Time     `json:"started_at"`
 	FinishedAt    *time.Time     `json:"finished_at"`
+	CanStop       bool           `json:"can_stop"`
 	Groups        []runGroupJSON `json:"groups"`
 }
 type runSummaryJSON struct {
@@ -686,6 +716,7 @@ type activeRunJSON struct {
 	FileCount    int64      `json:"file_count"`
 	CreatedAt    time.Time  `json:"created_at"`
 	FinishedAt   *time.Time `json:"finished_at"`
+	CanStop      bool       `json:"can_stop"`
 }
 
 type runListItemJSON struct {
@@ -725,7 +756,8 @@ func (h *Handler) activeRuns(w http.ResponseWriter, r *http.Request) {
 	out := make([]activeRunJSON, 0, len(rows))
 	for _, x := range rows {
 		out = append(out, activeRunJSON{ID: x.ID, AppID: x.AppID, AppName: x.AppName, AppFolder: hostpath.ToDisplay(x.AppFolderPath), Status: x.Status,
-			ErrorMessage: x.ErrorMessage, OutputFolder: x.OutputFolder, FileCount: x.FileCount, CreatedAt: x.CreatedAt.Time, FinishedAt: tsPtr(x.FinishedAt)})
+			ErrorMessage: x.ErrorMessage, OutputFolder: x.OutputFolder, FileCount: x.FileCount, CreatedAt: x.CreatedAt.Time, FinishedAt: tsPtr(x.FinishedAt),
+			CanStop: canStop(x.Status, x.ComputerCanStop)})
 	}
 	writeJSON(w, http.StatusOK, out)
 }

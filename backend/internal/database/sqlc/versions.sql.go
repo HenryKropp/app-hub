@@ -230,7 +230,7 @@ func (q *Queries) LatestAppVersion(ctx context.Context, appID int64) (AppVersion
 }
 
 const listChangesBefore = `-- name: ListChangesBefore :many
-SELECT c.changes, c.created_at, COALESCE(p.name, 'Hub')::text AS person_name
+SELECT c.changes, c.created_at, COALESCE(p.name, 'Ziv')::text AS person_name
 FROM app_changes c LEFT JOIN people p ON p.id = c.person_id
 WHERE c.app_id = $1 AND c.created_at < $2
 ORDER BY c.created_at DESC

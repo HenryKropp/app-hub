@@ -96,7 +96,7 @@ func (c *Client) PairPoll(ctx context.Context, secret string) (agentproto.PairPo
 }
 
 func (c *Client) Hello(ctx context.Context, name string) error {
-	_, err := c.postJSON(ctx, "/api/agent/hello", agentproto.Hello{Name: name, Version: agentproto.Version, CanUpdate: true}, nil)
+	_, err := c.postJSON(ctx, "/api/agent/hello", agentproto.Hello{Name: name, Version: agentproto.Version, CanUpdate: true, CanStop: true}, nil)
 	return err
 }
 

@@ -348,7 +348,7 @@ func (h *Handler) createArea(w http.ResponseWriter, r *http.Request) {
 }
 
 // renameArea also renames it in every app of the area; each folder's
-// app-hub.yaml catches up the next time that ficha is saved.
+// manifest catches up the next time that ficha is saved.
 func (h *Handler) renameArea(w http.ResponseWriter, r *http.Request) {
 	if _, _, ok := h.requirePerm(w, r, access.ManageAreas); !ok {
 		return

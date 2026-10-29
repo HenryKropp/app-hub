@@ -51,7 +51,7 @@ func TestApplyRestore(t *testing.T) {
 
 	plan := PlanRestore(cur, v1)
 	trash := TrashFolder(time.Date(2026, 10, 1, 15, 30, 0, 0, time.Local))
-	if trash != ".app-hub-lixeira/2026-10-01 153000" {
+	if trash != ".ziv-lixeira/2026-10-01 153000" {
 		t.Fatalf("trash %q", trash)
 	}
 	blob := func(sha string) ([]byte, error) { return contents[sha], nil }

@@ -98,7 +98,7 @@ export function MyRunsPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="gap-1.5 [&_svg]:fill-current [&_svg]:text-brand"
+                      className="gap-1.5 [&_svg]:fill-current"
                       disabled={busy.has(r.app_id)}
                       onClick={() => run({ id: r.app_id, name: r.app_name, folder_display: r.output_folder, remembered_folder: "" }, { folder: r.output_folder })}
                     >

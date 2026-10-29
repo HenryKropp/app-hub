@@ -29,7 +29,7 @@ test("shows confirmed progress and saves the company name through onboarding", a
   const save = vi.spyOn(api, "saveCompanyName").mockResolvedValue(state({ company_name: "Alis" }))
   mount()
 
-  expect(await screen.findByText("Prepare o App Hub para sua equipe")).toBeInTheDocument()
+  expect(await screen.findByText("Prepare o Ziv para sua equipe")).toBeInTheDocument()
   expect(screen.getByText("0")).toBeInTheDocument()
   expect(screen.queryByRole("link", { name: "Baixar Agente" })).toBeInTheDocument()
   await user.type(screen.getByLabelText("Nome da empresa"), "Alis")
@@ -51,4 +51,12 @@ test("does not claim setup is complete before the Hub reports it", async () => {
   expect(screen.queryByRole("link", { name: "Baixar Agente" })).not.toBeInTheDocument()
   expect(screen.queryByText(/Tudo pronto/)).not.toBeInTheDocument()
   expect(screen.getByRole("button", { name: "Salvar nome" })).toBeDisabled()
+})
+
+test("has a single h1 and a neutral Abrir catálogo", async () => {
+  vi.spyOn(api, "onboarding").mockResolvedValue(state({ company_name: "Acme", computer_connected: true, has_apps: true }))
+  mount()
+  const link = await screen.findByRole("link", { name: "Abrir catálogo" })
+  expect(link.className).not.toContain("bg-brand")
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1)
 })

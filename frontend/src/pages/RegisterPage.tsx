@@ -113,7 +113,7 @@ export function RegisterPage() {
           Onde estão os apps?
         </label>
         <p className="mt-1 text-sm text-muted-foreground">
-          Cole o caminho da pasta, como aparece no Explorador de Arquivos. O Hub só lê: nada é alterado até você publicar.
+          Cole o caminho da pasta, como aparece no Explorador de Arquivos. O Ziv só lê: nada é alterado até você publicar.
         </p>
         <div className="mt-4 flex flex-col gap-3 lg:flex-row">
           <Input
@@ -247,7 +247,7 @@ export function RegisterPage() {
                         items: r.items.map((it) => (it.folder_path === current.folder_path ? { ...it, manifest: app.manifest, registered_app_id: app.id, questions: [] } : it)),
                       },
                     )
-                    toast.success(`${app.manifest.name} está no catálogo`, { description: "Criei app-hub.yaml e FICHA.md na pasta do app." })
+                    toast.success(`${app.manifest.name} está no catálogo`, { description: "Criei ziv.yaml e FICHA.md na pasta do app." })
                     mark(current, "published")
                   }}
                   onSkip={() => mark(current, "skipped")}

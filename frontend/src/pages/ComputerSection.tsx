@@ -20,7 +20,7 @@ export function ComputerSection() {
   }, [])
 
   const disconnect = async (id: number, name: string) => {
-    if (!window.confirm(`Desconectar ${name}? O Hub não vai mais abrir apps nele até você instalar o Agente de novo.`)) return
+    if (!window.confirm(`Desconectar ${name}? O Ziv não vai mais abrir apps nele até você instalar o Agente de novo.`)) return
     await api.disconnect(id).then(() => toast.success(`${name} foi desconectado.`), (e: Error) => toast.error(e.message))
     load()
   }
@@ -38,7 +38,7 @@ export function ComputerSection() {
   ) : (
     workspaceError ? <div className="text-sm text-warn"><p role="alert">Não foi possível confirmar o tipo de pacote do Agente. O download está oculto por segurança.</p><Button type="button" variant="outline" className="mt-2" onClick={retryWorkspace}>Tentar verificar novamente</Button></div>
       : workspaceLoading ? <p role="status" className="text-sm text-muted-foreground">Verificando o pacote deste espaço…</p>
-        : <p className="text-sm text-warn">O Agente ainda não foi preparado neste Hub. Peça a quem administra o Hub.</p>
+        : <p className="text-sm text-warn">O Agente ainda não foi preparado neste Ziv. Peça a quem administra o Ziv.</p>
   )
 
   return (
@@ -53,8 +53,8 @@ export function ComputerSection() {
           <h3 className="font-heading text-lg">Nenhum computador conectado</h3>
           <ol className="mt-4 flex list-decimal flex-col gap-2 pl-5 text-sm">
              <li>Baixe o Agente pelo botão abaixo.{workspace?.base_path ? " Extraia todos os arquivos do ZIP para uma pasta." : ""}</li>
-             <li>{workspace?.base_path ? <>Abra <strong>AppHubAgente.exe</strong> de dentro da pasta extraída. O ZIP contém o EXE e apphub-url.txt; mantenha os arquivos juntos e não mova o EXE sozinho.</> : <>Abra o arquivo baixado (<strong>AppHubAgente.exe</strong>). Se o Windows perguntar, confirme que quer abrir.</>}</li>
-            <li>O navegador vai abrir uma página do Hub. Clique em <strong>Conectar</strong>.</li>
+             <li>{workspace?.base_path ? <>Abra <strong>ZivAgente.exe</strong> de dentro da pasta extraída. O ZIP contém o EXE e apphub-url.txt; mantenha os arquivos juntos e não mova o EXE sozinho.</> : <>Abra o arquivo baixado (<strong>ZivAgente.exe</strong>). Se o Windows perguntar, confirme que quer abrir.</>}</li>
+            <li>O navegador vai abrir uma página do Ziv. Clique em <strong>Conectar</strong>.</li>
           </ol>
           <div className="mt-6">{install}</div>
         </div>

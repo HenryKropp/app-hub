@@ -53,7 +53,7 @@ test("update states", async () => {
 test("agent not built on this Hub", async () => {
   vi.spyOn(api, "computers").mockResolvedValue({ computers: [], expected_version: "0.1.0", agent_available: false })
   renderPage()
-  expect(await screen.findByText(/O Agente ainda não foi preparado neste Hub/)).toBeInTheDocument()
+  expect(await screen.findByText(/O Agente ainda não foi preparado neste Ziv/)).toBeInTheDocument()
 })
 
 test("portal agent package clearly instructs extracting every file before running", async () => {

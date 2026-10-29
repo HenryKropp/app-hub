@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 )
 
 func detailOf(t *testing.T, c *client, id int64) appDetail {
@@ -35,7 +37,7 @@ func TestUpdateAppOnePart(t *testing.T) {
 	if code, out := putApp(c, id, d); code != http.StatusOK {
 		t.Fatalf("put %d %v", code, out)
 	}
-	yaml, _ := os.ReadFile(filepath.Join(dir, "app-hub.yaml"))
+	yaml, _ := os.ReadFile(filepath.Join(dir, manifest.FileName))
 	if !strings.Contains(string(yaml), "Resumo novo") || !strings.Contains(string(yaml), "Precisa da VPN.") {
 		t.Fatalf("yaml not rewritten:\n%s", yaml)
 	}
@@ -63,7 +65,7 @@ func TestUpdateAppConflict(t *testing.T) {
 	if code != http.StatusConflict || out["error"] != "Alguém mudou esta ficha agora há pouco. Recarregue para ver a versão nova." {
 		t.Fatalf("conflict %d %v", code, out)
 	}
-	yaml, _ := os.ReadFile(filepath.Join(dir, "app-hub.yaml"))
+	yaml, _ := os.ReadFile(filepath.Join(dir, manifest.FileName))
 	if strings.Contains(string(yaml), "Segundo") {
 		t.Fatal("stale save reached the folder")
 	}
@@ -185,7 +187,7 @@ func TestEditorCannotHandOverApp(t *testing.T) {
 		"backup": func(d *appDetail) { d.BackupID = &two },
 		"area":   func(d *appDetail) { d.Manifest.Area = "Outra" },
 	}
-	before, _ := os.ReadFile(filepath.Join(dir, "app-hub.yaml"))
+	before, _ := os.ReadFile(filepath.Join(dir, manifest.FileName))
 	for name, change := range changes {
 		d := detailOf(t, ana, id)
 		change(&d)
@@ -198,7 +200,7 @@ func TestEditorCannotHandOverApp(t *testing.T) {
 	if code := ana.do("POST", "/api/apps", map[string]any{"folder_path": dir, "owner_id": 2, "manifest": d.Manifest}, nil); code != http.StatusForbidden {
 		t.Fatalf("editor republishes as owner = %d", code)
 	}
-	after, _ := os.ReadFile(filepath.Join(dir, "app-hub.yaml"))
+	after, _ := os.ReadFile(filepath.Join(dir, manifest.FileName))
 	if string(before) != string(after) {
 		t.Fatal("a refused hand-over wrote the folder")
 	}

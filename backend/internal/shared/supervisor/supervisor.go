@@ -32,7 +32,7 @@ const msgGaveUp = "O app parou de responder 3 vezes em 10 minutos."
 const restartWindow = 10 * time.Minute
 
 // msgStale is the reason shown for a deployment the Hub lost track of.
-const msgStale = "O Hub reiniciou durante a montagem. Publique de novo."
+const msgStale = "O Ziv reiniciou durante a montagem. Publique de novo."
 
 type Supervisor struct {
 	Interval   time.Duration
@@ -135,7 +135,8 @@ func (s *Supervisor) Reconcile(ctx context.Context) error {
 		return err
 	}
 	for _, c := range list {
-		if id, err := strconv.ParseInt(c.Labels[engine.Label], 10, 64); err == nil && s.svc.Busy(id) {
+		label, _ := engine.AppLabel(c.Labels)
+		if id, err := strconv.ParseInt(label, 10, 64); err == nil && s.svc.Busy(id) {
 			continue // being built or started right now by this Hub
 		}
 		if !expected[c.ID] {
@@ -200,7 +201,7 @@ func (s *Supervisor) clearStaleBuilding(ctx context.Context, now time.Time, minA
 			_ = s.eng.Remove(ctx, d.ContainerID)
 		}
 		for _, c := range running {
-			if c.Labels["app-hub.deployment"] == strconv.FormatInt(d.ID, 10) {
+			if engine.DeploymentID(c.Labels) == strconv.FormatInt(d.ID, 10) {
 				_ = s.eng.Remove(ctx, c.ID)
 			}
 		}
@@ -362,7 +363,7 @@ func (s *Supervisor) restart(ctx context.Context, a sqlc.ListSharedAppsRow, now 
 		if count >= 3 {
 			_ = s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: a.AppID, Status: "crashed",
 				StatusMessage: msgGaveUp})
-			s.svc.HubEvent(ctx, a.AppID, "O app caiu e o Hub parou de tentar religar")
+			s.svc.HubEvent(ctx, a.AppID, "O app caiu e o Ziv parou de tentar religar")
 			return errGaveUp
 		}
 		if err := s.q.SetSharedRestarts(ctx, sqlc.SetSharedRestartsParams{AppID: a.AppID, RestartCount: count + 1, RestartWindowStart: start}); err != nil {

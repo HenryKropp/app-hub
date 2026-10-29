@@ -44,7 +44,6 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
-
 	if err := database.Migrate(ctx, pool); err != nil {
 		slog.Error("migrate", "err", err)
 		os.Exit(1)
@@ -56,9 +55,8 @@ func main() {
 	}
 	defer portal.Close()
 
-	// The upstream single-company runtime uses globally named containers,
-	// databases and app hosts. Do not connect it to this multi-company portal
-	// until those resources and the gateway are workspace-scoped.
+	// Upstream hosting uses global resource names. Do not adopt/rename its
+	// containers or storage in this portal until they are workspace-scoped.
 	slog.Warn("shared runtime disabled in multi-company portal; workspace-aware execution required")
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: portal, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 90 * time.Second, MaxHeaderBytes: 1 << 20}
 	stopped := make(chan struct{})

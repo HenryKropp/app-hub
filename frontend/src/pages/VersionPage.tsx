@@ -47,8 +47,8 @@ function AsItWas({ appId, n, files }: { appId: string; n: string; files: Version
         {files.map((f) => (
           <li key={f.path}>
             <button type="button" disabled={f.kind === "binary"} onClick={() => show(f.path)}
-              className={`w-full truncate text-left font-mono text-xs ${open?.path === f.path ? "text-brand" : ""} disabled:text-muted-foreground`}
-              title={f.kind === "binary" ? "Programa pronto: o Hub guarda só o tamanho e a data" : f.path}>
+              className={`w-full truncate text-left font-mono text-xs ${open?.path === f.path ? "font-medium text-foreground" : ""} disabled:text-muted-foreground`}
+              title={f.kind === "binary" ? "Programa pronto: o Ziv guarda só o tamanho e a data" : f.path}>
               {f.path}
             </button>
           </li>
@@ -124,7 +124,7 @@ export function VersionPage() {
         </div>
         {view === "mudancas" && info.origin === "original" ? (
           <p className="text-sm text-muted-foreground">
-            Esta é a primeira versão: como a pasta estava quando o Hub começou a acompanhar o app. Para ver os arquivos, abra{" "}
+            Esta é a primeira versão: como a pasta estava quando o Ziv começou a acompanhar o app. Para ver os arquivos, abra{" "}
             <button type="button" className="underline underline-offset-4 hover:text-foreground" onClick={() => setParams({ ver: "arquivos" })}>Como estava</button>.
           </p>
         ) : view === "mudancas" ? changes && <Changes files={changes} /> : files && <AsItWas appId={id} n={n} files={files} />}

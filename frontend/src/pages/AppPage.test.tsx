@@ -351,7 +351,7 @@ it("offers Tornar compartilhado on a web app to who takes care, not to others", 
   base(web)
   const { unmount } = renderPage()
   expect(await screen.findByRole("button", { name: "Tornar compartilhado" })).toBeInTheDocument()
-  expect(screen.getByText("Fica num endereço só, para várias pessoas usarem ao mesmo tempo, com os dados guardados no Hub.")).toBeInTheDocument()
+  expect(screen.getByText("Fica num endereço só, para várias pessoas usarem ao mesmo tempo, com os dados guardados no Ziv.")).toBeInTheDocument()
   unmount()
   base({ ...web, can: { ...web.can, restore: false } })
   renderPage(bia)

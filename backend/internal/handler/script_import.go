@@ -75,7 +75,7 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, "Não envie arquivos de credenciais (.env, .pem, .key). Retire as senhas do pacote antes de importar.")
 			return
 		}
-		if !manifest.SafeRelative(name) || name == manifest.FileName || name == manifest.FichaName || strings.HasPrefix(base, ".apphub-") || seen[key] || strings.Contains(name, `\`) {
+		if !manifest.SafeRelative(name) || manifest.IsManifestName(base) || name == manifest.FichaName || strings.HasPrefix(base, ".apphub-") || seen[key] || strings.Contains(name, `\`) {
 			writeError(w, http.StatusBadRequest, "Use nomes de arquivos relativos, sem repetições ou caminhos externos.")
 			return
 		}

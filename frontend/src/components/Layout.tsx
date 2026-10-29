@@ -6,7 +6,7 @@ import { canRegister, canSeeServer, canSeeTeam, has } from "@/lib/permissions"
 import { RunsProvider, useRuns } from "@/lib/runs-context"
 import { isLive } from "@/lib/runs"
 import { cn } from "@/lib/utils"
-import { Logo, Playing } from "./bits"
+import { Playing, Wordmark } from "./bits"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +26,7 @@ const NAV = [
 ]
 
 const NAV_ITEM = "flex shrink-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors"
-const NAV_ON = "bg-accent font-medium text-foreground"
+const NAV_ON = "relative bg-accent font-medium text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-brand"
 const NAV_OFF = "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
 
 const SOON = [
@@ -68,8 +68,7 @@ function Shell() {
       </a>
       <aside className="relative z-10 flex shrink-0 flex-col border-b border-sidebar-border bg-sidebar md:sticky md:top-0 md:h-svh md:w-60 md:border-r md:border-b-0">
         <div className="flex items-center gap-2.5 px-5 pt-4 pb-3 md:pt-5 md:pb-6">
-          <Logo className="size-7" />
-          <p className="text-[0.95rem] font-semibold tracking-[-0.01em]">App Hub</p>
+          <Wordmark className="h-9 w-auto" />
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Sua conta"
@@ -104,10 +103,10 @@ function Shell() {
             >
               {({ isActive }) => (
                 <>
-                  <Icon className={cn("size-4", (isActive || (to === "/" && inCatalog)) && "text-brand")} />
+                  <Icon className={cn("size-4", (isActive || (to === "/" && inCatalog)) && "text-foreground")} />
                   {label}
                   {to === "/execucoes" && openCount > 0 && (
-                    <span aria-label={`${openCount} ${openCount === 1 ? "aberto" : "abertos"} agora`} className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-brand">
+                    <span aria-label={`${openCount} ${openCount === 1 ? "aberto" : "abertos"} agora`} className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
                       <Playing />
                       {openCount}
                     </span>
@@ -131,7 +130,7 @@ function Shell() {
           <NavLink to="/configuracoes" className={({ isActive }) => cn(NAV_ITEM, isActive ? NAV_ON : NAV_OFF)}>
             {({ isActive }) => (
               <>
-                <Settings className={cn("size-4", isActive && "text-brand")} />
+                <Settings className={cn("size-4", isActive && "text-foreground")} />
                 Configurações
               </>
             )}
