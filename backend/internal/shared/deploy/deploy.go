@@ -460,6 +460,9 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 			logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: old.ID}), "clear container", "deployment", old.ID)
 			logErr(s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: old.ID, Status: "retired"}), "retire", "deployment", old.ID)
 		}
+		// A box from the App Hub era lived on the old network; once it is gone the
+		// network is an orphan (podman refuses while something still uses it).
+		logErr(s.eng.RemoveNetwork(ctx, engine.LegacyAppNetwork(j.app.ID)), "remove legacy network", "app", j.app.ID)
 		if j.sa.PreviousDeploymentID.Valid { // só a anterior guarda imagem
 			if older, err := s.q.GetDeployment(ctx, j.sa.PreviousDeploymentID.Int64); err == nil && older.ImageID != "" {
 				logErr(s.eng.RemoveImage(ctx, older.ImageID), "remove older image", "image", older.ImageID)
@@ -658,6 +661,7 @@ func (s *Service) Rollback(ctx context.Context, appID int64, withData bool, by i
 	if cur.ContainerID != "" {
 		logErr(s.eng.Remove(ctx, cur.ContainerID), "remove container", "container", cur.ContainerID)
 	}
+	logErr(s.eng.RemoveNetwork(ctx, engine.LegacyAppNetwork(appID)), "remove legacy network", "app", appID)
 	logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: cur.ID}), "clear container", "deployment", cur.ID)
 	logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: prev.ID, ContainerID: cid}), "set container", "deployment", prev.ID)
 	logErr(s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: prev.ID, Status: "live"}), "set live", "deployment", prev.ID)

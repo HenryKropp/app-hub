@@ -96,6 +96,15 @@ func main() {
 				slog.Info("adopted the App Hub shared data folder", "from", old, "to", cfg.SharedDataDir)
 			}
 		}
+		// Backup rows keep absolute paths; point the ones under the old folder at
+		// the adopted one. Idempotent, so it runs on every start.
+		if pool != nil {
+			if n, err := deploy.MoveBackupPaths(ctx, pool, old, cfg.SharedDataDir); err != nil {
+				slog.Warn("move backup paths", "err", err)
+			} else if n > 0 {
+				slog.Info("moved backup paths to the adopted folder", "rows", n)
+			}
+		}
 	}
 	// Exec (pg_dump/pg_restore) may enter the Hub's own Postgres container;
 	// everything else stays limited to containers labelled by the Hub.
