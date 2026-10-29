@@ -188,7 +188,7 @@ export function Tech({ app, onChanged }: { app: AppDetail; onChanged: (next?: Ap
         setInfo(i)
         setError("")
       },
-      (e) => !gone && setError(errText(e, "O Kova não respondeu sobre o app compartilhado. Tente de novo em alguns segundos.")),
+      (e) => !gone && setError(errText(e, "O Ziv não respondeu sobre o app compartilhado. Tente de novo em alguns segundos.")),
     )
     api.shared.usage(app.id).then((u) => !gone && setUsage(u), () => !gone && setUsage([]))
     return () => {

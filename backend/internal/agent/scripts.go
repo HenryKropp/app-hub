@@ -157,7 +157,7 @@ func (r *Runner) runScript(ctx context.Context, p agentproto.RunPayload, report 
 			// fixed_file is an explicit exception for the declared data file.
 			dest := filepath.Join(work, rel)
 			if strings.HasPrefix(strings.ToLower(filepath.ToSlash(rel)), ".apphub-") && in.Source == "fixed_file" {
-				return failed("O caminho de entrada usa um nome reservado pelo Kova.")
+				return failed("O caminho de entrada usa um nome reservado pelo Ziv.")
 			}
 			if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
 				return failed("Não consegui preparar o arquivo de entrada.")

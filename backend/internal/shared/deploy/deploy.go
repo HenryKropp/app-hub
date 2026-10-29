@@ -44,7 +44,7 @@ var (
 type Options struct {
 	DataDir       string        // SHARED_DATA_DIR
 	Domain        string        // SHARED_APPS_DOMAIN, ex.: "localhost:8080"
-	Scheme        string        // "http" ou "https" (do BASE_URL do Kova)
+	Scheme        string        // "http" ou "https" (do BASE_URL do Ziv)
 	HealthTimeout time.Duration // 90 s; testes usam 1 s
 }
 
@@ -235,7 +235,7 @@ func (s *Service) recoverJob(j job) {
 	if d, err := s.q.GetDeployment(ctx, j.dep.ID); err == nil && d.Status != "building" {
 		return // already recorded as finished; leave it as it is
 	}
-	s.fail(ctx, j, &failure{msg: "Erro inesperado no Kova. Tente de novo; se repetir, avise o administrador.", log: fmt.Sprint(r)})
+	s.fail(ctx, j, &failure{msg: "Erro inesperado no Ziv. Tente de novo; se repetir, avise o administrador.", log: fmt.Sprint(r)})
 }
 
 func (s *Service) prepare(ctx context.Context, app sqlc.App, m manifest.Manifest, by int64, test bool) (sqlc.SharedDeployment, job, error) {
@@ -248,7 +248,7 @@ func (s *Service) prepare(ctx context.Context, app sqlc.App, m manifest.Manifest
 		return sqlc.SharedDeployment{}, job{}, err
 	}
 	if rec.Kind == "" {
-		return sqlc.SharedDeployment{}, job{}, errors.New("O Kova não sabe ligar este app. Veja a checagem para o que falta.")
+		return sqlc.SharedDeployment{}, job{}, errors.New("O Ziv não sabe ligar este app. Veja a checagem para o que falta.")
 	}
 	if rec.Port == 0 {
 		rec.Port = int(sa.Port)
@@ -364,10 +364,10 @@ func (s *Service) start(ctx context.Context, j job, img, dbName string) (string,
 		return "", 0, &failure{msg: "Não foi possível preparar as configurações do app.", log: err.Error()}
 	}
 	appDir := filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(j.app.ID, 10))
-	name := fmt.Sprintf("kova-%s-%d", j.sa.Slug, j.dep.ID)
+	name := fmt.Sprintf("ziv-%s-%d", j.sa.Slug, j.dep.ID)
 	data := filepath.Join(appDir, "data")
 	if j.test {
-		name = fmt.Sprintf("kova-%s-teste-%d", j.sa.Slug, j.dep.ID)
+		name = fmt.Sprintf("ziv-%s-teste-%d", j.sa.Slug, j.dep.ID)
 		data = filepath.Join(appDir, "test-data")
 	}
 	if err := os.MkdirAll(data, 0o755); err != nil {
@@ -394,7 +394,7 @@ func (s *Service) start(ctx context.Context, j job, img, dbName string) (string,
 }
 
 // msgRecord is shown when the Hub could not record a finished swap.
-const msgRecord = "Não foi possível registrar a versão nova no Kova. Nada mudou no app; tente de novo em alguns minutos."
+const msgRecord = "Não foi possível registrar a versão nova no Ziv. Nada mudou no app; tente de novo em alguns minutos."
 
 func (s *Service) runPublish(ctx context.Context, j job) *failure {
 	if t, err := s.q.ListOpenTests(ctx, j.app.ID); err == nil { // encerra o teste em andamento
@@ -460,9 +460,11 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 			logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: old.ID}), "clear container", "deployment", old.ID)
 			logErr(s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: old.ID, Status: "retired"}), "retire", "deployment", old.ID)
 		}
-		// A box from the App Hub era lived on the old network; once it is gone the
+		// A box from the Ziv or App Hub era lived on an old network; once it is gone the
 		// network is an orphan (podman refuses while something still uses it).
-		logErr(s.eng.RemoveNetwork(ctx, engine.LegacyAppNetwork(j.app.ID)), "remove legacy network", "app", j.app.ID)
+		for _, n := range engine.LegacyAppNetworks(j.app.ID) {
+			logErr(s.eng.RemoveNetwork(ctx, n), "remove legacy network", "app", j.app.ID)
+		}
 		if j.sa.PreviousDeploymentID.Valid { // só a anterior guarda imagem
 			if older, err := s.q.GetDeployment(ctx, j.sa.PreviousDeploymentID.Int64); err == nil && older.ImageID != "" {
 				logErr(s.eng.RemoveImage(ctx, older.ImageID), "remove older image", "image", older.ImageID)
@@ -519,7 +521,7 @@ func (s *Service) runTest(ctx context.Context, j job) *failure {
 		Port: int32(j.rec.Port), BuildLog: lastLines(log, 40)}); err != nil {
 		s.discard(ctx, cid, img)
 		dropDB()
-		return &failure{msg: "Não foi possível registrar o teste no Kova. Tente de novo em alguns minutos.", log: log + "\n" + err.Error()}
+		return &failure{msg: "Não foi possível registrar o teste no Ziv. Tente de novo em alguns minutos.", log: log + "\n" + err.Error()}
 	}
 	s.setTarget(j.app.ID, true, port)
 	return nil
@@ -655,13 +657,15 @@ func (s *Service) Rollback(ctx context.Context, appID int64, withData bool, by i
 		CurrentID: pgtype.Int8{Int64: prev.ID, Valid: true}, PreviousID: pgtype.Int8{Int64: cur.ID, Valid: true}}); err != nil {
 		slog.Error("shared rollback: record swap", "app", appID, "err", err)
 		logErr(s.eng.Remove(ctx, cid), "remove container", "container", cid)
-		return undo("Não foi possível registrar a troca de versão no Kova.")
+		return undo("Não foi possível registrar a troca de versão no Ziv.")
 	}
 	s.setTarget(appID, false, hostPort)
 	if cur.ContainerID != "" {
 		logErr(s.eng.Remove(ctx, cur.ContainerID), "remove container", "container", cur.ContainerID)
 	}
-	logErr(s.eng.RemoveNetwork(ctx, engine.LegacyAppNetwork(appID)), "remove legacy network", "app", appID)
+	for _, n := range engine.LegacyAppNetworks(appID) {
+		logErr(s.eng.RemoveNetwork(ctx, n), "remove legacy network", "app", appID)
+	}
 	logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: cur.ID}), "clear container", "deployment", cur.ID)
 	logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: prev.ID, ContainerID: cid}), "set container", "deployment", prev.ID)
 	logErr(s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: prev.ID, Status: "live"}), "set live", "deployment", prev.ID)

@@ -17,16 +17,19 @@ import (
 
 const (
 	Version      = 1
-	FileName     = "kova.yaml"
+	FileName     = "ziv.yaml"
 	FichaName    = "FICHA.md"
-	headerMarker = "# Kova — manifesto do app"
-	fichaMarker  = "<!-- kova:ficha -->"
+	headerMarker = "# Ziv — manifesto do app"
+	fichaMarker  = "<!-- ziv:ficha -->"
+)
 
-	// Names written by the App Hub, before it became Kova. Apps registered back
-	// then keep their app-hub.yaml: it is still read and saved in place.
-	LegacyFileName     = "app-hub.yaml"
-	legacyHeaderMarker = "# App Hub — manifesto do app"
-	legacyFichaMarker  = "<!-- app-hub:ficha -->"
+// Names written before Ziv, newest first: by Kova, and by the App Hub before
+// it. Apps registered back then keep their kova.yaml or app-hub.yaml: it is
+// still read and saved in place.
+var (
+	LegacyFileNames     = []string{"kova.yaml", "app-hub.yaml"}
+	legacyHeaderMarkers = []string{"# Kova — manifesto do app", "# App Hub — manifesto do app"}
+	legacyFichaMarkers  = []string{"<!-- kova:ficha -->", "<!-- app-hub:ficha -->"}
 )
 
 // Kinds of app the Hub understands.
@@ -300,7 +303,7 @@ func (m Manifest) sharedProblems() []string {
 	for _, e := range s.Env {
 		switch {
 		case slices.Contains(ReservedEnv, e.Name):
-			out = append(out, e.Name+" é preenchida pelo Kova; tire da lista de configurações.")
+			out = append(out, e.Name+" é preenchida pelo Ziv; tire da lista de configurações.")
 		case !envName.MatchString(e.Name):
 			out = append(out, fmt.Sprintf("O nome da configuração %q só pode ter letras maiúsculas, números e _.", e.Name))
 		case seen[e.Name]:

@@ -26,7 +26,7 @@ test("shows confirmed progress and saves the company name through onboarding", a
   const save = vi.spyOn(api, "saveCompanyName").mockResolvedValue(state({ company_name: "Alis" }))
   mount()
 
-  expect(await screen.findByText("Prepare o Kova para sua equipe")).toBeInTheDocument()
+  expect(await screen.findByText("Prepare o Ziv para sua equipe")).toBeInTheDocument()
   expect(screen.getByText("0")).toBeInTheDocument()
   expect(screen.queryByRole("link", { name: "Baixar Agente" })).toBeInTheDocument()
   await user.type(screen.getByLabelText("Nome da empresa"), "Alis")

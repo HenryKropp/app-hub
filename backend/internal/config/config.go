@@ -58,11 +58,11 @@ func Load() (Config, error) {
 	cfg.SecretKey = os.Getenv("HUB_SECRET_KEY")
 	cfg.AppsDBAdminURL = envOr("APPS_DB_ADMIN_URL", cfg.DatabaseURL)
 	cfg.AppsDBHost = envOr("APPS_DB_HOST_FOR_CONTAINERS", "host.containers.internal:5433")
-	cfg.AppsDBContainer = envOr("APPS_DB_CONTAINER", "kova-db")
+	cfg.AppsDBContainer = envOr("APPS_DB_CONTAINER", "ziv-db")
 	cfg.AppsDBContainerExplicit = os.Getenv("APPS_DB_CONTAINER") != ""
 	cfg.SharedDomain = envOr("SHARED_APPS_DOMAIN", "localhost:8080")
 	home, _ := os.UserHomeDir()
-	cfg.SharedDataDir = envOr("SHARED_DATA_DIR", filepath.Join(home, ".local", "share", "kova", "shared"))
+	cfg.SharedDataDir = envOr("SHARED_DATA_DIR", filepath.Join(home, ".local", "share", "ziv", "shared"))
 	cfg.SharedDataDirExplicit = os.Getenv("SHARED_DATA_DIR") != ""
 	cfg.ContainerEngine = envOr("CONTAINER_ENGINE", "podman")
 	return cfg, nil

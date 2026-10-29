@@ -7,13 +7,37 @@ import { kindInfo } from "@/lib/kinds"
 import { useTheme, type ThemePref } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 
-/** O símbolo do Kova: uma enseada (o arco) protegendo o app (o ponto). Geometria oficial no spec da identidade. */
+/** O ícone do Ziv: o "i" do nome, com o pingo coral brilhando como um farol. Geometria oficial no BRAND.md. */
 export function Logo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 48 48" className={className} role="img" aria-label={PRODUCT_NAME}>
       <rect width="48" height="48" rx="12" fill="var(--logo-square)" />
-      <path d="M33 13.5A14 14 0 1 0 33 34.5" fill="none" stroke="#F4EFE6" strokeWidth="5" strokeLinecap="round" />
-      <circle cx="24" cy="24" r="5" fill="#FF6B4A" />
+      <g fill="none" stroke="#FF6B4A" strokeWidth="1.4" strokeLinecap="round">
+        <path d="M24 6V3.5" />
+        <path d="M18.7 8.2L16.93 6.43" />
+        <path d="M29.3 8.2L31.07 6.43" />
+      </g>
+      <path d="M24 22V36" fill="none" stroke="#F4EFE6" strokeWidth="5" strokeLinecap="round" />
+      <circle cx="24" cy="13.5" r="4" fill="#FF6B4A" />
+    </svg>
+  )
+}
+
+/** O nome "ziv" desenhado, com o pingo do i coral e três raios. As letras seguem a cor do texto (claro e escuro). */
+export function Wordmark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 -6 60 50" className={className} role="img" aria-label={PRODUCT_NAME}>
+      <g fill="none" stroke="#FF6B4A" strokeWidth="1.6" strokeLinecap="round">
+        <path d="M29 1.5V-0.5" />
+        <path d="M24.4 3.4L23 2" />
+        <path d="M33.6 3.4L35 2" />
+      </g>
+      <g fill="none" stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 18H19L4 38H19" />
+        <path d="M29 18V38" />
+        <path d="M39 18L47 38L55 18" />
+      </g>
+      <circle cx="29" cy="8" r="4" fill="#FF6B4A" />
     </svg>
   )
 }

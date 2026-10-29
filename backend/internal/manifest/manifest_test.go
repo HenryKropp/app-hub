@@ -157,7 +157,7 @@ func TestSharedValidation(t *testing.T) {
 		{"bad db", func(m *Manifest) { m.Shared.Database = "mysql" }, "O banco do app compartilhado precisa ser postgres."},
 		{"bad port", func(m *Manifest) { m.Shared.Port = 70000 }, "A porta do app precisa estar entre 1 e 65535."},
 		{"memory", func(m *Manifest) { m.Shared.MemoryMB = 64 }, "A memória do app precisa estar entre 128 e 16384 MB."},
-		{"reserved env", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "DATABASE_URL", Label: "x"}} }, "DATABASE_URL é preenchida pelo Kova; tire da lista de configurações."},
+		{"reserved env", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "DATABASE_URL", Label: "x"}} }, "DATABASE_URL é preenchida pelo Ziv; tire da lista de configurações."},
 		{"bad env name", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "minha var", Label: "x"}} }, "O nome da configuração \"minha var\" só pode ter letras maiúsculas, números e _."},
 		{"underscore start", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "_db_password", Label: "x"}} }, "só pode ter letras maiúsculas"},
 		{"dup env", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "A", Label: "a"}, {Name: "A", Label: "b"}} }, "A configuração A aparece duas vezes."},
@@ -206,84 +206,96 @@ func TestDiffShared(t *testing.T) {
 	t.Fatal("no shared change")
 }
 
-// legacyManifest is an app-hub.yaml as the old App Hub wrote it.
-func legacyManifest(t *testing.T, dir string) {
+// legacyManifest writes a manifest and ficha as an older version wrote them:
+// name is kova.yaml (Ziv) or app-hub.yaml (the App Hub).
+func legacyManifest(t *testing.T, dir, name string) {
 	t.Helper()
+	i := map[string]int{"kova.yaml": 0, "app-hub.yaml": 1}[name]
 	data, err := Marshal(valid())
 	if err != nil {
 		t.Fatal(err)
 	}
-	data = bytes.Replace(data, []byte(headerMarker), []byte(legacyHeaderMarker), 1)
-	if err := os.WriteFile(filepath.Join(dir, LegacyFileName), data, 0o644); err != nil {
+	data = bytes.Replace(data, []byte(headerMarker), []byte(legacyHeaderMarkers[i]), 1)
+	if err := os.WriteFile(filepath.Join(dir, name), data, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, FichaName), []byte(legacyFichaMarker+"\n# ficha antiga\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, FichaName), []byte(legacyFichaMarkers[i]+"\n# ficha antiga\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestWriteToFolder_LegacyOnly_KeepsLegacy(t *testing.T) {
-	dir := t.TempDir()
-	legacyManifest(t, dir)
-	m := valid()
-	m.Name = "Nome novo"
-	if err := WriteToFolder(dir, m); err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(filepath.Join(dir, LegacyFileName))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if back, _ := Parse(data); back.Name != "Nome novo" {
-		t.Errorf("legacy file not updated: %s", data)
-	}
-	if _, err := os.Stat(filepath.Join(dir, FileName)); !os.IsNotExist(err) {
-		t.Error("kova.yaml must not be created next to an existing app-hub.yaml")
+	for _, name := range LegacyFileNames {
+		dir := t.TempDir()
+		legacyManifest(t, dir, name)
+		m := valid()
+		m.Name = "Nome novo"
+		if err := WriteToFolder(dir, m); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		data, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if back, _ := Parse(data); back.Name != "Nome novo" {
+			t.Errorf("%s not updated: %s", name, data)
+		}
+		if _, err := os.Stat(filepath.Join(dir, FileName)); !os.IsNotExist(err) {
+			t.Errorf("ziv.yaml must not be created next to an existing %s", name)
+		}
 	}
 }
 
-func TestWriteToFolder_NewApp_WritesKova(t *testing.T) {
+func TestWriteToFolder_NewApp_WritesZiv(t *testing.T) {
 	dir := t.TempDir()
 	if err := WriteToFolder(dir, valid()); err != nil {
 		t.Fatal(err)
 	}
-	data, err := os.ReadFile(filepath.Join(dir, "kova.yaml"))
-	if err != nil || !strings.HasPrefix(string(data), "# Kova — manifesto do app\n") {
-		t.Fatalf("kova.yaml = %q %v", data, err)
+	data, err := os.ReadFile(filepath.Join(dir, "ziv.yaml"))
+	if err != nil || !strings.HasPrefix(string(data), "# Ziv — manifesto do app\n") {
+		t.Fatalf("ziv.yaml = %q %v", data, err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "app-hub.yaml")); !os.IsNotExist(err) {
-		t.Error("new apps get no app-hub.yaml")
+	for _, old := range []string{"kova.yaml", "app-hub.yaml"} {
+		if _, err := os.Stat(filepath.Join(dir, old)); !os.IsNotExist(err) {
+			t.Errorf("new apps get no %s", old)
+		}
 	}
-	if ficha, _ := os.ReadFile(filepath.Join(dir, FichaName)); !strings.HasPrefix(string(ficha), "<!-- kova:ficha -->") {
+	if ficha, _ := os.ReadFile(filepath.Join(dir, FichaName)); !strings.HasPrefix(string(ficha), "<!-- ziv:ficha -->") {
 		t.Errorf("ficha = %q", ficha)
 	}
 }
 
-func TestLocate_BothPresent_PrefersKova(t *testing.T) {
+func TestLocate_PrefersNewestName(t *testing.T) {
 	dir := t.TempDir()
-	if got := Locate(dir); got != filepath.Join(dir, "kova.yaml") {
+	if got := Locate(dir); got != filepath.Join(dir, "ziv.yaml") {
 		t.Errorf("empty dir: %s", got)
 	}
 	os.WriteFile(filepath.Join(dir, "app-hub.yaml"), []byte("x"), 0o644)
 	if got := Locate(dir); got != filepath.Join(dir, "app-hub.yaml") {
-		t.Errorf("legacy only: %s", got)
+		t.Errorf("app-hub only: %s", got)
 	}
 	os.WriteFile(filepath.Join(dir, "kova.yaml"), []byte("x"), 0o644)
 	if got := Locate(dir); got != filepath.Join(dir, "kova.yaml") {
-		t.Errorf("both: %s", got)
+		t.Errorf("kova and app-hub: %s", got)
+	}
+	os.WriteFile(filepath.Join(dir, "ziv.yaml"), []byte("x"), 0o644)
+	if got := Locate(dir); got != filepath.Join(dir, "ziv.yaml") {
+		t.Errorf("all three: %s", got)
 	}
 }
 
-func TestWriteToFolder_ForeignKovaYaml_Refuses(t *testing.T) {
-	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "kova.yaml"), []byte("name: outro projeto\n"), 0o644)
-	if err := WriteToFolder(dir, valid()); !errors.Is(err, ErrForeignFile) {
-		t.Fatalf("want ErrForeignFile, got %v", err)
+func TestWriteToFolder_ForeignManifest_Refuses(t *testing.T) {
+	for _, name := range []string{"ziv.yaml", "kova.yaml"} {
+		dir := t.TempDir()
+		os.WriteFile(filepath.Join(dir, name), []byte("name: outro projeto\n"), 0o644)
+		if err := WriteToFolder(dir, valid()); !errors.Is(err, ErrForeignFile) {
+			t.Fatalf("%s: want ErrForeignFile, got %v", name, err)
+		}
 	}
 }
 
 func TestIsManifestName(t *testing.T) {
-	for name, want := range map[string]bool{"kova.yaml": true, "app-hub.yaml": true, "KOVA.YAML": true, "App-Hub.yaml": true, "x.yaml": false, "FICHA.md": false} {
+	for name, want := range map[string]bool{"ziv.yaml": true, "ZIV.YAML": true, "kova.yaml": true, "app-hub.yaml": true, "KOVA.YAML": true, "App-Hub.yaml": true, "x.yaml": false, "FICHA.md": false} {
 		if IsManifestName(name) != want {
 			t.Errorf("%s: want %v", name, want)
 		}

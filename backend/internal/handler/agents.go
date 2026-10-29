@@ -429,11 +429,11 @@ func (h *Handler) agentDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.cfg.AgentBinaryPath == "" {
-		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Kova.")
+		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Ziv.")
 		return
 	}
 	if _, err := os.Stat(h.cfg.AgentBinaryPath); err != nil {
-		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Kova.")
+		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Ziv.")
 		return
 	}
 	w.Header().Set("Content-Type", "application/vnd.microsoft.portable-executable")

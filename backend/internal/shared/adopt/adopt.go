@@ -1,6 +1,6 @@
-// Package adopt takes over what the App Hub left under its old names (the
-// Postgres container and the shared apps' data folder) by renaming it, so the
-// first Kova start finds the same data. It never creates or deletes anything.
+// Package adopt takes over what Kova and the App Hub left under their old
+// names (the Postgres container and the shared apps' data folder) by renaming
+// it, so the first Ziv start finds the same data. It never creates or deletes anything.
 package adopt
 
 import (
@@ -40,4 +40,36 @@ func Container(ctx context.Context, run func(ctx context.Context, args ...string
 		return false, err
 	}
 	return true, nil
+}
+
+// NewestContainer tries Container with each old name in order (newest first)
+// and stops at the first rename. It returns the name it adopted, or "".
+func NewestContainer(ctx context.Context, run func(ctx context.Context, args ...string) ([]byte, error), newName string, oldNames ...string) (string, error) {
+	for _, old := range oldNames {
+		adopted, err := Container(ctx, run, newName, old)
+		if err != nil {
+			return "", err
+		}
+		if adopted {
+			return old, nil
+		}
+	}
+	return "", nil
+}
+
+// NewestDir tries Dir with each old path in order (newest first) and stops
+// once newPath exists. It returns the path it adopted, or "".
+func NewestDir(newPath string, oldPaths ...string) (string, error) {
+	if _, err := os.Stat(newPath); err == nil {
+		return "", nil
+	}
+	for _, old := range oldPaths {
+		if err := Dir(newPath, old); err != nil {
+			return "", err
+		}
+		if _, err := os.Stat(newPath); err == nil {
+			return old, nil
+		}
+	}
+	return "", nil
 }

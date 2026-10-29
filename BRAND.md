@@ -1,5 +1,5 @@
 ---
-name: "Kova"
+name: "Ziv"
 tagline: "Os apps da empresa, num lugar seguro."
 specVersion: "0.3.0"
 version: 1
@@ -7,17 +7,17 @@ language: pt-BR
 type: master
 ---
 
-# Kova
+# Ziv
 
-Identidade da marca: o que continua valendo mesmo se o visual for todo redesenhado. Como essa identidade aparece na tela do produto está no [`DESIGN.md`](DESIGN.md); o produto, no [`PRODUCT.md`](PRODUCT.md); a troca de nome, na [ADR 013](docs/adr/013-nome-kova-com-convivencia.md).
+Identidade da marca: o que continua valendo mesmo se o visual for todo redesenhado. Como essa identidade aparece na tela do produto está no [`DESIGN.md`](DESIGN.md); o produto, no [`PRODUCT.md`](PRODUCT.md); as trocas de nome, nas [ADR 013](docs/adr/013-nome-kova-com-convivencia.md) e [ADR 014](docs/adr/014-nome-ziv.md).
 
 ## Strategy
 
 ### Overview
 
-**O que é.** O Kova é o lugar onde os apps que uma empresa cria com IA passam a morar: cada app ganha dono, ficha, botão Rodar e histórico, e qualquer colega consegue usá-lo sem saber programar.
+**O que é.** O Ziv é o lugar onde os apps que uma empresa cria com IA passam a morar: cada app ganha dono, ficha, botão Rodar e histórico, e qualquer colega consegue usá-lo sem saber programar.
 
-**Origem.** Nasceu dentro da Alis Investimentos, onde dezenas de scripts e apps feitos com IA viviam espalhados em pastas do OneDrive, cada um dependendo de quem o criou. A Alis é o cliente zero; o Kova é produto próprio do Henry, feito para outras pequenas empresas sem TI. Antes se chamava App Hub (troca em 29/10/2026).
+**Origem.** Nasceu dentro da Alis Investimentos, onde dezenas de scripts e apps feitos com IA viviam espalhados em pastas do OneDrive, cada um dependendo de quem o criou. A Alis é o cliente zero; o Ziv é produto próprio do Henry, feito para outras pequenas empresas sem TI. Antes se chamava App Hub e, por um dia, Kova (trocas em 29/10/2026).
 
 **O que ele realmente faz.** Transforma "um script na pasta de alguém" em "uma ferramenta da empresa". Não cria apps nem substitui a IA que os cria: recebe o que já existe, entende como roda e dá a ele uma casa com regras.
 
@@ -48,7 +48,7 @@ Identidade da marca: o que continua valendo mesmo se o visual for todo redesenha
 
 **Categoria.** A casa dos apps internos feitos com IA em empresas pequenas: registro, uso e governança num só lugar.
 
-**O que o Kova não é.**
+**O que o Ziv não é.**
 - Não é um construtor de apps nem um low-code. Os apps vêm de fora, feitos com IA ou à mão.
 - Não é uma loja de apps.
 - Não é uma ferramenta de desenvolvedor. Quem usa nunca vê código nem manifesto.
@@ -59,16 +59,18 @@ Identidade da marca: o que continua valendo mesmo se o visual for todo redesenha
 - **Construtores de ferramentas internas** (Retool, Appsmith, Power Apps): pedem que o app seja refeito dentro deles e pressupõem alguém técnico.
 - **Bancos de dados e automação sem código** (Airtable, Zapier, Power Automate): organizam dados e fluxos, não os apps que a empresa já tem.
 - **Governança de TI para empresas grandes:** feita para times de TI, cara e pesada para quem não tem nenhum.
-- **O Kova fica no meio:** aceita o app como ele é e dá a ele dono, tela de uso e histórico, sem exigir TI.
+- **O Ziv fica no meio:** aceita o app como ele é e dá a ele dono, tela de uso e histórico, sem exigir TI.
 
 **Diferenciais estruturais.**
 - Genérico: qualquer app entra pelo mesmo caminho (o manifesto), sem tela feita sob medida.
-- O app não é refeito: o Kova lê o que já existe e guarda o original como versão 1.
+- O app não é refeito: o Ziv lê o que já existe e guarda o original como versão 1.
 - Quem usa só vê "Rodar" e os arquivos; a parte técnica fica com quem cuida.
 - Confiança visível: qual versão rodou, onde os arquivos ficaram e o que mudou.
 - Governança sem TI: dono e reserva obrigatórios, aviso de senhas no código e histórico.
 
-**Território.** O porto seguro: o lugar protegido onde os apps da empresa ficam guardados, em ordem e prontos para usar.
+**Território.** O porto seguro: o lugar protegido onde os apps da empresa ficam guardados, em ordem e prontos para usar. O símbolo é o farol desse porto: uma luz acesa que mostra onde estão as coisas.
+
+**O nome.** Ziv quer dizer "brilho" em hebraico. É curto, fácil de falar em português e em inglês e não descreve o produto. O pingo do i é essa luz.
 
 ### Personality
 
@@ -76,9 +78,9 @@ Identidade da marca: o que continua valendo mesmo se o visual for todo redesenha
 
 **Atributos:** Confiança, Ordem, Rapidez, Simplicidade, Cuidado.
 
-**O Kova é:** Calmo. Direto. Confiável. Discreto. Prático.
+**O Ziv é:** Calmo. Direto. Confiável. Discreto. Prático.
 
-**O Kova não é:** Não é técnico. Não é eufórico com IA. Não é burocrático. Não é decorativo. Não é alarmista.
+**O Ziv não é:** Não é técnico. Não é eufórico com IA. Não é burocrático. Não é decorativo. Não é alarmista.
 
 ### References & Anti-References
 
@@ -103,7 +105,7 @@ Identidade da marca: o que continua valendo mesmo se o visual for todo redesenha
 - Você sempre sabe o que rodou.
 - Nada se perde.
 
-**Mensagem-base.** O Kova dá a cada app feito com IA uma casa na empresa, para que qualquer pessoa use com confiança e sem depender de quem criou.
+**Mensagem-base.** O Ziv dá a cada app feito com IA uma casa na empresa, para que qualquer pessoa use com confiança e sem depender de quem criou.
 
 **Frase-síntese.** Os apps da empresa, guardados, em ordem e prontos para rodar.
 
@@ -111,7 +113,7 @@ Identidade da marca: o que continua valendo mesmo se o visual for todo redesenha
 
 **Tom:** calmo, direto, confiável e simples.
 
-**O Kova não pode ser:**
+**O Ziv não pode ser:**
 - uma ferramenta de programador;
 - mais uma empresa de "IA mágica";
 - um sistema burocrático de controle;
@@ -126,7 +128,7 @@ Identidade da marca: o que continua valendo mesmo se o visual for todo redesenha
 
 **Quem somos.**
 
-Somos o Kova, o lugar onde os apps da sua empresa moram. A IA facilitou criar ferramentas, e de repente cada pessoa tem um script numa pasta que só ela sabe rodar. A gente recebe esses apps do jeito que eles são, entende como funcionam e dá a cada um dono, ficha e um botão Rodar.
+Somos o Ziv, o lugar onde os apps da sua empresa moram. A IA facilitou criar ferramentas, e de repente cada pessoa tem um script numa pasta que só ela sabe rodar. A gente recebe esses apps do jeito que eles são, entende como funcionam e dá a cada um dono, ficha e um botão Rodar.
 
 Quem usa não precisa saber programar. Acha o app, clica em Rodar e pega os arquivos. Quem cria para de ser suporte. Quem responde pela empresa vê o que existe, quem cuida de cada coisa e onde está o risco.
 
@@ -144,7 +146,7 @@ Não fazemos barulho. Guardamos, organizamos e deixamos pronto para usar.
 - "Achou, rodou, pronto."
 
 **Slogans por contexto:**
-- Para quem usa: "Clique em Rodar. O resto é com o Kova."
+- Para quem usa: "Clique em Rodar. O resto é com o Ziv."
 - Para quem cria: "Seu app sai da sua pasta e entra na empresa."
 - Para o sócio: "Saiba o que existe, quem cuida e onde está o risco."
 - Para as férias: "O app continua quando quem fez sai de férias."
@@ -168,43 +170,43 @@ Não fazemos barulho. Guardamos, organizamos e deixamos pronto para usar.
 - Senha no código vira aviso, não surpresa.
 
 **Do jeito que o app já é**
-- O Kova não pede para refazer nada: lê o app como ele é e cuida dele.
+- O Ziv não pede para refazer nada: lê o app como ele é e cuida dele.
 
 ### Phrases
 
-- "Todo app tem casa no Kova."
+- "Todo app tem casa no Ziv."
 - "Da pasta de alguém para a empresa inteira."
 - "O app fica. Quem fez pode sair de férias."
-- "Rodou, está no Kova: versão, arquivos e quem rodou."
-- "Feito com IA, guardado no Kova."
+- "Rodou, está no Ziv: versão, arquivos e quem rodou."
+- "Feito com IA, guardado no Ziv."
 - "Nenhum app órfão."
-- "Na enseada, nenhum app se perde."
+- "Nenhum app fica no escuro."
 
 ### Vocabulary
 
 | Conceito | Chamamos de | Não | Por quê |
 |---|---|---|---|
-| O produto | o Kova (masculino) | a Kova, Kova Hub, App Hub | Decidido pelo Henry; App Hub é o nome antigo |
+| O produto | o Ziv (masculino) | a Ziv, Ziv Hub, Kova, App Hub | Decidido pelo Henry; App Hub e Kova são nomes antigos |
 | Programa, script ou executável registrado | app | ferramenta, solução, sistema, aplicação | Uma palavra só para tudo, curta |
 | Executar um app | Rodar | executar, disparar, processar | O gesto central da marca |
 | A página do app | ficha | perfil, detalhe, página de configuração | Diz o que é: o documento do app |
 | Uma vez que o app rodou | execução | job, tarefa, processo | Português simples |
-| O programa no computador de cada pessoa | Agente do Kova | cliente, daemon, serviço | Nome fixo no produto |
+| O programa no computador de cada pessoa | Agente do Ziv | cliente, daemon, serviço | Nome fixo no produto |
 | O arquivo que descreve o app | manifesto | config, YAML | Só aparece para quem cria, nunca para quem só usa |
 | Quem cuida do app | responsável e reserva | owner, mantenedor, admin do app | Português e papéis claros |
 
-**Escrita:** "Kova" sempre com K maiúsculo nos textos, sem negrito ou aspas. Fala-se "kôva".
+**Escrita:** "Ziv" sempre com Z maiúsculo nos textos, sem negrito ou aspas. Fala-se "ziv", como se escreve. Só o nome desenhado do logo é em minúsculas.
 
 ### Tonal Rules
 
 1. Escreva em português do Brasil simples; frases curtas.
-2. Fale com "você"; o Kova fala de si na terceira pessoa ("o Kova guarda") na interface e na primeira do plural ("a gente") em texto de marca.
+2. Fale com "você"; o Ziv fala de si na terceira pessoa ("o Ziv guarda") na interface e na primeira do plural ("a gente") em texto de marca.
 3. Nenhum jargão para quem só usa. Se um termo técnico for inevitável, explique-o na mesma frase.
 4. Comece pelo que a pessoa quer fazer, não pelo que o sistema é.
 5. Erro sempre vem com o próximo passo.
 6. Não exagere: nada de "revolucionário", "mágico", "inteligente" nem pontos de exclamação.
 7. Mostre fatos verificáveis (versão, data, pasta, quem rodou) em vez de adjetivos.
-8. Fale da IA como origem dos apps, nunca como o herói do Kova.
+8. Fale da IA como origem dos apps, nunca como o herói do Ziv.
 9. Governança é cuidado, não fiscalização: diga o que falta, sem culpar ninguém.
 10. Não invente números, clientes ou depoimentos.
 
@@ -222,33 +224,52 @@ Não fazemos barulho. Guardamos, organizamos e deixamos pronto para usar.
 | "Este app ainda não tem reserva. Escolha alguém." | "Violação de política de governança" |
 | "Os apps da empresa, num lugar seguro" | "Desbloqueie o potencial da IA na sua empresa" |
 | "Achamos uma senha escrita no código" | "Vulnerabilidade crítica detectada" |
-| "Salvo no Kova" | "Persistido no repositório" |
+| "Salvo no Ziv" | "Persistido no repositório" |
 
 ## Visual
 
 ### Logo & Marks
 
-- **Símbolo:** quadrado petróleo de cantos arredondados com um arco cor de areia aberto à direita (a enseada) e um ponto coral no centro (o app protegido). Geometria oficial:
+O pingo do i é a luz do Ziv: um ponto coral com três raios finos acima dele, como um farol.
+
+- **Nome escrito (logo principal):** "ziv" em minúsculas, desenhado em traço redondo (não é a fonte). O pingo do i é o ponto coral, com os três raios. As letras usam a cor do texto: Tinta no fundo claro e Areia no escuro. Geometria oficial:
+
+  ```svg
+  <svg viewBox="0 -6 60 50">
+    <g fill="none" stroke="#FF6B4A" stroke-width="1.6" stroke-linecap="round">
+      <path d="M29 1.5V-0.5"/><path d="M24.4 3.4L23 2"/><path d="M33.6 3.4L35 2"/>
+    </g>
+    <g fill="none" stroke="#11161A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 18H19L4 38H19"/><path d="M29 18V38"/><path d="M39 18L47 38L55 18"/>
+    </g>
+    <circle cx="29" cy="8" r="4" fill="#FF6B4A"/>
+  </svg>
+  ```
+
+- **Ícone** (aba do navegador, app no computador, lugares pequenos): quadrado petróleo de cantos arredondados só com o i: a haste cor de areia, o pingo coral e os raios. Geometria oficial:
 
   ```svg
   <svg viewBox="0 0 48 48">
     <rect width="48" height="48" rx="12" fill="#0E3B43"/>
-    <path d="M33 13.5A14 14 0 1 0 33 34.5" fill="none" stroke="#F4EFE6" stroke-width="5" stroke-linecap="round"/>
-    <circle cx="24" cy="24" r="5" fill="#FF6B4A"/>
+    <g fill="none" stroke="#FF6B4A" stroke-width="1.4" stroke-linecap="round">
+      <path d="M24 6V3.5"/><path d="M18.7 8.2L16.93 6.43"/><path d="M29.3 8.2L31.07 6.43"/>
+    </g>
+    <path d="M24 22V36" fill="none" stroke="#F4EFE6" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="24" cy="13.5" r="4" fill="#FF6B4A"/>
   </svg>
   ```
 
-- **Variante para fundo escuro:** o quadrado passa a `#256A75`; arco e ponto não mudam.
-- **Nome escrito:** "Kova" na fonte da marca (Geist). Um nome escrito próprio fica para uma segunda rodada.
-- **Área livre:** pelo menos o raio do ponto coral em volta do símbolo.
-- **Proibido:** mudar as cores do símbolo, girar ou fechar o arco, tirar ou mover o ponto, esticar, aplicar sombra, brilho ou gradiente, e colocar sobre foto.
-- **Fonte oficial:** o componente `Logo` em `frontend/src/components/bits.tsx` e o desenho da identidade em `docs/superpowers/specs/2026-10-28-kova-identidade-design.md`.
+- **Variante para fundo escuro:** no ícone, o quadrado passa a `#256A75`; no nome escrito, as letras passam a Areia. O pingo e os raios não mudam.
+- **Raios:** sempre três (um reto para cima e dois a 45°), finos e afastados do pingo. Uma versão animada, com os raios acendendo de vez em quando, pode ser usada em telas; em papel e e-mail, a versão parada.
+- **Área livre:** pelo menos a altura do pingo em volta do logo.
+- **Proibido:** mudar as cores, trocar o desenho das letras por uma fonte, engrossar ou multiplicar os raios, tirar o pingo coral, esticar, aplicar sombra, brilho ou gradiente, e colocar sobre foto.
+- **Fonte oficial:** os componentes `Logo` (ícone) e `Wordmark` (nome escrito) em `frontend/src/components/bits.tsx`.
 
 ### Core Colors
 
 - **Coral** `#FF6B4A` (obrigatória). O sinal: o que dá para começar e o que está rodando agora. Vale porque é a única cor viva; aparece sempre como preenchimento, nunca como cor de texto.
-- **Petróleo** `#0E3B43` (obrigatória). A enseada, a proteção. Só no símbolo.
-- **Areia** `#F4EFE6` (obrigatória). O arco do símbolo, o abrigo. Só no símbolo.
+- **Petróleo** `#0E3B43` (obrigatória). O fundo do ícone, a noite em volta do farol. Só no ícone.
+- **Areia** `#F4EFE6` (obrigatória). A haste do i no ícone. Só no ícone.
 - **Tinta** `#11161A` (obrigatória). O texto e a base neutra da marca: quase preta, nunca preto puro.
 
 **Evitar:** violeta (a cor do App Hub antigo), qualquer arco-íris de cores para tipos, áreas ou pessoas, e gradientes.
@@ -271,18 +292,18 @@ Não fazemos barulho. Guardamos, organizamos e deixamos pronto para usar.
 ### Naming
 
 - O nome do produto mora numa constante só (`frontend/src/lib/brand.ts` e `backend/internal/brand`), para que uma troca custe uma linha.
-- Partes do produto ganham nomes descritivos em português, com "do Kova" quando precisam de dono: "Agente do Kova", "Minhas execuções", "Apps da empresa". Sem nomes inventados para funções.
-- "Kova" com K maiúsculo; sem plural nem variações ("Kovas", "Kova App").
-- Antes de usar publicamente: a busca no INPI ainda está pendente (por conta do Henry). Domínios candidatos: kova.app e kova.com.br, ainda não registrados.
+- Partes do produto ganham nomes descritivos em português, com "do Ziv" quando precisam de dono: "Agente do Ziv", "Minhas execuções", "Apps da empresa". Sem nomes inventados para funções.
+- "Ziv" com Z maiúsculo; sem plural nem variações ("Zivs", "Ziv App").
+- Antes de usar publicamente: a busca no INPI (classes 9 e 42) ainda está pendente. Em 29/10/2026, ziv.com, ziv.com.br, ziv.app e ziv.dev já tinham dono; zivhub.com e zivhub.com.br estavam livres. A empresa mais próxima com o nome é a ZIV (tecnologia para redes de energia, com filial em Niterói), de outro setor.
 
 ### Claims
 
 **Aprovadas:** nenhuma ainda. Não há clientes externos, números de uso, preços nem depoimentos.
 
 **Fatos que podem ser ditos** (vêm do produto, não são promessas de resultado):
-- O Kova guarda o estado original de cada app como versão 1.
+- O Ziv guarda o estado original de cada app como versão 1.
 - Cada app publicado tem um responsável.
-- O Kova avisa quando encontra senha ou chave escrita no código.
+- O Ziv avisa quando encontra senha ou chave escrita no código.
 
 **Rascunhos, precisam de aprovação do Henry e de evidência:**
 - "Economiza horas da equipe por semana." (sem medição)

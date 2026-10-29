@@ -68,41 +68,45 @@ func main() {
 	h.Register(mux)
 
 	// Apps compartilhados (desenho 2026-10-06). Sem HUB_SECRET_KEY ou sem
-	// Podman o Kova liga normalmente; só os compartilhados ficam indisponíveis.
+	// Podman o Ziv liga normalmente; só os compartilhados ficam indisponíveis.
 	v, err := vault.New(cfg.SecretKey)
 	if err != nil {
 		slog.Warn("shared apps without vault (set HUB_SECRET_KEY)", "err", err)
 		v = nil
 	}
-	// Kova was the App Hub: take over its Postgres container and data folder by
-	// renaming them (never recreating), unless the names were set explicitly.
+	// Ziv was Kova, and Kova was the App Hub: take over the newest of their
+	// Postgres containers and data folders by renaming them (never
+	// recreating), unless the names were set explicitly.
 	if !cfg.AppsDBContainerExplicit {
 		run := func(ctx context.Context, args ...string) ([]byte, error) {
 			return exec.CommandContext(ctx, cfg.ContainerEngine, args...).Output()
 		}
-		if adopted, err := adopt.Container(ctx, run, cfg.AppsDBContainer, "app-hub-db"); err != nil {
-			slog.Warn("adopt app-hub-db", "err", err)
-		} else if adopted {
-			slog.Info("adopted the App Hub database container", "from", "app-hub-db", "to", cfg.AppsDBContainer)
+		if old, err := adopt.NewestContainer(ctx, run, cfg.AppsDBContainer, "kova-db", "app-hub-db"); err != nil {
+			slog.Warn("adopt old database container", "err", err)
+		} else if old != "" {
+			slog.Info("adopted the old database container", "from", old, "to", cfg.AppsDBContainer)
 		}
 	}
 	if !cfg.SharedDataDirExplicit {
 		home, _ := os.UserHomeDir()
-		old := filepath.Join(home, ".local", "share", "app-hub", "shared")
-		if _, err := os.Stat(cfg.SharedDataDir); errors.Is(err, os.ErrNotExist) {
-			if err := adopt.Dir(cfg.SharedDataDir, old); err != nil {
-				slog.Warn("adopt shared data dir", "err", err)
-			} else if _, err := os.Stat(cfg.SharedDataDir); err == nil {
-				slog.Info("adopted the App Hub shared data folder", "from", old, "to", cfg.SharedDataDir)
-			}
+		olds := []string{
+			filepath.Join(home, ".local", "share", "kova", "shared"),
+			filepath.Join(home, ".local", "share", "app-hub", "shared"),
 		}
-		// Backup rows keep absolute paths; point the ones under the old folder at
+		if old, err := adopt.NewestDir(cfg.SharedDataDir, olds...); err != nil {
+			slog.Warn("adopt shared data dir", "err", err)
+		} else if old != "" {
+			slog.Info("adopted the old shared data folder", "from", old, "to", cfg.SharedDataDir)
+		}
+		// Backup rows keep absolute paths; point the ones under an old folder at
 		// the adopted one. Idempotent, so it runs on every start.
 		if pool != nil {
-			if n, err := deploy.MoveBackupPaths(ctx, pool, old, cfg.SharedDataDir); err != nil {
-				slog.Warn("move backup paths", "err", err)
-			} else if n > 0 {
-				slog.Info("moved backup paths to the adopted folder", "rows", n)
+			for _, old := range olds {
+				if n, err := deploy.MoveBackupPaths(ctx, pool, old, cfg.SharedDataDir); err != nil {
+					slog.Warn("move backup paths", "from", old, "err", err)
+				} else if n > 0 {
+					slog.Info("moved backup paths to the adopted folder", "from", old, "rows", n)
+				}
 			}
 		}
 	}

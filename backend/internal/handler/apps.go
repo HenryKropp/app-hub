@@ -336,7 +336,7 @@ func (h *Handler) checkApp(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// saveApp publishes an app: it writes the manifest (kova.yaml, or the app-hub.yaml already there) and FICHA.md into the app
+// saveApp publishes an app: it writes the manifest (ziv.yaml, or the kova.yaml or app-hub.yaml already there) and FICHA.md into the app
 // folder (never touching code) and records the app in the catalog.
 func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 	me, ok := h.currentPerson(w, r)

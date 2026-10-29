@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setNeedsSetup(s.needs_setup)
       setPerson(s.person)
     } catch (e) {
-      setStatusError(e instanceof Error ? e.message : "Não foi possível confirmar o estado do Kova.")
+      setStatusError(e instanceof Error ? e.message : "Não foi possível confirmar o estado do Ziv.")
     } finally {
       setLoading(false)
     }

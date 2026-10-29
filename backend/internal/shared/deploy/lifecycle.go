@@ -113,7 +113,7 @@ func (s *Service) runApp(ctx context.Context, appID int64, explicit bool) error 
 		// Without the container ID the Hub would lose track of it: do not leave it running.
 		logErr(s.eng.Remove(ctx, cid), "remove container", "container", cid)
 		logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "crashed",
-			StatusMessage: "Não foi possível registrar o app ligado no Kova."}), "set status", "app", appID)
+			StatusMessage: "Não foi possível registrar o app ligado no Ziv."}), "set status", "app", appID)
 		return fmt.Errorf("record container: %w", err)
 	}
 	s.setTarget(appID, false, hostPort)
@@ -253,7 +253,9 @@ func (s *Service) Unshare(ctx context.Context, appID, by int64) error {
 		}
 	}
 	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork(appID)), "remove network", "app", appID)
-	logErr(s.eng.RemoveNetwork(ctx, engine.LegacyAppNetwork(appID)), "remove network", "app", appID)
+	for _, n := range engine.LegacyAppNetworks(appID) {
+		logErr(s.eng.RemoveNetwork(ctx, n), "remove network", "app", appID)
+	}
 	if err := s.q.MarkUnshared(ctx, appID); err != nil {
 		return err
 	}
@@ -281,7 +283,9 @@ func (s *Service) Purge(ctx context.Context, appID int64) error {
 		}
 	}
 	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork(appID)), "remove network", "app", appID) // if Unshare could not
-	logErr(s.eng.RemoveNetwork(ctx, engine.LegacyAppNetwork(appID)), "remove network", "app", appID)
+	for _, n := range engine.LegacyAppNetworks(appID) {
+		logErr(s.eng.RemoveNetwork(ctx, n), "remove network", "app", appID)
+	}
 	logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "backups", strconv.FormatInt(appID, 10))), "remove backups", "app", appID)
 	logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(appID, 10))), "remove app data", "app", appID)
 	if err := s.q.DeleteBackupsOfApp(ctx, appID); err != nil {

@@ -158,7 +158,7 @@ test("trocar pasta only for folder errors", async () => {
 test("request error not about the folder has no trocar pasta", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "activeRuns").mockResolvedValue([])
-  vi.spyOn(api, "startRun").mockRejectedValue(new ApiError(400, "Este app ainda não pode rodar pelo Kova."))
+  vi.spyOn(api, "startRun").mockRejectedValue(new ApiError(400, "Este app ainda não pode rodar pelo Ziv."))
   mount()
   await user.click(screen.getByText("go"))
   await screen.findByText(/ainda não pode rodar/)

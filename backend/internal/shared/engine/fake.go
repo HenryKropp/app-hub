@@ -283,7 +283,7 @@ func (f *Fake) RemoveNetwork(_ context.Context, name string) error {
 	defer f.mu.Unlock()
 	f.record("remove-network " + name)
 	if !HubNetwork(name) {
-		return fmt.Errorf("recusado: a rede %q não é do Kova", name)
+		return fmt.Errorf("recusado: a rede %q não é do Ziv", name)
 	}
 	delete(f.Networks, name)
 	return nil

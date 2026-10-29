@@ -2,13 +2,13 @@
 
 **Versão:** 0.2 (rascunho para teste local) · **Data:** 2026-09-30 · Mudanças da v0.1 para a v0.2: marcadas com **(v0.2)**, vindas da rodada 1 (seção 8)
 
-Roteiro que o Claude segue para ler a pasta de um app e montar o manifesto dele (`kova.yaml`; nos apps antigos, `app-hub.yaml`), sem ninguém preencher nada à mão. Primeiro é testado localmente, com o Claude lendo as pastas direto. Depois vira a base do MCP (Fase 2b): as ferramentas do MCP entregam ao Claude exatamente o que este protocolo pede, e as instruções do MCP são este texto.
+Roteiro que o Claude segue para ler a pasta de um app e montar o manifesto dele (`ziv.yaml`; nos apps antigos, `kova.yaml` ou `app-hub.yaml`), sem ninguém preencher nada à mão. Primeiro é testado localmente, com o Claude lendo as pastas direto. Depois vira a base do MCP (Fase 2b): as ferramentas do MCP entregam ao Claude exatamente o que este protocolo pede, e as instruções do MCP são este texto.
 
 ---
 
 ## 1. Regras que nunca mudam
 
-1. **Só leitura.** O Claude não altera, move, apaga nem roda nenhum arquivo do app. O único lugar em que ele escreve é o Kova (no teste, uma pasta de rascunho).
+1. **Só leitura.** O Claude não altera, move, apaga nem roda nenhum arquivo do app. O único lugar em que ele escreve é o Ziv (no teste, uma pasta de rascunho).
 2. **Nunca o valor de um segredo.** Chaves, senhas e tokens são registrados só como *nome + arquivo + linha*. O valor nunca aparece no manifesto, no relatório nem na conversa, nem em parte (nada de "começa com sk-…").
 3. **Nada inventado.** Todo campo preenchido tem uma evidência no código ou na documentação (arquivo e linha). O que não tem evidência vira pergunta, não palpite.
 4. **Pessoas não se deduzem do código.** Responsável, reserva e área vêm de quem está registrando. O nome de quem aparece no caminho de uma pasta (`C:\Users\fulano`) não faz dessa pessoa a responsável.
@@ -22,7 +22,7 @@ Roteiro que o Claude segue para ler a pasta de um app e montar o manifesto dele 
 | Item | Para quê | No teste local | No MCP |
 |---|---|---|---|
 | Caminho da pasta do app | O que vai ser lido | Informado na conversa | Ferramenta "varrer pasta" |
-| Diagnóstico por regras do Kova | Ponto de partida (tipo, arquivo de início, segredos) | `POST /api/scan` ou o próprio scanner | Mesma ferramenta |
+| Diagnóstico por regras do Ziv | Ponto de partida (tipo, arquivo de início, segredos) | `POST /api/scan` ou o próprio scanner | Mesma ferramenta |
 | Catálogo atual | Evitar registrar duas vezes | `GET /api/apps` | Ferramenta "listar catálogo" |
 | Lista de pessoas | Sugerir responsável e reserva | `GET /api/people` | Ferramenta "listar pessoas" |
 | Formato do manifesto | Saber os campos e valores aceitos | Seção 6 deste documento | Ferramenta "formato do manifesto" |
@@ -34,7 +34,7 @@ O diagnóstico por regras é **ponto de partida, não verdade**. O Claude confir
 ## 3. Passo a passo
 
 ### Passo 0 — Já existe?
-- Se a pasta já tem `kova.yaml` (ou `app-hub.yaml` nos apps antigos), ele é lido primeiro. O trabalho vira **atualização**: manter o que uma pessoa já confirmou e só propor mudanças onde o código mudou.
+- Se a pasta já tem `ziv.yaml` (ou `kova.yaml` e `app-hub.yaml` nos apps antigos), ele é lido primeiro. O trabalho vira **atualização**: manter o que uma pessoa já confirmou e só propor mudanças onde o código mudou.
 - Se a pasta já está no catálogo, ou o nome é muito parecido com um app do catálogo, isso é avisado antes de continuar ("parece o mesmo que *X*: é uma versão nova ou outro app?").
 - Se a pasta parece material antigo (nome com "old", "antigo", "backup", "arquivo", "v1" com uma "v2" ao lado), o Claude sugere pular e pergunta.
 
@@ -86,7 +86,7 @@ Cada informação que vem de fora é uma entrada:
 | Parâmetro na linha de comando (`argparse`, `sys.argv`) | `argument` | conforme o uso |
 | **(v0.2)** Campo ou janela de escolha dentro da janela de um app `desktop` (`Entry`, `Spinbox`, `Checkbutton`, botão que abre `askdirectory`) | `window` | conforme o campo |
 
-**(v0.2) Janela × formulário.** Em apps `desktop`, tudo o que a própria janela pede depois de aberta tem `source: window`: aparece na ficha, para quem vai usar saber o que ter em mãos, mas o Kova **não** pergunta nada antes de abrir. As outras origens (`fixed_file`, `dialog`, `prompt`, `argument`) são o que o Kova vai precisar fornecer ou perguntar ao rodar.
+**(v0.2) Janela × formulário.** Em apps `desktop`, tudo o que a própria janela pede depois de aberta tem `source: window`: aparece na ficha, para quem vai usar saber o que ter em mãos, mas o Ziv **não** pergunta nada antes de abrir. As outras origens (`fixed_file`, `dialog`, `prompt`, `argument`) são o que o Ziv vai precisar fornecer ou perguntar ao rodar.
 
 **(v0.2) Várias escolhas.** Uma lista em que dá para marcar mais de uma opção (vários `Checkbutton`, `listbox` com seleção múltipla) é `type: choice` com `multiple: true`. As opções que já vêm marcadas vão no `label` ou nos pontos de atenção.
 
@@ -136,7 +136,7 @@ O que alguém precisa saber antes de rodar ou manter o app. Frases curtas, uma p
 Para cada caminho que o código usa (arquivos lidos, pastas de import, o Python chamado pelo `.bat`, o alvo de um atalho), conferir se ele existe a partir da pasta do app. O que não existe vira ponto de atenção com a consequência ("abrir pelo código dá erro, porque o motor fica numa pasta que não existe"). Isso pode mudar o arquivo de início (passo 4). O Claude confere que o caminho existe, mas **não roda** nada (regra 1).
 
 ### Passo 13 — (v0.2) Validar antes de mostrar
-O rascunho passa pelo leitor e pelas regras do próprio Kova antes de ser mostrado. No teste local: `cd backend && mise x -- go run ./cmd/validate-manifest <rascunho>/app-hub.yaml`, que também mostra a ficha como as pessoas vão vê-la. No MCP, a ferramenta de registro valida sozinha e devolve os problemas em português. Rascunho com erro não é mostrado: corrige primeiro.
+O rascunho passa pelo leitor e pelas regras do próprio Ziv antes de ser mostrado. No teste local: `cd backend && mise x -- go run ./cmd/validate-manifest <rascunho>/ziv.yaml`, que também mostra a ficha como as pessoas vão vê-la. No MCP, a ferramenta de registro valida sozinha e devolve os problemas em português. Rascunho com erro não é mostrado: corrige primeiro.
 
 ---
 
@@ -165,7 +165,7 @@ Perguntas são poucas e objetivas, com opções quando possível ("O arquivo pri
 
 Para cada app, duas coisas:
 
-**a) O manifesto** (`kova.yaml`; nos apps antigos, `app-hub.yaml`), no formato da seção 6. É o que o Kova publica.
+**a) O manifesto** (`ziv.yaml`; nos apps antigos, `kova.yaml` ou `app-hub.yaml`), no formato da seção 6. É o que o Ziv publica.
 
 **b) O relatório de leitura**, que não é publicado e serve para a pessoa conferir. Contém:
 - o resumo do que foi entendido, em 3 a 5 linhas;
@@ -181,7 +181,7 @@ Na conversa, o Claude mostra o resumo, as perguntas e os pontos de atenção. O 
 
 ```yaml
 manifest_version: 1
-id: rentabilidade-fundos            # gerado pelo Kova a partir do nome
+id: rentabilidade-fundos            # gerado pelo Ziv a partir do nome
 name: Rentabilidade dos fundos
 summary: Recebe a lista de CNPJs e entrega a rentabilidade mensal de cada fundo.
 kind: script                        # script | web | desktop | scheduled | executable | reference | system
@@ -224,7 +224,7 @@ notes:
   - O caminho da planilha de saída aponta para a pasta pessoal do Henry.
 ```
 
-Regras de validação do Kova (o registro é recusado sem elas): nome; tipo válido; responsável; reserva diferente do responsável; arquivo de início para os tipos que rodam; entradas com nome, tipo e origem válidos e sem `id` repetido; **(v0.2)** `multiple` só em lista de opções; o app não depende dele mesmo; `build` sempre com `source`.
+Regras de validação do Ziv (o registro é recusado sem elas): nome; tipo válido; responsável; reserva diferente do responsável; arquivo de início para os tipos que rodam; entradas com nome, tipo e origem válidos e sem `id` repetido; **(v0.2)** `multiple` só em lista de opções; o app não depende dele mesmo; `build` sempre com `source`.
 
 ---
 
@@ -239,9 +239,9 @@ Regras de validação do Kova (o registro é recusado sem elas): nome; tipo vál
 
 ## 8. Teste local (antes do MCP)
 
-**Como:** o Claude, nesta máquina, segue o protocolo lendo as pastas diretamente. Cada app gera `kova.yaml` + `LEITURA.md` numa pasta de rascunho fora das pastas da Alis. **Nada é escrito nas pastas dos apps.**
+**Como:** o Claude, nesta máquina, segue o protocolo lendo as pastas diretamente. Cada app gera `ziv.yaml` + `LEITURA.md` numa pasta de rascunho fora das pastas da Alis. **Nada é escrito nas pastas dos apps.**
 
-> Diferença para o MCP: no teste o Claude lê os arquivos crus, então vê os valores das chaves. A regra 2 continua valendo: nenhum valor é repetido em nenhum lugar. No MCP, o Kova mascara os valores antes de o Claude ler.
+> Diferença para o MCP: no teste o Claude lê os arquivos crus, então vê os valores das chaves. A regra 2 continua valendo: nenhum valor é repetido em nenhum lugar. No MCP, o Ziv mascara os valores antes de o Claude ler.
 
 **Apps do teste (bem diferentes entre si):**
 
@@ -266,6 +266,6 @@ Regras de validação do Kova (o registro é recusado sem elas): nome; tipo vál
 
 | Rodada | Data | Apps | O que deu errado | O que mudou no protocolo |
 |---|---|---|---|---|
-| 1 | 2026-09-30 | Henry Files Prep | Pelas regras, o Kova rodaria o código quebrado em vez do .exe; nenhuma entrada detectada; faltavam 2 de 3 saídas Ficha aprovada pelo Henry. As 8 propostas foram aprovadas e viraram a **v0.2**: origem `window`, `multiple`, `depends_on`, `build`, leitura de pastas vizinhas, separar programa de dados, passo 12 (conferir caminhos), passo 13 (validar) |
+| 1 | 2026-09-30 | Henry Files Prep | Pelas regras, o Ziv rodaria o código quebrado em vez do .exe; nenhuma entrada detectada; faltavam 2 de 3 saídas Ficha aprovada pelo Henry. As 8 propostas foram aprovadas e viraram a **v0.2**: origem `window`, `multiple`, `depends_on`, `build`, leitura de pastas vizinhas, separar programa de dados, passo 12 (conferir caminhos), passo 13 (validar) |
 
 O protocolo está pronto para virar MCP quando os 4 apps passarem nos 8 critérios sem nada inventado.
