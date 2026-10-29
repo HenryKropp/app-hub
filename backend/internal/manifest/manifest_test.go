@@ -156,7 +156,7 @@ func TestSharedValidation(t *testing.T) {
 		{"bad db", func(m *Manifest) { m.Shared.Database = "mysql" }, "O banco do app compartilhado precisa ser postgres."},
 		{"bad port", func(m *Manifest) { m.Shared.Port = 70000 }, "A porta do app precisa estar entre 1 e 65535."},
 		{"memory", func(m *Manifest) { m.Shared.MemoryMB = 64 }, "A memória do app precisa estar entre 128 e 16384 MB."},
-		{"reserved env", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "DATABASE_URL", Label: "x"}} }, "DATABASE_URL é preenchida pelo Hub; tire da lista de configurações."},
+		{"reserved env", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "DATABASE_URL", Label: "x"}} }, "DATABASE_URL é preenchida pelo Kova; tire da lista de configurações."},
 		{"bad env name", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "minha var", Label: "x"}} }, "O nome da configuração \"minha var\" só pode ter letras maiúsculas, números e _."},
 		{"underscore start", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "_db_password", Label: "x"}} }, "só pode ter letras maiúsculas"},
 		{"dup env", func(m *Manifest) { m.Shared.Env = []EnvVar{{Name: "A", Label: "a"}, {Name: "A", Label: "b"}} }, "A configuração A aparece duas vezes."},

@@ -157,12 +157,12 @@ export function RunPage() {
         {run.status === "waiting" && <p className="mt-2 text-muted-foreground">Esperando o computador {run.computer_name} abrir o app…</p>}
         {run.status === "stopped" && (
           <p className="mt-2 max-w-prose text-muted-foreground">
-            Você parou o app pelo Hub. {run.groups.some((g) => g.files.length > 0) ? "Abaixo estão os arquivos que ele criou ou mudou até ali." : "Ele não tinha criado nem mudado arquivos na pasta abaixo."}
+            Você parou o app pelo Kova. {run.groups.some((g) => g.files.length > 0) ? "Abaixo estão os arquivos que ele criou ou mudou até ali." : "Ele não tinha criado nem mudado arquivos na pasta abaixo."}
           </p>
         )}
         {run.status === "no_files" && (
           <p className="mt-2 max-w-prose text-muted-foreground">
-            O app fechou sem criar nem mudar arquivos na pasta abaixo. Se você esperava algum, confira se o app salvou nesta pasta: o Hub só vê o que fica nela.
+            O app fechou sem criar nem mudar arquivos na pasta abaixo. Se você esperava algum, confira se o app salvou nesta pasta: o Kova só vê o que fica nela.
           </p>
         )}
         {(run.status === "error" || run.status === "interrupted") && run.error_message && (

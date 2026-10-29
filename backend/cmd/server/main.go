@@ -66,7 +66,7 @@ func main() {
 	h.Register(mux)
 
 	// Apps compartilhados (desenho 2026-10-06). Sem HUB_SECRET_KEY ou sem
-	// Podman o Hub liga normalmente; só os compartilhados ficam indisponíveis.
+	// Podman o Kova liga normalmente; só os compartilhados ficam indisponíveis.
 	v, err := vault.New(cfg.SecretKey)
 	if err != nil {
 		slog.Warn("shared apps without vault (set HUB_SECRET_KEY)", "err", err)

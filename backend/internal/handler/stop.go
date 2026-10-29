@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const stoppedMessage = "Você parou o app pelo Hub."
+const stoppedMessage = "Você parou o app pelo Kova."
 
 // stopWait is how long stopRun waits for the agent to close the app before
 // answering that it is still on its way.

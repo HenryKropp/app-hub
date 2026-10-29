@@ -83,9 +83,9 @@ describe("TeamPage", () => {
   })
 
   it("shows the error and a retry when roles fail to load", async () => {
-    vi.spyOn(api, "roles").mockRejectedValue(new ApiError(500, "O Hub não respondeu."))
+    vi.spyOn(api, "roles").mockRejectedValue(new ApiError(500, "O Kova não respondeu."))
     renderAt("/equipe", henry)
-    expect(await screen.findByRole("alert")).toHaveTextContent("O Hub não respondeu.")
+    expect(await screen.findByRole("alert")).toHaveTextContent("O Kova não respondeu.")
     expect(screen.getByRole("button", { name: "Tentar de novo" })).toBeInTheDocument()
   })
 

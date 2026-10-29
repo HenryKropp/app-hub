@@ -18,7 +18,7 @@ export function ComputerSection() {
   }, [])
 
   const disconnect = async (id: number, name: string) => {
-    if (!window.confirm(`Desconectar ${name}? O Hub não vai mais abrir apps nele até você instalar o Agente de novo.`)) return
+    if (!window.confirm(`Desconectar ${name}? O Kova não vai mais abrir apps nele até você instalar o Agente de novo.`)) return
     await api.disconnect(id).then(() => toast.success(`${name} foi desconectado.`), (e: Error) => toast.error(e.message))
     load()
   }
@@ -31,7 +31,7 @@ export function ComputerSection() {
       <Download className="size-4" /> Instalar o Agente
     </a>
   ) : (
-    <p className="text-sm text-warn">O Agente ainda não foi preparado neste Hub. Peça a quem administra o Hub.</p>
+    <p className="text-sm text-warn">O Agente ainda não foi preparado neste Kova. Peça a quem administra o Kova.</p>
   )
 
   return (
@@ -46,8 +46,8 @@ export function ComputerSection() {
           <h3 className="font-heading text-lg">Nenhum computador conectado</h3>
           <ol className="mt-4 flex list-decimal flex-col gap-2 pl-5 text-sm">
             <li>Baixe o Agente pelo botão abaixo.</li>
-            <li>Abra o arquivo baixado (AppHubAgente.exe). Se o Windows perguntar, confirme que quer abrir.</li>
-            <li>O navegador vai abrir uma página do Hub. Clique em <strong>Conectar</strong>.</li>
+            <li>Abra o arquivo baixado (KovaAgente.exe). Se o Windows perguntar, confirme que quer abrir.</li>
+            <li>O navegador vai abrir uma página do Kova. Clique em <strong>Conectar</strong>.</li>
           </ol>
           <div className="mt-6">{install}</div>
         </div>

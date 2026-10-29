@@ -148,7 +148,7 @@ export function ReviewForm({ item, people, areas, apps, me, onPublished, onSkip 
               )}
             </Field>
             {m.kind === "script" && <>
-              <Field label="Linguagem do script" htmlFor="f-runtime-language" hint="O Hub usa Python para .py e Node.js para .js ou .mjs.">
+              <Field label="Linguagem do script" htmlFor="f-runtime-language" hint="O Kova usa Python para .py e Node.js para .js ou .mjs.">
                 <NativeSelect id="f-runtime-language" value={m.runtime.language || "python"} onChange={(e) => set("runtime", { ...m.runtime, language: e.target.value })}>
                   <option value="python">Python</option><option value="node">Node.js</option>
                 </NativeSelect>
@@ -157,7 +157,7 @@ export function ReviewForm({ item, people, areas, apps, me, onPublished, onSkip 
                 <Input id="f-dependencies-file" value={m.runtime.dependencies_file} onChange={(e) => set("runtime", { ...m.runtime, dependencies_file: e.target.value })} placeholder="requirements.txt" className="font-mono text-xs" />
               </Field>
             </>}
-            <Field label="Comando" htmlFor="f-cmd" hint="Como o Hub vai iniciar o app.">
+            <Field label="Comando" htmlFor="f-cmd" hint="Como o Kova vai iniciar o app.">
               <Input id="f-cmd" value={m.run.command} onChange={(e) => set("run", { ...m.run, command: e.target.value })} className="font-mono text-xs" />
             </Field>
             {m.kind === "web" && (
@@ -216,7 +216,7 @@ export function ReviewForm({ item, people, areas, apps, me, onPublished, onSkip 
       {(item.secrets ?? []).length > 0 && (
         <Block title="Chaves e senhas no código" icon={<KeyRound className="size-3.5 text-destructive" />}>
           <div className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
-            <p>Encontrei chaves ou senhas escritas nestes lugares. O valor não é mostrado nem copiado para o Hub.</p>
+            <p>Encontrei chaves ou senhas escritas nestes lugares. O valor não é mostrado nem copiado para o Kova.</p>
             <ul className="mt-3 flex flex-col gap-1 font-mono text-xs">
               {item.secrets!.map((s, i) => (
                 <li key={i}>
@@ -224,13 +224,13 @@ export function ReviewForm({ item, people, areas, apps, me, onPublished, onSkip 
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-muted-foreground">Quando o cofre estiver pronto, o Hub vai oferecer mover cada uma para lá.</p>
+            <p className="mt-3 text-muted-foreground">Quando o cofre estiver pronto, o Kova vai oferecer mover cada uma para lá.</p>
           </div>
         </Block>
       )}
 
       {((item.findings ?? []).length > 0 || (m.notes ?? []).length > 0) && (
-        <Block title="O que o Hub encontrou">
+        <Block title="O que o Kova encontrou">
           <ul className="flex flex-col gap-1.5 text-sm">
             {(item.findings ?? []).map((f, i) => (
               <li key={`f${i}`} className="flex gap-2">

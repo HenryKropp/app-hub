@@ -86,9 +86,9 @@ test("the + Registrar apps sits in the catalog for creators, not for usuários",
 
 test("a catalog that didn't load says why and tries again", async () => {
   const user = userEvent.setup()
-  const apps = vi.spyOn(api, "apps").mockRejectedValueOnce(new Error("O Hub não respondeu. Espere um pouco e tente de novo.")).mockResolvedValue([appSummary()])
+  const apps = vi.spyOn(api, "apps").mockRejectedValueOnce(new Error("O Kova não respondeu. Espere um pouco e tente de novo.")).mockResolvedValue([appSummary()])
   mount()
-  expect(await screen.findByRole("alert")).toHaveTextContent("O Hub não respondeu")
+  expect(await screen.findByRole("alert")).toHaveTextContent("O Kova não respondeu")
   await user.click(screen.getByRole("button", { name: "Tentar de novo" }))
   expect(await screen.findByText("Eq. Research Files Prep")).toBeInTheDocument()
   expect(apps).toHaveBeenCalledTimes(2)

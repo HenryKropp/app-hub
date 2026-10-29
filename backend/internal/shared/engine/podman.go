@@ -101,7 +101,7 @@ func imageAllowed(label string, repoTags []string) bool {
 	return false
 }
 
-var errNotHub = errors.New("recusado: esta caixa não é do Hub")
+var errNotHub = errors.New("recusado: esta caixa não é do Kova")
 
 // guard refuses to act on a container without the Hub label.
 func (p *Podman) guard(ctx context.Context, id string) error {
@@ -163,7 +163,7 @@ func (p *Podman) exists(ctx context.Context, args ...string) (bool, error) {
 // the other apps' networks) if it does not exist yet.
 func (p *Podman) ensureNetwork(ctx context.Context, name, appLabel string) error {
 	if !HubNetwork(name) || !hubOwned(appLabel) {
-		return fmt.Errorf("rede %q não é de um app do Hub", name)
+		return fmt.Errorf("rede %q não é de um app do Kova", name)
 	}
 	ok, err := p.exists(ctx, "network", "exists", name)
 	if err != nil || ok {
@@ -183,7 +183,7 @@ func (p *Podman) ensureNetwork(ctx context.Context, name, appLabel string) error
 func (p *Podman) RemoveNetwork(ctx context.Context, name string) error {
 	if !HubNetwork(name) {
 		slog.Error("podman: refused to remove a network that is not the Hub's", "network", name)
-		return errors.New("recusado: esta rede não é do Hub")
+		return errors.New("recusado: esta rede não é do Kova")
 	}
 	out, err := p.run(ctx, shortTimeout, nil, "network", "inspect", "--format", `{{index .Labels "`+Label+`"}}`, "--", name)
 	if err != nil {
@@ -194,7 +194,7 @@ func (p *Podman) RemoveNetwork(ctx context.Context, name string) error {
 	}
 	if !hubOwned(string(out)) {
 		slog.Error("podman: refused to remove a network without the Hub label", "network", name)
-		return errors.New("recusado: esta rede não é do Hub")
+		return errors.New("recusado: esta rede não é do Kova")
 	}
 	_, err = p.run(ctx, shortTimeout, nil, "network", "rm", "--", name)
 	if err != nil && strings.Contains(strings.ToLower(err.Error()), "network not found") {
@@ -324,7 +324,7 @@ func (p *Podman) RemoveImage(ctx context.Context, id string) error {
 	}
 	if !imageAllowed(label, repoTags) {
 		slog.Error("podman: refused to remove an image that is not the Hub's", "id", id)
-		return errors.New("recusado: esta imagem não é do Hub")
+		return errors.New("recusado: esta imagem não é do Kova")
 	}
 	_, err = p.run(ctx, shortTimeout, nil, "rmi", "--ignore", "--", id)
 	return err
@@ -503,7 +503,7 @@ func parsePS(raw []byte) ([]Container, error) {
 	out := make([]Container, 0, len(v))
 	for _, c := range v {
 		if _, ok := c.Labels[Label]; !ok {
-			continue // nunca mexer no que não é do Hub
+			continue // nunca mexer no que não é do Kova
 		}
 		name := ""
 		if len(c.Names) > 0 {

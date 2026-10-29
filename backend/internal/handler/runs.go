@@ -91,7 +91,7 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !canRun(m) {
-		writeError(w, http.StatusBadRequest, "Este app ainda não pode rodar pelo Hub.")
+		writeError(w, http.StatusBadRequest, "Este app ainda não pode rodar pelo Kova.")
 		return
 	}
 	values := map[string][]string{}

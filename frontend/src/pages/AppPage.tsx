@@ -303,7 +303,7 @@ export function AppPage() {
               <Section title="Chaves e senhas">
                 <p className="flex gap-2 text-sm">
                   <KeyRound className="mt-0.5 size-4 shrink-0 text-destructive" />
-                  Usa {m.secrets!.length} chave(s) ou senha(s) escritas no código. Os valores nunca aparecem no Hub.
+                  Usa {m.secrets!.length} chave(s) ou senha(s) escritas no código. Os valores nunca aparecem no Kova.
                 </p>
               </Section>
             )}

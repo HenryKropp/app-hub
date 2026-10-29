@@ -40,7 +40,7 @@ export function ConnectPage() {
         <>
           <h1 className="mt-4 font-heading text-3xl">Conectar este computador à sua conta?</h1>
           <p className="mt-4 font-mono text-lg">{pairing.computer_name}</p>
-          <p className="mt-2 text-sm text-muted-foreground">Depois disso, o Hub poderá abrir apps neste computador quando você clicar em Rodar.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Depois disso, o Kova poderá abrir apps neste computador quando você clicar em Rodar.</p>
           <div className="mt-6 flex justify-center gap-3">
             <Button variant="outline" onClick={() => navigate("/")}>Cancelar</Button>
             <Button onClick={approve} disabled={busy}>Conectar</Button>

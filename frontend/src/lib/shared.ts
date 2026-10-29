@@ -34,7 +34,7 @@ export const formatBytes = formatSize
 export function claudeTextFor(items: ReadinessItem[]): string {
   const todo = items.filter((i) => (i.status === "missing" || i.status === "warn") && i.claude_text)
   return [
-    "Estou preparando este app para rodar compartilhado no App Hub. Faça estas mudanças sem quebrar o jeito de rodar no computador:",
+    "Estou preparando este app para rodar compartilhado no Kova. Faça estas mudanças sem quebrar o jeito de rodar no computador:",
     ...todo.map((i, n) => `${n + 1}. ${i.claude_text}`),
     "Depois, atualize o app-hub.yaml se precisar e me diga o que mudou.",
   ].join("\n")

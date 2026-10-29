@@ -294,7 +294,7 @@ func (m Manifest) sharedProblems() []string {
 	for _, e := range s.Env {
 		switch {
 		case slices.Contains(ReservedEnv, e.Name):
-			out = append(out, e.Name+" é preenchida pelo Hub; tire da lista de configurações.")
+			out = append(out, e.Name+" é preenchida pelo Kova; tire da lista de configurações.")
 		case !envName.MatchString(e.Name):
 			out = append(out, fmt.Sprintf("O nome da configuração %q só pode ter letras maiúsculas, números e _.", e.Name))
 		case seen[e.Name]:

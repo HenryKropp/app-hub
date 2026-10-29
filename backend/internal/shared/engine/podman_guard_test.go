@@ -99,7 +99,7 @@ func TestNetworksOnlyTheHubs(t *testing.T) {
 	if got := calls(t, logFile); got != "" {
 		t.Fatalf("podman called for a foreign network: %q", got)
 	}
-	// The right name but no Hub label (the fake answers an empty label): refused.
+	// The right name but no Kova label (the fake answers an empty label): refused.
 	if err := p.RemoveNetwork(ctx, "app-hub-apps-5"); err == nil {
 		t.Fatal("unlabelled network removed")
 	}

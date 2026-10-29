@@ -79,7 +79,7 @@ export function CatalogPage() {
 
       {onboarding?.can_manage && !setupDone && (
         <Link to="/comecar" className="mb-6 flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/40 p-4 transition-colors hover:bg-muted sm:px-5">
-          <span className="min-w-0"><span className="block text-sm font-medium">Faltam alguns passos para preparar o Hub para sua equipe.</span></span>
+          <span className="min-w-0"><span className="block text-sm font-medium">Faltam alguns passos para preparar o Kova para sua equipe.</span></span>
           <span className="flex shrink-0 items-center gap-2 text-sm font-medium">Continuar <ArrowRight className="size-4" /></span>
         </Link>
       )}
@@ -99,7 +99,7 @@ export function CatalogPage() {
           }
         >
           {canReg
-            ? "Aponte a pasta onde ficam os apps da empresa. O Hub analisa cada um e prepara a ficha para você revisar."
+            ? "Aponte a pasta onde ficam os apps da empresa. O Kova analisa cada um e prepara a ficha para você revisar."
             : "Quando alguém registrar os apps da empresa, eles aparecem aqui para você rodar."}
         </EmptyState>
       )}
