@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/database"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/handler"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/adopt"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/appdb"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/engine"
@@ -71,6 +73,29 @@ func main() {
 	if err != nil {
 		slog.Warn("shared apps without vault (set HUB_SECRET_KEY)", "err", err)
 		v = nil
+	}
+	// Kova was the App Hub: take over its Postgres container and data folder by
+	// renaming them (never recreating), unless the names were set explicitly.
+	if !cfg.AppsDBContainerExplicit {
+		run := func(ctx context.Context, args ...string) ([]byte, error) {
+			return exec.CommandContext(ctx, cfg.ContainerEngine, args...).Output()
+		}
+		if adopted, err := adopt.Container(ctx, run, cfg.AppsDBContainer, "app-hub-db"); err != nil {
+			slog.Warn("adopt app-hub-db", "err", err)
+		} else if adopted {
+			slog.Info("adopted the App Hub database container", "from", "app-hub-db", "to", cfg.AppsDBContainer)
+		}
+	}
+	if !cfg.SharedDataDirExplicit {
+		home, _ := os.UserHomeDir()
+		old := filepath.Join(home, ".local", "share", "app-hub", "shared")
+		if _, err := os.Stat(cfg.SharedDataDir); errors.Is(err, os.ErrNotExist) {
+			if err := adopt.Dir(cfg.SharedDataDir, old); err != nil {
+				slog.Warn("adopt shared data dir", "err", err)
+			} else if _, err := os.Stat(cfg.SharedDataDir); err == nil {
+				slog.Info("adopted the App Hub shared data folder", "from", old, "to", cfg.SharedDataDir)
+			}
+		}
 	}
 	// Exec (pg_dump/pg_restore) may enter the Hub's own Postgres container;
 	// everything else stays limited to containers labelled by the Hub.
