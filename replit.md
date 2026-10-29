@@ -1,4 +1,4 @@
-# Running App Hub on Replit
+# Running Kova on Replit
 
 The imported React/Vite frontend and Go backend retain their original structure.
 

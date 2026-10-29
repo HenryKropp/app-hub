@@ -1,30 +1,31 @@
 ---
-name: App Hub
+name: Kova
 description: A neutral, fast work tool where only what you can start, and what is running now, is colored.
 colors:
-  run-violet: "oklch(0.53 0.25 293)"
-  run-violet-night: "oklch(0.62 0.22 293)"
-  violet-wash: "oklch(0.955 0.03 293)"
-  violet-wash-night: "oklch(0.27 0.07 293)"
-  focus-violet: "oklch(0.56 0.24 293)"
-  focus-violet-night: "oklch(0.7 0.18 293)"
-  paper-white: "oklch(1 0 0)"
-  sidebar-mist: "oklch(0.982 0 0)"
-  ink: "oklch(0.205 0 0)"
-  quiet-gray: "oklch(0.5 0 0)"
-  pill-gray: "oklch(0.965 0 0)"
-  hover-gray: "oklch(0.955 0 0)"
-  hairline: "oklch(0.925 0 0)"
-  field-stroke: "oklch(0.88 0 0)"
-  night-ground: "oklch(0.145 0 0)"
-  night-sidebar: "oklch(0.165 0 0)"
-  night-surface: "oklch(0.18 0 0)"
-  night-ink: "oklch(0.94 0 0)"
-  night-quiet: "oklch(0.7 0 0)"
-  night-hairline: "oklch(0.27 0 0)"
+  run-coral: "#FF6B4A"
+  run-coral-hover: "#F0562F"
+  run-ink: "#11161A"
+  logo-petrol: "#0E3B43"
+  logo-petrol-night: "#256A75"
+  logo-sand: "#F4EFE6"
+  paper-white: "#FFFFFF"
+  sidebar-mist: "#FAFAFA"
+  ink: "#11161A"
+  quiet-gray: "#6B6F73"
+  pill-gray: "#F2F2F2"
+  hover-gray: "#F0F0F0"
+  hairline: "#EAEAEA"
+  field-stroke: "#8C9196"
+  night-ground: "#11161A"
+  night-sidebar: "#141A1F"
+  night-surface: "#161C21"
+  night-ink: "#EEF0F1"
+  night-quiet: "#A3A9AE"
+  night-hairline: "#252C33"
   ok-green: "oklch(0.52 0.13 150)"
-  error-red: "oklch(0.55 0.21 27)"
-  attention-amber: "oklch(0.55 0.13 65)"
+  error-red: "#B4232F"
+  error-red-night: "#F2707B"
+  attention-amber: "oklch(0.55 0.12 85)"
 typography:
   display:
     fontFamily: "Geist Variable, ui-sans-serif, system-ui, sans-serif"
@@ -81,18 +82,18 @@ spacing:
   page: "48px"
 components:
   button-run:
-    backgroundColor: "{colors.run-violet}"
-    textColor: "{colors.paper-white}"
+    backgroundColor: "{colors.run-coral}"
+    textColor: "{colors.run-ink}"
     rounded: "{rounded.full}"
     typography: "{typography.label}"
     padding: "0 14px 0 12px"
     height: "32px"
   button-run-hover:
-    backgroundColor: "color-mix(in oklch, oklch(0.53 0.25 293), black 12%)"
-    textColor: "{colors.paper-white}"
+    backgroundColor: "{colors.run-coral-hover}"
+    textColor: "{colors.run-ink}"
   button-run-hero:
-    backgroundColor: "{colors.run-violet}"
-    textColor: "{colors.paper-white}"
+    backgroundColor: "{colors.run-coral}"
+    textColor: "{colors.run-ink}"
     rounded: "{rounded.full}"
     padding: "0 24px 0 20px"
     height: "44px"
@@ -142,21 +143,21 @@ components:
     padding: "12px 16px"
 ---
 
-# Design System: App Hub
+# Design System: Kova
 
 ## Overview
 
 **Creative North Star: "The Play Button in a Quiet Room"**
 
-App Hub is the category standard played straight: the clean, neutral work tool people already know from Notion and Vercel. White ground, a faintly gray sidebar, one-pixel hairlines, near-black text, gray secondary text, and Geist everywhere. Nothing decorates. The density is that of a tool used in a hurry between other tasks: cards with three lines of meaning, a page title, a search field, and the button you came for.
+Kova is the category standard played straight: the clean, neutral work tool people already know from Notion and Vercel. White ground, a faintly gray sidebar, one-pixel hairlines, near-black text, gray secondary text, and Geist everywhere. Nothing decorates. The density is that of a tool used in a hurry between other tasks: cards with three lines of meaning, a page title, a search field, and the button you came for.
 
-Into that quiet room goes exactly one vivid color, used the way Spotify uses its green. Violet marks only two things: what you can start (the Rodar pill) and what is running right now (the animated "playing" bars). Because nothing else is colored, the eye finds Rodar and the live run without searching. Identity comes from that violet and from the bars, not from the layout, which is intentionally familiar.
+Into that quiet room goes exactly one vivid color, used the way Spotify uses its green. Coral (`#FF6B4A`) marks only two things: what you can start (the Rodar pill) and what is running right now (the animated "playing" bars). Coral is always a fill, never the color of a word or an icon. Because nothing else is colored, the eye finds Rodar and the live run without searching. Identity comes from that coral, the bars and the Kova mark (a petrol square with a sand-colored cove and a coral dot), not from the layout, which is intentionally familiar.
 
-Light is the default theme; dark is a full peer, not an afterthought, with a lighter violet so the accent keeps its punch on near-black. The system rejects the Hub's previous archive look (cream paper, serif, red stamp, a different color per app kind) and rejects rainbow status chips.
+Light is the default theme; dark is a full peer, not an afterthought, with the same coral, which holds on near-black too. The system rejects the App Hub's earlier archive look (cream paper, serif, red stamp, a different color per app kind) and rejects rainbow status chips.
 
 **Key Characteristics:**
-- Neutral white, gray and near-black surfaces; one vivid violet accent.
-- Violet only on Rodar, the active nav icon, focus and selection, and live runs.
+- Neutral white, gray and near-black surfaces; one vivid coral accent, used only as a fill.
+- Coral only on Rodar (and "+ Registrar apps"), the active nav marker, text selection and live runs. Focus is neutral.
 - Status is always icon plus words, never a colored chip.
 - App kinds are gray pills with an icon, never colored.
 - Geist for all text; Geist Mono only for paths, versions, dates and durations.
@@ -165,13 +166,13 @@ Light is the default theme; dark is a full peer, not an afterthought, with a lig
 
 ## Colors
 
-A grayscale world with a single saturated violet and three small status hues. All values are OKLCH and live as custom properties in `frontend/src/index.css`; that file is normative.
+A grayscale world with a single coral and three small status hues. Values live as custom properties (hex, OKLCH for the status hues) in `frontend/src/index.css`; that file is normative.
 
 ### Primary
-- **Run Violet** (`--brand`, light): the Rodar pill, "Abrir app" in the run dialog, the active nav icon, the "playing" bars, "aberto agora" and the live-run count in the nav, the violet play icon on "Rodar de novo", and the selected file in a version's file list.
-- **Run Violet Night** (`--brand`, dark): the same roles on dark ground; lighter so it holds contrast against near-black.
-- **Focus Violet** (`--ring`, light and dark): focus rings and focused field borders, always at reduced opacity (40 to 50%).
-- **Violet Wash** (`--brand-soft`, light and dark): a pale violet tint available for the accent's soft surface. Text selection uses Run Violet at 22% mixed into transparent; the text caret in inputs is Run Violet.
+- **Run Coral** (`--brand`, `#FF6B4A`, both themes): fills only. The Rodar pill (label `--brand-foreground` `#11161A`, 6.5:1), "Abrir app" in the run dialog, the "playing" bars, the 3px marker left of the active nav item, the pulsing "Ligando" dot. Never text, icons or decoration.
+- **Run Coral Hover** (`--brand-hover`, `#F0562F`): Rodar on hover (label 5.3:1).
+- **Focus** (`--ring`): neutral, `#11161A` in light and `#EEF0F1` in dark. Rodar gets a 2px ring with a 2px offset so the ring never sits on the coral.
+- **Logo Petrol** (`--logo-square`, `#0E3B43`, dark `#256A75`): only in the Kova mark. Text selection uses Run Coral at 22% mixed into transparent; the caret is Ink.
 
 ### Neutral
 - **Paper White**: page ground, cards, popovers and dialogs in light mode.
@@ -191,7 +192,7 @@ A grayscale world with a single saturated violet and three small status hues. Al
 - A run with no new files is plain Quiet Gray with an info icon.
 
 ### Named Rules
-**The One Voice Rule.** Violet appears only on Rodar and other run-starting actions, the active nav icon, focus and selection, and live runs. If something violet is neither startable, focused, selected nor running, it is wrong. One exception, Henry's call (2026-10-02): the catalog's "+ Registrar apps" is violet too, but square-cornered (8px) so it never reads as a Rodar pill.
+**The One Voice Rule.** Coral appears only as a fill: on Rodar and other run-starting actions, the active nav marker, selection and live runs. If something coral is neither startable, selected nor running, it is wrong, and coral is never the color of a word or an icon. One exception, Henry's call (2026-10-02): the catalog's "+ Registrar apps" is coral too, but square-cornered (8px) so it never reads as a Rodar pill.
 
 **The No Rainbow Rule.** Kinds, areas, people and categories are never color-coded. Green, red and amber appear only as small status icons and the words beside them (soft tints are allowed only for diff lines and review notices), never as filled chips that compete with Rodar.
 
@@ -247,24 +248,24 @@ The system is flat. Depth comes from tonal layering (Sidebar Mist beside Paper W
 
 ## Shapes
 
-Soft, small radii from one 0.5rem base. Nav items and small controls use the medium step (6.4px), buttons and inputs the large step (8px), cards, the facts row, dialogs and strip cards the extra-large step (11.2px). Pills are fully round: the Rodar button, kind pills and avatar circles. Rodar is the only fully round button, which is part of how it is found. Empty states use a dashed Field Stroke border; everything else is a solid hairline. The logo is a violet rounded square holding three white tiles and a play triangle.
+Soft, small radii from one 0.5rem base. Nav items and small controls use the medium step (6.4px), buttons and inputs the large step (8px), cards, the facts row, dialogs and strip cards the extra-large step (11.2px). Pills are fully round: the Rodar button, kind pills and avatar circles. Rodar is the only fully round button, which is part of how it is found. Empty states use a dashed Field Stroke border; everything else is a solid hairline. The logo is the Kova mark: a Logo Petrol square (rx 12 of 48) holding a Logo Sand cove arc open to the right (stroke 5, round caps) and a coral dot (r 5) at the center; the square turns Logo Petrol Night in dark mode. Wordmark "Kova" set in Geist.
 
 ## Components
 
 ### Buttons
 Quiet and compact, with one exception that is loud on purpose.
-- **Rodar (run):** fully round, Run Violet fill, white semibold label, play icon filled with current color. Catalog size is 32px tall; the app page uses a 44px hero size. Hover darkens the violet by mixing in 12% black; focus shows a violet ring at 40%; pressing nudges it down 1px. "Abrir app" in the run dialog uses the same variant because it starts the run.
-- **Rodar de novo:** the outline button with a violet filled play icon, used in run lists where a full violet pill per row would be too loud.
+- **Rodar (run):** fully round, Run Coral fill, Ink semibold label, play icon filled with current color. Catalog size is 32px tall; the app page uses a 44px hero size. Hover switches to Run Coral Hover; focus shows a solid neutral ring with a 2px offset; pressing nudges it down 1px. "Abrir app" in the run dialog uses the same variant because it starts the run.
+- **Rodar de novo:** the outline button with a filled Ink play icon, used in run lists where a full coral pill per row would be too loud.
 - **Primary (neutral):** Ink fill, white text, 8px radius, hover at 80%. For non-run main actions ("Ver e baixar" on a finished run, "Registrar os primeiros apps").
 - **Outline / Ghost / Secondary:** hairline or no border on the ground, hover fills Hover Gray. Destructive is a 10% red tint with red text.
-- **Hover / Focus:** color transitions only; focus is a 3px ring of Focus Violet at 50% plus a violet border.
+- **Hover / Focus:** color transitions only; focus is a 3px neutral ring at 50% plus a neutral border; Rodar uses a solid 2px neutral ring with a 2px offset.
 
 ### Kind Pills
 - **Style:** Pill Gray fill, Quiet Gray 12px medium text, a 14px Lucide icon per kind (script, web, desktop, scheduled, executable, reference, system), fully round, 2px by 8px padding.
 - **State:** none. Kinds are never colored and never interactive.
 
 ### Status (RunState)
-Icon plus words, always. Live: violet playing bars and violet text. Concluída: green check. Sem arquivos novos: gray info icon. Erro and Interrompida: red warning triangle. Text is medium weight in the same color as its icon.
+Icon plus words, always. Live: coral playing bars and Ink text. Concluída: green check. Sem arquivos novos: gray info icon. Erro and Interrompida: red warning triangle. Text is medium weight in the same color as its icon.
 
 ### Cards / Containers
 - **Corner Style:** extra-large (11.2px).
@@ -274,25 +275,25 @@ Icon plus words, always. Live: violet playing bars and violet text. Concluída: 
 - **Internal Padding:** 20px. The catalog card holds the name (a link stretched over the whole card), a two-line description, then a bottom row: kind pill and "área · responsável" left, "aberto agora" and Rodar right. Rodar sits above the card link so both work.
 
 ### Inputs / Fields
-- **Style:** 1px Field Stroke, 8px radius, transparent ground (Paper White in search), 32 to 36px tall, 14px text; the caret is violet.
-- **Focus:** border turns Focus Violet with a 3px violet ring at 50%.
+- **Style:** 1px Field Stroke, 8px radius, transparent ground (Paper White in search), 32 to 36px tall, 14px text; the caret is Ink.
+- **Focus:** border turns Ink (Night Ink in dark) with a 3px neutral ring at 50%.
 - **Error / Disabled:** red border and 20% red ring; disabled at 50% opacity.
 - **Field:** a 14px medium label above, an optional 12px gray hint below. Folder and command inputs are set in mono.
 
 ### Navigation
-Sidebar rows are 14px text with a 16px icon, 6px by 10px padding, medium radius. Inactive rows are Quiet Gray and fill Hover Gray at 70% on hover; the active row fills Hover Gray, turns Ink and medium weight, and its icon alone turns violet. "Minhas execuções" shows violet playing bars and a count when runs are live. On mobile the nav is a scrolling row in the top bar.
+Sidebar rows are 14px text with a 16px icon, 6px by 10px padding, medium radius. Inactive rows are Quiet Gray and fill Hover Gray at 70% on hover; the active row fills Hover Gray, turns Ink and medium weight, with a 3px coral marker on its left edge; its icon turns Ink. "Minhas execuções" shows coral playing bars and an Ink count when runs are live. On mobile the nav is a scrolling row in the top bar.
 
 ### Run Strip (signature)
 The bottom-of-screen stack that narrates each run: a floating card per run (Paper White or Night popover, hairline, extra-large radius, Pop shadow, 12px by 16px padding). Left is the status mark (playing bars, green check, gray info, red triangle), then a plain Portuguese sentence with the app name in semibold. Right are small 6px-radius actions: "Ver" and "Ocultar" while live; "Ver e baixar" as the neutral primary when done; "Ver detalhes", "Trocar pasta" or "Ver Meu computador" as outline actions; and a dismiss X. Cards are sorted problems first, then results, then live runs. Desktop shows up to three, phones one; the rest go into a "+N em Minhas execuções" pill, and hidden live runs into a "N aberto oculto · Mostrar" pill beside it.
 
 ### App Page (ficha, design B)
-One page, parts in this order: header (name, summary with a quiet "Editar", kind pill · area · owner · backup · version, Rodar), O que ele pede, O que ele entrega, Execuções, Quem cuida, then a folded `<details>` "Para quem cuida do app" (only for people who may see the technical side). Each part is a two-column row: a semibold label on the left with "Editar" under it, the content on the right; on phones the columns stack. **Editar** is gray text, no border and no fill, underlined only on hover; it never competes with Rodar, which stays the only violet button. A part in edit mode swaps its content for a hairline-bordered panel with Salvar (neutral primary) and Cancelar (ghost). The details summary starts with a "›" marker that turns when open, the title in semibold and, in 12px gray, "N pontos de atenção · código, outros apps, histórico, acesso". Inside, the same label-and-content rows: Pontos de atenção, Outros apps, Código-fonte, Bibliotecas, Como roda, Histórico, Onde está, Acesso.
+One page, parts in this order: header (name, summary with a quiet "Editar", kind pill · area · owner · backup · version, Rodar), O que ele pede, O que ele entrega, Execuções, Quem cuida, then a folded `<details>` "Para quem cuida do app" (only for people who may see the technical side). Each part is a two-column row: a semibold label on the left with "Editar" under it, the content on the right; on phones the columns stack. **Editar** is gray text, no border and no fill, underlined only on hover; it never competes with Rodar, which stays the only coral pill. A part in edit mode swaps its content for a hairline-bordered panel with Salvar (neutral primary) and Cancelar (ghost). The details summary starts with a "›" marker that turns when open, the title in semibold and, in 12px gray, "N pontos de atenção · código, outros apps, histórico, acesso". Inside, the same label-and-content rows: Pontos de atenção, Outros apps, Código-fonte, Bibliotecas, Como roda, Histórico, Onde está, Acesso.
 
 ### Team Page (Equipe)
 A page title, then small pill tabs (Pessoas, Áreas, Cargos); the selected tab is the neutral Ink pill, the others outline. Tabs show only what the person may use. Each tab is one hairline card of rows: name in medium weight with gray facts beside it (apps, leaders, members; permissions written in Portuguese for roles) and quiet gray text actions below (Renomear, Apagar, Editar). Creating things uses a small field and a neutral button under the card. No color besides the active nav icon.
 
 ### Shared Status Dot (SharedStatusDot)
-A 8px dot plus a short Portuguese word, 12px, for a shared app's state: green for "No ar", a pulsing violet dot for "Ligando", gray for "Descansando" or "Parado", red for "Caiu", and an empty outlined dot for "Ainda não publicado". These are the exact words the app shows (`frontend/src/lib/shared.ts`). It appears on the catalog card beside "Abrir" and in the ficha line. Violet is kept only for what is starting or can be started: **Abrir**, **Testar** and **Publicar** use the violet button; Parar, Ligar and Limites stay outline.
+A 8px dot plus a short Portuguese word, 12px, for a shared app's state: green for "No ar", a pulsing coral dot for "Ligando", gray for "Descansando" or "Parado", red for "Caiu", and an empty outlined dot for "Ainda não publicado". These are the exact words the app shows (`frontend/src/lib/shared.ts`). It appears on the catalog card beside "Abrir" and in the ficha line. Coral is kept only for what is starting or can be started: **Abrir**, **Testar** and **Publicar** use the violet button; Parar, Ligar and Limites stay outline.
 
 ### Shared Part of the Ficha (Compartilhado)
 A part in the same label-and-content row as the others. It holds the readiness checklist ("Checagem antes de publicar"): one row per item with a status icon (green check, amber triangle, gray info), a plain sentence, an "estou ciente" mark for warnings and a "Texto para o Claude" copy action. Below it come Testar and Publicar, then the settings, backups and, for people who see the technical side, logs and usage inside "Para quem cuida do app".
@@ -304,7 +305,7 @@ A page title, then a three-column row on desktop (stacked on phones, 16px gutter
 A page that didn't load shows a red warning triangle with the reason in plain Portuguese and an outline "Tentar de novo" button below. The browser's own English errors never reach the screen.
 
 ### Playing Bars (signature)
-Three 3px violet bars, 2px apart and 0.85em tall, scaling between 30% and 100% height over 1s with staggered delays, like a music player's equalizer. They appear only on what is open on someone's computer right now: the strip, the catalog card ("aberto agora"), the nav count and the live status. With reduced motion they freeze at three different static heights.
+Three 3px coral bars, 2px apart and 0.85em tall, scaling between 30% and 100% height over 1s with staggered delays, like a music player's equalizer. They appear only on what is open on someone's computer right now: the strip, the catalog card ("aberto agora"), the nav count and the live status. With reduced motion they freeze at three different static heights.
 
 ### Theme Toggle
 A Pill Gray segmented control in the sidebar footer (Claro, Escuro, Sistema, each with an icon); the selected segment lifts to the ground color with an extra-small shadow.
@@ -315,19 +316,19 @@ A dashed Field Stroke box, extra-large radius, 48px by 32px padding, left-aligne
 ## Do's and Don'ts
 
 ### Do:
-- **Do** keep every surface white, gray or near-black, and spend violet only on Rodar, the active nav icon, focus and selection, and live runs.
-- **Do** make Rodar the only fully round, violet-filled button on a screen.
-- **Do** show status as an icon plus words: green check for ok, red triangle for errors, gray info for no files, violet bars for live.
+- **Do** keep every surface white, gray or near-black, and spend coral only as a fill: Rodar, the active nav marker, selection and live runs.
+- **Do** make Rodar the only fully round, coral-filled button on a screen.
+- **Do** show status as an icon plus words: green check for ok, red triangle for errors, gray info for no files, coral bars for live.
 - **Do** show app kinds as gray pills with their icon.
 - **Do** set paths, versions, dates and durations in Geist Mono, and keep the separators and words around them in Geist sans.
 - **Do** always show which version ran and where the files were saved ("salva em").
-- **Do** open the app in light mode by default and keep dark mode as a full peer with the lighter violet.
+- **Do** open the app in light mode by default and keep dark mode as a full peer with the same coral.
 - **Do** write all UI copy in plain Brazilian Portuguese, in short, direct sentences.
 - **Do** keep the playing bars static under reduced motion.
 
 ### Don't:
 - **Don't** color app kinds, areas or people, or use colored status chips.
-- **Don't** use violet for decoration, headings, links, illustrations or backgrounds.
+- **Don't** use coral for text, icons, decoration, headings, links, illustrations, backgrounds or focus rings.
 - **Don't** put eyebrow or kicker labels above titles.
 - **Don't** use decorative blur, glass, gradients or glows.
 - **Don't** ship placeholder, sample or fake content. Show a real empty state that says what to do.
