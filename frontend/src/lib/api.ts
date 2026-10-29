@@ -232,8 +232,8 @@ export class ApiError extends Error {
 }
 
 // The browser's own errors ("Failed to fetch") are English and say nothing; these say what to do.
-export const OFFLINE = "Não consegui falar com o Hub. Confira se esta página ainda está aberta no endereço certo e tente novamente."
-const DOWN = "O Hub não respondeu. Espere um pouco e tente de novo."
+export const OFFLINE = "Não consegui falar com o Kova. Confira se esta página ainda está aberta no endereço certo e tente novamente."
+const DOWN = "O Kova não respondeu. Espere um pouco e tente de novo."
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   let res: Response

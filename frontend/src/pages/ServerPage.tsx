@@ -139,7 +139,7 @@ export function ServerPage() {
       },
       (e) => {
         if (e instanceof ApiError && e.status === 403) setDenied(true)
-        else setLoadError(errText(e, "O Hub não respondeu. Tente de novo em alguns segundos."))
+        else setLoadError(errText(e, "O Kova não respondeu. Tente de novo em alguns segundos."))
       },
     )
   }, [])
@@ -259,7 +259,7 @@ export function ServerPage() {
           })}
         </ul>
         <div className="mt-3 flex items-baseline justify-between gap-3 px-4 text-sm md:px-0">
-          <span>Hub e espaço livre</span>
+          <span>Kova e espaço livre</span>
           <span className="tabular-nums">{hasCost ? formatCents(info.hub_cents) : "—"}</span>
         </div>
       </section>

@@ -1,4 +1,4 @@
-// Package agent is the platform-neutral part of the Agente do Hub: it opens
+// Package agent is the platform-neutral part of the Agente do Kova: it opens
 // apps, finds the files they produced and sends them to the Hub.
 package agent
 

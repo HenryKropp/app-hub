@@ -91,6 +91,6 @@ test("stopped run explains and lists its files", async () => {
   vi.spyOn(api, "run").mockResolvedValue(run({ status: "stopped" }))
   renderAt()
   expect(await screen.findByText("Parada")).toBeInTheDocument()
-  expect(screen.getByText(/Você parou o app pelo Hub\. Abaixo estão/)).toBeInTheDocument()
+  expect(screen.getByText(/Você parou o app pelo Kova\. Abaixo estão/)).toBeInTheDocument()
   expect(screen.getByRole("heading", { name: /Data Pack/ })).toBeInTheDocument()
 })

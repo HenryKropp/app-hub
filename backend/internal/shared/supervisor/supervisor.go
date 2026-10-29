@@ -32,7 +32,7 @@ const msgGaveUp = "O app parou de responder 3 vezes em 10 minutos."
 const restartWindow = 10 * time.Minute
 
 // msgStale is the reason shown for a deployment the Hub lost track of.
-const msgStale = "O Hub reiniciou durante a montagem. Publique de novo."
+const msgStale = "O Kova reiniciou durante a montagem. Publique de novo."
 
 type Supervisor struct {
 	Interval   time.Duration
@@ -362,7 +362,7 @@ func (s *Supervisor) restart(ctx context.Context, a sqlc.ListSharedAppsRow, now 
 		if count >= 3 {
 			_ = s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: a.AppID, Status: "crashed",
 				StatusMessage: msgGaveUp})
-			s.svc.HubEvent(ctx, a.AppID, "O app caiu e o Hub parou de tentar religar")
+			s.svc.HubEvent(ctx, a.AppID, "O app caiu e o Kova parou de tentar religar")
 			return errGaveUp
 		}
 		if err := s.q.SetSharedRestarts(ctx, sqlc.SetSharedRestartsParams{AppID: a.AppID, RestartCount: count + 1, RestartWindowStart: start}); err != nil {

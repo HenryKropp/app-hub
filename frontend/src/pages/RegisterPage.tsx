@@ -103,7 +103,7 @@ export function RegisterPage() {
           Onde estão os apps?
         </label>
         <p className="mt-1 text-sm text-muted-foreground">
-          Cole o caminho da pasta, como aparece no Explorador de Arquivos. O Hub só lê: nada é alterado até você publicar.
+          Cole o caminho da pasta, como aparece no Explorador de Arquivos. O Kova só lê: nada é alterado até você publicar.
         </p>
         <div className="mt-4 flex flex-col gap-3 lg:flex-row">
           <Input

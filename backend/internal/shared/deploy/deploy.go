@@ -44,7 +44,7 @@ var (
 type Options struct {
 	DataDir       string        // SHARED_DATA_DIR
 	Domain        string        // SHARED_APPS_DOMAIN, ex.: "localhost:8080"
-	Scheme        string        // "http" ou "https" (do BASE_URL do Hub)
+	Scheme        string        // "http" ou "https" (do BASE_URL do Kova)
 	HealthTimeout time.Duration // 90 s; testes usam 1 s
 }
 
@@ -235,7 +235,7 @@ func (s *Service) recoverJob(j job) {
 	if d, err := s.q.GetDeployment(ctx, j.dep.ID); err == nil && d.Status != "building" {
 		return // already recorded as finished; leave it as it is
 	}
-	s.fail(ctx, j, &failure{msg: "Erro inesperado no Hub. Tente de novo; se repetir, avise o administrador.", log: fmt.Sprint(r)})
+	s.fail(ctx, j, &failure{msg: "Erro inesperado no Kova. Tente de novo; se repetir, avise o administrador.", log: fmt.Sprint(r)})
 }
 
 func (s *Service) prepare(ctx context.Context, app sqlc.App, m manifest.Manifest, by int64, test bool) (sqlc.SharedDeployment, job, error) {
@@ -248,7 +248,7 @@ func (s *Service) prepare(ctx context.Context, app sqlc.App, m manifest.Manifest
 		return sqlc.SharedDeployment{}, job{}, err
 	}
 	if rec.Kind == "" {
-		return sqlc.SharedDeployment{}, job{}, errors.New("O Hub não sabe ligar este app. Veja a checagem para o que falta.")
+		return sqlc.SharedDeployment{}, job{}, errors.New("O Kova não sabe ligar este app. Veja a checagem para o que falta.")
 	}
 	if rec.Port == 0 {
 		rec.Port = int(sa.Port)
@@ -394,7 +394,7 @@ func (s *Service) start(ctx context.Context, j job, img, dbName string) (string,
 }
 
 // msgRecord is shown when the Hub could not record a finished swap.
-const msgRecord = "Não foi possível registrar a versão nova no Hub. Nada mudou no app; tente de novo em alguns minutos."
+const msgRecord = "Não foi possível registrar a versão nova no Kova. Nada mudou no app; tente de novo em alguns minutos."
 
 func (s *Service) runPublish(ctx context.Context, j job) *failure {
 	if t, err := s.q.ListOpenTests(ctx, j.app.ID); err == nil { // encerra o teste em andamento
@@ -516,7 +516,7 @@ func (s *Service) runTest(ctx context.Context, j job) *failure {
 		Port: int32(j.rec.Port), BuildLog: lastLines(log, 40)}); err != nil {
 		s.discard(ctx, cid, img)
 		dropDB()
-		return &failure{msg: "Não foi possível registrar o teste no Hub. Tente de novo em alguns minutos.", log: log + "\n" + err.Error()}
+		return &failure{msg: "Não foi possível registrar o teste no Kova. Tente de novo em alguns minutos.", log: log + "\n" + err.Error()}
 	}
 	s.setTarget(j.app.ID, true, port)
 	return nil
@@ -652,7 +652,7 @@ func (s *Service) Rollback(ctx context.Context, appID int64, withData bool, by i
 		CurrentID: pgtype.Int8{Int64: prev.ID, Valid: true}, PreviousID: pgtype.Int8{Int64: cur.ID, Valid: true}}); err != nil {
 		slog.Error("shared rollback: record swap", "app", appID, "err", err)
 		logErr(s.eng.Remove(ctx, cid), "remove container", "container", cid)
-		return undo("Não foi possível registrar a troca de versão no Hub.")
+		return undo("Não foi possível registrar a troca de versão no Kova.")
 	}
 	s.setTarget(appID, false, hostPort)
 	if cur.ContainerID != "" {

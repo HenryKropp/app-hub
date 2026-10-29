@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
 import { RunStrip } from "./RunStrip"
+import { PRODUCT_NAME } from "@/lib/brand"
 
 const NAV = [
   { to: "/", label: "Catálogo", icon: LibraryBig, show: (_p: Person) => true },
@@ -68,7 +69,7 @@ function Shell() {
       <aside className="relative z-10 flex shrink-0 flex-col border-b border-sidebar-border bg-sidebar md:sticky md:top-0 md:h-svh md:w-60 md:border-r md:border-b-0">
         <div className="flex items-center gap-2.5 px-5 pt-4 pb-3 md:pt-5 md:pb-6">
           <Logo className="size-7" />
-          <p className="text-[0.95rem] font-semibold tracking-[-0.01em]">App Hub</p>
+          <p className="text-[0.95rem] font-semibold tracking-[-0.01em]">{PRODUCT_NAME}</p>
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Sua conta"

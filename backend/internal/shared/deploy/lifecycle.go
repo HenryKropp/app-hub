@@ -113,7 +113,7 @@ func (s *Service) runApp(ctx context.Context, appID int64, explicit bool) error 
 		// Without the container ID the Hub would lose track of it: do not leave it running.
 		logErr(s.eng.Remove(ctx, cid), "remove container", "container", cid)
 		logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "crashed",
-			StatusMessage: "Não foi possível registrar o app ligado no Hub."}), "set status", "app", appID)
+			StatusMessage: "Não foi possível registrar o app ligado no Kova."}), "set status", "app", appID)
 		return fmt.Errorf("record container: %w", err)
 	}
 	s.setTarget(appID, false, hostPort)

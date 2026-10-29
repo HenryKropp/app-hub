@@ -115,9 +115,9 @@ func TestRestartsThreeTimesThenCrashed(t *testing.T) {
 		t.Fatalf("%+v", sa)
 	}
 	var who string
-	pool.QueryRow(ctx, `SELECT COALESCE(p.name,'Hub') FROM app_changes c LEFT JOIN people p ON p.id = c.person_id
+	pool.QueryRow(ctx, `SELECT COALESCE(p.name,'Kova') FROM app_changes c LEFT JOIN people p ON p.id = c.person_id
 		WHERE c.app_id = $1 ORDER BY c.id DESC LIMIT 1`, e.App.ID).Scan(&who)
-	if who != "Hub" {
+	if who != "Kova" {
 		t.Fatalf("last event by %q", who)
 	}
 	s.Tick(ctx) // caiu: não tenta mais
@@ -296,7 +296,7 @@ func TestReconcileOnStart(t *testing.T) {
 	ctx := context.Background()
 	e, _, _ := live(t)
 	orphan := mustStart(t, e, engine.StartSpec{Name: "apphub-velho-1", Labels: map[string]string{engine.Label: "99"}})
-	foreign := mustStart(t, e, engine.StartSpec{Name: "sistema-alis-db"}) // não é do Hub
+	foreign := mustStart(t, e, engine.StartSpec{Name: "sistema-alis-db"}) // não é do Kova
 	// "reinício": serviço novo, sem portas em memória
 	svc2 := e.NewService()
 	s := New(e.Q, e.Eng, svc2)

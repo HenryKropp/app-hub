@@ -36,5 +36,5 @@ it("joins the Claude texts of what is missing", () => {
   ])
   expect(t).toContain("Faça o app ler a porta")
   expect(t).toContain("APPHUB_DATA_DIR")
-  expect(t.startsWith("Estou preparando este app para rodar compartilhado no App Hub.")).toBe(true)
+  expect(t.startsWith("Estou preparando este app para rodar compartilhado no Kova.")).toBe(true)
 })

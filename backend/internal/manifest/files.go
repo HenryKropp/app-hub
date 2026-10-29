@@ -12,15 +12,15 @@ import (
 )
 
 // ErrForeignFile means a file with the Hub's name exists but was not written by the Hub.
-var ErrForeignFile = errors.New("já existe um arquivo com esse nome na pasta que não foi criado pelo Hub")
+var ErrForeignFile = errors.New("já existe um arquivo com esse nome na pasta que não foi criado pelo Kova")
 
 // Marshal renders the manifest as commented YAML.
 func Marshal(m Manifest) ([]byte, error) {
 	m.ManifestVersion = Version
 	var buf bytes.Buffer
 	buf.WriteString(headerMarker + "\n")
-	buf.WriteString("# Gerado e mantido pelo App Hub. Descreve como o app roda, o que recebe e o que devolve.\n")
-	buf.WriteString("# Pode ser lido e editado fora do Hub. Nunca coloque senhas ou chaves aqui.\n\n")
+	buf.WriteString("# Gerado e mantido pelo Kova. Descreve como o app roda, o que recebe e o que devolve.\n")
+	buf.WriteString("# Pode ser lido e editado fora do Kova. Nunca coloque senhas ou chaves aqui.\n\n")
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(2)
 	if err := enc.Encode(m); err != nil {
@@ -178,6 +178,6 @@ func RenderFicha(m Manifest) string {
 			fmt.Fprintf(&b, "- %s\n", n)
 		}
 	}
-	b.WriteString("\n---\n_Ficha gerada pelo App Hub a partir do manifesto (`app-hub.yaml`)._\n")
+	b.WriteString("\n---\n_Ficha gerada pelo Kova a partir do manifesto (`app-hub.yaml`)._\n")
 	return b.String()
 }

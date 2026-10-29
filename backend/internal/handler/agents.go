@@ -20,6 +20,7 @@ import (
 
 	"github.com/HenryKropp/app-hub/backend/internal/access"
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
+	"github.com/HenryKropp/app-hub/backend/internal/brand"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 )
 
@@ -428,14 +429,14 @@ func (h *Handler) agentDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.cfg.AgentBinaryPath == "" {
-		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Hub.")
+		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Kova.")
 		return
 	}
 	if _, err := os.Stat(h.cfg.AgentBinaryPath); err != nil {
-		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Hub.")
+		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Kova.")
 		return
 	}
 	w.Header().Set("Content-Type", "application/vnd.microsoft.portable-executable")
-	w.Header().Set("Content-Disposition", `attachment; filename="AppHubAgente.exe"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+brand.AgentFile+`"`)
 	http.ServeFile(w, r, h.cfg.AgentBinaryPath)
 }

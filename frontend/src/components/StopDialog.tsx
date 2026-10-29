@@ -37,7 +37,7 @@ export function StopDialog({ target, onCancel, onStopped }: { target: StopTarget
           <DialogTitle>Parar o {target?.app_name}?</DialogTitle>
           <DialogDescription>
             {waiting
-              ? "O app ainda não abriu. O Hub cancela o pedido e ele não abre mais."
+              ? "O app ainda não abriu. O Kova cancela o pedido e ele não abre mais."
               : "O app fecha agora no seu computador, junto com as janelas que ele abriu. O que não foi salvo se perde; os arquivos que ele já criou continuam na pasta."}
           </DialogDescription>
         </DialogHeader>

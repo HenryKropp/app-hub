@@ -324,7 +324,7 @@ func (h *Handler) startShared(w http.ResponseWriter, r *http.Request, test bool)
 }
 
 // withDatabase turns the app's database on when the check says the code
-// reads DATABASE_URL (the checklist promises "O Hub cria um banco só deste app").
+// reads DATABASE_URL (the checklist promises "O Kova cria um banco só deste app").
 func withDatabase(m manifest.Manifest, rep readiness.Report) manifest.Manifest {
 	if !rep.WantsDB {
 		return m

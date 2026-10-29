@@ -7,8 +7,8 @@ import type { Readiness } from "@/lib/api"
 const recipe = (kind: string): Readiness["recipe"] => ({ kind, command: "", dockerfile: "", port: 0, needs_confirm: false, requirements: null })
 
 const rep: Readiness = { ready: false, recipe: recipe("streamlit"), wants_db: false, suggest_env: [], items: [
-  { key: "recipe", status: "auto", title: "Jeito de rodar", detail: "Streamlit, o Hub monta sozinho.", claude_text: "", acked: false },
-  { key: "port", status: "missing", title: "Porta", detail: "O app não lê a porta que o Hub dá.", claude_text: "Faça o app ler PORT.", acked: false },
+  { key: "recipe", status: "auto", title: "Jeito de rodar", detail: "Streamlit, o Kova monta sozinho.", claude_text: "", acked: false },
+  { key: "port", status: "missing", title: "Porta", detail: "O app não lê a porta que o Kova dá.", claude_text: "Faça o app ler PORT.", acked: false },
   { key: "file_data", status: "warn", title: "Dados em arquivo", detail: "Grava notas.json na pasta.", claude_text: "Use APPHUB_DATA_DIR.", acked: false },
 ]}
 
@@ -16,7 +16,7 @@ it("lists items in plain words with the Claude text to copy", async () => {
   const onAck = vi.fn()
   render(<ReadinessList report={rep} acks={[]} onAck={onAck} />)
   expect(screen.getByText("Porta")).toBeInTheDocument()
-  expect(screen.getByText("Streamlit, o Hub monta sozinho.")).toBeInTheDocument()
+  expect(screen.getByText("Streamlit, o Kova monta sozinho.")).toBeInTheDocument()
   const box = screen.getByRole("textbox", { name: "Texto para o Claude" })
   expect((box as HTMLTextAreaElement).value).toContain("Faça o app ler PORT.")
   await userEvent.click(screen.getByRole("checkbox", { name: /estou ciente/i }))

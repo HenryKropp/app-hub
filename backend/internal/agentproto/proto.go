@@ -1,5 +1,5 @@
 // Package agentproto holds the messages exchanged between the Hub and the
-// Agent do Hub running on people's Windows computers.
+// Agent do Kova running on people's Windows computers.
 package agentproto
 
 import (

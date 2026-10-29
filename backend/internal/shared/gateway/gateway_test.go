@@ -165,7 +165,7 @@ func TestGatewayStripsForgedHeaders(t *testing.T) {
 	if b := w.Body.String(); !strings.Contains(b, "email=ana@alis.com") || !strings.Contains(b, "id=1 ") || !strings.Contains(b, "name=Ana ") || !strings.Contains(b, "role=Usu") {
 		t.Fatalf("%s", w.Body.String())
 	}
-	// sem sessão, o cabeçalho forjado também não passa: vai para o Hub
+	// sem sessão, o cabeçalho forjado também não passa: vai para o Kova
 	if w := get(g, "notas.localhost:8080", "/", nil, map[string]string{"X-AppHub-User-Email": "chefe@alis.com"}); w.Code != http.StatusFound {
 		t.Fatalf("forged header without session got %d", w.Code)
 	}
@@ -217,7 +217,7 @@ func TestGatewayRechecksAccess(t *testing.T) {
 	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "Sem acesso") || !strings.Contains(w.Body.String(), "Henry") {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
-	// e a sessão morreu: mesmo voltando o acesso, passa pelo Hub de novo
+	// e a sessão morreu: mesmo voltando o acesso, passa pelo Kova de novo
 	b.allowed = true
 	if w := get(g, "notas.localhost:8080", "/", c, nil); w.Code != http.StatusFound {
 		t.Fatalf("dead session got %d", w.Code)

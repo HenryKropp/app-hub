@@ -77,11 +77,11 @@ func (h *Handler) agentBinary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.cfg.AgentBinaryPath == "" {
-		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Hub.")
+		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Kova.")
 		return
 	}
 	if info, err := os.Stat(h.cfg.AgentBinaryPath); err != nil || !info.Mode().IsRegular() {
-		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Hub.")
+		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Kova.")
 		return
 	}
 	w.Header().Set("Content-Type", "application/vnd.microsoft.portable-executable")

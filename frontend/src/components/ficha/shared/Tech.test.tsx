@@ -30,10 +30,10 @@ it("saving the limits carries the 'estou ciente' marks saved meanwhile", async (
 
 it("says so when it does not load, and tries again", async () => {
   vi.spyOn(api.shared, "get")
-    .mockRejectedValueOnce(new Error("O Hub não respondeu. Espere um pouco e tente de novo."))
+    .mockRejectedValueOnce(new Error("O Kova não respondeu. Espere um pouco e tente de novo."))
     .mockResolvedValueOnce({ shared: state, deployments: [] })
   render(<Tech app={app} onChanged={() => {}} />)
-  expect(await screen.findByText("O Hub não respondeu. Espere um pouco e tente de novo.")).toBeInTheDocument()
+  expect(await screen.findByText("O Kova não respondeu. Espere um pouco e tente de novo.")).toBeInTheDocument()
   await userEvent.click(screen.getByRole("button", { name: "Tentar de novo" }))
   expect(await screen.findByLabelText("Memória")).toBeInTheDocument()
 })

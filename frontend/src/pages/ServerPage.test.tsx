@@ -92,9 +92,9 @@ it("says there is no access on 403", async () => {
 })
 
 it("offers a retry on other load errors", async () => {
-  vi.spyOn(api.server, "get").mockRejectedValueOnce(new ApiError(500, "O Hub não respondeu. Tente de novo.")).mockResolvedValue(info)
+  vi.spyOn(api.server, "get").mockRejectedValueOnce(new ApiError(500, "O Kova não respondeu. Tente de novo.")).mockResolvedValue(info)
   renderPage()
-  expect(await screen.findByText("O Hub não respondeu. Tente de novo.")).toBeInTheDocument()
+  expect(await screen.findByText("O Kova não respondeu. Tente de novo.")).toBeInTheDocument()
   await userEvent.click(screen.getByRole("button", { name: "Tentar de novo" }))
   expect(await screen.findByText("Sistema Alis")).toBeInTheDocument()
 })
