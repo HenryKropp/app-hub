@@ -19,6 +19,8 @@ import { SetupPage } from "@/pages/SetupPage"
 import { SecurityPage } from "@/pages/SecurityPage"
 import { PRODUCT_NAME } from "@/lib/brand"
 import { CompanyEntryPage } from "@/pages/CompanyEntryPage"
+import { CompanySignupPage } from "@/pages/CompanySignupPage"
+import { LandingPage } from "@/pages/LandingPage"
 import { InvitationPage } from "@/pages/InvitationPage"
 import { workspaceBasePath } from "@/lib/api"
 
@@ -44,7 +46,9 @@ function Routed() {
   if (loading) return <div className="mx-auto mt-20 w-full max-w-sm space-y-3 px-4" role="status" aria-label={`Conectando ao ${PRODUCT_NAME}`}><div className="h-7 w-2/3 animate-pulse rounded bg-muted" /><div className="h-4 w-full animate-pulse rounded bg-muted" /><div className="h-10 w-full animate-pulse rounded bg-muted" /></div>
   return (
     <Routes>
-      <Route path="/boas-vindas" element={<CompanyEntryPage />} />
+      <Route path="/boas-vindas" element={<LandingPage />} />
+      <Route path="/acesso" element={<CompanyEntryPage />} />
+      <Route path="/cadastre-se" element={<CompanySignupPage />} />
       <Route path="/convite" element={<InvitationPage />} />
       <Route path="/entrar" element={<LoginPage />} />
       <Route element={<Protected />}>

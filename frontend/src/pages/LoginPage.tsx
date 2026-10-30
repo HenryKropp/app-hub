@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react"
+import { ShieldCheck } from "lucide-react"
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -82,24 +83,23 @@ export function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-svh md:grid-cols-[1.1fr_1fr]">
-      <section className="relative hidden overflow-hidden border-r border-sidebar-border bg-sidebar p-12 md:flex md:flex-col">
+    <div className="auth-shell login-shell">
+      <section className="login-story">
         <div className="flex items-center gap-2.5">
           <Wordmark className="h-11 w-auto" />
         </div>
-        <div className="mt-auto max-w-md">
-          <h1 className="font-heading text-[2.5rem] leading-[1.1] text-balance">Todo app da empresa, com ficha, dono e botão de usar.</h1>
-          <p className="mt-4 text-muted-foreground">
-            Registre os scripts e ferramentas que estão espalhados em pastas. O Ziv descobre como cada um funciona e deixa pronto para qualquer
-            pessoa usar.
-          </p>
+        <div className="login-story-copy">
+          <span className="auth-kicker"><span /> ESPAÇO PRIVADO DA EMPRESA</span>
+          <h1>As ferramentas do time, <em>em boas mãos.</em></h1>
+          <p>Um lugar compartilhado para microapps e scripts da equipe. Entre para encontrar o que precisa e seguir com o trabalho.</p>
+          <div className="login-story-note"><span><ShieldCheck size={17} /></span> Este acesso pertence somente a esta empresa.</div>
         </div>
       </section>
 
-      <section className="flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-sm">
+      <section className="login-main">
+        <div className="login-card">
           <form id="login-form" onSubmit={submit}>
-          <div className="mb-6 flex items-center gap-2 md:hidden">
+          <div className="login-mobile-logo">
             <Wordmark className="h-11 w-auto" />
           </div>
           {statusError ? (
@@ -113,9 +113,9 @@ export function LoginPage() {
               </div>
             </section>
           ) : <>
-          {workspaceName && <p className="mb-2 text-sm font-medium text-brand">{workspaceName}</p>}
-          <h2 className="font-heading text-2xl">{needsSetup ? "Crie a conta de administrador" : "Bem-vindo de volta"}</h2>
-          {needsSetup && <p className="mt-2 text-sm text-muted-foreground">Você será o administrador. Depois pode cadastrar as outras pessoas da empresa.</p>}
+          <span className="auth-kicker"><span /> {workspaceName ? workspaceName.toLocaleUpperCase("pt-BR") : "ACESSO DA EMPRESA"}</span>
+          <h2 className="login-title">{needsSetup ? "Configure o primeiro acesso" : "Bom ter você de volta."}</h2>
+          {needsSetup && <p className="mt-2 text-sm text-muted-foreground">Crie a conta de administrador para começar. Depois, convide as pessoas da empresa.</p>}
 
           <div className="mt-6 flex flex-col gap-4">
             {needsSetup && (
@@ -151,14 +151,14 @@ export function LoginPage() {
           </div>
           </>}
           </form>
-          <div className="mt-6 flex items-center justify-between border-t border-border pt-4 text-sm">
-            <a href="/boas-vindas" className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Trocar de empresa</a>
+          <div className="login-links">
+            <a href="/acesso">Trocar de empresa</a>
             {canRequestAccess && <button type="button" onClick={() => { setRequestOpen((open) => !open); setRequestError(""); setRequestMessage("") }} className="font-medium text-logo-square underline-offset-4 hover:underline">
               {requestOpen ? "Fechar solicitação" : "Solicitar acesso"}
             </button>}
           </div>
           {canRequestAccess && requestOpen && (
-            <form onSubmit={requestAccess} className="mt-4 rounded-xl border border-border bg-card p-4">
+            <form onSubmit={requestAccess} className="request-access-card">
               <h3 className="font-heading text-base">Peça acesso a {workspaceName || "esta empresa"}</h3>
               <p className="mt-1 text-sm text-muted-foreground">A administração receberá seu nome e e-mail para decidir sobre o acesso.</p>
               <div className="mt-4 flex flex-col gap-3">

@@ -47,7 +47,7 @@ export function InvitationPage() {
     setError("")
     const byteLength = new TextEncoder().encode(password).length
     if (byteLength < 8 || byteLength > 72) {
-      setError("A senha deve ter entre 8 e 72 bytes.")
+      setError("Escolha uma senha com pelo menos 8 caracteres e que não seja muito longa.")
       return
     }
     setBusy(true)
@@ -62,11 +62,10 @@ export function InvitationPage() {
   }
 
   return (
-    <main className="entry-shell relative flex min-h-svh items-center justify-center overflow-hidden px-5 py-10">
-      <div className="entry-grid pointer-events-none absolute inset-0 opacity-70" aria-hidden="true" />
-      <section className="entry-rise relative w-full max-w-md rounded-2xl border border-border bg-card/95 p-6 shadow-pop backdrop-blur-sm sm:p-8">
-        <a href="/boas-vindas" aria-label="Ziv, início" className="inline-flex rounded-sm text-foreground"><Wordmark className="h-9 w-auto" /></a>
-        <div className="mt-7 flex size-11 items-center justify-center rounded-xl bg-logo-square text-white"><ShieldCheck className="size-5" /></div>
+    <main className="auth-shell invitation-shell">
+      <header className="auth-header"><a href="/boas-vindas" aria-label="Ziv, início"><Wordmark className="h-9 w-auto" /></a><a className="auth-back" href="/acesso"><ArrowRight size={15} /> Acessar outro espaço</a></header>
+      <section className="auth-card invitation-card">
+        <div className="auth-card-icon"><ShieldCheck className="size-5" /></div>
         {loading ? (
           <div role="status" aria-label="Validando convite" className="mt-6 space-y-3">
             <div className="h-7 w-2/3 animate-pulse rounded bg-muted" />
@@ -83,14 +82,14 @@ export function InvitationPage() {
           </>
         ) : preview ? (
           <>
-            <p className="mt-5 text-xs font-semibold uppercase tracking-[0.14em] text-logo-square">Convite da equipe</p>
-            <h1 className="mt-2 font-heading text-2xl leading-tight">Entre no espaço {preview.company_name}</h1>
+            <p className="auth-kicker mt-5"><span /> CONVITE DA EQUIPE</p>
+            <h1 className="login-title mt-2">Entre no espaço {preview.company_name}</h1>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">O convite foi criado para <span className="font-medium text-foreground">{preview.email}</span>. Defina seu nome e uma senha para ativar o acesso.</p>
             <form onSubmit={accept} className="mt-6 flex flex-col gap-4">
               <Field label="Seu nome" htmlFor="invite-name">
                 <Input id="invite-name" value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" required />
               </Field>
-              <Field label="Crie uma senha" htmlFor="invite-password" hint="Entre 8 e 72 bytes.">
+              <Field label="Crie uma senha" htmlFor="invite-password" hint="Pelo menos 8 caracteres.">
                 <Input id="invite-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" minLength={8} required />
               </Field>
               {error && <p role="alert" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
@@ -100,6 +99,7 @@ export function InvitationPage() {
           </>
         ) : null}
       </section>
+      <footer className="auth-footer"><span>Convite pessoal para um espaço privado de empresa.</span><a href="/acesso">Já tem acesso? Login</a></footer>
     </main>
   )
 }

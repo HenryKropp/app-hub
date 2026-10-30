@@ -41,25 +41,26 @@ test("unknown companies show an error and never redirect to the principal worksp
   expect(assign).not.toHaveBeenCalled()
 })
 
-test("company creation performs a full navigation to that company's explicit sign-in", async () => {
-  const create = vi.spyOn(api, "createEntryCompany").mockResolvedValue({ url: "/w/horizonte", name: "Horizonte", slug: "horizonte" })
-  const login = vi.spyOn(api, "login")
+test("access page has one company form and confirms the company before full navigation", async () => {
+  const lookup = vi.spyOn(api, "entryCompanyBySlug").mockResolvedValue({ slug: "horizonte", name: "Horizonte", base_path: "/w/horizonte" })
   const assign = vi.fn()
   vi.stubGlobal("location", { ...window.location, assign })
   render(<MemoryRouter><CompanyEntryPage /></MemoryRouter>)
-  await userEvent.type(screen.getByLabelText("Nome da empresa"), "Horizonte")
-  await userEvent.type(screen.getByLabelText("Identificador"), "horizonte")
-  await userEvent.type(screen.getByLabelText("Seu nome"), "Ana")
-  await userEvent.type(screen.getByLabelText("E-mail de trabalho"), "ana@example.com")
-  await userEvent.type(screen.getByLabelText("Senha"), "senha-forte-123")
-  await userEvent.click(screen.getByRole("button", { name: "Criar empresa" }))
-  expect(create).toHaveBeenCalledWith({
-    company_name: "Horizonte",
-    slug: "horizonte",
-    name: "Ana",
-    email: "ana@example.com",
-    password: "senha-forte-123",
-  })
+  expect(document.querySelectorAll("form")).toHaveLength(1)
+  await userEvent.type(screen.getByLabelText("Identificador ou endereço"), "horizonte")
+  await userEvent.click(screen.getByRole("button", { name: "Continuar" }))
+  expect(lookup).toHaveBeenCalledWith("horizonte")
   expect(assign).toHaveBeenCalledWith("/w/horizonte/entrar")
-  expect(login).not.toHaveBeenCalled()
+  expect(screen.getByRole("link", { name: /Cadastre-se/ })).toHaveAttribute("href", "/cadastre-se")
+})
+
+test("the principal company with an empty base path goes to the root sign-in", async () => {
+  const lookup = vi.spyOn(api, "entryCompanyBySlug").mockResolvedValue({ slug: "principal", name: "Principal", base_path: "" })
+  const assign = vi.fn()
+  vi.stubGlobal("location", { ...window.location, assign })
+  render(<MemoryRouter><CompanyEntryPage /></MemoryRouter>)
+  await userEvent.type(screen.getByLabelText("Identificador ou endereço"), "principal")
+  await userEvent.click(screen.getByRole("button", { name: "Continuar" }))
+  expect(lookup).toHaveBeenCalledWith("principal")
+  expect(assign).toHaveBeenCalledWith("/entrar")
 })
