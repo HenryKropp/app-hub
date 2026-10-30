@@ -126,8 +126,8 @@ func TestScriptImportSecretsRequireConfirmationBeforePersistence(t *testing.T) {
 	oldLogger := slog.Default()
 	slog.SetDefault(slog.New(slog.NewTextHandler(&logs, nil)))
 	t.Cleanup(func() { slog.SetDefault(oldLogger) })
-	source := "password = 'FictitiousValue987'\nprint('ok')\n"
-	helper := "const token = 'AnotherFakeValue987';\n"
+source := "password = your_password; token = FictitiousValue987\nprint('ok')\n"
+helper := "const password = 'your_password'; const token = 'AnotherFakeValue987';\n"
 	files := map[string]manifest.InputFile{
 		"main.py":         {Name: "main.py", ContentBase64: base64.StdEncoding.EncodeToString([]byte("print('ok')"))},
 		"lib/settings.py": {Name: "settings.py", ContentBase64: base64.StdEncoding.EncodeToString([]byte(source))},

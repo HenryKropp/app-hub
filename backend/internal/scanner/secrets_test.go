@@ -16,10 +16,26 @@ func TestFindSecretsForImport(t *testing.T) {
 		{"javascript", "const api_key = 'FakeKeyValue987';", 1},
 		{"token", "client('ghp_0123456789abcdefghijklmnopqrstuvwxyz')", 1},
 		{"multiple lines", "senha = 'FictitiousValue987'\ntoken = 'AnotherFakeValue987'", 2},
+{"dotenv", "DB_PASSWORD=FictitiousValue987", 1},
+{"export", "export API_KEY=FakeKeyValue987 # comment", 1},
+{"yaml", "  - token: AnotherFakeValue987", 1},
+{"ini", "[database]\r\npassword = FictitiousValue987 ; comment", 1},
+{"quoted placeholder first", `password = 'your_password'; token = 'AnotherFakeValue987'`, 1},
+{"unquoted placeholder first", `password=your_password; token=AnotherFakeValue987`, 1},
+{"inline json", `{"password":"your_password","token":"AnotherFakeValue987","api_key":"FakeKeyValue987"}`, 2},
+{"inline yaml", `{password: FictitiousValue987, token: AnotherFakeValue987}`, 2},
+{"mixed assignments", `password='FictitiousValue987'; token=AnotherFakeValue987; api_key="FakeKeyValue987"`, 3},
+{"multiple quoted secrets", `password='FictitiousValue987'; token='AnotherFakeValue987'`, 2},
+{"token after placeholder", `password='your_password'; client('ghp_0123456789abcdefghijklmnopqrstuvwxyz')`, 1},
+{"minimum unquoted", "password=ab12", 1},
+{"unquoted placeholders", "password=your_password\ntoken=${TOKEN}\nsecret=********\napi_key=xxxxxxxxxxxx\nsenha=<senha>\npwd={{PASSWORD}}", 0},
+{"short and empty", "password=abc\ntoken=\napi_key=''", 0},
+{"function calls", "token = get_token()\npassword = os.getenv('PASSWORD')\nsecret = read_value ()", 0},
 		{"long line", strings.Repeat(" ", 2100) + "password = 'FictitiousValue987'", 1},
 		{"clean", "print('ok')", 0},
 		{"placeholders", "password = 'your_password'\ntoken = '${TOKEN}'\napi_key = 'xxxxxxxxxxxx'", 0},
 		{"environment", "password = os.getenv('PASSWORD')\nconst token = process.env.TOKEN", 0},
+{"bracket environment", `token = process.env["TOKEN"]`, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got := FindSecrets("main.py", tc.text)
@@ -31,12 +47,34 @@ func TestFindSecretsForImport(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, value := range []string{"FictitiousValue987", "FakeKeyValue987", "AnotherFakeValue987", "ghp_0123456789abcdefghijklmnopqrstuvwxyz"} {
-				if strings.Contains(string(raw), value) {
-					t.Fatal("finding leaked a value")
+if strings.Contains(string(raw), value) || strings.Contains(MaskSecrets(tc.text), value) {
+t.Fatal("finding or masked text leaked a value")
 				}
 			}
 		})
 	}
+}
+
+func TestSecretLocationsAndMasking(t *testing.T) {
+text := "# config\r\npassword=your_password; token=AnotherFakeValue987; api_key='FakeKeyValue987'\r\n"
+got := FindSecrets("settings.yaml", text)
+if len(got) != 2 {
+t.Fatalf("finding count = %d, want 2", len(got))
+}
+names := map[string]bool{}
+for _, finding := range got {
+if finding.File != "settings.yaml" || finding.Line != 2 || finding.Hint != "Senha ou chave escrita no código" {
+t.Fatal("incorrect finding location")
+}
+names[finding.Name] = true
+}
+if !names["TOKEN"] || !names["API_KEY"] {
+t.Fatal("incorrect finding names")
+}
+want := "# config\r\npassword=your_password; token=••••; api_key='••••'\r\n"
+if MaskSecrets(text) != want {
+t.Fatal("inline secrets not masked without changing surrounding text")
+}
 }
 
 func TestMaskSecrets(t *testing.T) {

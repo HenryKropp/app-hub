@@ -33,9 +33,19 @@ const secretName = `[\w\-]*?(?:api[_\-]?key|apikey|secret|token|password|passwd|
 
 var secretAssignment = regexp.MustCompile(`(?i)(?:^|[^\w\-])(` + secretName + `)["']?\s*[:=]\s*[fbrFBR]?["']([^"'\s]{8,})["']`)
 
-// unquotedSecret is a config-style line (NAME=value, name: value, export
-// NAME=value, a YAML list item) whose value has no quotes. Group 2 is the value.
-var unquotedSecret = regexp.MustCompile(`(?i)^(\s*(?:-\s+)?(?:export\s+)?["']?` + secretName + `["']?\s*[:=]\s*)([^\s"'#][^\s#]*)`)
+// unquotedSecret handles config assignments, including inline maps and multiple
+// assignments on one line. Groups 1 and 2 are the name and value.
+var unquotedSecret = regexp.MustCompile(`(?i)(?:^|[^\w\-])["']?(` + secretName + `)["']?\s*[:=]\s*([^\s"'#,;{}()\[\]]+)`)
+
+func isUnquotedSecret(line string, m []int) bool {
+v := line[m[4]:m[5]]
+// Environment references and function calls are executable expressions, not
+// literal credentials. Keep the existing minimum length used for masking.
+return utf8.RuneCountInString(v) >= 4 &&
+!strings.HasPrefix(strings.ToLower(v), "process.env") &&
+!strings.HasPrefix(strings.TrimSpace(line[m[5]:]), "(") &&
+!looksLikePlaceholder(v)
+}
 
 // envLine is any NAME=value line of a .env file. Group 2 is the value.
 var envLine = regexp.MustCompile(`^(\s*(?:export\s+)?[A-Za-z_][\w.\-]*\s*=\s*)(\S.*?)\s*$`)
@@ -65,10 +75,20 @@ func findSecrets(rel, text string) []SecretFinding {
 	for i, line := range strings.Split(text, "\n") {
 		lineNo := i + 1
 		found := false
-		if m := secretAssignment.FindStringSubmatch(line); m != nil && !looksLikePlaceholder(m[2]) {
+for _, m := range secretAssignment.FindAllStringSubmatch(line, -1) {
+if looksLikePlaceholder(m[2]) {
+continue
+}
 			out = append(out, SecretFinding{Name: envName(m[1]), File: rel, Line: lineNo, Hint: "Senha ou chave escrita no código"})
 			found = true
 		}
+for _, m := range unquotedSecret.FindAllStringSubmatchIndex(line, -1) {
+if !isUnquotedSecret(line, m) {
+continue
+}
+out = append(out, SecretFinding{Name: envName(line[m[2]:m[3]]), File: rel, Line: lineNo, Hint: "Senha ou chave escrita no código"})
+found = true
+}
 		if found {
 			continue
 		}
@@ -117,9 +137,10 @@ func MaskSecretsIn(rel, text string) string {
 func MaskSecrets(text string) string {
 	lines := strings.Split(text, "\n")
 	for i, line := range lines {
-		if m := unquotedSecret.FindStringSubmatchIndex(line); m != nil {
-			v := line[m[4]:m[5]]
-			if utf8.RuneCountInString(v) >= 4 && !strings.Contains(v, "(") && !looksLikePlaceholder(v) {
+bare := unquotedSecret.FindAllStringSubmatchIndex(line, -1)
+for k := len(bare) - 1; k >= 0; k-- {
+m := bare[k]
+if isUnquotedSecret(line, m) {
 				line = line[:m[4]] + secretMask + line[m[5]:]
 			}
 		}
