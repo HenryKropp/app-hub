@@ -35,7 +35,7 @@ just because the Hub can launch them; there is no host/network sandbox.
 
 Incoming source archives reject credential-file names and, by default,
 possible embedded secrets even if the user asks to confirm. Detectors can
-miss secrets; this is not a credential vault. A manager may relax the import
+miss secrets; detection is not a replacement for the credential vault. A manager may relax the import
 block but that does not make a secret-containing package safe to distribute.
 
 Mutation attempts and outcomes are recorded with actor, server route template,
@@ -46,6 +46,15 @@ coupled to all business operations. Configured run retention requires an
 database cascades. It does not remove Windows files, source bundles, backups
 or audit history. It is not automated legal deletion.
 
+The portal now has an encrypted, company/app/environment/role-scoped Bearer
+credential vault, with versioned master keys, envelope rotation, revocation and
+use auditing. It remains locked until its independent workspace Secret is
+configured. The supported server intermediary performs fixed HTTPS HEAD checks
+and returns status only; values never go to Windows scripts or job payloads.
+See [CREDENTIAL_VAULT.md](CREDENTIAL_VAULT.md) for configuration, key retirement
+and the mandatory restore quarantine that prevents reviving old grants.
+This does **not** enable hosted apps, generic connectors or external distribution.
+
 ## Target distribution lifecycle (not implemented yet)
 
 | Stage | Required review and evidence |
@@ -54,7 +63,7 @@ or audit history. It is not automated legal deletion.
 | Submit | Immutable version digest, license/ownership and publisher identity; scan and non-self approval. |
 | Publish | Marketplace listing is visible without exposing customer secrets or code by default; explicit external policy review. |
 | Company adopts | Admin chooses exact version, purpose and legal basis, approves connectors/data scopes and grants employee access. |
-| Configure | Credentials supplied by **that company** to an encrypted vault with independently managed key and scoped retrieval; no value in manifest or retained job. |
+| Configure | Credentials supplied by **that company** to an encrypted vault with independently managed key and scoped server-side use, never a value-read API; no value in manifest or retained job. |
 | Execute | Trusted package with a defined isolation boundary, enforced network/filesystem policy and agent/sandbox choice. Record reason, actor and outcome. |
 | Update | Separate review for new version, changed permissions and dependencies; rollback to known digest. Never silently replace a deployed version. |
 | Suspend | Halt adoption/new jobs, notify affected admins, rotate affected credentials; already-running/offline local work needs separate incident response. |
@@ -63,7 +72,7 @@ or audit history. It is not automated legal deletion.
 ## Release gates
 
 **Do not enable marketplace publication or external install yet.** Required
-work includes: vault with key lifecycle, strong runner isolation, signed or
+work includes: operational key provisioning/recovery, strong runner isolation, signed or
 content-addressed releases, reviewer separation, tests for cross-company
 objects and downloads, independent security review, durable shared limits,
 incident handling, and legal validation of LGPD controller/operator roles,

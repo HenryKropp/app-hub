@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react"
 import { AlertTriangle, Download, LockKeyhole, RefreshCw, ShieldCheck } from "lucide-react"
 import { Field, PageHeader } from "@/components/bits"
+import { CredentialVault } from "@/components/security/CredentialVault"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ApiError, api, type AuditInfo, type SecurityApp, type SecurityInfo, type SecuritySettings, type Workspace } from "@/lib/api"
@@ -128,11 +129,13 @@ export function SecurityPage() {
         <h2 id="limites-heading" className="font-heading text-lg">Limites reais desta instalação</h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <Limit title="Execução local" value={info.limits.sandboxed ? "Sandbox isolado" : "Não é isolada"} detail="O código roda localmente e não há sandbox." />
-          <Limit title="Cofre de segredos" value={info.limits.vault_available ? "Disponível" : "Indisponível"} detail="Não existe cofre seguro de chaves nesta versão." />
+          <Limit title="Cofre de segredos" value={info.limits.vault_available ? "Disponível" : "Indisponível"} detail={info.limits.vault_available ? "Cofre configurado para credenciais da empresa." : "Cofre condicionado à configuração do keyring no servidor."} />
           <Limit title="Marketplace externo" value={info.limits.external_marketplace_enabled ? "Habilitado" : "Desabilitado"} detail="Aprovação não autoriza código de marketplace." />
         </div>
         <p className="mt-4 text-sm font-medium">Não insira credenciais em código. Os controles disponíveis não substituem isolamento ou gestão de chaves.</p>
       </section>
+
+      <CredentialVault apps={info.apps} />
 
       <form onSubmit={saveSettings} className="mb-10 space-y-5 border-b border-border pb-10">
         <div><h2 className="font-heading text-xl">Política da empresa</h2><p className="mt-1 text-sm text-muted-foreground">A retenção se aplica somente a metadados e payloads de execuções finalizadas. Ela só é aplicada quando uma pessoa de gestão aciona o botão abaixo; não há agendamento automático.</p></div>

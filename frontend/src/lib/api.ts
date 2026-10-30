@@ -280,7 +280,25 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return requestAt<T>(method, workspaceUrl(path), body)
 }
 
+export type CredentialMeta = {
+  id: string; app_id: number; environment: "development" | "staging" | "production"
+  role_id: number; revision: number; revoked: boolean; updated_at: string
+}
+export type CredentialInput = {
+  app_id: number; environment: CredentialMeta["environment"]; role_id: number; endpoint: string; value: string
+}
+export type CredentialEvent = {
+  id: number; credential_id: string; actor_id: number; revision: number; action: string; created_at: string
+}
+
 export const api = {
+  credentials: () => request<{ available: boolean; credentials: CredentialMeta[] }>("GET", "/api/security/credentials"),
+  createCredential: (b: CredentialInput) => request<CredentialMeta>("POST", "/api/security/credentials", b),
+  replaceCredential: (id: string, b: CredentialInput) => request<CredentialMeta>("PUT", `/api/security/credentials/${id}`, b),
+  revokeCredential: (id: string) => request<{ revoked: true }>("DELETE", `/api/security/credentials/${id}`),
+  rewrapCredentials: () => request<{ rewrapped: number }>("POST", "/api/security/credentials/rewrap"),
+  credentialAudit: () => request<CredentialEvent[]>("GET", "/api/security/credentials/audit"),
+  checkCredential: (c: CredentialMeta) => request<{ upstream_status: number; credential_revision: number }>("POST", `/api/apps/${c.app_id}/credentials/${c.id}/check`, { environment: c.environment }),
   workspace: () => request<Workspace>("GET", "/api/workspace"),
   entryCompany: () => request<EntryCompany>("GET", "/api/entry/company"),
   entryCompanyBySlug: (slug: string) =>

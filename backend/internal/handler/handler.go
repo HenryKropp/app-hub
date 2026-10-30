@@ -18,6 +18,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/access"
 	"github.com/HenryKropp/app-hub/backend/internal/config"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
+	"github.com/HenryKropp/app-hub/backend/internal/vault"
 )
 
 const (
@@ -54,8 +55,11 @@ type Handler struct {
 	scans   map[int64]scanCache
 
 	// Shared apps (deploy service, supervisor, gateway codes); zero = off.
-	shared Shared
+	shared         Shared
+	credentialKeys *vault.Keyring
 }
+
+func (h *Handler) SetCredentialKeys(k *vault.Keyring) { h.credentialKeys = k }
 
 func New(q *sqlc.Queries, cfg config.Config) *Handler {
 	return &Handler{
@@ -72,13 +76,14 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /up", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("GET /api/workspace", h.workspaceInfo)
 	mux.HandleFunc("POST /api/workspaces", h.createWorkspace)
-h.registerEntry(mux)
+	h.registerEntry(mux)
 	mux.HandleFunc("GET /api/security", h.securityOverview)
 	mux.HandleFunc("PUT /api/security/settings", h.updateSecuritySettings)
 	mux.HandleFunc("PUT /api/security/apps/{id}", h.updateSecurityApp)
 	mux.HandleFunc("GET /api/security/audit", h.securityAudit)
 	mux.HandleFunc("GET /api/security/export", h.securityExport)
 	mux.HandleFunc("POST /api/security/purge", h.securityPurge)
+	h.registerCredentials(mux)
 
 	mux.HandleFunc("GET /api/auth/status", h.authStatus)
 	mux.HandleFunc("POST /api/auth/setup", h.setup)
