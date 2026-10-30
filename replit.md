@@ -99,8 +99,9 @@ The original company remains at `/`; administrators can create isolated
 company workspaces under `/w/<slug>/` in **Segurança**. Their data uses separate
 PostgreSQL schemas and company-scoped sessions. `docs/MARKETPLACE_SECURITY.md`
 describes what is operational today and what is still blocked. The project's
-security reference is `threat_model.md`. No external marketplace or secret
-vault is enabled. Browser imports replace server filesystem scanning in this
+security reference is `threat_model.md`. No external marketplace is enabled.
+The credential vault stays locked without its independent workspace Secret.
+Browser imports replace server filesystem scanning in this
 portal; existing apps remain in the original company's database namespace.
 
 ## GitHub shared-app integration
@@ -177,3 +178,22 @@ Public requests are unverified claims, not evidence of company membership.
 Registration is rate limited, but production-wide abuse protection and verified
 company ownership are not implemented. Do not describe these flows as compliance
 certification or unrestricted public-marketplace readiness.
+
+## Company credential vault
+
+See `docs/CREDENTIAL_VAULT.md` for configuration, key rotation and restore safety.
+Only `CREDENTIAL_VAULT_KEYRING` in workspace Secrets unlocks the portal's vault;
+neither session nor hosted-app keys are reused. Invalid configured keyrings stop
+startup. Without a key, metadata and revocation still work.
+
+The current intermediary uses fixed HTTPS HEAD Bearer requests and returns only
+status codes. Do not add generic response forwarding or agent injection:
+providers can echo credentials in output/errors, and local scripts can log them.
+Business connectors need purpose-specific safe adapters. Hosted execution and
+external distribution remain disabled even when the vault is configured.
+
+After restoring any database backup, keep the portal stopped and run
+`scripts/quarantine-restored-credentials.sql` with `psql -v ON_ERROR_STOP=1`
+before allowing traffic. This intentionally removes all restored credential
+envelopes across companies: old backups cannot be trusted to contain later
+revocations. Revoke/rotate upstream and register fresh credentials afterward.

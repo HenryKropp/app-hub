@@ -15,6 +15,9 @@ function mockManager() {
   vi.spyOn(api, "security").mockResolvedValue(fixture)
   vi.spyOn(api, "securityAudit").mockResolvedValue({ events: [] })
   vi.spyOn(api, "workspace").mockResolvedValue({ slug: "atelier", name: "Ateliê Norte", base_path: "/w/atelier", can_manage: true, local_execution_is_sandboxed: false })
+  vi.spyOn(api, "credentials").mockResolvedValue({ available: false, credentials: [] })
+  vi.spyOn(api, "roles").mockResolvedValue([])
+  vi.spyOn(api, "credentialAudit").mockResolvedValue([])
 }
 
 afterEach(() => vi.restoreAllMocks())

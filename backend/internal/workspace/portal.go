@@ -20,6 +20,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/database"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/handler"
+	"github.com/HenryKropp/app-hub/backend/internal/vault"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -32,15 +33,25 @@ type entry struct {
 	http               http.Handler
 }
 type Portal struct {
-	cfg      config.Config
-	root     *pgxpool.Pool
-	mu       sync.RWMutex
-	entries  map[string]*entry
-	createMu sync.Mutex
+	cfg            config.Config
+	root           *pgxpool.Pool
+	mu             sync.RWMutex
+	entries        map[string]*entry
+	createMu       sync.Mutex
+	credentialKeys *vault.Keyring
 }
 
 func New(ctx context.Context, root *pgxpool.Pool, cfg config.Config) (*Portal, error) {
 	p := &Portal{cfg: cfg, root: root, entries: map[string]*entry{}}
+	// No generated fallback, SESSION_SECRET reuse or local key file. An unset
+	// keyring leaves the vault locked; malformed configuration stops startup.
+	if raw := os.Getenv("CREDENTIAL_VAULT_KEYRING"); raw != "" {
+		var err error
+		p.credentialKeys, err = vault.ParseKeyring(raw)
+		if err != nil {
+			return nil, vault.ErrEnvelope
+		}
+	}
 	// Registry is intentionally outside tenant migration histories.
 	_, err := root.Exec(ctx, `CREATE TABLE IF NOT EXISTS public.workspace_registry (
 		slug TEXT PRIMARY KEY, name TEXT NOT NULL, schema_name TEXT UNIQUE NOT NULL,
@@ -122,6 +133,7 @@ func (p *Portal) attach(e *entry) {
 		cfg.BaseURL = strings.TrimRight(cfg.BaseURL, "/") + base
 	}
 	h := handler.New(sqlc.New(e.pool), cfg)
+	h.SetCredentialKeys(p.credentialKeys)
 	h.SetWorkspace(handler.WorkspaceOptions{Slug: e.slug, Name: e.name, BasePath: base, Create: p.create})
 	mux := http.NewServeMux()
 	h.Register(mux)
@@ -147,7 +159,7 @@ func (p *Portal) create(ctx context.Context, name, slug string, me sqlc.Person) 
 		return "", err
 	}
 	if count >= 20 {
-return "", handler.ErrWorkspaceCapacity
+		return "", handler.ErrWorkspaceCapacity
 	}
 	buf := make([]byte, 12)
 	if _, err = rand.Read(buf); err != nil {

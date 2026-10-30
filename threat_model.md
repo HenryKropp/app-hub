@@ -11,7 +11,7 @@ server-generated schema names. A URL `/w/{slug}` selects a company, **not an
 identity**. This is logical application isolation, not separate infrastructure
 or database credentials.
 
-**Launch constraint:** There is no externally distributable marketplace, vault,
+**Launch constraint:** There is no externally distributable marketplace,
 isolated execution sandbox or verified compliance certification. Do not enable
 publication of third-party executable code based on the internal review flag.
 
@@ -25,8 +25,12 @@ publication of third-party executable code based on the internal review flag.
   contain confidential business or personal data.
 - Company profile, approvals and audit history: controls and evidence for
   operating apps; tampering could permit unauthorized execution.
-- Credentials used by microapps: **there is no supported vault yet**. Do not
-  put credential values in a manifest, package, job or marketplace listing.
+- Credentials: company/app/environment/role-scoped Bearer tokens have a separate
+  AES-256-GCM envelope vault. Master keys live only in workspace Secrets, never
+  in the DB; it stays locked when unconfigured. No value-read API exists.
+  Values never enter a manifest, package, job or marketplace listing. The only
+  supported use adapter is a fixed HTTPS HEAD request, returning status only.
+  See `docs/CREDENTIAL_VAULT.md` for key lifecycle and restore quarantine.
 
 ## Trust Boundaries
 
@@ -126,7 +130,12 @@ microapps and independent execution isolation before external publishing.
 ## Required guarantees before external launch
 
 1. A credential vault with separately managed encryption keys, access/revocation
-   policy, and no plaintext value in source, logs or persisted job payloads.
+   policy, and no plaintext value in source, logs or persisted job payloads:
+   implemented for fixed-destination Bearer checks, but operational key
+   provisioning/recovery must be completed before use. No generic script,
+   database or OAuth credential delivery is enabled. Restoring an old DB without
+   mandatory vault quarantine would revive old grants; do not put a raw restore
+   online. Rewrap does not revoke a compromised token at its provider.
 2. Immutable externally distributed versions, publisher verification,
    two-person review, emergency suspension, provenance and dependency checks.
 3. Real process/network/filesystem isolation for untrusted code; informational
