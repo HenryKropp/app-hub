@@ -1,6 +1,6 @@
 ---
 name: Login from Preview
-description: User-confirmed workaround for an authentication connection error in the embedded preview.
+description: Embedded Preview navigation and a user-confirmed workaround for login connection errors.
 ---
 
 If login or initial account setup reports “Não consegui falar com o Hub” inside
@@ -15,3 +15,16 @@ The precise cause of the embedded-preview failure was not established.
 **How to apply:** Treat a separate tab as a confirmed workaround, not proof of
 a cookie or server defect. If the issue also occurs outside Preview, investigate
 the new evidence rather than assuming it has the same cause.
+
+For navigation inside the embedded Preview, give only a path such as
+`/boas-vindas`, not a complete development URL.
+
+**Why:** The Preview address field edits the path, not the domain. Giving the
+user a complete URL resulted in a malformed `/https:/.../boas-vindas` path.
+Official Preview documentation confirms path-only navigation. A `:5000` shown
+in preview context alone does not establish that the embedded proxy is broken;
+testing that address externally is not equivalent to testing the embedded UI.
+
+**How to apply:** Tell the user to replace the entire editable path with the
+short path and press Enter. Do not ask them to edit the Preview's domain/port or
+repeat full-URL instructions when the goal is navigation within Preview.
