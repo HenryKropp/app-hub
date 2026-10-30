@@ -1,6 +1,8 @@
 package scanner
 
 import (
+"bytes"
+"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -214,6 +216,39 @@ func TestSecretsAreFoundButNeverStored(t *testing.T) {
 	if strings.Contains(strings.Join(d.Findings, " "), value) {
 		t.Fatal("secret value leaked into findings")
 	}
+}
+
+func TestFolderConfigSecretsStayOutOfDiagnosisAndSourcesStayIntact(t *testing.T) {
+files := map[string]string{
+"main.py": "print('ok')\n",
+"settings.ini": "[database]\npassword=FictitiousValue987\n",
+"config.yaml": "token: your_token; api_key: AnotherFakeValue987\n",
+"config.json": `{"password":"your_password","token":"FakeKeyValue987"}`,
+}
+dir := writeApp(t, t.TempDir(), "Config", files)
+d := scan(t, dir)
+if len(d.Secrets) != 3 {
+t.Fatalf("finding count = %d, want 3", len(d.Secrets))
+}
+raw, err := json.Marshal(d)
+if err != nil {
+t.Fatal(err)
+}
+manifestBytes, err := manifest.Marshal(d.Manifest)
+if err != nil {
+t.Fatal(err)
+}
+for _, value := range []string{"FictitiousValue987", "AnotherFakeValue987", "FakeKeyValue987"} {
+if bytes.Contains(raw, []byte(value)) || bytes.Contains(manifestBytes, []byte(value)) {
+t.Fatal("folder scan exposed a credential value")
+}
+}
+for name, want := range files {
+got, err := os.ReadFile(filepath.Join(dir, name))
+if err != nil || string(got) != want {
+t.Fatal("folder scan modified source")
+}
+}
 }
 
 func TestAmbiguousEntrypointAsksQuestion(t *testing.T) {
