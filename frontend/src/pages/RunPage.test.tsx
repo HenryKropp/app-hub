@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { api } from "@/lib/api"
 import { RunsProvider } from "@/lib/runs-context"
-import { activeRun, detail, run } from "@/test/fixtures"
+import { activeRun, detail, manifest, run } from "@/test/fixtures"
 import { RunPage } from "./RunPage"
 
 beforeEach(() => vi.spyOn(api, "activeRuns").mockResolvedValue([]))
@@ -61,7 +61,7 @@ test("mark all in a group", async () => {
   expect(screen.getByRole("link", { name: /Baixar selecionados \(1\)/ })).toHaveAttribute("href", "/api/runs/7/selected?files=2")
 })
 
-test("Rodar de novo uses the same folder; back goes to Minhas execuções; app name links to the ficha", async () => {
+test("Rodar de novo for a desktop app uses the same folder; back goes to Minhas execuções; app name links to the ficha", async () => {
   const user = (await import("@testing-library/user-event")).default.setup()
   vi.spyOn(api, "run").mockResolvedValue(run({ status: "done", output_folder: "E:\\Velha", app_id: 3 }))
   vi.spyOn(api, "app").mockResolvedValue(detail())
@@ -71,6 +71,56 @@ test("Rodar de novo uses the same folder; back goes to Minhas execuções; app n
   await vi.waitFor(() => expect(start).toHaveBeenCalledWith(3, "E:\\Velha", undefined))
   expect(screen.getByRole("link", { name: /Minhas execuções/ })).toHaveAttribute("href", "/execucoes")
   expect(screen.getByRole("link", { name: "Eq. Research Files Prep" })).toHaveAttribute("href", "/apps/3")
+})
+
+test("Rodar de novo for a script opens its form with the previous folder and sends data only after confirmation", async () => {
+  const user = (await import("@testing-library/user-event")).default.setup()
+  vi.spyOn(api, "run").mockResolvedValue(run({ output_folder: "E:\\Velha", app_id: 3 }))
+  const app = vi.spyOn(api, "app").mockResolvedValue(detail({ remembered_folder: "D:\\Outra", manifest: manifest({
+    inputs: [
+      { id: "cnpjs", label: "Arquivo cnpjs.csv", type: "file", source: "fixed_file", path: "cnpjs.csv", required: true },
+      { id: "periodo", label: "Período", type: "text", source: "argument", required: true },
+    ],
+  }) }))
+  const start = vi.spyOn(api, "startRun").mockResolvedValue(activeRun())
+  renderAt()
+  await user.click(await screen.findByRole("button", { name: "Rodar de novo" }))
+
+  const fileInput = await screen.findByLabelText("Arquivo cnpjs.csv")
+  expect(app).toHaveBeenCalledWith(3)
+  expect(screen.getByRole("dialog", { name: "Rodar Eq. Research Files Prep" })).toBeInTheDocument()
+  expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("E:\\Velha")
+  expect(start).not.toHaveBeenCalled()
+
+  await user.click(screen.getByRole("button", { name: "Executar script" }))
+  expect(await screen.findByRole("alert")).toHaveTextContent("Preencha “Arquivo cnpjs.csv”")
+  expect(start).not.toHaveBeenCalled()
+
+  await user.upload(fileInput, new File(["123"], "cnpjs.csv", { type: "text/csv" }))
+  await user.type(screen.getByLabelText("Período"), "2026-10")
+  expect(start).not.toHaveBeenCalled()
+  await user.click(screen.getByRole("button", { name: "Executar script" }))
+  await vi.waitFor(() => expect(start).toHaveBeenCalledExactlyOnceWith(
+    3, "E:\\Velha", true,
+    { periodo: "2026-10" },
+    { cnpjs: { name: "cnpjs.csv", content_base64: "MTIz" } },
+  ))
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  expect(screen.getByRole("link", { name: /Minhas execuções/ })).toHaveAttribute("href", "/execucoes")
+  expect(screen.getByRole("link", { name: "Eq. Research Files Prep" })).toHaveAttribute("href", "/apps/3")
+})
+
+test("canceling Rodar de novo for a script does not start a run", async () => {
+  const user = (await import("@testing-library/user-event")).default.setup()
+  vi.spyOn(api, "run").mockResolvedValue(run({ output_folder: "E:\\Velha" }))
+  vi.spyOn(api, "app").mockResolvedValue(detail({ manifest: manifest() }))
+  const start = vi.spyOn(api, "startRun").mockResolvedValue(activeRun())
+  renderAt()
+  await user.click(await screen.findByRole("button", { name: "Rodar de novo" }))
+  await screen.findByLabelText("Arquivo cnpjs.csv")
+  await user.click(screen.getByRole("button", { name: "Cancelar" }))
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  expect(start).not.toHaveBeenCalled()
 })
 
 test("live run has no Rodar de novo", async () => {

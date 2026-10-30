@@ -6,7 +6,8 @@ import { api, ApiError, type ActiveRun, type Kind } from "@/lib/api"
 import { isLive } from "@/lib/runs"
 
 export type RunTarget = { id: number; name: string; folder_display: string; remembered_folder: string; kind?: Kind }
-// folder: run right away in this folder (Rodar de novo); ask: always open the dialog ("trocar").
+// folder: reuse this folder (Rodar de novo); scripts still ask for inputs.
+// ask: always open the dialog ("trocar").
 export type RunOptions = { folder?: string; ask?: boolean }
 // runId: the request succeeded; the notice stays until the server lists that run.
 export type LocalNotice = { key: string; app_name: string; kind: "starting" | "error"; folder?: string; message?: string; offline?: boolean; target?: RunTarget; runId?: number }

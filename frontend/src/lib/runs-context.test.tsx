@@ -42,7 +42,7 @@ test("first time asks with no default folder and Lembrar checked, and sends reme
 test("run-again from history resolves the kind and opens the script form instead of skipping it", async () => {
   vi.spyOn(api, "app").mockResolvedValue(detail({ manifest: manifest() }))
   const start = vi.spyOn(api, "startRun").mockResolvedValue(activeRun())
-  mount(<Probe t={{ id: 3, name: "Rentabilidade", folder_display: "C:\\apps", remembered_folder: "" }} folder="D:\Saídas" />)
+  mount(<Probe t={{ id: 3, name: "Rentabilidade", folder_display: "C:\\apps", remembered_folder: "" }} folder={"D:\\Saídas"} />)
   await userEvent.setup().click(screen.getByText("go"))
   expect(await screen.findByLabelText("Arquivo cnpjs.csv")).toBeInTheDocument()
   expect(screen.getByLabelText("Onde salvar os resultados?")).toHaveValue("D:\\Saídas")
