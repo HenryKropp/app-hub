@@ -75,6 +75,25 @@ test("an auth status failure does not guess whether this Hub needs setup", async
   expect(refresh).toHaveBeenCalled()
 })
 
+test("tenant sign-in lets a person send an access request without a password", async () => {
+  const original = window.location.pathname
+  try {
+    window.history.replaceState({}, "", "/w/atelier/entrar")
+    mockAuth(false)
+    vi.spyOn(api, "workspace").mockResolvedValue({ slug: "atelier", name: "Ateliê Norte", base_path: "/w/atelier", can_manage: false, local_execution_is_sandboxed: false })
+    const request = vi.spyOn(api, "requestCompanyAccess").mockResolvedValue({ message: "A solicitação foi enviada." })
+    renderPage()
+    await userEvent.click(await screen.findByRole("button", { name: "Solicitar acesso" }))
+    await userEvent.type(screen.getByLabelText("Seu nome"), "Lia")
+    await userEvent.type(screen.getByLabelText("E-mail de trabalho"), "lia@example.com")
+    await userEvent.click(screen.getByRole("button", { name: "Enviar solicitação" }))
+    expect(request).toHaveBeenCalledWith({ name: "Lia", email: "lia@example.com" })
+    expect(await screen.findByRole("status")).toHaveTextContent("A solicitação foi enviada.")
+  } finally {
+    window.history.replaceState({}, "", original)
+  }
+})
+
 test("goes back to the shared app after signing in", async () => {
   const assign = stubAssign()
   mockAuth(false)

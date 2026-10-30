@@ -147,3 +147,28 @@ not just the numeric prefix.
 Upstream adoption/renaming of hosted containers, database containers and shared
 storage is intentionally not run by this portal: hosted execution is still
 disabled until runtime resources and gateway access are isolated per company.
+
+## Company entry and membership
+
+Anonymous visits to `/` open `/boas-vindas`; existing company sessions still open
+the catalog. `/entrar` remains the original company's explicit login. Visitors
+can create a separate company with its first administrator, or enter an existing
+company using its identifier/URL. No public company directory is exposed.
+Public company registration shares the portal's 20-company capacity limit.
+
+At a company's login, a visitor can submit a name/email access request, without
+a password. In **Equipe → Acessos**, managers with `manage_roles` can approve or
+reject requests, issue invitations with a chosen role, and revoke invitations.
+Approval generates an invitation, not an account. Links expire after seven days,
+are single-use, and carry a 256-bit bearer token in the URL fragment. Only its
+SHA-256 hash is stored. Redemption creates the account and session transactionally
+inside that company's schema. A replacement invite invalidates older links for
+the same email in that company. Deleting a role invalidates its invitations.
+
+There is no email provider or automatic email ownership verification. Managers
+must send invitation links directly to the intended recipient's email through a
+trusted channel; anyone holding the link can activate that email's account.
+Public requests are unverified claims, not evidence of company membership.
+Registration is rate limited, but production-wide abuse protection and verified
+company ownership are not implemented. Do not describe these flows as compliance
+certification or unrestricted public-marketplace readiness.

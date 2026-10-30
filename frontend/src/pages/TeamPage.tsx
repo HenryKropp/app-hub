@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react"
 import { Navigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
+import { Check, Copy, Link2, MailPlus, RefreshCw, UserCheck, UserX } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field, LoadError, NativeSelect, PageHeader } from "@/components/bits"
-import { api, type Area, type Person, type PersonRow, type RoleInfo } from "@/lib/api"
+import { api, workspaceBasePath, type Area, type Membership, type Person, type PersonRow, type RoleInfo } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { PERMISSIONS, canSeeTeam, has, permLabel } from "@/lib/permissions"
 
-type Tab = "pessoas" | "areas" | "cargos"
-const TAB_NAMES: Record<Tab, string> = { pessoas: "Pessoas", areas: "Áreas", cargos: "Cargos" }
+type Tab = "pessoas" | "areas" | "cargos" | "acessos"
+const TAB_NAMES: Record<Tab, string> = { pessoas: "Pessoas", areas: "Áreas", cargos: "Cargos", acessos: "Acessos" }
 const textBtn = "text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
 const errText = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback)
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
@@ -20,6 +21,7 @@ export function TeamPage() {
   const [people, setPeople] = useState<PersonRow[]>([])
   const [roles, setRoles] = useState<RoleInfo[]>([])
   const [areas, setAreas] = useState<Area[]>([])
+  const [membership, setMembership] = useState<Membership>({ invitations: [], requests: [] })
   const [loadError, setLoadError] = useState("")
   const [loaded, setLoaded] = useState(false)
 
@@ -29,17 +31,19 @@ export function TeamPage() {
   const leads = me?.leads ?? []
 
   const load = useCallback(() => {
-    setLoadError("")
     const wantPeople = has(me, "manage_people") || has(me, "manage_areas") || (me?.leads.length ?? 0) > 0
     Promise.all([
       wantPeople ? api.people() : Promise.resolve([] as PersonRow[]),
       has(me, "manage_people") || has(me, "manage_roles") ? api.roles() : Promise.resolve([] as RoleInfo[]),
       api.areas(),
+      has(me, "manage_roles") ? api.membership() : Promise.resolve({ invitations: [], requests: [] } as Membership),
     ]).then(
-      ([p, r, a]) => {
+      ([p, r, a, m]) => {
+        setLoadError("")
         setPeople(p)
         setRoles(r)
         setAreas(a)
+        setMembership(m)
         setLoaded(true)
       },
       (e: unknown) => setLoadError(errText(e, "Não foi possível carregar a equipe.")),
@@ -58,7 +62,7 @@ export function TeamPage() {
 
   if (!canSeeTeam(me)) return <Navigate to="/" replace />
 
-  const tabs: Tab[] = [...(canPeople ? (["pessoas"] as Tab[]) : []), "areas", ...(canRoles ? (["cargos"] as Tab[]) : [])]
+  const tabs: Tab[] = [...(canPeople ? (["pessoas"] as Tab[]) : []), "areas", ...(canRoles ? (["cargos", "acessos"] as Tab[]) : [])]
   const asked = params.get("aba") as Tab | null
   const tab = asked && tabs.includes(asked) ? asked : tabs[0]
 
@@ -74,12 +78,20 @@ export function TeamPage() {
       </div>
       {loadError ? (
         <LoadError message={loadError} onRetry={load} />
-      ) : !loaded ? null : tab === "pessoas" ? (
+      ) : !loaded ? (
+        <div role="status" aria-label="Carregando equipe" className="space-y-3">
+          <div className="h-7 w-48 animate-pulse rounded bg-muted" />
+          <div className="h-24 animate-pulse rounded-xl bg-muted" />
+          <div className="h-20 animate-pulse rounded-xl bg-muted" />
+        </div>
+      ) : tab === "pessoas" ? (
         <PeopleTab people={people} setPeople={setPeople} roles={roles} areas={areas} me={me!} reloadRoles={reloadRoles} />
       ) : tab === "areas" ? (
         <AreasTab areas={areas} people={people} reload={load} canAreas={canAreas} leads={leads} />
-      ) : (
+      ) : tab === "cargos" ? (
         <RolesTab roles={roles} setRoles={setRoles} myRoleId={me!.role_id} />
+      ) : (
+        <MembershipTab membership={membership} setMembership={setMembership} roles={roles} me={me!} reload={load} />
       )}
     </>
   )
@@ -489,6 +501,211 @@ function RolesTab({ roles, setRoles, myRoleId }: { roles: RoleInfo[]; setRoles: 
           </Button>
         </div>
       )}
+    </div>
+  )
+}
+
+function invitationHref(url: string) {
+  const parsed = new URL(url, window.location.origin)
+  if (parsed.origin !== window.location.origin) throw new Error("O endereço do convite não pertence a este Ziv.")
+  if (parsed.searchParams.has("token")) throw new Error("O convite veio com um formato inseguro. Tente gerar outro link.")
+  const base = workspaceBasePath()
+  const isWorkspaceRoute = parsed.pathname === base || parsed.pathname.startsWith(`${base}/`)
+  const path = base && !isWorkspaceRoute ? `${base}${parsed.pathname.startsWith("/") ? "" : "/"}${parsed.pathname}` : parsed.pathname
+  if (!new URLSearchParams(parsed.hash.replace(/^#/, "")).has("token")) throw new Error("O servidor não retornou um link de convite válido.")
+  return `${window.location.origin}${path}${parsed.search}${parsed.hash}`
+}
+
+function dateLabel(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(date)
+}
+
+function MembershipTab({ membership, setMembership, roles, me, reload }: { membership: Membership; setMembership: (membership: Membership) => void; roles: RoleInfo[]; me: Person; reload: () => void }) {
+  const [email, setEmail] = useState("")
+  const [roleId, setRoleId] = useState(0)
+  const [requestRoles, setRequestRoles] = useState<Record<number, number>>({})
+  const [inviteUrl, setInviteUrl] = useState("")
+  const [copied, setCopied] = useState(false)
+  const [error, setError] = useState("")
+  const [busy, setBusy] = useState("")
+  const canGrant = (role: RoleInfo) => role.permissions.every((permission) => has(me, permission))
+  const givable = roles.filter(canGrant)
+  const defaultRoleId = givable.find((role) => role.key === "usuario")?.id ?? 0
+  const selectedRoleId = roleId || defaultRoleId
+
+  const showInvitation = (url: string) => {
+    setInviteUrl(invitationHref(url))
+    setCopied(false)
+  }
+
+  const createInvite = async (event: FormEvent) => {
+    event.preventDefault()
+    setError("")
+    setBusy("create")
+    try {
+      const result = await api.createMembershipInvitation({ email: email.trim(), role_id: selectedRoleId })
+      showInvitation(result.url)
+      setEmail("")
+      toast.success("Convite criado. Compartilhe o link com a pessoa.")
+      reload()
+    } catch (reason) {
+      setError(errText(reason, "Não foi possível criar o convite."))
+    } finally {
+      setBusy("")
+    }
+  }
+
+  const approve = async (id: number) => {
+    setError("")
+    setBusy(`approve-${id}`)
+    try {
+      const result = await api.approveMembershipRequest(id, requestRoles[id] || defaultRoleId)
+      showInvitation(result.url)
+      setMembership({ ...membership, requests: membership.requests.filter((request) => request.id !== id) })
+      toast.success("A solicitação foi aprovada. O convite ainda precisa ser aceito.")
+      reload()
+    } catch (reason) {
+      setError(errText(reason, "Não foi possível aprovar a solicitação."))
+    } finally {
+      setBusy("")
+    }
+  }
+
+  const reject = async (id: number, name: string) => {
+    if (!window.confirm(`Recusar a solicitação de ${name}?`)) return
+    setError("")
+    setBusy(`reject-${id}`)
+    try {
+      await api.rejectMembershipRequest(id)
+      setMembership({ ...membership, requests: membership.requests.filter((request) => request.id !== id) })
+      toast.success("Solicitação recusada.")
+    } catch (reason) {
+      setError(errText(reason, "Não foi possível recusar a solicitação."))
+    } finally {
+      setBusy("")
+    }
+  }
+
+  const revoke = async (id: number, address: string) => {
+    if (!window.confirm(`Revogar o convite enviado para ${address}?`)) return
+    setError("")
+    setBusy(`revoke-${id}`)
+    try {
+      await api.revokeMembershipInvitation(id)
+      setMembership({ ...membership, invitations: membership.invitations.filter((invitation) => invitation.id !== id) })
+      setInviteUrl("")
+      setCopied(false)
+      toast.success("Convite revogado.")
+    } catch (reason) {
+      setError(errText(reason, "Não foi possível revogar o convite."))
+    } finally {
+      setBusy("")
+    }
+  }
+
+  const copyUrl = async () => {
+    if (!inviteUrl) return
+    try {
+      await navigator.clipboard.writeText(inviteUrl)
+      setCopied(true)
+    } catch {
+      setCopied(false)
+      setError("Não consegui copiar automaticamente. Selecione o endereço e copie manualmente.")
+    }
+  }
+
+  return (
+    <div className="flex max-w-4xl flex-col gap-6">
+      <section className="grid gap-5 rounded-xl border border-logo-square/15 bg-logo-square/[0.035] p-5 sm:grid-cols-[1fr_auto] sm:items-center">
+        <div>
+          <p className="flex items-center gap-2 font-heading text-lg"><MailPlus className="size-4 text-logo-square" /> Convide alguém</p>
+          <p className="mt-1 max-w-xl text-sm leading-5 text-muted-foreground">O link vale por 7 dias e só pode ser usado uma vez. O Ziv não envia e-mail: copie o endereço e envie ao e-mail da pessoa por um canal confiável. Quem tiver o link poderá ativar o acesso; não o publique em grupos.</p>
+        </div>
+        <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground"><Link2 className="size-3.5" /> Acesso restrito à empresa</span>
+      </section>
+
+      <form onSubmit={createInvite} className="grid gap-4 rounded-xl border border-border bg-card p-5 sm:grid-cols-[1fr_12rem_auto] sm:items-end">
+        <Field label="E-mail da pessoa" htmlFor="invite-email" hint="O convite fica vinculado a este endereço.">
+          <Input id="invite-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required />
+        </Field>
+        <Field label="Cargo inicial" htmlFor="invite-role">
+          <NativeSelect id="invite-role" value={selectedRoleId} onChange={(event) => setRoleId(Number(event.target.value))}>
+            {givable.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+          </NativeSelect>
+        </Field>
+        <Button type="submit" className="gap-2" disabled={!selectedRoleId || Boolean(busy)}>{busy === "create" ? <RefreshCw className="size-4 animate-spin" /> : <MailPlus className="size-4" />}{busy === "create" ? "Criando…" : "Criar convite"}</Button>
+      </form>
+      {!defaultRoleId && <p role="alert" className="rounded-md bg-warn-soft px-3 py-2 text-sm text-warn">O cargo padrão “Usuário” não está disponível para esta conta. Crie ou libere esse cargo antes de enviar convites.</p>}
+
+      {inviteUrl && (
+        <section className="rounded-xl border border-ok/25 bg-ok-soft p-4 sm:p-5">
+          <p className="flex items-center gap-2 font-medium text-ok"><Check className="size-4" /> Link de convite pronto</p>
+          <p className="mt-1 text-sm text-foreground/80">Envie este endereço manualmente. Ele contém a chave de uso único; não o publique em canais abertos.</p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <Input aria-label="Endereço do convite" value={inviteUrl} readOnly onFocus={(event) => event.currentTarget.select()} className="font-mono text-xs" />
+            <Button type="button" variant="outline" className="gap-2" onClick={() => void copyUrl()}><Copy className="size-4" />{copied ? "Copiado" : "Copiar link"}</Button>
+          </div>
+        </section>
+      )}
+
+      {error && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+
+      <section>
+        <div className="mb-3 flex items-end justify-between gap-4">
+          <div><h2 className="font-heading text-xl">Solicitações pendentes</h2><p className="mt-1 text-sm text-muted-foreground">Aprovar gera um convite; a pessoa só entra depois de aceitá-lo e criar a senha.</p></div>
+          <span className="font-mono text-sm text-muted-foreground">{membership.requests.length.toString().padStart(2, "0")}</span>
+        </div>
+        {membership.requests.length ? (
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+            {membership.requests.map((request) => {
+              const selected = requestRoles[request.id] || defaultRoleId
+              return <li key={request.id} className="grid gap-4 p-4 sm:grid-cols-[1fr_12rem_auto] sm:items-center">
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{request.name}</p>
+                  <p className="truncate text-sm text-muted-foreground">{request.email}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Solicitou em {dateLabel(request.created_at)}</p>
+                </div>
+                <NativeSelect aria-label={`Cargo do convite para ${request.name}`} value={selected} onChange={(event) => setRequestRoles({ ...requestRoles, [request.id]: Number(event.target.value) })}>
+                  {givable.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+                </NativeSelect>
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" disabled={!selected || Boolean(busy)} onClick={() => void approve(request.id)} className="gap-1.5"><UserCheck className="size-4" /> Aprovar</Button>
+                  <Button type="button" size="sm" variant="outline" disabled={Boolean(busy)} onClick={() => void reject(request.id, request.name)} aria-label={`Recusar solicitação de ${request.name}`}><UserX className="size-4" /></Button>
+                </div>
+              </li>
+            })}
+          </ul>
+        ) : (
+          <div className="rounded-xl border border-dashed border-input bg-card/50 px-5 py-7">
+            <p className="font-medium">Nenhuma solicitação aguardando análise</p>
+            <p className="mt-1 text-sm text-muted-foreground">Quando alguém pedir acesso por esta página da empresa, a solicitação aparecerá aqui.</p>
+          </div>
+        )}
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-end justify-between gap-4">
+          <div><h2 className="font-heading text-xl">Convites ativos</h2><p className="mt-1 text-sm text-muted-foreground">Convites não aceitos podem ser revogados a qualquer momento.</p></div>
+          <span className="font-mono text-sm text-muted-foreground">{membership.invitations.length.toString().padStart(2, "0")}</span>
+        </div>
+        {membership.invitations.length ? (
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+            {membership.invitations.map((invitation) => <li key={invitation.id} className="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center">
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium">{invitation.email}</p>
+                <p className="text-sm text-muted-foreground">{invitation.role_name} · vence em {dateLabel(invitation.expires_at)}</p>
+              </div>
+              <Button type="button" aria-label={`Revogar convite de ${invitation.email}`} variant="outline" size="sm" disabled={Boolean(busy)} onClick={() => void revoke(invitation.id, invitation.email)}>Revogar</Button>
+            </li>)}
+          </ul>
+        ) : (
+          <div className="rounded-xl border border-dashed border-input bg-card/50 px-5 py-7">
+            <p className="font-medium">Sem convites ativos</p>
+            <p className="mt-1 text-sm text-muted-foreground">Convites criados aparecerão aqui até serem aceitos, expirarem ou serem revogados.</p>
+          </div>
+        )}
+      </section>
     </div>
   )
 }

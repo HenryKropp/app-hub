@@ -200,6 +200,12 @@ export type Onboarding = {
 }
 export type Workspace = { slug: string; name: string; base_path: string; can_manage: boolean; local_execution_is_sandboxed: false; filesystem_registration_enabled?: boolean }
 export type WorkspaceCreated = { slug: string; name: string; url: string }
+export type EntryCompany = { name: string; slug: string; base_path: string }
+export type EntryCompanyCreated = { url: string; name: string; slug: string }
+export type EntryInvitationPreview = { email: string; company_name: string }
+export type MembershipInvitation = { id: number; email: string; role_id: number; role_name: string; expires_at: string; created_at: string }
+export type MembershipRequest = { id: number; name: string; email: string; created_at: string }
+export type Membership = { invitations: MembershipInvitation[]; requests: MembershipRequest[] }
 export type SecuritySettings = { retention_days: number; require_app_approval: boolean; block_embedded_secrets: boolean; local_execution_enabled: boolean }
 export type SecurityApp = { id: number; name: string; classification: string; purpose: string; external_domains: string[]; approved: boolean; suspended: boolean }
 export type SecurityInfo = {
@@ -250,10 +256,10 @@ export const workspaceBasePath = (pathname = window.location.pathname) =>
   pathname.match(/^\/w\/[a-z0-9-]+(?=\/|$)/)?.[0] ?? ""
 export const workspaceUrl = (path: string) => `${workspaceBasePath()}${path.startsWith("/") ? path : `/${path}`}`
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function requestAt<T>(method: string, url: string, body?: unknown): Promise<T> {
   let res: Response
   try {
-    res = await fetch(workspaceUrl(path), {
+    res = await fetch(url, {
       method,
       credentials: "same-origin",
       headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
@@ -270,8 +276,32 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return data as T
 }
 
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  return requestAt<T>(method, workspaceUrl(path), body)
+}
+
 export const api = {
   workspace: () => request<Workspace>("GET", "/api/workspace"),
+  entryCompany: () => request<EntryCompany>("GET", "/api/entry/company"),
+  entryCompanyBySlug: (slug: string) =>
+    requestAt<EntryCompany>("GET", `/w/${encodeURIComponent(slug)}/api/entry/company`),
+  createEntryCompany: (b: { company_name: string; slug: string; name: string; email: string; password: string }) =>
+    requestAt<EntryCompanyCreated>("POST", "/api/entry/companies", b),
+  requestCompanyAccess: (b: { name: string; email: string }) =>
+    request<{ message: string }>("POST", "/api/entry/requests", b),
+  previewInvitation: (token: string) =>
+    request<EntryInvitationPreview>("POST", "/api/entry/invitations/preview", { token }),
+  acceptInvitation: (b: { token: string; name: string; password: string }) =>
+    request<{ url: string }>("POST", "/api/entry/invitations/accept", b),
+  membership: () => request<Membership>("GET", "/api/membership"),
+  createMembershipInvitation: (b: { email: string; role_id: number }) =>
+    request<{ url: string }>("POST", "/api/membership/invitations", b),
+  revokeMembershipInvitation: (id: number) =>
+    request<{ ok: true }>("POST", `/api/membership/invitations/${id}/revoke`),
+  approveMembershipRequest: (id: number, role_id: number) =>
+    request<{ url: string }>("POST", `/api/membership/requests/${id}/approve`, { role_id }),
+  rejectMembershipRequest: (id: number) =>
+    request<{ ok: true }>("POST", `/api/membership/requests/${id}/reject`, {}),
   createWorkspace: (b: { name: string; slug: string; password: string }) =>
     request<WorkspaceCreated>("POST", "/api/workspaces", b),
   security: () => request<SecurityInfo>("GET", "/api/security"),

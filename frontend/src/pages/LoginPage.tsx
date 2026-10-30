@@ -24,6 +24,13 @@ export function LoginPage() {
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
   const [workspaceName, setWorkspaceName] = useState("")
+  const [requestOpen, setRequestOpen] = useState(false)
+  const [requestName, setRequestName] = useState("")
+  const [requestEmail, setRequestEmail] = useState("")
+  const [requestError, setRequestError] = useState("")
+  const [requestMessage, setRequestMessage] = useState("")
+  const [requestBusy, setRequestBusy] = useState(false)
+  const canRequestAccess = !needsSetup && !statusError
   useEffect(() => {
     let active = true
     api.workspace().then((workspace) => { if (active) setWorkspaceName(workspace.name) }).catch(() => {})
@@ -57,6 +64,23 @@ export function LoginPage() {
     }
   }
 
+  const requestAccess = async (e: FormEvent) => {
+    e.preventDefault()
+    setRequestError("")
+    setRequestMessage("")
+    setRequestBusy(true)
+    try {
+      const result = await api.requestCompanyAccess({ name: requestName.trim(), email: requestEmail.trim() })
+      setRequestMessage(result.message || "Sua solicitação foi registrada. A administração da empresa poderá analisá-la.")
+      setRequestName("")
+      setRequestEmail("")
+    } catch (err) {
+      setRequestError(err instanceof Error ? err.message : "Não foi possível enviar sua solicitação.")
+    } finally {
+      setRequestBusy(false)
+    }
+  }
+
   return (
     <div className="grid min-h-svh md:grid-cols-[1.1fr_1fr]">
       <section className="relative hidden overflow-hidden border-r border-sidebar-border bg-sidebar p-12 md:flex md:flex-col">
@@ -73,7 +97,8 @@ export function LoginPage() {
       </section>
 
       <section className="flex items-center justify-center px-4 py-12">
-          <form id="login-form" onSubmit={submit} className="w-full max-w-sm">
+        <div className="w-full max-w-sm">
+          <form id="login-form" onSubmit={submit}>
           <div className="mb-6 flex items-center gap-2 md:hidden">
             <Wordmark className="h-11 w-auto" />
           </div>
@@ -125,7 +150,31 @@ export function LoginPage() {
             </Button>
           </div>
           </>}
-        </form>
+          </form>
+          <div className="mt-6 flex items-center justify-between border-t border-border pt-4 text-sm">
+            <a href="/boas-vindas" className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Trocar de empresa</a>
+            {canRequestAccess && <button type="button" onClick={() => { setRequestOpen((open) => !open); setRequestError(""); setRequestMessage("") }} className="font-medium text-logo-square underline-offset-4 hover:underline">
+              {requestOpen ? "Fechar solicitação" : "Solicitar acesso"}
+            </button>}
+          </div>
+          {canRequestAccess && requestOpen && (
+            <form onSubmit={requestAccess} className="mt-4 rounded-xl border border-border bg-card p-4">
+              <h3 className="font-heading text-base">Peça acesso a {workspaceName || "esta empresa"}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">A administração receberá seu nome e e-mail para decidir sobre o acesso.</p>
+              <div className="mt-4 flex flex-col gap-3">
+                <Field label="Seu nome" htmlFor="request-name">
+                  <Input id="request-name" value={requestName} onChange={(event) => setRequestName(event.target.value)} autoComplete="name" required />
+                </Field>
+                <Field label="E-mail de trabalho" htmlFor="request-email">
+                  <Input id="request-email" type="email" value={requestEmail} onChange={(event) => setRequestEmail(event.target.value)} autoComplete="email" required />
+                </Field>
+                {requestError && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{requestError}</p>}
+                {requestMessage && <p role="status" className="rounded-md bg-ok-soft px-3 py-2 text-sm text-ok">{requestMessage}</p>}
+                <Button type="submit" variant="outline" disabled={requestBusy}>{requestBusy ? "Enviando…" : "Enviar solicitação"}</Button>
+              </div>
+            </form>
+          )}
+        </div>
       </section>
     </div>
   )
