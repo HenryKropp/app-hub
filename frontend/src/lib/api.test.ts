@@ -25,6 +25,55 @@ test("workspace creation uses the provisioning contract", async () => {
   expect(fetchMock).toHaveBeenCalledWith("/api/workspaces", expect.objectContaining({ method: "POST", body: JSON.stringify(payload) }))
 })
 
+test("company entry creates at the root and confirms an explicit workspace path", async () => {
+  const original = window.location.pathname
+  try {
+    window.history.replaceState({}, "", "/w/current-space/entrar")
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ url: "/w/new-space", name: "Nova", slug: "new-space" }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ name: "Outra", slug: "outra", base_path: "/w/outra" }), { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+    await api.createEntryCompany({ company_name: "Nova", slug: "new-space", name: "Ana", email: "ana@example.com", password: "senha-123" })
+    await api.entryCompanyBySlug("outra")
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/entry/companies", expect.objectContaining({
+      method: "POST",
+      credentials: "same-origin",
+      body: JSON.stringify({ company_name: "Nova", slug: "new-space", name: "Ana", email: "ana@example.com", password: "senha-123" }),
+    }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/w/outra/api/entry/company", expect.objectContaining({ method: "GET" }))
+  } finally {
+    window.history.replaceState({}, "", original)
+  }
+})
+
+test("membership management uses workspace-scoped endpoints and the stated payloads", async () => {
+  const original = window.location.pathname
+  try {
+    window.history.replaceState({}, "", "/w/atelier/equipe")
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+    vi.stubGlobal("fetch", fetchMock)
+    await api.requestCompanyAccess({ name: "Lia", email: "lia@example.com" })
+    await api.membership()
+    await api.createMembershipInvitation({ email: "lia@example.com", role_id: 2 })
+    await api.approveMembershipRequest(7, 2)
+    await api.rejectMembershipRequest(8)
+    await api.revokeMembershipInvitation(9)
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      "/w/atelier/api/entry/requests",
+      "/w/atelier/api/membership",
+      "/w/atelier/api/membership/invitations",
+      "/w/atelier/api/membership/requests/7/approve",
+      "/w/atelier/api/membership/requests/8/reject",
+      "/w/atelier/api/membership/invitations/9/revoke",
+    ])
+    expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual({ name: "Lia", email: "lia@example.com" })
+    expect(JSON.parse(fetchMock.mock.calls[3][1]?.body as string)).toEqual({ role_id: 2 })
+    expect(JSON.parse(fetchMock.mock.calls[4][1]?.body as string)).toEqual({})
+  } finally {
+    window.history.replaceState({}, "", original)
+  }
+})
+
 test("shared app APIs and navigation never fall back to the original company", async () => {
   const original = window.location.pathname
   try {

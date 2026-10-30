@@ -101,7 +101,7 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 				}
 			}
 		}
-		if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/auth/setup" || r.URL.Path == "/api/workspaces" || r.URL.Path == "/api/agent/pair/start" {
+if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/auth/setup" || r.URL.Path == "/api/workspaces" || strings.HasPrefix(r.URL.Path, "/api/entry/") || r.URL.Path == "/api/agent/pair/start" {
 			// Never trust arbitrary X-Forwarded-For supplied by clients.
 			host, _, err := net.SplitHostPort(r.RemoteAddr)
 			if err != nil {

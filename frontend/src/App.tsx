@@ -18,12 +18,18 @@ import { VersionPage } from "@/pages/VersionPage"
 import { SetupPage } from "@/pages/SetupPage"
 import { SecurityPage } from "@/pages/SecurityPage"
 import { PRODUCT_NAME } from "@/lib/brand"
+import { CompanyEntryPage } from "@/pages/CompanyEntryPage"
+import { InvitationPage } from "@/pages/InvitationPage"
+import { workspaceBasePath } from "@/lib/api"
 
 function Protected() {
   const { loading, person } = useAuth()
   const location = useLocation()
   if (loading) return <div className="mx-auto mt-20 w-full max-w-sm space-y-3 px-4" role="status" aria-label="Verificando acesso"><div className="h-7 w-2/3 animate-pulse rounded bg-muted" /><div className="h-4 w-full animate-pulse rounded bg-muted" /><div className="h-10 w-full animate-pulse rounded bg-muted" /></div>
-  if (!person) return <Navigate to="/entrar" replace state={{ from: location.pathname + location.search }} />
+  if (!person) {
+    const destination = !workspaceBasePath() && location.pathname === "/" ? "/boas-vindas" : "/entrar"
+    return <Navigate to={destination} replace state={{ from: location.pathname + location.search }} />
+  }
   return <Layout />
 }
 
@@ -38,6 +44,8 @@ function Routed() {
   if (loading) return <div className="mx-auto mt-20 w-full max-w-sm space-y-3 px-4" role="status" aria-label={`Conectando ao ${PRODUCT_NAME}`}><div className="h-7 w-2/3 animate-pulse rounded bg-muted" /><div className="h-4 w-full animate-pulse rounded bg-muted" /><div className="h-10 w-full animate-pulse rounded bg-muted" /></div>
   return (
     <Routes>
+      <Route path="/boas-vindas" element={<CompanyEntryPage />} />
+      <Route path="/convite" element={<InvitationPage />} />
       <Route path="/entrar" element={<LoginPage />} />
       <Route element={<Protected />}>
         <Route index element={<CatalogPage />} />

@@ -34,12 +34,68 @@ describe("TeamPage", () => {
       { id: 9, key: "", name: "Sub-admin", permissions: ["see_all_runs"], people_count: 0 },
     ])
     vi.spyOn(api, "areas").mockResolvedValue([{ id: 2, name: "Investimentos", app_count: 0, leaders: [], members: [{ id: 3, name: "Bia" }] }])
+    vi.spyOn(api, "membership").mockResolvedValue({ invitations: [], requests: [] })
   })
   afterEach(() => vi.restoreAllMocks())
 
   it("shows the three tabs to an admin", async () => {
     renderAt("/equipe", henry)
-    for (const t of ["Pessoas", "Áreas", "Cargos"]) expect(await screen.findByRole("tab", { name: t })).toBeInTheDocument()
+    for (const t of ["Pessoas", "Áreas", "Cargos", "Acessos"]) expect(await screen.findByRole("tab", { name: t })).toBeInTheDocument()
+  })
+
+  it("approving an access request creates a one-use invite link instead of a membership", async () => {
+    vi.spyOn(api, "membership").mockResolvedValueOnce({
+      invitations: [],
+      requests: [{ id: 12, name: "Celia", email: "celia@example.com", created_at: "2026-05-01T12:00:00Z" }],
+    }).mockResolvedValue({
+      invitations: [{ id: 7, email: "celia@example.com", role_id: 3, role_name: "Usuário", created_at: "2026-05-01T12:00:00Z", expires_at: "2026-05-08T12:00:00Z" }],
+      requests: [],
+    })
+    const approve = vi.spyOn(api, "approveMembershipRequest").mockResolvedValue({ url: "/w/alis/convite#token=one-use" })
+    renderAt("/equipe?aba=acessos", henry)
+    await userEvent.click(await screen.findByRole("button", { name: "Aprovar" }))
+    expect(approve).toHaveBeenCalledWith(12, 3)
+    expect(await screen.findByLabelText("Endereço do convite")).toHaveValue(`${window.location.origin}/w/alis/convite#token=one-use`)
+    expect(await screen.findByText("Nenhuma solicitação aguardando análise")).toBeInTheDocument()
+    expect(await screen.findByRole("button", { name: "Revogar convite de celia@example.com" })).toBeInTheDocument()
+  })
+
+  it("creates an invitation for the selected role without choosing a person's password", async () => {
+    const create = vi.spyOn(api, "createMembershipInvitation").mockResolvedValue({ url: "/convite#token=invite-key" })
+    renderAt("/equipe?aba=acessos", henry)
+    await userEvent.type(await screen.findByLabelText("E-mail da pessoa"), "new@example.com")
+    await userEvent.click(screen.getByRole("button", { name: "Criar convite" }))
+    expect(create).toHaveBeenCalledWith({ email: "new@example.com", role_id: 3 })
+    expect(await screen.findByLabelText("Endereço do convite")).toHaveValue(`${window.location.origin}/convite#token=invite-key`)
+    expect(screen.queryByLabelText("Senha inicial")).not.toBeInTheDocument()
+  })
+
+  it("revokes an invitation and removes it from the active list", async () => {
+    vi.spyOn(api, "membership").mockResolvedValue({
+      invitations: [{ id: 7, email: "celia@example.com", role_id: 3, role_name: "Usuário", created_at: "2026-05-01T12:00:00Z", expires_at: "2026-05-08T12:00:00Z" }],
+      requests: [],
+    })
+    vi.spyOn(window, "confirm").mockReturnValue(true)
+    const revoke = vi.spyOn(api, "revokeMembershipInvitation").mockResolvedValue({ ok: true })
+    renderAt("/equipe?aba=acessos", henry)
+    await userEvent.click(await screen.findByRole("button", { name: "Revogar convite de celia@example.com" }))
+    expect(revoke).toHaveBeenCalledWith(7)
+    expect(await screen.findByText("Sem convites ativos")).toBeInTheDocument()
+  })
+
+  it("rejects an access request without issuing an invitation", async () => {
+    vi.spyOn(api, "membership").mockResolvedValue({
+      invitations: [],
+      requests: [{ id: 12, name: "Celia", email: "celia@example.com", created_at: "2026-05-01T12:00:00Z" }],
+    })
+    vi.spyOn(window, "confirm").mockReturnValue(true)
+    const reject = vi.spyOn(api, "rejectMembershipRequest").mockResolvedValue({ ok: true })
+    const invite = vi.spyOn(api, "createMembershipInvitation")
+    renderAt("/equipe?aba=acessos", henry)
+    await userEvent.click(await screen.findByRole("button", { name: "Recusar solicitação de Celia" }))
+    expect(reject).toHaveBeenCalledWith(12)
+    expect(invite).not.toHaveBeenCalled()
+    expect(await screen.findByText("Nenhuma solicitação aguardando análise")).toBeInTheDocument()
   })
 
   it("a leader sees only Áreas and can set members of their area", async () => {

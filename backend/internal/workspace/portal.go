@@ -147,7 +147,7 @@ func (p *Portal) create(ctx context.Context, name, slug string, me sqlc.Person) 
 		return "", err
 	}
 	if count >= 20 {
-		return "", errors.New("workspace capacity reached")
+return "", handler.ErrWorkspaceCapacity
 	}
 	buf := make([]byte, 12)
 	if _, err = rand.Read(buf); err != nil {

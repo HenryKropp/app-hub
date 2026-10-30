@@ -72,6 +72,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /up", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("GET /api/workspace", h.workspaceInfo)
 	mux.HandleFunc("POST /api/workspaces", h.createWorkspace)
+h.registerEntry(mux)
 	mux.HandleFunc("GET /api/security", h.securityOverview)
 	mux.HandleFunc("PUT /api/security/settings", h.updateSecuritySettings)
 	mux.HandleFunc("PUT /api/security/apps/{id}", h.updateSecurityApp)
