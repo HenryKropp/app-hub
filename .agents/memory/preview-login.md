@@ -28,3 +28,16 @@ testing that address externally is not equivalent to testing the embedded UI.
 **How to apply:** Tell the user to replace the entire editable path with the
 short path and press Enter. Do not ask them to edit the Preview's domain/port or
 repeat full-URL instructions when the goal is navigation within Preview.
+
+Distinguish the editor's “This is taking longer than expected / Ask Agent to
+fix the preview” placeholder from a loading/error screen rendered by the app.
+
+**Why:** The user provided a capture of this outer Preview placeholder while
+the workflow reported port 5000 open, the listener bound `0.0.0.0`, and the
+development proxy returned the app successfully. Direct app screenshots did
+not reproduce or verify the editor's embedded-panel state.
+
+**How to apply:** Check workflow registration/forwarding rather than changing
+login or routes. After a bounded re-registration attempt, report the remaining
+editor-side uncertainty plainly. Do not claim the user's Preview is fixed just
+because curl or an anonymous app screenshot succeeds.
