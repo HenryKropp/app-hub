@@ -43,7 +43,7 @@ test("first access creates the administrator", async () => {
   const setPerson = mockAuth(true)
   const setup = vi.spyOn(api, "setup").mockResolvedValue(henry)
   renderPage()
-  expect(screen.getByText("Crie a conta de administrador")).toBeInTheDocument()
+  expect(screen.getByText("Configure o primeiro acesso")).toBeInTheDocument()
   await user.type(screen.getByLabelText("Seu nome"), "Henry")
   await user.type(screen.getByLabelText("E-mail"), "henry@alis.com")
   await user.type(screen.getByLabelText("Senha"), "senha-forte-1")

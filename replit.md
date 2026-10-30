@@ -156,6 +156,11 @@ can create a separate company with its first administrator, or enter an existing
 company using its identifier/URL. No public company directory is exposed.
 Public company registration shares the portal's 20-company capacity limit.
 
+The public presentation at `/boas-vindas` does not contain login or registration
+forms. **Login / Cadastre-se** opens `/acesso` for company selection; company
+creation is a separate screen at `/cadastre-se`. Existing company login and
+invitation links keep their workspace paths and authentication boundaries.
+
 At a company's login, a visitor can submit a name/email access request, without
 a password. In **Equipe → Acessos**, managers with `manage_roles` can approve or
 reject requests, issue invitations with a chosen role, and revoke invitations.
