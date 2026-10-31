@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, expect, it, vi } from "vitest"
 import { api } from "@/lib/api"
-import { SharedSettingsForm } from "./Settings"
+import { SharedSettingsForm } from "./SharedSettingsForm"
 
 beforeEach(() => vi.restoreAllMocks())
 

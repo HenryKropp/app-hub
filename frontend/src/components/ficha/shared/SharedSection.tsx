@@ -8,7 +8,7 @@ import { api, type AppDetail, type Can, type EnvVar, type Readiness, type Shared
 import { Backups } from "./Backups"
 import { PublishBar } from "./Publish"
 import { ReadinessList } from "./Readiness"
-import { SharedSettingsForm } from "./Settings"
+import { SharedSettingsForm } from "./SharedSettingsForm"
 import { SharedLine } from "./SharedLine"
 import { errText, settingsOf } from "./settings"
 
