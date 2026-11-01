@@ -10,4 +10,4 @@ dist/
 .claude/worktrees/
 e2e/shots/
 /generated-artifacts/
-/generated-artifacts/
+.impeccable/review/
