@@ -54,7 +54,7 @@ Replit, use o workflow **Start application**. Não inclua credenciais no código
 |---|---|
 | [PRODUCT.md](PRODUCT.md) | Público, posicionamento e princípios de produto |
 | [Roadmap](ROADMAP.md) | Frentes de produto em ordem, do hackathon à nuvem gerenciada |
-| [Especificação v3](Documentação/Especificação%20do%20produto%20v3.md) | Visão ampla, incluindo a futura nuvem gerenciada |
+| [Especificação v3](docs/especificacao/Especificação%20do%20produto%20v3.md) | Visão ampla, incluindo a futura nuvem gerenciada |
 | [PRD](docs/PRD.md) | Requisitos do produto e contexto do piloto original |
 | [Scripts](docs/SCRIPTS.md) | Importação, entradas, dependências, resultados e segurança |
 | [Infraestrutura](docs/INFRASTRUCTURE.md) | Ambiente atual e diferenças em relação ao piloto local |

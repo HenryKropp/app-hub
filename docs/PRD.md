@@ -1,7 +1,7 @@
 # PRD — App Hub (Módulo 1: Gestão e orquestração de apps)
 
 **Status:** Em construção · **Nota de estado atual:** 2026-10-26
-**Fonte:** `Documentação/Especificação do produto v3.md` (visão completa, Módulos 1 e 2; v2 e v1 guardadas como histórico)
+**Fonte:** `docs/especificacao/Especificação do produto v3.md` (visão completa, Módulos 1 e 2; v2 e v1 guardadas como histórico)
 
 > Este PRD preserva requisitos e contexto do piloto original. O servidor atual
 > está no Replit; não depende do WSL para executar. Importação de scripts e
