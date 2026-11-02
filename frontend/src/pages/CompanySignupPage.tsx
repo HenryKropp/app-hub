@@ -29,13 +29,25 @@ export function CompanySignupPage() {
   const createCompany = async (event: FormEvent) => {
     event.preventDefault()
     setError("")
+    if (!companyName.trim() || !slug || !ownerName.trim() || !email.trim() || !password) {
+      setError("Preencha todos os campos.")
+      return
+    }
     if (!validCompanySlug(slug)) {
       setError("O endereço deve ter de 3 a 40 caracteres, começar com uma letra minúscula e conter apenas letras, números ou hífens.")
       return
     }
+    if (!/^[^\s@]+@[^\s@]+$/.test(email.trim())) {
+      setError("Informe um e-mail válido.")
+      return
+    }
     const byteLength = new TextEncoder().encode(password).length
-    if (byteLength < 8 || byteLength > 72) {
-      setError("Escolha uma senha com pelo menos 8 caracteres e que não seja muito longa.")
+    if (byteLength < 8) {
+      setError("A senha precisa ter pelo menos 8 caracteres.")
+      return
+    }
+    if (byteLength > 72) {
+      setError("A senha é longa demais. Use até 72 caracteres sem acento.")
       return
     }
     setBusy(true)
@@ -79,10 +91,11 @@ export function CompanySignupPage() {
           <div className="auth-card-icon"><LockKeyhole size={18} /></div>
           <h2>Cadastre sua empresa</h2>
           <p className="auth-card-description">Defina o endereço do espaço e os dados de quem vai administrá-lo.</p>
-          <form onSubmit={createCompany} className="auth-form signup-form">
+          {/* noValidate: the page explains every problem in text that stays; the browser's bubble vanishes. */}
+          <form onSubmit={createCompany} className="auth-form signup-form" noValidate>
             <Field label="Nome da empresa" htmlFor="company-name"><Input id="company-name" value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="Ex.: Horizonte Logística" autoComplete="organization" required /></Field>
             <Field label="Endereço da empresa" htmlFor="company-slug" hint="3–40 caracteres; letras minúsculas, números e hífens.">
-              <div className="slug-field"><span>ziv /</span><Input id="company-slug" className="slug-input" value={slug} onChange={(event) => setSlug(event.target.value)} placeholder="horizonte" minLength={3} maxLength={40} pattern="[a-z][a-z0-9-]{2,39}" autoCapitalize="none" spellCheck={false} required /></div>
+              <div className="slug-field"><span>ziv /</span><Input id="company-slug" className="slug-input" value={slug} onChange={(event) => setSlug(event.target.value)} placeholder="horizonte" minLength={3} maxLength={40} autoCapitalize="none" spellCheck={false} required /></div>
             </Field>
             <div className="signup-divider"><span>ADMINISTRADOR DO ESPAÇO</span></div>
             <Field label="Seu nome" htmlFor="owner-name"><Input id="owner-name" value={ownerName} onChange={(event) => setOwnerName(event.target.value)} autoComplete="name" required /></Field>
