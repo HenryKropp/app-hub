@@ -35,6 +35,35 @@ do ambiente, não uma correção das permissões do Ziv. Se houver liberação p
 temporária para teste, mantenha a autenticação do Ziv e restaure a proteção ao
 terminar. Não trate esse endereço temporário como URL de produção.
 
+## Rodar no próprio computador (Windows, Mac ou Linux) — 01/11/2026
+
+Serve para testar o fluxo inteiro sem o Replit: cadastro, login, importação e
+execução pelo agente, tudo em `http://localhost:8080`.
+
+1. Instale Go, Node 24 e PostgreSQL 16 (no Windows, o PostgreSQL pode ser o zip
+   portátil da EDB, sem serviço). Crie um banco vazio, por exemplo `ziv`.
+2. Crie `.env.local` na raiz (fica fora do git):
+
+   ```sh
+   DATABASE_URL=postgres://postgres@localhost:5433/ziv?sslmode=disable
+   # Opcional: o script liga o PostgreSQL portátil se ele estiver desligado.
+   PG_BIN=/c/caminho/pgsql/bin
+   PG_DATA=/c/caminho/pgdata
+   ```
+
+3. No Git Bash (Windows) ou no terminal: `bash scripts/run-local.sh`.
+
+O script compila o site, o servidor e um agente apontado para
+`http://localhost:8080` (`dist/agent/AppHubAgente.exe`, que o próprio Ziv local
+oferece para download). Fora do Linux, a tela do servidor não mostra memória e
+disco (`hostinfo` só lê esses dados no Linux).
+
+Para mexer nas telas com recarga automática, deixe o script rodando e, em outro
+terminal, `npm run dev --prefix frontend`: o site abre em `http://localhost:5173`
+e repassa ao servidor as chamadas de `/api` e de `/w/<empresa>/api`. Nesse modo,
+`BASE_URL` precisa ser `http://localhost:5173`, senão os envios são recusados
+como "Origem da solicitação não autorizada".
+
 ## Piloto local original — histórico
 
 As informações abaixo descrevem o ambiente WSL anterior, não os requisitos do
