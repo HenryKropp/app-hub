@@ -20,6 +20,7 @@ import (
 
 	"github.com/HenryKropp/app-hub/backend/internal/config"
 	"github.com/HenryKropp/app-hub/backend/internal/database"
+	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -323,5 +324,65 @@ func TestPortalSharedRuntimeFailsClosed(t *testing.T) {
 	var jobs int
 	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM shared_deployments`).Scan(&jobs); err != nil || jobs != 0 {
 		t.Fatalf("disabled shared runtime created deployments: count=%d err=%v", jobs, err)
+	}
+}
+
+// A company created through signup gets every table and column the main
+// company has. Migration 006 once checked for runs.dismissed_at in any schema,
+// so new companies never got it and their active-runs strip failed.
+func TestNewCompanySchemaMatchesMain(t *testing.T) {
+	p, pool, _ := testPortal(t)
+	ctx := context.Background()
+	if _, err := p.create(ctx, "Horizonte", "horizonte", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	var schema string
+	if err := pool.QueryRow(ctx, `SELECT schema_name FROM public.workspace_registry WHERE slug='horizonte'`).Scan(&schema); err != nil {
+		t.Fatal(err)
+	}
+	var missing []string
+	rows, err := pool.Query(ctx, `SELECT m.table_name||'.'||m.column_name FROM information_schema.columns m
+		WHERE m.table_schema='public' AND m.table_name IN (SELECT table_name FROM information_schema.tables WHERE table_schema=$1)
+		AND NOT EXISTS (SELECT 1 FROM information_schema.columns c WHERE c.table_schema=$1 AND c.table_name=m.table_name AND c.column_name=m.column_name)
+		ORDER BY 1`, schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var col string
+		if err := rows.Scan(&col); err != nil {
+			t.Fatal(err)
+		}
+		missing = append(missing, col)
+	}
+	rows.Close()
+	if len(missing) > 0 {
+		t.Fatalf("new company is missing columns the main company has: %v", missing)
+	}
+}
+
+// Companies created before the fix are repaired the next time the portal starts.
+func TestPortalStartRepairsMissingDismissedAt(t *testing.T) {
+	p, pool, _ := testPortal(t)
+	ctx := context.Background()
+	if _, err := p.create(ctx, "Horizonte", "horizonte", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	var schema string
+	if err := pool.QueryRow(ctx, `SELECT schema_name FROM public.workspace_registry WHERE slug='horizonte'`).Scan(&schema); err != nil {
+		t.Fatal(err)
+	}
+	s := pgx.Identifier{schema}.Sanitize()
+	if _, err := pool.Exec(ctx, `ALTER TABLE `+s+`.runs DROP COLUMN IF EXISTS dismissed_at; DELETE FROM `+s+`.schema_migrations WHERE name LIKE '%014_%'`); err != nil {
+		t.Fatal(err)
+	}
+	restarted, err := New(ctx, pool, p.cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restarted.Close()
+	var ok bool
+	if err := pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema=$1 AND table_name='runs' AND column_name='dismissed_at')`, schema).Scan(&ok); err != nil || !ok {
+		t.Fatalf("dismissed_at not repaired on start (err=%v)", err)
 	}
 }
