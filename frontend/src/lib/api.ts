@@ -334,6 +334,9 @@ export const api = {
   saveCompanyName: (company_name: string) => request<Onboarding>("PUT", "/api/onboarding", { company_name }),
   setup: (b: { name: string; email: string; password: string }) => request<Person>("POST", "/api/auth/setup", b),
   login: (b: { email: string; password: string }) => request<Person>("POST", "/api/auth/login", b),
+  // Signs in to a company other than the current page's (e.g. right after creating it).
+  loginAt: (basePath: string, b: { email: string; password: string }) =>
+    requestAt<Person>("POST", `${basePath}/api/auth/login`, b),
   logout: () => request<void>("POST", "/api/auth/logout"),
   people: () => request<PersonRow[]>("GET", "/api/people"),
   createPerson: (b: { name: string; email: string; password: string; role_id: number }) => request<PersonRow>("POST", "/api/people", b),

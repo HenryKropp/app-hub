@@ -4,6 +4,13 @@ export function validCompanySlug(slug: string) {
   return slug.length >= 3 && slug.length <= 40 && SLUG_PATTERN.test(slug)
 }
 
+// "Alis Investimentos" → "alis-investimentos". Empty when the name gives no valid address.
+export function slugFromName(name: string) {
+  const slug = name.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^[^a-z]+/, "").slice(0, 40).replace(/-+$/, "")
+  return validCompanySlug(slug) ? slug : ""
+}
+
 export function slugFromEntry(value: string, origin: string): string | null {
   const entered = value.trim()
   if (!entered) return null
