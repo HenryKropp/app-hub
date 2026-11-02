@@ -48,6 +48,10 @@ bash scripts/run-replit.sh
 O comando prepara o frontend, compila servidor e agente e inicia o Ziv. No
 Replit, use o workflow **Start application**. Não inclua credenciais no código.
 
+No próprio computador (Windows com Git Bash, Mac ou Linux), use
+`bash scripts/run-local.sh`; o passo a passo está em
+[Rodar no próprio computador](docs/INFRASTRUCTURE.md#rodar-no-próprio-computador-windows-mac-ou-linux--01112026).
+
 ## Mapa da documentação
 
 | Documento | Finalidade |

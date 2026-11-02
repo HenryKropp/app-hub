@@ -11,3 +11,4 @@ dist/
 e2e/shots/
 /generated-artifacts/
 .impeccable/review/
+.env.local
