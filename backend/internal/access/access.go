@@ -28,6 +28,10 @@ const (
 
 var Grants = []string{GrantEdit, GrantRestore, GrantTech, GrantRuns}
 
+// ArtifactGrants are the per-artifact extra accesses (artifacts have no runs
+// and no technical part of their own).
+var ArtifactGrants = []string{GrantEdit, GrantRestore}
+
 type Person struct {
 	ID         int64
 	Perms      map[string]bool
@@ -36,6 +40,9 @@ type Person struct {
 	ViewerApps map[int64]bool // restricted apps that list the person or one of their areas
 	AppGrants  map[int64]map[string]bool
 	AreaGrants map[int64]map[string]bool
+
+	ViewerArtifacts map[int64]bool // restricted artifacts that list the person or one of their areas
+	ArtifactGrants  map[int64]map[string]bool
 }
 
 func (p *Person) Has(perm string) bool { return p.Perms[perm] }
@@ -69,14 +76,32 @@ type Can struct {
 // access on it (per app or for its area). The company-wide boxes (edit,
 // restore, technical part, everyone's runs) reach only apps the person sees.
 func (p *Person) For(a App) Can {
+	return p.forItem(a, p.ViewerApps[a.ID], p.AppGrants[a.ID])
+}
+
+// ForArtifact follows the same rules as For, but viewers and per-item grants
+// come from the artifact maps (an app with the same id never leaks in). Area
+// grants and role permissions apply unchanged. Artifacts never run, and Tech
+// (which gates the access section) is just Edit or Restore.
+func (p *Person) ForArtifact(a App) Can {
+	c := p.forItem(a, p.ViewerArtifacts[a.ID], p.ArtifactGrants[a.ID])
+	if !c.View {
+		return c
+	}
+	c.Tech = c.Edit || c.Restore
+	c.Runs = false
+	return c
+}
+
+func (p *Person) forItem(a App, viewer bool, itemGrants map[string]bool) Can {
 	leader := p.Leads[a.AreaID]
 	cares := leader || a.OwnerID == p.ID || (a.BackupID != 0 && a.BackupID == p.ID)
-	granted := func(g string) bool { return p.AppGrants[a.ID][g] || p.AreaGrants[a.AreaID][g] }
+	granted := func(g string) bool { return itemGrants[g] || p.AreaGrants[a.AreaID][g] }
 	anyGrant := false
 	for _, g := range Grants {
 		anyGrant = anyGrant || granted(g)
 	}
-	if a.Restricted && !(p.Has(SeeAllApps) || p.ViewerApps[a.ID] || cares || p.Has(ManageAreas) || anyGrant) {
+	if a.Restricted && !(p.Has(SeeAllApps) || viewer || cares || p.Has(ManageAreas) || anyGrant) {
 		return Can{}
 	}
 

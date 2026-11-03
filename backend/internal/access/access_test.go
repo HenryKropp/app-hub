@@ -4,7 +4,8 @@ import "testing"
 
 func person(id int64) *Person {
 	return &Person{ID: id, Perms: map[string]bool{}, Leads: map[int64]bool{}, Member: map[int64]bool{},
-		ViewerApps: map[int64]bool{}, AppGrants: map[int64]map[string]bool{}, AreaGrants: map[int64]map[string]bool{}}
+		ViewerApps: map[int64]bool{}, AppGrants: map[int64]map[string]bool{}, AreaGrants: map[int64]map[string]bool{},
+		ViewerArtifacts: map[int64]bool{}, ArtifactGrants: map[int64]map[string]bool{}}
 }
 
 var app = App{ID: 10, AreaID: 1, OwnerID: 1, BackupID: 2}
@@ -168,5 +169,57 @@ func TestRestrictedVisibleToCarersAndGrants(t *testing.T) {
 	other.AreaGrants[2] = map[string]bool{GrantRuns: true}
 	if c := other.For(r); c != (Can{}) {
 		t.Fatalf("grants on other apps/areas: %+v", c)
+	}
+}
+
+var artifact = App{ID: 10, AreaID: 1, OwnerID: 1, Restricted: true}
+
+func TestForArtifactRestrictedHiddenWithoutViewer(t *testing.T) {
+	p := person(9)
+	if c := p.ForArtifact(artifact); c != (Can{}) {
+		t.Fatalf("%+v", c)
+	}
+	p.ViewerArtifacts[10] = true
+	if c := p.ForArtifact(artifact); !c.View {
+		t.Fatalf("%+v", c)
+	}
+}
+
+func TestForArtifactAreaGrantReachesArtifacts(t *testing.T) {
+	p := person(9)
+	p.AreaGrants[1] = map[string]bool{"edit": true}
+	if c := p.ForArtifact(artifact); !c.View || !c.Edit || !c.Tech {
+		t.Fatalf("%+v", c)
+	}
+}
+
+func TestForArtifactRolePermsReach(t *testing.T) {
+	p := person(9)
+	p.Perms[EditAnyApp] = true
+	p.Perms[RestoreAnyApp] = true
+	p.Perms[SeeAllApps] = true
+	if c := p.ForArtifact(artifact); !c.Edit || !c.Restore || !c.Tech {
+		t.Fatalf("%+v", c)
+	}
+}
+
+func TestForArtifactAppGrantDoesNotLeak(t *testing.T) {
+	p := person(9)
+	p.AppGrants[10] = map[string]bool{"edit": true}
+	if c := p.ForArtifact(artifact); c.Edit || c.View {
+		t.Fatalf("%+v", c)
+	}
+	p.ArtifactGrants[10] = map[string]bool{"edit": true}
+	if c := p.ForArtifact(artifact); !c.Edit {
+		t.Fatalf("%+v", c)
+	}
+}
+
+func TestForArtifactNeverRuns(t *testing.T) {
+	p := person(9)
+	p.Perms[SeeAllRuns] = true
+	p.Perms[SeeAllApps] = true
+	if c := p.ForArtifact(artifact); !c.View || c.Runs || c.Tech {
+		t.Fatalf("%+v", c)
 	}
 }
