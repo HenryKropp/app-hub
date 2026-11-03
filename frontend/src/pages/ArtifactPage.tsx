@@ -4,11 +4,11 @@ import { ArrowLeft, Download, ExternalLink, Link2 } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Field, LoadError, PageHeader } from "@/components/bits"
+import { Field, LoadError, NativeSelect, PageHeader } from "@/components/bits"
 import { AccessSection } from "@/components/ficha/AccessSection"
 import { EditLink, Section } from "@/components/ficha/Part"
 import { ArtifactSourceField, readAsBase64, sourceReady, type ArtifactSource } from "@/components/ArtifactSourceField"
-import { ApiError, api, artifactContentUrl, type ArtifactDetail } from "@/lib/api"
+import { ApiError, api, artifactContentUrl, type Area, type ArtifactDetail, type PersonRow } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { has } from "@/lib/permissions"
 import { parseTags } from "@/lib/tags"
@@ -110,7 +110,7 @@ export function ArtifactPage() {
 
       {isFile ? (
         <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <iframe title={art.name} src={artifactContentUrl(art.id)} sandbox={ARTIFACT_SANDBOX} className="block w-full min-h-[480px] h-[calc(100vh-12rem)] bg-white" />
+          <iframe key={art.current} title={art.name} src={artifactContentUrl(art.id, art.current)} sandbox={ARTIFACT_SANDBOX} className="block w-full min-h-[480px] h-[calc(100vh-12rem)] bg-white" />
         </div>
       ) : (
         <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-5">
@@ -171,10 +171,16 @@ function DeleteButton({ art, onDeleted }: { art: ArtifactDetail; onDeleted: () =
 }
 
 function AboutSection({ art, onSaved }: { art: ArtifactDetail; onSaved: (a: ArtifactDetail) => void }) {
-  const [editing, setEditing] = useState(false)
+  // ficha: name, description, tags (can.edit). care: owner, backup, area (can.access).
+  const [editing, setEditing] = useState<"ficha" | "care" | null>(null)
   const [name, setName] = useState(art.name)
   const [summary, setSummary] = useState(art.summary)
   const [tagsText, setTagsText] = useState(art.tags.join(", "))
+  const [ownerId, setOwnerId] = useState(art.owner_id)
+  const [backupId, setBackupId] = useState(art.backup_id ?? 0)
+  const [areaId, setAreaId] = useState(art.area_id)
+  const [people, setPeople] = useState<PersonRow[] | null>(null)
+  const [areas, setAreas] = useState<Area[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
 
@@ -183,25 +189,69 @@ function AboutSection({ art, onSaved }: { art: ArtifactDetail; onSaved: (a: Arti
     setSummary(art.summary)
     setTagsText(art.tags.join(", "))
     setError("")
-    setEditing(true)
+    setEditing("ficha")
   }
-  async function save(e: FormEvent) {
-    e.preventDefault()
-    if (!name.trim()) return
+  function openCare() {
+    setOwnerId(art.owner_id)
+    setBackupId(art.backup_id ?? 0)
+    setAreaId(art.area_id)
+    setError("")
+    setEditing("care")
+    api.people().then(setPeople, (e: Error) => setError(e.message))
+    api.areas().then(setAreas, (e: Error) => setError(e.message))
+  }
+  async function submit(body: Parameters<typeof api.updateArtifact>[1]) {
     setBusy(true)
     setError("")
     try {
-      onSaved(await api.updateArtifact(art.id, { name: name.trim(), summary: summary.trim(), tags: parseTags(tagsText) }))
-      setEditing(false)
+      onSaved(await api.updateArtifact(art.id, body))
+      setEditing(null)
     } catch (err) {
       setError((err as Error).message)
     }
     setBusy(false)
   }
+  function save(e: FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) return
+    void submit({ name: name.trim(), summary: summary.trim(), tags: parseTags(tagsText) })
+  }
+  function saveCare(e: FormEvent) {
+    e.preventDefault()
+    if (!ownerId || !areaId) return
+    // The ficha goes along unchanged: the Hub replaces name, description and tags on every save.
+    void submit({ name: art.name, summary: art.summary, tags: art.tags, owner_id: ownerId, backup_id: backupId === ownerId ? 0 : backupId, area_id: areaId })
+  }
+
+  const errorLine = error && (
+    <p role="alert" className="text-sm text-destructive">
+      {error}
+    </p>
+  )
+  const buttons = (ready: boolean) => (
+    <div className="flex gap-2">
+      <Button type="submit" disabled={busy || !ready}>
+        {busy ? "Salvando…" : "Salvar"}
+      </Button>
+      <Button type="button" variant="outline" onClick={() => setEditing(null)}>
+        Cancelar
+      </Button>
+    </div>
+  )
+  const aside = !editing && (art.can.edit || art.can.access) && (
+    <div className="flex flex-col items-start gap-1">
+      {art.can.edit && <EditLink part="o artifact" onClick={open} />}
+      {art.can.access && (
+        <button type="button" className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" onClick={openCare}>
+          Editar quem cuida
+        </button>
+      )}
+    </div>
+  )
 
   return (
-    <Section title="Sobre" id="sobre" aside={art.can.edit && !editing ? <EditLink part="o artifact" onClick={open} /> : undefined}>
-      {editing ? (
+    <Section title="Sobre" id="sobre" aside={aside || undefined}>
+      {editing === "ficha" ? (
         <form onSubmit={save} className="flex max-w-xl flex-col gap-4">
           <Field label="Nome" htmlFor="ed-name">
             <Input id="ed-name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -212,19 +262,51 @@ function AboutSection({ art, onSaved }: { art: ArtifactDetail; onSaved: (a: Arti
           <Field label="Etiquetas" htmlFor="ed-tags" hint="Separe por vírgula.">
             <Input id="ed-tags" value={tagsText} onChange={(e) => setTagsText(e.target.value)} />
           </Field>
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
+          {errorLine}
+          {buttons(!!name.trim())}
+        </form>
+      ) : editing === "care" ? (
+        <form onSubmit={saveCare} className="flex max-w-xl flex-col gap-4">
+          {!people || !areas ? (
+            error ? errorLine : <p className="text-sm text-muted-foreground">Carregando…</p>
+          ) : (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Responsável" htmlFor="ed-owner" hint="Quem mantém o artifact e responde por ele.">
+                  <NativeSelect id="ed-owner" value={ownerId} onChange={(e) => setOwnerId(Number(e.target.value))}>
+                    {people.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </Field>
+                <Field label="Reserva" htmlFor="ed-backup" hint="Quem assume se o responsável não estiver.">
+                  <NativeSelect id="ed-backup" value={backupId === ownerId ? 0 : backupId} onChange={(e) => setBackupId(Number(e.target.value))}>
+                    <option value={0}>Ninguém</option>
+                    {people
+                      .filter((p) => p.id !== ownerId)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                  </NativeSelect>
+                </Field>
+              </div>
+              <Field label="Área" htmlFor="ed-area" hint="O líder da área cuida do artifact junto.">
+                <NativeSelect id="ed-area" className="sm:max-w-[calc(50%-0.5rem)]" value={areaId} onChange={(e) => setAreaId(Number(e.target.value))}>
+                  {areas.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+              {errorLine}
+              {buttons(!!ownerId && !!areaId)}
+            </>
           )}
-          <div className="flex gap-2">
-            <Button type="submit" disabled={busy || !name.trim()}>
-              {busy ? "Salvando…" : "Salvar"}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setEditing(false)}>
-              Cancelar
-            </Button>
-          </div>
         </form>
       ) : (
         <dl className="flex flex-col gap-3 text-sm">
@@ -235,6 +317,9 @@ function AboutSection({ art, onSaved }: { art: ArtifactDetail; onSaved: (a: Arti
             </div>
             <div>
               Reserva: <span className="text-foreground">{art.backup_name || "ninguém"}</span>
+            </div>
+            <div>
+              Área: <span className="text-foreground">{art.area}</span>
             </div>
           </div>
         </dl>

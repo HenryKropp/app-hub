@@ -1,4 +1,4 @@
-// Visual check for Artifacts (list, file artifact page, new page) in light, dark and mobile.
+// Visual check for Artifacts (list, file artifact page, care editor, new page) in light, dark and mobile.
 // Seeds real artifacts through the dev Hub API and deletes them at the end.
 // Usage: BASE=http://localhost:5173 OUT=/path/to/shots node artifacts.mjs
 import { chromium } from "playwright"
@@ -54,6 +54,11 @@ try {
     }
     await shot("lista", "/artifacts", (p) => p.getByText("Receita por trimestre").first().waitFor())
     await shot("artifact", `/artifacts/${fileId}`, (p) => p.locator("iframe").waitFor())
+    await shot("cuida", `/artifacts/${fileId}`, async (p) => {
+      await p.locator("iframe").waitFor()
+      await p.getByRole("button", { name: "Editar quem cuida" }).click()
+      await p.getByLabel("Área").last().waitFor()
+    })
     await shot("novo", "/artifacts/novo", (p) => p.waitForLoadState("networkidle"))
     await ctx.close()
   }
