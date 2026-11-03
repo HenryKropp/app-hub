@@ -139,3 +139,71 @@ test("shows not found", async () => {
   expect(await screen.findByText("Artifact não encontrado.")).toBeInTheDocument()
   expect(screen.getByRole("link", { name: /artifacts/i })).toHaveAttribute("href", "/artifacts")
 })
+
+test("the preview reloads after a new version or a restore", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art())
+  vi.spyOn(api, "artifactVersion").mockResolvedValue(art({ current: 3 }))
+  vi.spyOn(api, "restoreArtifact").mockResolvedValue(art({ current: 4 }))
+  const user = userEvent.setup()
+  mount()
+  expect((await screen.findByTitle("Vendas")).getAttribute("src")).toContain("v=2")
+  await user.click(screen.getByRole("button", { name: "Enviar versão nova" }))
+  await user.click(screen.getByRole("tab", { name: "Colar link" }))
+  await user.type(screen.getByLabelText("Link"), "https://x.com/novo")
+  await user.click(screen.getByRole("button", { name: "Enviar" }))
+  await waitFor(() => expect(screen.getByTitle("Vendas").getAttribute("src")).toContain("v=3"))
+  await user.click(screen.getAllByRole("button", { name: "Voltar para esta" })[0])
+  await waitFor(() => expect(screen.getByTitle("Vendas").getAttribute("src")).toContain("v=4"))
+})
+
+test("whoever takes care changes owner, backup and area", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art())
+  vi.spyOn(api, "people").mockResolvedValue([
+    { id: 2, name: "Ana", email: "ana@alis.com", role_id: 2, role_name: "Criador", area_ids: [] },
+    { id: 3, name: "Bia", email: "bia@alis.com", role_id: 3, role_name: "Usuário", area_ids: [] },
+  ])
+  vi.spyOn(api, "areas").mockResolvedValue([
+    { id: 1, name: "Comercial", app_count: 0, leaders: [], members: [] },
+    { id: 4, name: "Investimentos", app_count: 0, leaders: [], members: [] },
+  ])
+  const save = vi.spyOn(api, "updateArtifact").mockResolvedValue(art({ owner_id: 3, owner_name: "Bia", backup_id: 2, backup_name: "Ana", area_id: 4, area: "Investimentos" }))
+  const user = userEvent.setup()
+  mount()
+  await screen.findByTitle("Vendas")
+  await user.click(screen.getByRole("button", { name: "Editar quem cuida" }))
+  await waitFor(() => expect(screen.getByLabelText("Responsável")).toHaveValue("2"))
+  await user.selectOptions(screen.getByLabelText("Responsável"), "3")
+  await user.selectOptions(screen.getByLabelText("Reserva"), "2")
+  await user.selectOptions(screen.getByLabelText("Área"), "4")
+  await user.click(screen.getByRole("button", { name: "Salvar" }))
+  await waitFor(() =>
+    expect(save).toHaveBeenCalledWith(5, { name: "Vendas", summary: "Por região", tags: ["vendas"], owner_id: 3, backup_id: 2, area_id: 4 }),
+  )
+  expect(await screen.findByText("Bia")).toBeInTheDocument()
+})
+
+test("removing the backup sends 0", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art({ backup_id: 3, backup_name: "Bia" }))
+  vi.spyOn(api, "people").mockResolvedValue([
+    { id: 2, name: "Ana", email: "ana@alis.com", role_id: 2, role_name: "Criador", area_ids: [] },
+    { id: 3, name: "Bia", email: "bia@alis.com", role_id: 3, role_name: "Usuário", area_ids: [] },
+  ])
+  vi.spyOn(api, "areas").mockResolvedValue([{ id: 1, name: "Comercial", app_count: 0, leaders: [], members: [] }])
+  const save = vi.spyOn(api, "updateArtifact").mockResolvedValue(art())
+  const user = userEvent.setup()
+  mount()
+  await screen.findByTitle("Vendas")
+  await user.click(screen.getByRole("button", { name: "Editar quem cuida" }))
+  await waitFor(() => expect(screen.getByLabelText("Reserva")).toHaveValue("3"))
+  await user.selectOptions(screen.getByLabelText("Reserva"), "0")
+  await user.click(screen.getByRole("button", { name: "Salvar" }))
+  await waitFor(() => expect(save).toHaveBeenCalledWith(5, expect.objectContaining({ owner_id: 2, backup_id: 0, area_id: 1 })))
+})
+
+test("without access the care editor is hidden, but the ficha editor stays", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art({ can: { ...ALL_CAN, access: false, grants: false } }))
+  mount()
+  await screen.findByTitle("Vendas")
+  expect(screen.getByRole("button", { name: "Editar o artifact" })).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Editar quem cuida" })).toBeNull()
+})

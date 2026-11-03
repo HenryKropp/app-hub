@@ -398,7 +398,9 @@ export const api = {
   artifacts: () => request<ArtifactSummary[]>("GET", "/api/artifacts"),
   artifact: (id: number) => request<ArtifactDetail>("GET", `/api/artifacts/${id}`),
   createArtifact: (b: ArtifactInput) => request<ArtifactDetail>("POST", "/api/artifacts", b),
-  updateArtifact: (id: number, b: { name: string; summary: string; tags: string[]; owner_id?: number; backup_id?: number | null; area_id?: number }) =>
+  // name, summary and tags are always sent (they are replaced); owner_id,
+  // backup_id (0 = no backup) and area_id only when they change.
+  updateArtifact: (id: number, b: { name: string; summary: string; tags: string[]; owner_id?: number; backup_id?: number; area_id?: number }) =>
     request<ArtifactDetail>("PUT", `/api/artifacts/${id}`, b),
   artifactVersion: (id: number, b: Omit<ArtifactInput, "name" | "summary" | "tags" | "area_id">) =>
     request<ArtifactDetail>("POST", `/api/artifacts/${id}/versions`, b),

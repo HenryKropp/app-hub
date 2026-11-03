@@ -528,6 +528,15 @@ func (q *Queries) ListViewerArtifactIDs(ctx context.Context, personID pgtype.Int
 	return items, nil
 }
 
+const lockArtifact = `-- name: LockArtifact :exec
+SELECT id FROM artifacts WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) LockArtifact(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, lockArtifact, id)
+	return err
+}
+
 const setArtifactKind = `-- name: SetArtifactKind :exec
 UPDATE artifacts SET kind = $2, updated_at = now() WHERE id = $1
 `

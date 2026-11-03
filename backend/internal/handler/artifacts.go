@@ -207,8 +207,12 @@ func (h *Handler) prepareVersion(w http.ResponseWriter, r *http.Request, in arti
 }
 
 // addVersion stores p as the next version of the artifact and makes the
-// artifact's kind follow it. Run inside a transaction.
+// artifact's kind follow it. Run inside a transaction. The artifact row is
+// locked first so two uploads at once take numbers one after the other.
 func addVersion(ctx context.Context, q *sqlc.Queries, artifactID int64, p preparedVersion, authorID int64, restoredFrom pgtype.Int4, blob pgtype.Text, size int64) error {
+	if err := q.LockArtifact(ctx, artifactID); err != nil {
+		return err
+	}
 	next := int32(1)
 	if last, err := q.LatestArtifactVersion(ctx, artifactID); err == nil {
 		next = last.Number + 1

@@ -22,6 +22,9 @@ UPDATE artifacts SET name = $2, summary = $3, tags = $4, updated_at = now() WHER
 -- name: UpdateArtifactCare :one
 UPDATE artifacts SET owner_id = $2, backup_id = $3, area_id = $4, updated_at = now() WHERE id = $1 RETURNING *;
 
+-- name: LockArtifact :exec
+SELECT id FROM artifacts WHERE id = $1 FOR UPDATE;
+
 -- name: SetArtifactKind :exec
 UPDATE artifacts SET kind = $2, updated_at = now() WHERE id = $1;
 
