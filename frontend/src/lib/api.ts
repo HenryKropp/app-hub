@@ -256,6 +256,7 @@ export type ArtifactSummary = {
 export type ArtifactVersion = {
   number: number; kind: "link" | "file"; url: string; file_name: string; size: number; note: string
   author_name: string; restored_from: number | null; created_at: string
+  embeddable?: boolean // a link whose site lets the Ziv show it inside the page
 }
 export type ArtifactDetail = ArtifactSummary & {
   owner_id: number; backup_id: number | null; backup_name: string; origin: string

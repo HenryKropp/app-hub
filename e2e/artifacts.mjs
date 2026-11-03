@@ -1,4 +1,4 @@
-// Visual check for Artifacts (list, file artifact page, care editor, new page) in light, dark and mobile.
+// Visual check for Artifacts (list, file artifact page, embedded and Claude links, care editor, new page) in light, dark and mobile.
 // Seeds real artifacts through the dev Hub API and deletes them at the end.
 // Usage: BASE=http://localhost:5173 OUT=/path/to/shots node artifacts.mjs
 import { chromium } from "playwright"
@@ -37,6 +37,8 @@ try {
     const j = await r.json(); ids.push(j.id); return j.id
   }
   await mk({ name: "Painel de ações (exemplo)", summary: "Link para o painel do time de investimentos.", tags: ["painel", "investimentos"], area_id: area, kind: "link", url: "https://example.com/painel" })
+  const embedId = await mk({ name: "Página que aceita ser mostrada", summary: "Link de um site que permite aparecer dentro do Ziv.", tags: ["painel"], area_id: area, kind: "link", url: "https://example.com/" })
+  const claudeId = await mk({ name: "Dashboard no Claude", summary: "Link de artifact do Claude.", tags: ["painel"], area_id: area, kind: "link", url: "https://claude.ai/public/artifacts/00000000-0000-0000-0000-000000000000" })
   const fileId = await mk({ name: "Receita por trimestre", summary: "Gráfico de barras da receita, gerado pelo Claude.", tags: ["gráfico", "receita"], area_id: area, kind: "file", file_name: "receita.html", content_base64: Buffer.from(html).toString("base64") })
 
   for (const [theme, viewport, tag] of [["light", { width: 1280, height: 800 }, "desk"], ["dark", { width: 1280, height: 800 }, "dark"], ["light", { width: 390, height: 844 }, "mobile"], ["dark", { width: 390, height: 844 }, "mobile-dark"]]) {
@@ -59,6 +61,8 @@ try {
       await p.getByRole("button", { name: "Editar quem cuida" }).click()
       await p.getByLabel("Área").last().waitFor()
     })
+    await shot("link-embutido", `/artifacts/${embedId}`, (p) => p.locator("iframe").waitFor())
+    await shot("link-claude", `/artifacts/${claudeId}`, (p) => p.getByText(/Links do Claude/).waitFor())
     await shot("novo", "/artifacts/novo", (p) => p.waitForLoadState("networkidle"))
     await ctx.close()
   }

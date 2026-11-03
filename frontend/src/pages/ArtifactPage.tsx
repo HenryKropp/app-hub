@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Field, LoadError, NativeSelect, PageHeader } from "@/components/bits"
 import { AccessSection } from "@/components/ficha/AccessSection"
 import { EditLink, Section } from "@/components/ficha/Part"
-import { ArtifactSourceField, readAsBase64, sourceReady, type ArtifactSource } from "@/components/ArtifactSourceField"
+import { ArtifactSourceField, ClaudeLinkHint, isClaudeLink, readAsBase64, sourceReady, type ArtifactSource } from "@/components/ArtifactSourceField"
 import { ApiError, api, artifactContentUrl, type Area, type ArtifactDetail, type PersonRow } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { has } from "@/lib/permissions"
@@ -16,6 +16,10 @@ import { cn } from "@/lib/utils"
 
 // The artifact runs in a sandbox with no same-origin access, so it can never reach the Hub's session.
 export const ARTIFACT_SANDBOX = "allow-scripts allow-popups allow-forms allow-downloads"
+// An outside site that allows being framed keeps its own origin (it needs it for its login and
+// storage); being another origin, it still cannot touch the Ziv page. The server never marks a
+// link to the Ziv itself as embeddable.
+export const LINK_SANDBOX = "allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox allow-forms allow-downloads"
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
 const domainOf = (url: string) => {
@@ -23,6 +27,13 @@ const domainOf = (url: string) => {
     return new URL(url).host
   } catch {
     return url
+  }
+}
+const sameOrigin = (url: string) => {
+  try {
+    return new URL(url).origin === window.location.origin
+  } catch {
+    return true
   }
 }
 const outline = cn(buttonVariants({ variant: "outline" }), "h-9 gap-1.5")
@@ -68,6 +79,8 @@ export function ArtifactPage() {
   const current = art.versions.find((v) => v.number === art.current) ?? art.versions[0]
   const isFile = art.kind === "file"
   const url = current?.url ?? ""
+  // Never frame the Ziv itself with allow-same-origin (the server also refuses to mark it).
+  const embedLink = !isFile && !!current?.embeddable && !sameOrigin(url)
 
   return (
     <>
@@ -102,7 +115,7 @@ export function ArtifactPage() {
           ) : (
             <a href={url} target="_blank" rel="noopener noreferrer" className={outline}>
               <ExternalLink className="size-4" />
-              Abrir
+              {embedLink ? "Abrir em tela cheia" : "Abrir"}
             </a>
           )}
         </div>
@@ -112,19 +125,26 @@ export function ArtifactPage() {
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           <iframe key={art.current} title={art.name} src={artifactContentUrl(art.id, art.current)} sandbox={ARTIFACT_SANDBOX} className="block w-full min-h-[480px] h-[calc(100vh-12rem)] bg-white" />
         </div>
-      ) : (
-        <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-5">
-          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-accent">
-            <Link2 className="size-5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs text-muted-foreground">Este artifact abre em outro site</p>
-            <p className="truncate font-medium">{domainOf(url)}</p>
-          </div>
-          <a href={url} target="_blank" rel="noopener noreferrer" className={outline}>
-            Abrir
-          </a>
+      ) : embedLink ? (
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <iframe key={art.current} title={art.name} src={url} sandbox={LINK_SANDBOX} referrerPolicy="no-referrer" className="block w-full min-h-[480px] h-[calc(100vh-12rem)] bg-white" />
         </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-4 rounded-xl border border-border bg-card p-5">
+            <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-accent">
+              <Link2 className="size-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-muted-foreground">Este artifact abre em outro site</p>
+              <p className="truncate font-medium">{domainOf(url)}</p>
+            </div>
+            <a href={url} target="_blank" rel="noopener noreferrer" className={outline}>
+              Abrir
+            </a>
+          </div>
+          {art.can.edit && isClaudeLink(url) && <ClaudeLinkHint className="mt-3" />}
+        </>
       )}
 
       <div className="mt-8">

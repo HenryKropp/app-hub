@@ -299,5 +299,6 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | "Exigir aprovação" começa desligado em empresa nova | Done | Empresas que já existiam mantêm a opção |
 | Aba Home | Pending | Plano próprio |
 | Correções da revisão final: prévia recarrega na versão nova, acessos de área técnicos/execuções não alcançam artifacts, "Editar quem cuida" (responsável, reserva, área), busca no celular, trava na versão nova | Done | 2026-11-03 |
+| Link que aceita frame aparece dentro da página; link do Claude sugere subir o HTML | Done | 2026-11-03, pedido do Henry após o teste; `artifact_versions.embeddable` (migração 017) |
 | Publicar artifact pelo MCP | Pending | Junto do registro pelo Claude (3.11) |
 | Pendências pequenas dos Artifacts | Pending | Sem teste de que empresa antiga mantém a aprovação; grant de restaurar e `see_tech_any_app` sem teste; lista de artifacts duplica `artifactRef`; PUT troca resumo e etiquetas (o front manda a ficha toda); URL do link sem limite de tamanho; permissão duplicada dá 500; blobs órfãos em `code_blobs` nunca limpos; sem teste de `setArtifactGrants`; dicas e ARIA das abas da tela nova; página não reinicia ao trocar de `:id`; sem teste de editar Sobre, rolar para `#acesso` e apagar |

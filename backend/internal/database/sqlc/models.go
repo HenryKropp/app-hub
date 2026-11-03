@@ -158,6 +158,7 @@ type ArtifactVersion struct {
 	RestoredFrom pgtype.Int4        `json:"restored_from"`
 	AuthorID     pgtype.Int8        `json:"author_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Embeddable   bool               `json:"embeddable"`
 }
 
 type ArtifactViewer struct {

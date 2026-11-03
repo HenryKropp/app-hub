@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -60,6 +61,10 @@ type Handler struct {
 	// Shared apps (deploy service, supervisor, gateway codes); zero = off.
 	shared         Shared
 	credentialKeys *vault.Keyring
+
+	// Says whether a link artifact's site allows being shown in a frame;
+	// tests replace it to stay off the network.
+	embedCheck func(ctx context.Context, url string, own func(string) bool) bool
 }
 
 func (h *Handler) SetCredentialKeys(k *vault.Keyring) { h.credentialKeys = k }
@@ -73,6 +78,7 @@ func New(q *sqlc.Queries, cfg config.Config) *Handler {
 		uploads:     newUploadHub(),
 		locks:       map[int64]*sync.Mutex{}, scans: map[int64]scanCache{},
 		credentialChecks: make(chan struct{}, 1),
+		embedCheck:       checkLinkEmbeddable,
 	}
 }
 

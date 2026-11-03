@@ -84,6 +84,9 @@ func TestCreateFileArtifactAndServeContent(t *testing.T) {
 	if !strings.Contains(csp, "sandbox allow-scripts") || strings.Contains(csp, "allow-same-origin") {
 		t.Fatalf("csp %q", csp)
 	}
+	if !strings.Contains(csp, "frame-ancestors 'self'") || h.Get("X-Frame-Options") != "SAMEORIGIN" {
+		t.Fatalf("content must be framable only by the Ziv: %v", h)
+	}
 	if h.Get("X-Content-Type-Options") != "nosniff" || !strings.HasPrefix(h.Get("Content-Type"), "text/html") {
 		t.Fatalf("headers %v", h)
 	}

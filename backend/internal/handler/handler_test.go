@@ -8,6 +8,7 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -142,6 +143,7 @@ func newPoolClient(t *testing.T) (*client, *Handler) {
 	truncate()
 	h := New(sqlc.New(testPool), config.Config{BaseURL: "http://hub.test"})
 	h.waitNext, h.waitFile, h.waitFolder, h.tick = 400*time.Millisecond, 2*time.Second, 2*time.Second, 20*time.Millisecond
+	h.embedCheck = func(_ context.Context, url string, _ func(string) bool) bool { return strings.Contains(url, "/embed") }
 	mux := http.NewServeMux()
 	h.Register(mux)
 	srv := httptest.NewServer(mux)
