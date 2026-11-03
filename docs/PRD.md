@@ -137,7 +137,7 @@ Em linguagem de produto, quem pode o quê:
 - **Sempre há ao menos uma pessoa** que cuida das pessoas e dos cargos; o Hub recusa a mudança que deixaria a empresa sem ninguém assim.
 - **Tela Equipe** (barra lateral, para quem cuida de pessoas, áreas ou cargos, ou lidera uma área), com três abas: Pessoas (só para quem pode cadastrar pessoas), Áreas e Cargos.
 - **Cofre local:** chaves e senhas guardadas criptografadas. O app recebe a chave na hora de rodar e o usuário nunca a vê. Registro de qual app usou qual chave e quando. (Pendente, Fase 6.)
-- **Empresa e times (combinado em 2026-09-30, para depois):** a empresa é a conta (nome, padrões, cofre, chave da IA); no piloto existe uma só (Alis). A Etapa 2 entregou áreas, líderes, apps restritos e acessos por app; ainda ficam para depois a pessoa em várias empresas, configurações próprias por time, limites e aprovação antes de publicar.
+- **Empresa e times (combinado em 2026-09-30, para depois):** a empresa é a conta (nome, padrões, cofre, chave da IA); no piloto existe uma só (Alis). A Etapa 2 entregou áreas, líderes, apps restritos e acessos por app; ainda ficam para depois a pessoa em várias empresas, configurações próprias por time e limites. A aprovação antes de publicar já existe no Admin ("exigir aprovação") e começa desligada numa empresa nova.
 - **Aprovação de app novo (Admin):** "exigir aprovação" começa **desligado** numa empresa nova; as empresas que já existiam mantêm a opção como estava. Artifacts (3.14) nunca passam por aprovação.
 
 ### 3.7b Apps compartilhados (construído em 2026-10, ADR 010)
@@ -199,7 +199,7 @@ Ideia do Henry em 2026-10-26: gerir tokens e créditos de IA pelo Hub. Três ní
 Páginas que o Claude (ou alguém) gerou, como um gráfico ou um painel em HTML, guardadas e compartilhadas pelo Ziv. Não rodam nada: só se abrem.
 - **Como entra:** colando um **link** (`https://`) ou subindo **um arquivo** `.html` (até 16 MB). Quem tem o cargo de registrar apps registra artifacts.
 - **Catálogo próprio:** aba Artifacts, com cartões, **busca** por nome, etiqueta e área, filtro por área e **etiquetas** livres.
-- **Mesmas regras de acesso dos apps:** aberto ou restrito, responsável e reserva, área, acessos extras. As permissões de cargo (editar qualquer ficha, voltar versões, ver todos) e os acessos dados na área toda valem também para os artifacts da área; o acesso extra num artifact só oferece editar a ficha e voltar versões.
+- **Mesmas regras de acesso dos apps:** aberto ou restrito, responsável e reserva, área, acessos extras. As permissões de cargo (editar qualquer ficha, voltar versões, ver todos) e os acessos dados na área toda valem também para os artifacts da área; o acesso extra num artifact só oferece editar a ficha e voltar versões. Os acessos da área toda de ver a parte técnica e ver execuções valem só para apps: não mostram um artifact restrito. Quem cuida do artifact (responsável, reserva, líder da área) muda o responsável, a reserva e a área na própria página dele, em "Sobre" → "Editar quem cuida".
 - **Versões:** cada envio novo vira uma versão; dá para abrir uma antiga e voltar a ela.
 - **Sem aprovação:** artifact novo já aparece, nunca vai para "Esperando aprovação" no Admin.
 - **Segurança:** o HTML aparece numa **caixa isolada** (iframe com sandbox e cabeçalho `Content-Security-Policy: sandbox`): a página roda scripts, mas não enxerga o login nem a conta de ninguém. Segredos escritos no HTML são tratados como na importação de scripts.
