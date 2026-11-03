@@ -278,7 +278,7 @@ func (h *Handler) executionBlock(ctx context.Context, id int64) (string, error) 
 		return "", err
 	}
 	if !s.LocalExecution {
-		return "A empresa desativou as execuções locais em Segurança.", nil
+		return "A empresa pausou todos os apps no Admin.", nil
 	}
 	var approved, suspended bool
 	err = h.q.SecurityDB().QueryRow(ctx, `SELECT s.approved AND s.reviewed_manifest_hash=encode(sha256(convert_to(a.manifest::text,'UTF8')),'hex') AND s.reviewed_version=COALESCE((SELECT max(number) FROM app_versions WHERE app_id=a.id),0),s.suspended FROM app_security s JOIN apps a ON a.id=s.app_id WHERE a.id=$1`, id).Scan(&approved, &suspended)
@@ -289,7 +289,7 @@ func (h *Handler) executionBlock(ctx context.Context, id int64) (string, error) 
 		return "Este app foi suspenso pela empresa.", nil
 	}
 	if s.RequireApproval && !approved {
-		return "Um administrador precisa aprovar este app para uso interno em Segurança.", nil
+		return "Este app está esperando a aprovação de um administrador.", nil
 	}
 	return "", nil
 }

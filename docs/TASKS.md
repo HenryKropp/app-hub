@@ -265,3 +265,15 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Aviso de computador desconectado (faixa + diálogo no Rodar) | Done | "Sem o Agente, não será possível rodar os apps do catálogo." |
 | Começar sem a etapa do nome da empresa | Done | 4 etapas |
 | Teste no Windows do EXE com endereço dentro | Pending | Precisa recompilar o Agente |
+
+## Aba Admin no lugar de Segurança (2026-11-03, ADR 017)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Letras do app um pouco menores | Done | Base de 15px |
+| Painel Admin: apps por área com uso e situação, computadores, quem mais usa, atividade | Done | `/admin`, `GET /api/admin/overview` |
+| Aprovar / suspender / reativar na página do app | Done | `PUT /api/apps/{id}/control`; quem não administra vê só o motivo |
+| Controles da empresa: pausar todos, exigir aprovação, apagar histórico | Done | No fim do Admin |
+| Aba Segurança removida (`/seguranca` leva ao Admin) | Done | Classificação, domínios e exportação ficam só no servidor |
+| Cofre de credenciais escondido | Pending | Volta quando a chave `CREDENTIAL_VAULT_KEYRING` for configurada e um app precisar |
+| "Bloquear segredos embutidos" não tem efeito | Pending | A opção é salva mas nada a usa; decidir se implementa ou remove |

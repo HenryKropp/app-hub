@@ -191,6 +191,7 @@ type appDetail struct {
 	DependsOn        []appLink          `json:"depends_on_apps,omitempty"`
 	UsedBy           []appLink          `json:"used_by,omitempty"`
 	Shared           *sharedBrief       `json:"shared"`
+	Control          *appControl        `json:"control"`
 	NeedsRestart     bool               `json:"needs_restart,omitempty"` // PUT /shared: the running app must be turned on again
 	NeedsPublish     bool               `json:"needs_publish,omitempty"` // PUT /shared: a new port only counts after a new publish
 }
@@ -266,6 +267,10 @@ func (h *Handler) writeDetailWith(w http.ResponseWriter, r *http.Request, me sql
 	d.Can = acc.For(appRef(a))
 	if d.Shared, err = h.sharedBriefOf(r, a.ID); err != nil {
 		internalError(w, "shared brief", err)
+		return
+	}
+	if d.Control, err = h.appControlOf(r.Context(), a.ID, acc.Has(access.ManageRoles)); err != nil {
+		internalError(w, "app control", err)
 		return
 	}
 	if d.Can.Tech {

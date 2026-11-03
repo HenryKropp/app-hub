@@ -82,6 +82,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/workspaces", h.createWorkspace)
 	h.registerEntry(mux)
 	mux.HandleFunc("GET /api/security", h.securityOverview)
+	mux.HandleFunc("GET /api/admin/overview", h.adminOverview)
+	mux.HandleFunc("PUT /api/apps/{id}/control", h.setAppControl)
 	mux.HandleFunc("PUT /api/security/settings", h.updateSecuritySettings)
 	mux.HandleFunc("PUT /api/security/apps/{id}", h.updateSecurityApp)
 	mux.HandleFunc("GET /api/security/audit", h.securityAudit)
