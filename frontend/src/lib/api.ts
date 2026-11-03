@@ -303,7 +303,7 @@ export const api = {
   entryCompany: () => request<EntryCompany>("GET", "/api/entry/company"),
   entryCompanyBySlug: (slug: string) =>
     requestAt<EntryCompany>("GET", `/w/${encodeURIComponent(slug)}/api/entry/company`),
-  createEntryCompany: (b: { company_name: string; slug: string; name: string; email: string; password: string }) =>
+  createEntryCompany: (b: { company_name: string; name: string; email: string; password: string }) =>
     requestAt<EntryCompanyCreated>("POST", "/api/entry/companies", b),
   requestCompanyAccess: (b: { name: string; email: string }) =>
     request<{ message: string }>("POST", "/api/entry/requests", b),

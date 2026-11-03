@@ -251,6 +251,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Deploy do Replit e empresas criadas em outra cópia do servidor | Done | Confirmar na primeira publicação |
 | Teste de credencial um por vez; auditoria sem anônimos | Done | |
 | Testes das telas estáveis (304/304) | Done | |
+| Cadastro sem campo de endereço | Done | O servidor gera o endereço do nome da empresa; se já existe ou é reservado, usa o próximo número (`horizonte-2`) |
 | Confirmação de e-mail no cadastro | Pending | Precisa de SMTP |
 | Limite de login compartilhado entre cópias do servidor | Pending | Hoje é por cópia |
 | Apps compartilhados por empresa | Pending | Nomes de containers, redes e endereços por empresa |

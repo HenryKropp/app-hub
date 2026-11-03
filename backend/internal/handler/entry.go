@@ -3,19 +3,51 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/mail"
 	"regexp"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 )
 
 var ErrWorkspaceCapacity = errors.New("workspace capacity reached")
 var companySlug = regexp.MustCompile(`^[a-z][a-z0-9-]{2,39}$`)
+
+// slugFromName turns a company name into its address: "Ação & Cia." →
+// "acao-cia". Names that give fewer than 3 letters get an "empresa-" prefix.
+func slugFromName(name string) string {
+	plain, _, _ := transform.String(transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn))), name)
+	var b strings.Builder
+	dash := false
+	for _, r := range strings.ToLower(plain) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			if dash && b.Len() > 0 {
+				b.WriteByte('-')
+			}
+			b.WriteRune(r)
+			dash = false
+		} else {
+			dash = true
+		}
+	}
+	slug := strings.TrimLeft(b.String(), "0123456789-")
+	if len(slug) < 3 {
+		slug = strings.Trim("empresa-"+b.String(), "-")
+	}
+	if len(slug) > 34 {
+		slug = strings.TrimRight(slug[:34], "-")
+	}
+	return slug
+}
 
 func (h *Handler) registerEntry(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/entry/companies", h.registerCompany)
@@ -58,17 +90,12 @@ func (h *Handler) registerCompany(w http.ResponseWriter, r *http.Request) {
 	c := credentials{Name: b.Name, Email: b.Email, Password: b.Password}
 	c.normalize()
 	b.CompanyName = strings.TrimSpace(b.CompanyName)
-	b.Slug = strings.ToLower(strings.TrimSpace(b.Slug))
 	if msg := validatePerson(c); msg != "" {
 		writeError(w, 400, msg)
 		return
 	}
-	if !validMemberEmail(c.Email) || utf8.RuneCountInString(c.Name) > 120 || b.CompanyName == "" || utf8.RuneCountInString(b.CompanyName) > 120 || !companySlug.MatchString(b.Slug) {
-		writeError(w, 400, "Informe seus dados, o nome da empresa e um endereço de 3 a 40 letras minúsculas, números ou hífens.")
-		return
-	}
-	if b.Slug == "principal" || h.cfg.ReservedSlugs[b.Slug] {
-		writeError(w, 409, "Esse endereço de empresa é reservado. Escolha outro.")
+	if !validMemberEmail(c.Email) || utf8.RuneCountInString(c.Name) > 120 || b.CompanyName == "" || utf8.RuneCountInString(b.CompanyName) > 120 {
+		writeError(w, 400, "Informe seus dados e o nome da empresa.")
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(c.Password), 12)
@@ -76,9 +103,23 @@ func (h *Handler) registerCompany(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "hash company admin", err)
 		return
 	}
-	target, err := h.workspace.Create(r.Context(), b.CompanyName, b.Slug, sqlc.Person{Name: c.Name, Email: c.Email, PasswordHash: string(hash)})
+	// The address always comes from the company name; a taken or reserved
+	// one gets the next free number ("horizonte-2").
+	base := slugFromName(b.CompanyName)
+	var target string
+	err = ErrWorkspaceExists
+	for n := 1; n <= 20 && errors.Is(err, ErrWorkspaceExists); n++ {
+		b.Slug = base
+		if n > 1 {
+			b.Slug = fmt.Sprintf("%s-%d", base, n)
+		}
+		if b.Slug == "principal" || h.cfg.ReservedSlugs[b.Slug] {
+			continue
+		}
+		target, err = h.workspace.Create(r.Context(), b.CompanyName, b.Slug, sqlc.Person{Name: c.Name, Email: c.Email, PasswordHash: string(hash)})
+	}
 	if errors.Is(err, ErrWorkspaceExists) {
-		writeError(w, 409, "Esse endereço de empresa já está em uso.")
+		writeError(w, 409, "Já existem muitas empresas com esse nome. Use um nome mais específico.")
 		return
 	}
 	if errors.Is(err, ErrWorkspaceCapacity) {
