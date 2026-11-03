@@ -8,18 +8,8 @@ import { FavoriteStar } from "@/components/FavoriteStar"
 import { api, type ArtifactSummary } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { canRegister } from "@/lib/permissions"
+import { relativeDate } from "@/lib/runs"
 import { cn } from "@/lib/utils"
-
-function relativeDate(iso: string): string {
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
-  if (days <= 0) return "hoje"
-  if (days === 1) return "ontem"
-  if (days < 30) return `há ${days} dias`
-  const months = Math.floor(days / 30)
-  if (months < 12) return months === 1 ? "há 1 mês" : `há ${months} meses`
-  const years = Math.floor(months / 12)
-  return years === 1 ? "há 1 ano" : `há ${years} anos`
-}
 
 export function ArtifactsPage() {
   const { person } = useAuth()

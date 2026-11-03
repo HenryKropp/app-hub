@@ -4,7 +4,7 @@ import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
 /** Toggle for the Home's favorites. It answers at once and goes back if the server refuses. */
-export function FavoriteStar({ kind, id, on, name }: { kind: "app" | "artifact"; id: number; on: boolean; name: string }) {
+export function FavoriteStar({ kind, id, on, name, onChange }: { kind: "app" | "artifact"; id: number; on: boolean; name: string; onChange?: (on: boolean) => void }) {
   const [value, setValue] = useState(on)
   const [last, setLast] = useState(on)
   // The list or the page loaded again with another answer.
@@ -15,7 +15,10 @@ export function FavoriteStar({ kind, id, on, name }: { kind: "app" | "artifact";
   const toggle = () => {
     const next = !value
     setValue(next)
-    api.setFavorite(kind, id, next).catch(() => setValue(!next))
+    api.setFavorite(kind, id, next).then(
+      () => onChange?.(next),
+      () => setValue(!next),
+    )
   }
   return (
     <button

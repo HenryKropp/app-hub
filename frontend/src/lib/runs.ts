@@ -33,3 +33,23 @@ export function formatWhen(iso: string): string {
   const p = (n: number) => String(n).padStart(2, "0")
   return `${p(d.getDate())}/${p(d.getMonth() + 1)} às ${p(d.getHours())}:${p(d.getMinutes())}`
 }
+
+export function relativeDate(iso: string): string {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+  if (days <= 0) return "hoje"
+  if (days === 1) return "ontem"
+  if (days < 30) return `há ${days} dias`
+  const months = Math.floor(days / 30)
+  if (months < 12) return months === 1 ? "há 1 mês" : `há ${months} meses`
+  const years = Math.floor(months / 12)
+  return years === 1 ? "há 1 ano" : `há ${years} anos`
+}
+
+/** Like relativeDate, but with minutes and hours for what happened today. */
+export function relativeTime(iso: string, nowMs = Date.now()): string {
+  const mins = Math.floor((nowMs - new Date(iso).getTime()) / 60_000)
+  if (mins < 1) return "agora"
+  if (mins < 60) return `há ${mins} min`
+  if (mins < 60 * 24 && new Date(iso).getDate() === new Date(nowMs).getDate()) return `há ${Math.floor(mins / 60)} h`
+  return relativeDate(iso)
+}
