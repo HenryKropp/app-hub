@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { api, type Onboarding } from "@/lib/api"
@@ -23,22 +22,18 @@ const state = (over: Partial<Onboarding> = {}): Onboarding => ({
 
 const mount = () => render(<MemoryRouter><SetupPage /></MemoryRouter>)
 
-test("shows confirmed progress and saves the company name through onboarding", async () => {
-  const user = userEvent.setup()
-  const get = vi.spyOn(api, "onboarding").mockResolvedValue(state())
-  const save = vi.spyOn(api, "saveCompanyName").mockResolvedValue(state({ company_name: "Alis" }))
+test("shows confirmed progress without a company-name step", async () => {
+  vi.spyOn(api, "onboarding").mockResolvedValue(state({ company_name: "Alis", computer_connected: true }))
   mount()
 
   expect(await screen.findByText("Prepare o Ziv para sua equipe")).toBeInTheDocument()
-  expect(screen.getByText("0")).toBeInTheDocument()
-  expect(screen.queryByRole("link", { name: "Baixar Agente" })).toBeInTheDocument()
-  await user.type(screen.getByLabelText("Nome da empresa"), "Alis")
-  await user.click(screen.getByRole("button", { name: "Salvar nome" }))
-
-  expect(save).toHaveBeenCalledWith("Alis")
-  expect(await screen.findByText("1")).toBeInTheDocument()
-  expect(get).toHaveBeenCalledTimes(1)
-  expect(screen.getByRole("link", { name: "Configurar computador" })).toHaveAttribute("href", "/configuracoes#computador")
+  // The name comes from signup: no step, no field for it.
+  expect(screen.queryByLabelText("Nome da empresa")).not.toBeInTheDocument()
+  expect(screen.queryByText("Dê um nome à empresa")).not.toBeInTheDocument()
+  expect(screen.getByText("1")).toBeInTheDocument()
+  expect(screen.getByText("/4")).toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "Baixar Agente" })).toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "Passo a passo" })).toHaveAttribute("href", "/instalar-agente")
   expect(screen.getByRole("link", { name: "Registrar app" })).toHaveAttribute("href", "/registrar")
   expect(screen.getByRole("link", { name: "Abrir equipe" })).toHaveAttribute("href", "/equipe?aba=pessoas")
 })
@@ -46,11 +41,9 @@ test("shows confirmed progress and saves the company name through onboarding", a
 test("does not claim setup is complete before the Hub reports it", async () => {
   vi.spyOn(api, "onboarding").mockResolvedValue(state({ company_name: "Alis", can_manage: false, agent_available: false }))
   mount()
-  expect(await screen.findByText("1")).toBeInTheDocument()
-  expect(screen.getByText(/só uma pessoa com permissão de gestão/i)).toBeInTheDocument()
+  expect(await screen.findByText("0")).toBeInTheDocument()
   expect(screen.queryByRole("link", { name: "Baixar Agente" })).not.toBeInTheDocument()
   expect(screen.queryByText(/Tudo pronto/)).not.toBeInTheDocument()
-  expect(screen.getByRole("button", { name: "Salvar nome" })).toBeDisabled()
 })
 
 test("has a single h1 and a neutral Abrir catálogo", async () => {

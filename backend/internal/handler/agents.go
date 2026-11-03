@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"archive/zip"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -458,35 +457,23 @@ func (h *Handler) agentDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.workspace != nil && h.workspace.BasePath != "" {
+		// One EXE with this company's address appended (agentproto trailer):
+		// nothing to extract, and the file cannot lose its company.
 		file, err := os.Open(h.cfg.AgentBinaryPath)
 		if err != nil {
 			internalError(w, "agent package", err)
 			return
 		}
 		defer file.Close()
-		w.Header().Set("Content-Type", "application/zip")
-w.Header().Set("Content-Disposition", `attachment; filename="ZivAgente-`+h.workspace.Slug+`.zip"`)
-		z := zip.NewWriter(w)
-exe, err := z.Create(brand.AgentFile)
+		trailer := agentproto.HubURLTrailer(strings.TrimRight(h.cfg.BaseURL, "/"))
+		w.Header().Set("Content-Type", "application/vnd.microsoft.portable-executable")
+		w.Header().Set("Content-Disposition", `attachment; filename="`+strings.TrimSuffix(brand.AgentFile, ".exe")+"-"+h.workspace.Slug+`.exe"`)
+		_, err = io.Copy(w, file)
 		if err == nil {
-			_, err = io.Copy(exe, file)
+			_, err = w.Write(trailer)
 		}
-		if err == nil {
-			var sidecar io.Writer
-			sidecar, err = z.Create("apphub-url.txt")
-			if err == nil {
-				_, err = io.WriteString(sidecar, strings.TrimRight(h.cfg.BaseURL, "/")+"\n")
-			}
-		}
-		if err == nil {
-			var readme io.Writer
-			readme, err = z.Create("LEIA-ME.txt")
-			if err == nil {
-_, err = io.WriteString(readme, "Extraia TODOS os arquivos do ZIP na mesma pasta e abra "+brand.AgentFile+".\r\nO arquivo apphub-url.txt seleciona esta empresa; nao o remova antes da instalacao.\r\nScripts executam com suas permissoes do Windows, sem sandbox.\r\n")
-			}
-		}
-		if closeErr := z.Close(); err != nil || closeErr != nil {
-			slog.Error("agent zip transfer failed")
+		if err != nil {
+			slog.Error("agent transfer failed")
 		}
 		return
 	}

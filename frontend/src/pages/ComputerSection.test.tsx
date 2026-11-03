@@ -56,11 +56,10 @@ test("agent not built on this Hub", async () => {
   expect(await screen.findByText(/O Agente ainda não foi preparado neste Ziv/)).toBeInTheDocument()
 })
 
-test("portal agent package clearly instructs extracting every file before running", async () => {
-  vi.spyOn(api, "workspace").mockResolvedValue({ slug: "filial", name: "Filial", base_path: "/w/filial", can_manage: true, local_execution_is_sandboxed: false })
+test("a company's Agente is one EXE to open, with nothing to extract", async () => {
   vi.spyOn(api, "computers").mockResolvedValue({ computers: [], expected_version: "0.1.0", agent_available: true })
   renderPage()
-  expect(await screen.findByRole("link", { name: /Baixar Agente \(\.zip\)/ })).toBeInTheDocument()
-  expect(screen.getByText(/Extraia todos os arquivos do ZIP/)).toBeInTheDocument()
-  expect(screen.getAllByText(/apphub-url\.txt/)).toHaveLength(2)
+  expect(await screen.findByRole("link", { name: "Baixar Agente" })).toBeInTheDocument()
+  expect(screen.queryByText(/ZIP|apphub-url\.txt/)).not.toBeInTheDocument()
+  expect(screen.getByText(/Abra o arquivo baixado/)).toBeInTheDocument()
 })

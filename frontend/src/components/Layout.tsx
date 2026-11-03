@@ -15,6 +15,8 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
 import { RunStrip } from "./RunStrip"
+import { AgentBanner } from "./AgentDownload"
+import { ComputerStatusProvider } from "@/lib/computer-status"
 
 const NAV = [
   { to: "/", label: "Catálogo", icon: LibraryBig, show: (_p: Person) => true },
@@ -38,9 +40,11 @@ export function Layout() {
   const { person } = useAuth()
   if (!person) return null
   return (
-    <RunsProvider>
-      <Shell />
-    </RunsProvider>
+    <ComputerStatusProvider>
+      <RunsProvider>
+        <Shell />
+      </RunsProvider>
+    </ComputerStatusProvider>
   )
 }
 
@@ -51,7 +55,10 @@ function Shell() {
   const { person, setPerson } = useAuth()
   const navigate = useNavigate()
   // Registrar apps opens from the catalog's +, so it counts as the catalog.
-  const inCatalog = useLocation().pathname.startsWith("/registrar")
+  const path = useLocation().pathname
+  const inCatalog = path.startsWith("/registrar")
+  // Pages that already are about connecting the computer skip the strip.
+  const agentStrip = !["/instalar-agente", "/conectar", "/configuracoes"].includes(path)
   const openCount = useRuns().active.filter((r) => isLive(r.status)).length
   if (!person) return null
 
@@ -155,6 +162,7 @@ function Shell() {
 
       <main id="conteudo" tabIndex={-1} className="min-w-0 outline-none flex-1 px-4 pt-8 pb-40 sm:px-8 md:px-12 md:pt-10">
         <div className="mx-auto max-w-6xl">
+          {agentStrip && <AgentBanner />}
           <Outlet />
         </div>
       </main>

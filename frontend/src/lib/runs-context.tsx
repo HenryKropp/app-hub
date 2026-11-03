@@ -4,6 +4,8 @@ import { StopDialog, type StopTarget } from "@/components/StopDialog"
 import type { Submission } from "@/components/RunDialog"
 import { api, ApiError, type ActiveRun, type Kind } from "@/lib/api"
 import { isLive } from "@/lib/runs"
+import { AgentNeededDialog } from "@/components/AgentDownload"
+import { useComputerStatus } from "@/lib/computer-status"
 
 export type RunTarget = { id: number; name: string; folder_display: string; remembered_folder: string; kind?: Kind }
 // folder: reuse this folder (Rodar de novo); scripts still ask for inputs.
@@ -102,9 +104,12 @@ export function RunsProvider({ children }: { children: ReactNode }) {
     [refresh],
   )
 
+  const { connected } = useComputerStatus()
+  const [needAgent, setNeedAgent] = useState(false)
   const run = useCallback(
     (t: RunTarget, o: RunOptions = {}) => {
       if (busy.has(t.id)) return
+      if (connected === false) return setNeedAgent(true)
       const decide = (target: RunTarget) => {
         if (o.folder) {
           if (target.kind === "script") setAsking({ ...target, remembered_folder: o.folder! })
@@ -138,7 +143,7 @@ export function RunsProvider({ children }: { children: ReactNode }) {
         setNotices((current) => [...current, { key, app_name: t.name, kind: "error", message, target: t }])
       })
     },
-    [busy, send, rememberedFor],
+    [busy, send, rememberedFor, connected],
   )
 
   const dismiss = useCallback((id: number) => {
@@ -176,6 +181,7 @@ export function RunsProvider({ children }: { children: ReactNode }) {
           if (t) send(t, submission.folder, submission.remember, submission.inputs, submission.files)
         }}
       />
+      <AgentNeededDialog open={needAgent} onClose={() => setNeedAgent(false)} />
       <StopDialog
         target={stopAsk}
         onCancel={() => setStopAsk(null)}
