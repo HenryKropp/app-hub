@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
-import { History, KeyRound, LayoutDashboard, LibraryBig, ListChecks, LogOut, Server, Settings, Users } from "lucide-react"
+import { History, KeyRound, LayoutDashboard, LibraryBig, ListChecks, PanelsTopLeft, LogOut, Server, Settings, Users } from "lucide-react"
 import { api, type Person } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { canRegister, canSeeServer, canSeeTeam, has } from "@/lib/permissions"
@@ -20,6 +20,7 @@ import { ComputerStatusProvider } from "@/lib/computer-status"
 
 const NAV = [
   { to: "/", label: "Catálogo", icon: LibraryBig, show: (_p: Person) => true },
+  { to: "/artifacts", label: "Artifacts", icon: PanelsTopLeft, show: (_p: Person) => true },
   { to: "/execucoes", label: "Minhas execuções", icon: History, show: (_p: Person) => true },
   { to: "/equipe", label: "Equipe", icon: Users, show: canSeeTeam },
   { to: "/admin", label: "Admin", icon: LayoutDashboard, show: (p: Person) => has(p, "manage_roles") },

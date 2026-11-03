@@ -68,3 +68,9 @@ test("shows Servidor only to who can manage the server", async () => {
   mount(henry)
   expect(screen.getAllByRole("link", { name: /Servidor/ })[0]).toHaveAttribute("href", "/servidor")
 })
+
+test("shows Artifacts in the sidebar", async () => {
+  vi.spyOn(api, "activeRuns").mockResolvedValue([])
+  mount(bia)
+  expect(screen.getByRole("link", { name: /Artifacts/ })).toHaveAttribute("href", "/artifacts")
+})
