@@ -73,7 +73,7 @@ export function ArtifactsPage() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 onKeyDown={(e) => e.key === "Escape" && setQ("")}
-                placeholder="Buscar por nome, etiqueta, área…"
+                placeholder="Buscar artifacts…"
                 className="h-9 rounded-lg bg-card pr-8 pl-8 [&::-webkit-search-cancel-button]:hidden"
               />
               {q && (
