@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -422,4 +423,30 @@ func TestLoginLimitIsPerAccount(t *testing.T) {
 	}
 	b.want("POST", "/api/auth/login", map[string]string{"email": "Guessed@example.test", "password": "wrong"}, 429)
 	b.want("POST", "/api/auth/login", credentials, 200)
+}
+
+// Apps a company already used before approvals existed stay runnable; an app
+// a reviewer suspended keeps its decision.
+func TestExistingAppsApprovedOnce(t *testing.T) {
+	_, pool, srv := testPortal(t)
+	ctx := context.Background()
+	b := browser(t, srv.URL)
+	b.want("POST", "/api/auth/setup", map[string]any{"name": "Test admin", "email": "admin@example.test", "password": "test-password-not-a-real-secret"}, 201)
+	used := importApp(t, b, "", "Already used app")
+	suspended := importApp(t, b, "", "Suspended app")
+	for _, sql := range []string{`DELETE FROM app_security`, `INSERT INTO app_security(app_id,suspended,reviewed_at) VALUES(` + strconv.FormatInt(suspended, 10) + `,TRUE,now())`, `DELETE FROM schema_migrations WHERE name LIKE '%015_%'`} {
+		if _, err := pool.Exec(ctx, sql); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// The main company migrates in main.go, before the portal starts.
+	if err := database.Migrate(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	for id, want := range map[int64]bool{used: true, suspended: false} {
+		var approved bool
+		if err := pool.QueryRow(ctx, `SELECT s.approved AND s.reviewed_manifest_hash=encode(sha256(convert_to(a.manifest::text,'UTF8')),'hex') FROM app_security s JOIN apps a ON a.id=s.app_id WHERE a.id=$1`, id).Scan(&approved); err != nil || approved != want {
+			t.Fatalf("app %d approved=%v want %v (err=%v)", id, approved, want, err)
+		}
+	}
 }
