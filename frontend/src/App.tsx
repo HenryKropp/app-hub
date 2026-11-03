@@ -3,6 +3,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { Layout } from "@/components/Layout"
 import { AuthProvider, useAuth } from "@/lib/auth"
 import { ThemeProvider } from "@/lib/theme"
+import { ArtifactsPage } from "@/pages/ArtifactsPage"
 import { AppPage } from "@/pages/AppPage"
 import { CatalogPage } from "@/pages/CatalogPage"
 import { InstallAgentPage } from "./pages/InstallAgentPage"
@@ -64,6 +65,7 @@ function Routed() {
             </CreatorsOnly>
           }
         />
+        <Route path="artifacts" element={<ArtifactsPage />} />
         <Route path="equipe" element={<TeamPage />} />
         <Route path="servidor" element={<ServerPage />} />
         <Route path="pessoas" element={<Navigate to="/equipe" replace />} />
