@@ -145,6 +145,13 @@ type ArtifactGrant struct {
 	Permission string `json:"permission"`
 }
 
+type ArtifactOpen struct {
+	ID         int64              `json:"id"`
+	ArtifactID int64              `json:"artifact_id"`
+	PersonID   int64              `json:"person_id"`
+	OpenedAt   pgtype.Timestamptz `json:"opened_at"`
+}
+
 type ArtifactVersion struct {
 	ID           int64              `json:"id"`
 	ArtifactID   int64              `json:"artifact_id"`
@@ -207,6 +214,13 @@ type CredentialVault struct {
 	Revoked     bool               `json:"revoked"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Favorite struct {
+	PersonID  int64              `json:"person_id"`
+	Kind      string             `json:"kind"`
+	ItemID    int64              `json:"item_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type HubSetting struct {

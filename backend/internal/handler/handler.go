@@ -140,6 +140,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/apps/{id}/versions/{n}/restore", h.restoreVersion)
 	mux.HandleFunc("POST /api/apps", h.saveApp)
 	mux.HandleFunc("POST /api/scripts/import", h.importScript)
+	mux.HandleFunc("PUT /api/favorites/{kind}/{id}", h.putFavorite)
+	mux.HandleFunc("DELETE /api/favorites/{kind}/{id}", h.deleteFavorite)
 	mux.HandleFunc("GET /api/artifacts", h.listArtifacts)
 	mux.HandleFunc("POST /api/artifacts", h.createArtifact)
 	mux.HandleFunc("GET /api/artifacts/{id}", h.getArtifact)
