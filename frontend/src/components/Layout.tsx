@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
-import { Gauge, History, KeyRound, LibraryBig, ListChecks, LogOut, Server, Settings, ShieldCheck, Users } from "lucide-react"
+import { History, KeyRound, LayoutDashboard, LibraryBig, ListChecks, LogOut, Server, Settings, Users } from "lucide-react"
 import { api, type Person } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { canRegister, canSeeServer, canSeeTeam, has } from "@/lib/permissions"
@@ -22,7 +22,7 @@ const NAV = [
   { to: "/", label: "Catálogo", icon: LibraryBig, show: (_p: Person) => true },
   { to: "/execucoes", label: "Minhas execuções", icon: History, show: (_p: Person) => true },
   { to: "/equipe", label: "Equipe", icon: Users, show: canSeeTeam },
-  { to: "/seguranca", label: "Segurança", icon: ShieldCheck, show: (p: Person) => has(p, "manage_roles") },
+  { to: "/admin", label: "Admin", icon: LayoutDashboard, show: (p: Person) => has(p, "manage_roles") },
   { to: "/servidor", label: "Servidor", icon: Server, show: canSeeServer },
   { to: "/comecar", label: "Começar", icon: ListChecks, show: (_p: Person) => true },
 ]
@@ -32,7 +32,6 @@ const NAV_ON = "relative bg-accent font-medium text-foreground before:absolute b
 const NAV_OFF = "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
 
 const SOON = [
-  { label: "Painel", icon: Gauge },
   { label: "Cofre", icon: KeyRound },
 ]
 

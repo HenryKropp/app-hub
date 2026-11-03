@@ -17,7 +17,7 @@ import { RunPage } from "@/pages/RunPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { VersionPage } from "@/pages/VersionPage"
 import { SetupPage } from "@/pages/SetupPage"
-import { SecurityPage } from "@/pages/SecurityPage"
+import { AdminPage } from "@/pages/AdminPage"
 import { PRODUCT_NAME } from "@/lib/brand"
 import { CompanyEntryPage } from "@/pages/CompanyEntryPage"
 import { CompanySignupPage } from "@/pages/CompanySignupPage"
@@ -68,7 +68,8 @@ function Routed() {
         <Route path="servidor" element={<ServerPage />} />
         <Route path="pessoas" element={<Navigate to="/equipe" replace />} />
         <Route path="configuracoes" element={<SettingsPage />} />
-        <Route path="seguranca" element={<SecurityPage />} />
+        <Route path="admin" element={<AdminPage />} />
+        <Route path="seguranca" element={<Navigate to="/admin" replace />} />
         <Route path="comecar" element={<SetupPage />} />
         <Route path="meu-computador" element={<Navigate to="/configuracoes" replace />} />
         <Route path="conectar" element={<ConnectPage />} />

@@ -154,6 +154,8 @@ export type AppDetail = {
   restricted: boolean
   can: Can
   shared: SharedBrief | null
+  /** Approval and suspension; null outside a company portal. */
+  control?: AppControl | null
   /** Only in the answer of PUT /shared: the running app must start again for the change to count. */
   needs_restart?: boolean
   /** Only in the answer of PUT /shared: a new port counts only after a new publish. */
@@ -206,6 +208,11 @@ export type EntryInvitationPreview = { email: string; company_name: string }
 export type MembershipInvitation = { id: number; email: string; role_id: number; role_name: string; expires_at: string; created_at: string }
 export type MembershipRequest = { id: number; name: string; email: string; created_at: string }
 export type Membership = { invitations: MembershipInvitation[]; requests: MembershipRequest[] }
+export type AppControl = { approved: boolean; suspended: boolean; require_approval: boolean; can_manage: boolean }
+export type AdminApp = { id: number; name: string; area: string; owner: string; approved: boolean; suspended: boolean; runs_30d: number; errors_30d: number; last_run_at: string | null }
+export type AdminComputer = { id: number; name: string; person: string; agent_version: string; last_seen_at: string | null; connected: boolean; outdated: boolean }
+export type AdminEvent = { kind: "app_registered" | "app_updated" | "app_approved" | "app_suspended" | "app_unapproved" | "person_joined"; name: string; actor: string; at: string; app_id: number | null }
+export type AdminOverview = { settings: SecuritySettings; apps: AdminApp[]; top_people: { name: string; runs_30d: number }[]; computers: AdminComputer[]; activity: AdminEvent[] }
 export type SecuritySettings = { retention_days: number; require_app_approval: boolean; block_embedded_secrets: boolean; local_execution_enabled: boolean }
 export type SecurityApp = { id: number; name: string; classification: string; purpose: string; external_domains: string[]; approved: boolean; suspended: boolean }
 export type SecurityInfo = {
@@ -323,6 +330,8 @@ export const api = {
   createWorkspace: (b: { name: string; slug: string; password: string }) =>
     request<WorkspaceCreated>("POST", "/api/workspaces", b),
   security: () => request<SecurityInfo>("GET", "/api/security"),
+  adminOverview: () => request<AdminOverview>("GET", "/api/admin/overview"),
+  setAppControl: (id: number, b: { approved: boolean; suspended: boolean }) => request<AppControl>("PUT", `/api/apps/${id}/control`, b),
   saveSecuritySettings: (b: SecuritySettings) => request<SecuritySettings>("PUT", "/api/security/settings", b),
   saveSecurityApp: (id: number, b: { classification: "internal" | "confidential" | "restricted"; purpose: string; external_domains: string[]; approved: boolean; suspended: boolean }) =>
     request<SecurityApp>("PUT", `/api/security/apps/${id}`, b),

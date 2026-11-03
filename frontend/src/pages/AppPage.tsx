@@ -9,6 +9,7 @@ import { BuildEditor, choiceProblems, DependsEditor, IdentityEditor, InputsEdito
 import { EditLink, Part, SaveBar, Section } from "@/components/ficha/Part"
 import { BuildView, InputList, Notes, OtherApps, OutputList, People, RunList } from "@/components/ficha/views"
 import { MakeShared, SharedSection } from "@/components/ficha/shared/SharedSection"
+import { AppControlBar } from "@/components/ficha/AppControl"
 import { Tech } from "@/components/ficha/shared/Tech"
 import { api, openSharedUrl, type AppDetail, type AppSummary, type Area, type Manifest, type PersonRow, type RunSummary } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
@@ -252,6 +253,8 @@ export function AppPage() {
           </div>
         )}
       </header>
+
+      <AppControlBar appId={app.id} control={app.control} onChanged={(control) => setApp({ ...app, control })} />
 
       {!readable && (
         <p role="alert" className="mt-4 flex gap-2 text-sm text-warn">

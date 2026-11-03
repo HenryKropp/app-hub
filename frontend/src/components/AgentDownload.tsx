@@ -24,7 +24,7 @@ export function AgentBanner() {
   return (
     <div role="status" className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-warn/30 bg-warn-soft px-4 py-3 text-sm">
       <TriangleAlert className="size-4 shrink-0 text-warn" />
-      <p className="min-w-0 flex-1"><span className="font-medium">Seu computador não está conectado ao Ziv.</span> {NO_AGENT_TEXT}</p>
+      <p className="min-w-0 flex-1 basis-64"><span className="font-medium">Seu computador não está conectado ao Ziv.</span> {NO_AGENT_TEXT}</p>
       <div className="flex items-center gap-3">
         <AgentDownloadButton size="sm" />
         <Link to="/instalar-agente" className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Como instalar</Link>
