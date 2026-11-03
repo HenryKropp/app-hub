@@ -75,7 +75,10 @@ func (r *Runner) runScript(ctx context.Context, p agentproto.RunPayload, report 
 		return failed(err.Error())
 	}
 	env := os.Environ()
-	env = append(env, "APP_HUB_OUTPUT_DIR="+work, "PYTHONUNBUFFERED=1", "PYTHONDONTWRITEBYTECODE=1")
+	// PYTHONIOENCODING: on Windows print() defaults to cp1252 and crashes on
+	// characters outside it (✓, emoji, bytes of a binary file). Only the
+	// console changes; open() keeps the encoding the script expects.
+	env = append(env, "APP_HUB_OUTPUT_DIR="+work, "PYTHONUNBUFFERED=1", "PYTHONDONTWRITEBYTECODE=1", "PYTHONIOENCODING=utf-8")
 	report(agentproto.Result{Event: agentproto.EventStarted, AppVersion: "Script · Agente " + agentproto.Version})
 
 	// Dependencies live outside the working folder and never modify the user's
