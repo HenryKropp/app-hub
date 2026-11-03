@@ -27,6 +27,38 @@ func (q *Queries) AddFavorite(ctx context.Context, arg AddFavoriteParams) error 
 	return err
 }
 
+const countAppErrorsSince = `-- name: CountAppErrorsSince :many
+SELECT app_id, count(*)::bigint AS errors
+FROM runs
+WHERE status = 'error' AND created_at > $1::timestamptz
+GROUP BY app_id
+`
+
+type CountAppErrorsSinceRow struct {
+	AppID  int64 `json:"app_id"`
+	Errors int64 `json:"errors"`
+}
+
+func (q *Queries) CountAppErrorsSince(ctx context.Context, since pgtype.Timestamptz) ([]CountAppErrorsSinceRow, error) {
+	rows, err := q.db.Query(ctx, countAppErrorsSince, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountAppErrorsSinceRow
+	for rows.Next() {
+		var i CountAppErrorsSinceRow
+		if err := rows.Scan(&i.AppID, &i.Errors); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const deleteItemFavorites = `-- name: DeleteItemFavorites :exec
 DELETE FROM favorites WHERE kind = $1 AND item_id = $2
 `
@@ -61,6 +93,117 @@ func (q *Queries) ListFavorites(ctx context.Context, personID int64) ([]ListFavo
 	for rows.Next() {
 		var i ListFavoritesRow
 		if err := rows.Scan(&i.Kind, &i.ItemID, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMyAttentionRuns = `-- name: ListMyAttentionRuns :many
+SELECT r.id, r.app_id, a.name AS app_name, r.status, r.created_at, r.error_message
+FROM runs r
+JOIN apps a ON a.id = r.app_id
+WHERE r.person_id = $1 AND r.dismissed_at IS NULL
+  AND r.created_at > now() - interval '7 days'
+  AND (r.status = 'error' OR (r.status = 'waiting' AND r.created_at < now() - interval '5 minutes'))
+ORDER BY r.created_at DESC
+LIMIT 10
+`
+
+type ListMyAttentionRunsRow struct {
+	ID           int64              `json:"id"`
+	AppID        int64              `json:"app_id"`
+	AppName      string             `json:"app_name"`
+	Status       string             `json:"status"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	ErrorMessage string             `json:"error_message"`
+}
+
+func (q *Queries) ListMyAttentionRuns(ctx context.Context, personID int64) ([]ListMyAttentionRunsRow, error) {
+	rows, err := q.db.Query(ctx, listMyAttentionRuns, personID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMyAttentionRunsRow
+	for rows.Next() {
+		var i ListMyAttentionRunsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AppID,
+			&i.AppName,
+			&i.Status,
+			&i.CreatedAt,
+			&i.ErrorMessage,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMyRecentApps = `-- name: ListMyRecentApps :many
+SELECT app_id, max(created_at)::timestamptz AS used_at
+FROM runs
+WHERE person_id = $1 AND created_at > now() - interval '30 days'
+GROUP BY app_id
+`
+
+type ListMyRecentAppsRow struct {
+	AppID  int64              `json:"app_id"`
+	UsedAt pgtype.Timestamptz `json:"used_at"`
+}
+
+func (q *Queries) ListMyRecentApps(ctx context.Context, personID int64) ([]ListMyRecentAppsRow, error) {
+	rows, err := q.db.Query(ctx, listMyRecentApps, personID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMyRecentAppsRow
+	for rows.Next() {
+		var i ListMyRecentAppsRow
+		if err := rows.Scan(&i.AppID, &i.UsedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listMyRecentArtifacts = `-- name: ListMyRecentArtifacts :many
+SELECT artifact_id, max(opened_at)::timestamptz AS used_at
+FROM artifact_opens
+WHERE person_id = $1 AND opened_at > now() - interval '30 days'
+GROUP BY artifact_id
+`
+
+type ListMyRecentArtifactsRow struct {
+	ArtifactID int64              `json:"artifact_id"`
+	UsedAt     pgtype.Timestamptz `json:"used_at"`
+}
+
+func (q *Queries) ListMyRecentArtifacts(ctx context.Context, personID int64) ([]ListMyRecentArtifactsRow, error) {
+	rows, err := q.db.Query(ctx, listMyRecentArtifacts, personID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMyRecentArtifactsRow
+	for rows.Next() {
+		var i ListMyRecentArtifactsRow
+		if err := rows.Scan(&i.ArtifactID, &i.UsedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

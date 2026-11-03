@@ -37,7 +37,7 @@ UPDATE computers SET last_seen_at = now() WHERE id = $1;
 UPDATE computers SET last_seen_at = now(), name = $2, agent_version = $3, can_update = $4, can_stop = $5 WHERE id = $1;
 
 -- name: ListPersonComputers :many
-SELECT *, (last_seen_at > now() - interval '60 seconds')::boolean AS connected
+SELECT *, COALESCE(last_seen_at > now() - interval '60 seconds', FALSE)::boolean AS connected
 FROM computers
 WHERE person_id = $1 AND revoked_at IS NULL
 ORDER BY last_seen_at DESC NULLS LAST;
