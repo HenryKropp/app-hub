@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 import { afterEach, expect, test, vi } from "vitest"
 import { ApiError, api } from "@/lib/api"
-import { slugFromName } from "@/lib/company-entry"
 import { CompanySignupPage } from "./CompanySignupPage"
 
 afterEach(() => {
@@ -28,27 +27,18 @@ async function fill(values: Partial<Record<"company" | "name" | "email" | "passw
 
 const submit = () => userEvent.click(screen.getByRole("button", { name: /Criar espaço da empresa/ }))
 
-test.each([
-  ["Alis Investimentos", "alis-investimentos"],
-  ["  Ação & Cia.  ", "acao-cia"],
-  ["2B Logística", "b-logistica"],
-  ["Zé", ""],
-  ["A".repeat(60), "a".repeat(40)],
-])("slugFromName(%j) is %j", (name, slug) => {
-  expect(slugFromName(name)).toBe(slug)
-})
-
 test("signup creates the company, signs in to it and opens Começar", async () => {
   const create = vi.spyOn(api, "createEntryCompany").mockResolvedValue({ url: "/w/horizonte/", name: "Horizonte", slug: "horizonte" })
   const login = vi.spyOn(api, "loginAt").mockResolvedValue({} as never)
   const { assign } = setup()
   expect(document.querySelectorAll("form")).toHaveLength(1)
   await fill()
-  expect(screen.getByText("ziv/w/horizonte")).toBeInTheDocument()
+  // The address comes from the company name on the server; no field for it.
+  expect(screen.queryByText(/ziv\/w\//)).not.toBeInTheDocument()
+  expect(screen.queryByLabelText("Endereço da empresa")).not.toBeInTheDocument()
   await submit()
   expect(create).toHaveBeenCalledWith({
     company_name: "Horizonte",
-    slug: "horizonte",
     name: "Ana",
     email: "ana@example.com",
     password: "senha-forte-123",
@@ -64,22 +54,6 @@ test("if signing in after signup fails, the company still exists and the page op
   await fill()
   await submit()
   expect(assign).toHaveBeenCalledWith("/w/horizonte/entrar")
-})
-
-test("the address follows the company name until the person changes it", async () => {
-  const create = vi.spyOn(api, "createEntryCompany").mockResolvedValue({ url: "/w/hzlog/", name: "Horizonte", slug: "hzlog" })
-  vi.spyOn(api, "loginAt").mockResolvedValue({} as never)
-  setup()
-  await userEvent.type(screen.getByLabelText("Nome da empresa"), "Horizonte")
-  await userEvent.click(screen.getByRole("button", { name: "trocar" }))
-  const slug = screen.getByLabelText("Endereço da empresa")
-  await userEvent.clear(slug)
-  await userEvent.type(slug, "hzlog")
-  await userEvent.type(screen.getByLabelText("Nome da empresa"), " Logística")
-  expect(screen.getByLabelText("Endereço da empresa")).toHaveValue("hzlog")
-  await fill({ company: "" })
-  await submit()
-  expect(create).toHaveBeenCalledWith(expect.objectContaining({ company_name: "Horizonte Logística", slug: "hzlog" }))
 })
 
 test("the password can be shown and hidden", async () => {
@@ -114,34 +88,11 @@ test.each([
   expect(create).not.toHaveBeenCalled()
 })
 
-test("a name with no usable letters asks for an address", async () => {
-  const create = vi.spyOn(api, "createEntryCompany")
-  setup()
-  await fill({ company: "Zé" })
-  await submit()
-  expect(await screen.findByRole("alert")).toHaveTextContent("O endereço deve ter")
-  expect(screen.getByLabelText("Endereço da empresa")).toHaveFocus()
-  expect(create).not.toHaveBeenCalled()
-})
-
-test("an address with capitals or spaces is explained", async () => {
-  const create = vi.spyOn(api, "createEntryCompany")
-  setup()
-  await fill()
-  await userEvent.click(screen.getByRole("button", { name: "trocar" }))
-  const slug = screen.getByLabelText("Endereço da empresa")
-  await userEvent.clear(slug)
-  await userEvent.type(slug, "Horizonte Log")
-  await submit()
-  expect(await screen.findByRole("alert")).toHaveTextContent("O endereço deve ter")
-  expect(create).not.toHaveBeenCalled()
-})
-
-test("an address already in use is explained and opens the address field", async () => {
-  vi.spyOn(api, "createEntryCompany").mockRejectedValue(new ApiError(409, "Conflict"))
+test("too many companies with the same name asks for a more specific name", async () => {
+  vi.spyOn(api, "createEntryCompany").mockRejectedValue(new ApiError(409, "Já existem muitas empresas com esse nome. Use um nome mais específico."))
   setup()
   await fill()
   await submit()
-  expect(await screen.findByRole("alert")).toHaveTextContent("já está em uso")
-  expect(screen.getByLabelText("Endereço da empresa")).toHaveFocus()
+  expect(await screen.findByRole("alert")).toHaveTextContent("nome mais específico")
+  expect(screen.getByLabelText("Nome da empresa")).toHaveFocus()
 })

@@ -42,15 +42,21 @@ func TestPortalPublicCompanyAndMembership(t *testing.T) {
 	root := browser(t, srv.URL)
 	root.want("POST", "/api/auth/setup", map[string]string{"name": "Owner", "email": "owner@example.com", "password": "owner-password"}, 201)
 	visitor := browser(t, srv.URL)
-	registration := map[string]string{"company_name": "Equipe Aurora", "slug": "aurora", "name": "Lia", "email": "lia@example.com", "password": "aurora-password"}
+	registration := map[string]string{"company_name": "Aurora", "name": "Lia", "email": "lia@example.com", "password": "aurora-password"}
 	out := memberJSON(t, visitor.want("POST", "/api/entry/companies", registration, 201))
 	if out["url"] != "/w/aurora/" {
 		t.Fatalf("registration redirect=%v", out["url"])
 	}
-	visitor.want("POST", "/api/entry/companies", registration, 409)
-	registration["slug"] = "principal"
-	visitor.want("POST", "/api/entry/companies", registration, 409)
-	registration["slug"] = "other"
+	// The address follows the name; a taken one gets the next number.
+	if again := memberJSON(t, visitor.want("POST", "/api/entry/companies", registration, 201)); again["url"] != "/w/aurora-2/" {
+		t.Fatalf("second Aurora redirect=%v", again["url"])
+	}
+	registration["slug"] = "ignored-by-server"
+	registration["company_name"] = "Principal"
+	if reserved := memberJSON(t, visitor.want("POST", "/api/entry/companies", registration, 201)); reserved["url"] != "/w/principal-2/" {
+		t.Fatalf("reserved name redirect=%v", reserved["url"])
+	}
+	registration["company_name"] = "Aurora"
 	visitor.want("POST", "/w/aurora/api/entry/companies", registration, 403)
 	visitor.want("GET", "/w/nonexistent/api/workspace", nil, 404)
 	var rootPeople int
@@ -101,7 +107,7 @@ func TestPortalPublicCompanyAndMembership(t *testing.T) {
 	}
 	visitor.want("POST", "/api/entry/invitations/preview", map[string]string{"token": token}, 410)
 	preview := memberJSON(t, visitor.want("POST", prefix+"/api/entry/invitations/preview", map[string]string{"token": token}, 200))
-	if preview["email"] != request["email"] || preview["company_name"] != "Equipe Aurora" {
+	if preview["email"] != request["email"] || preview["company_name"] != "Aurora" {
 		t.Fatal("wrong invitation preview")
 	}
 	visitor.want("POST", prefix+"/api/entry/invitations/accept", map[string]string{"token": token, "name": "Guest", "password": "short"}, 400)
@@ -237,13 +243,13 @@ func TestCompanySignupLimits(t *testing.T) {
 	srv := httptest.NewServer(p2)
 	t.Cleanup(func() { srv.Close(); p2.Close() })
 	visitor := browser(t, srv.URL)
-	registration := map[string]string{"company_name": "Alis", "slug": "alis-investimentos", "name": "Lia", "email": "lia@example.com", "password": "aurora-password"}
-	visitor.want("POST", "/api/entry/companies", registration, 409)
-	registration["slug"] = "first-company"
-	visitor.want("POST", "/api/entry/companies", registration, 201)
-	registration["slug"] = "second-company"
+	registration := map[string]string{"company_name": "Alis Investimentos", "name": "Lia", "email": "lia@example.com", "password": "aurora-password"}
+	if out := memberJSON(t, visitor.want("POST", "/api/entry/companies", registration, 201)); out["url"] != "/w/alis-investimentos-2/" {
+		t.Fatalf("reserved address taken: %v", out["url"])
+	}
+	registration["company_name"] = "Second company"
 	visitor.want("POST", "/api/entry/companies", registration, 503)
 	admin := browser(t, srv.URL)
-	admin.want("POST", "/w/first-company/api/auth/login", map[string]string{"email": "lia@example.com", "password": "aurora-password"}, 200)
-	admin.want("POST", "/w/first-company/api/workspaces", map[string]string{"name": "More", "slug": "more-company", "password": "aurora-password"}, 403)
+	admin.want("POST", "/w/alis-investimentos-2/api/auth/login", map[string]string{"email": "lia@example.com", "password": "aurora-password"}, 200)
+	admin.want("POST", "/w/alis-investimentos-2/api/workspaces", map[string]string{"name": "More", "slug": "more-company", "password": "aurora-password"}, 403)
 }

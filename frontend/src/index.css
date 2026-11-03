@@ -491,19 +491,12 @@
 .signup-single .signup-card h1 { margin-top: 0; }
 .signup-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 @media (max-width: 520px) { .signup-pair { grid-template-columns: 1fr; } }
-.slug-preview { margin: -4px 0 0; color: #7b8981; font-size: 11px; }
-.slug-preview .font-mono { color: #405d56; }
-.slug-change { padding: 0; border: 0; color: #16474a; background: none; font-size: 11px; font-weight: 650; text-decoration: underline; cursor: pointer; }
 .password-field { position: relative; }
 .password-field input { padding-right: 42px; }
 .password-toggle { position: absolute; right: 6px; bottom: 6px; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 5px; color: #647771; background: none; cursor: pointer; }
 .password-toggle:hover { color: #16474a; background: #f0f3ee; }
 .auth-form input[aria-invalid="true"] { border-color: #c4685a; }
 .signup-form { gap: 14px; margin-top: 20px; }
-.slug-field { display: flex; align-items: center; margin-top: 7px; padding-left: 12px; border: 1px solid #d8e0d9; border-radius: 5px; color: #9aa79f; background: #f9faf6; font-size: 12px; }
-.slug-field:focus-within { border-color: #e87557; outline: 3px solid #e8755724; }
-.slug-field input { min-height: 41px; margin: 0; border: 0; background: transparent; outline: none; }
-.slug-field input:focus-visible { outline: none; box-shadow: none; }
 .signup-divider { display: flex; align-items: center; gap: 10px; margin: 3px 0 0; color: #83918a; font: 700 8px "Geist Mono Variable", monospace; letter-spacing: .1em; }
 .signup-divider:after { content: ""; height: 1px; flex: 1; background: #e5eae3; }
 .signup-disclaimer { margin: 14px 0 0; color: #85928b; text-align: center; font-size: 9px; }

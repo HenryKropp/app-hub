@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field, Wordmark } from "@/components/bits"
 import { api, ApiError } from "@/lib/api"
-import { slugFromName, validCompanySlug } from "@/lib/company-entry"
 
 function localPath(url: string) {
   try {
@@ -17,12 +16,8 @@ function localPath(url: string) {
   }
 }
 
-const SLUG_RULE = "O endereço deve ter de 3 a 40 caracteres, começar com uma letra minúscula e conter apenas letras, números ou hífens."
-
 export function CompanySignupPage() {
   const [companyName, setCompanyName] = useState("")
-  // Until the person edits it, the address follows the company name.
-  const [customSlug, setCustomSlug] = useState<string | null>(null)
   const [ownerName, setOwnerName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -32,7 +27,6 @@ export function CompanySignupPage() {
   const [invalid, setInvalid] = useState<string | null>(null)
   // A new object each time, so asking for the same field twice still moves focus.
   const [focusField, setFocusField] = useState<{ id: string } | null>(null)
-  const slug = customSlug ?? slugFromName(companyName)
 
   useEffect(() => {
     if (focusField) document.getElementById(focusField.id)?.focus()
@@ -40,7 +34,6 @@ export function CompanySignupPage() {
 
   const fail = (id: string | null, message: string) => {
     setError(message)
-    if (id === "company-slug" && customSlug === null) setCustomSlug(slug)
     setInvalid(id)
     if (id) setFocusField({ id })
   }
@@ -54,7 +47,6 @@ export function CompanySignupPage() {
       ["owner-email", email.trim()], ["owner-password", password],
     ].find(([, value]) => !value)
     if (missing) return fail(missing[0], "Preencha todos os campos.")
-    if (!validCompanySlug(slug)) return fail("company-slug", SLUG_RULE)
     if (!/^[^\s@]+@[^\s@]+$/.test(email.trim())) return fail("owner-email", "Informe um e-mail válido.")
     const byteLength = new TextEncoder().encode(password).length
     if (byteLength < 8) return fail("owner-password", "A senha precisa ter pelo menos 8 caracteres.")
@@ -63,7 +55,6 @@ export function CompanySignupPage() {
     try {
       const result = await api.createEntryCompany({
         company_name: companyName.trim(),
-        slug,
         name: ownerName.trim(),
         email: email.trim(),
         password,
@@ -80,7 +71,7 @@ export function CompanySignupPage() {
       }
     } catch (reason) {
       const status = reason instanceof ApiError ? reason.status : 0
-      if (status === 409) fail("company-slug", "Esse endereço já está em uso. Escolha outro.")
+      if (status === 409) fail("company-name", reason instanceof Error ? reason.message : "Use um nome de empresa mais específico.")
       else fail(null, status === 400
         ? (reason instanceof Error ? reason.message : "Confira os dados informados.")
         : status === 503
@@ -105,16 +96,6 @@ export function CompanySignupPage() {
             <Field label="Nome da empresa" htmlFor="company-name">
               <Input id="company-name" value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="Ex.: Horizonte Logística" autoComplete="organization" aria-invalid={isInvalid("company-name")} required />
             </Field>
-            {customSlug === null ? (
-              <p className="slug-preview">
-                Endereço: <span className="font-mono">{`ziv/w/${slug || "…"}`}</span>
-                {" · "}<button type="button" className="slug-change" onClick={() => { setCustomSlug(slug); setFocusField({ id: "company-slug" }) }}>trocar</button>
-              </p>
-            ) : (
-              <Field label="Endereço da empresa" htmlFor="company-slug" hint="3–40 caracteres; letras minúsculas, números e hífens.">
-                <div className="slug-field"><span>ziv/w/</span><Input id="company-slug" className="slug-input" value={customSlug} onChange={(event) => setCustomSlug(event.target.value)} placeholder="horizonte" maxLength={40} autoCapitalize="none" spellCheck={false} aria-invalid={isInvalid("company-slug")} required /></div>
-              </Field>
-            )}
             <div className="signup-divider"><span>ADMINISTRADOR DO ESPAÇO</span></div>
             <div className="signup-pair">
               <Field label="Seu nome" htmlFor="owner-name"><Input id="owner-name" value={ownerName} onChange={(event) => setOwnerName(event.target.value)} autoComplete="name" aria-invalid={isInvalid("owner-name")} required /></Field>
