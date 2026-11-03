@@ -31,7 +31,10 @@ type Handler struct {
 	q         *sqlc.Queries
 	cfg       config.Config
 	workspace *WorkspaceOptions
-	setupMu   sync.Mutex
+	// credentialChecks allows one credential check at a time per company: a
+	// check holds a database connection during an outside call of up to 10 s.
+	credentialChecks chan struct{}
+	setupMu          sync.Mutex
 
 	// Waits used by the agent endpoints; tests shorten them.
 	waitNext   time.Duration
@@ -69,6 +72,7 @@ func New(q *sqlc.Queries, cfg config.Config) *Handler {
 		runsPage:    50,
 		uploads:     newUploadHub(),
 		locks:       map[int64]*sync.Mutex{}, scans: map[int64]scanCache{},
+		credentialChecks: make(chan struct{}, 1),
 	}
 }
 

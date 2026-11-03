@@ -124,7 +124,7 @@ func (p *Portal) newPool(ctx context.Context, schema string) (*pgxpool.Pool, err
 	if err != nil {
 		return nil, err
 	}
-	cfg.MaxConns = 4
+	cfg.MaxConns = 8
 	// Do not append public: a missing tenant table must fail, not fall back
 	// to the original company's table. Never take this identifier from HTTP.
 	cfg.ConnConfig.RuntimeParams["search_path"] = pgx.Identifier{schema}.Sanitize()

@@ -24,6 +24,13 @@ func (h *Handler) checkCredential(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &body) {
 		return
 	}
+	select {
+	case h.credentialChecks <- struct{}{}:
+		defer func() { <-h.credentialChecks }()
+	default:
+		writeError(w, 429, "Outro teste de credencial está em andamento. Tente de novo em alguns segundos.")
+		return
+	}
 	// Write before acquiring a transaction connection. Otherwise concurrent
 	// uses can exhaust the pool while waiting for a second audit connection.
 	// Only copy a known, authorized ID from storage, never an arbitrary path
