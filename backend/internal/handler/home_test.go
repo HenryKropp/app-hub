@@ -28,13 +28,13 @@ type homeT struct {
 	} `json:"runs"`
 }
 
-func getHome(t *testing.T, c *client) (homeT, string) {
+func getHome(t *testing.T, c *client) homeT {
 	t.Helper()
 	var out homeT
 	if code := c.do("GET", "/api/home", nil, &out); code != http.StatusOK {
 		t.Fatalf("GET /api/home = %d", code)
 	}
-	return out, ""
+	return out
 }
 
 func homeKinds(h homeT) map[string]int {
@@ -76,7 +76,7 @@ func TestHomeFavoritesAndRecent(t *testing.T) {
 	}
 	bia.do("GET", artifactPath(b.ID, ""), nil, nil)
 	someonesRun(t, appID, 3)
-	h, _ := getHome(t, bia)
+	h := getHome(t, bia)
 	if len(h.Favorites) != 2 || h.Favorites[0].Kind != "artifact" || h.Favorites[0].ID != a.ID || h.Favorites[1].Kind != "app" || h.Favorites[1].ID != appID {
 		t.Fatalf("favorites = %+v", h.Favorites)
 	}
@@ -87,7 +87,7 @@ func TestHomeFavoritesAndRecent(t *testing.T) {
 		x := createArtifact(t, ana, linkBody("Extra "+itoa(int64(i)), "https://example.com/x"))
 		bia.do("GET", artifactPath(x.ID, ""), nil, nil)
 	}
-	h, _ = getHome(t, bia)
+	h = getHome(t, bia)
 	if len(h.Recent) != 6 {
 		t.Fatalf("recent len = %d", len(h.Recent))
 	}
@@ -100,12 +100,14 @@ func TestHomeHidesInvisibleFavorites(t *testing.T) {
 	bia.do("PUT", "/api/favorites/artifact/"+itoa(a.ID), nil, nil)
 	restrict(t, appID)
 	exec(t, "DELETE FROM artifacts WHERE id = $1", a.ID)
-	h, _ := getHome(t, bia)
+	h := getHome(t, bia)
 	if len(h.Favorites) != 0 || len(h.Recent) != 0 {
 		t.Fatalf("favorites = %+v recent = %+v", h.Favorites, h.Recent)
 	}
+	var appName string
+	_ = testPool.QueryRow(context.Background(), "SELECT name FROM apps WHERE id = $1", appID).Scan(&appName)
 	code, _, text := bia.getContent("/api/home")
-	if code != 200 || strings.Contains(text, "Segredo Artifact") || strings.Contains(text, "\"kind\":\"app\"") {
+	if code != 200 || strings.Contains(text, "Segredo Artifact") || strings.Contains(text, "\"kind\":\"app\"") || strings.Contains(text, appName) {
 		t.Fatalf("leak: %d %s", code, text)
 	}
 }
@@ -118,7 +120,7 @@ func TestHomeAttentionIsMine(t *testing.T) {
 	runAt(t, appID, 3, "error", "2 hours", true)
 	w := runAt(t, appID, 3, "waiting", "10 minutes", false)
 	runAt(t, appID, 3, "waiting", "2 minutes", false)
-	h, _ := getHome(t, bia)
+	h := getHome(t, bia)
 	got := map[string]int64{}
 	n := 0
 	for _, a := range h.Attention {
@@ -134,17 +136,17 @@ func TestHomeAttentionIsMine(t *testing.T) {
 
 func TestHomeComputerWarnings(t *testing.T) {
 	_, _, bia, _ := team(t)
-	h, _ := getHome(t, bia)
+	h := getHome(t, bia)
 	if k := homeKinds(h); k["computer_offline"]+k["agent_outdated"] != 0 {
 		t.Fatalf("no computers: %+v", h.Attention)
 	}
 	exec(t, `INSERT INTO computers (person_id, name, token_hash, last_seen_at) VALUES (3, 'PC', 'x1', now() - interval '1 hour')`)
-	h, _ = getHome(t, bia)
+	h = getHome(t, bia)
 	if k := homeKinds(h); k["computer_offline"] != 1 {
 		t.Fatalf("offline: %+v", h.Attention)
 	}
 	exec(t, `UPDATE computers SET last_seen_at = now(), agent_version = '0.0.1' WHERE token_hash = 'x1'`)
-	h, _ = getHome(t, bia)
+	h = getHome(t, bia)
 	if k := homeKinds(h); k["computer_offline"] != 0 || k["agent_outdated"] != 1 {
 		t.Fatalf("outdated: %+v", h.Attention)
 	}
@@ -154,7 +156,7 @@ func TestHomeCareWarnings(t *testing.T) {
 	_, ana, bia, appID := team(t)
 	ownerOf(t, appID, 2)
 	runAt(t, appID, 3, "error", "1 hour", false)
-	h, _ := getHome(t, ana)
+	h := getHome(t, ana)
 	found := false
 	for _, a := range h.Attention {
 		if a.Kind == "app_errors" && a.Count == 1 {
@@ -164,7 +166,7 @@ func TestHomeCareWarnings(t *testing.T) {
 	if !found {
 		t.Fatalf("ana attention = %+v", h.Attention)
 	}
-	h, _ = getHome(t, bia)
+	h = getHome(t, bia)
 	if homeKinds(h)["app_errors"] != 0 {
 		t.Fatalf("bia attention = %+v", h.Attention)
 	}
@@ -176,7 +178,7 @@ func TestHomeLatestRuns(t *testing.T) {
 		someonesRun(t, appID, 3)
 	}
 	someonesRun(t, appID, 2)
-	h, _ := getHome(t, bia)
+	h := getHome(t, bia)
 	if len(h.Runs) != 5 {
 		t.Fatalf("runs = %+v", h.Runs)
 	}
@@ -184,5 +186,22 @@ func TestHomeLatestRuns(t *testing.T) {
 		if r.PersonID != 3 || (i > 0 && r.ID > h.Runs[i-1].ID) {
 			t.Fatalf("runs = %+v", h.Runs)
 		}
+	}
+}
+
+func TestHomeHidesRunsOfRestrictedApp(t *testing.T) {
+	_, _, bia, appID := team(t)
+	someonesRun(t, appID, 3)
+	runAt(t, appID, 3, "error", "1 hour", false)
+	restrict(t, appID)
+	var appName string
+	_ = testPool.QueryRow(context.Background(), "SELECT name FROM apps WHERE id = $1", appID).Scan(&appName)
+	h := getHome(t, bia)
+	if len(h.Runs) != 0 || homeKinds(h)["run_error"] != 0 {
+		t.Fatalf("home = %+v", h)
+	}
+	_, _, text := bia.getContent("/api/home")
+	if strings.Contains(text, appName) {
+		t.Fatalf("leak: %s", text)
 	}
 }

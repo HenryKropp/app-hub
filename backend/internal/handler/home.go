@@ -15,6 +15,7 @@ import (
 const (
 	homeRecentMax = 6
 	homeRunsMax   = 5
+	homeRunsFetch = 20 // fetched before hiding runs of apps the person cannot see
 )
 
 type homeItemJSON struct {
@@ -145,6 +146,9 @@ func (h *Handler) homeAttention(r *http.Request, me sqlc.Person, acc *access.Per
 		return nil, err
 	}
 	for _, x := range runs {
+		if _, ok := c.apps[x.AppID]; !ok {
+			continue
+		}
 		kind := "run_error"
 		if x.Status == "waiting" {
 			kind = "run_waiting"
@@ -270,13 +274,19 @@ func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "expire runs", err)
 		return
 	}
-	rows, err := h.q.ListRuns(r.Context(), sqlc.ListRunsParams{PersonID: me.ID, AppIds: []int64{}, Lim: homeRunsMax})
+	rows, err := h.q.ListRuns(r.Context(), sqlc.ListRunsParams{PersonID: me.ID, AppIds: []int64{}, Lim: homeRunsFetch})
 	if err != nil {
 		internalError(w, "home runs", err)
 		return
 	}
 	runs := []runListItemJSON{}
 	for _, x := range rows {
+		if _, ok := c.apps[x.AppID]; !ok {
+			continue
+		}
+		if len(runs) == homeRunsMax {
+			break
+		}
 		runs = append(runs, runListItemJSON{ID: x.ID, AppID: x.AppID, AppName: x.AppName, Status: x.Status,
 			OutputFolder: x.OutputFolder, PersonID: x.PersonID, PersonName: x.PersonName, CreatedAt: x.CreatedAt.Time,
 			StartedAt: tsPtr(x.StartedAt), FinishedAt: tsPtr(x.FinishedAt), FileCount: x.FileCount})
