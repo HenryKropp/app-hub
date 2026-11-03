@@ -179,6 +179,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/apps/{id}/runs", h.startRun)
 	mux.HandleFunc("GET /api/apps/{id}/runs", h.listAppRuns)
 	mux.HandleFunc("GET /api/home", h.home)
+	mux.HandleFunc("GET /api/home/team", h.homeTeam)
 	mux.HandleFunc("GET /api/runs", h.listRuns)
 	mux.HandleFunc("GET /api/runs/active", h.activeRuns)
 	mux.HandleFunc("POST /api/runs/{id}/dismiss", h.dismissRun)
