@@ -239,3 +239,18 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
   - Porteiro: `stripCookie` também tirar `hub_session`; vigia de WebSocket com tempo-limite; "fail closed" contar do primeiro erro; testes de não acordar em pedido cancelado e da página de teste encerrado.
   - Vigia: app que caiu depois de "Ligar" manual não é tentado de novo.
   - Telas: "Abrir" aparece também para app parado ou que caiu; ficha guarda informação velha sem avisar quando um GET falha depois; quem só vê o app recebe erro em vez da linha com "Abrir" se a primeira leitura falha; `hostinfo` com erro dá custo zero sem aviso (falta `host_ok`); testes de permissão e de "Ligar" na página Servidor e gastos.
+
+## Portal multiempresa — correções da revisão (2026-11-03, ADR 015)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Apps compartilhados de volta na empresa principal | Done | Desligados nas outras empresas até ficarem por empresa |
+| Limite de login por conta (não por rede) | Done | 10 senhas erradas por e-mail; 300 tentativas por endereço |
+| Cadastro: endereços reservados, teto e cota diária | Done | `RESERVED_COMPANY_SLUGS`, `COMPANY_LIMIT`, `COMPANY_SIGNUPS_PER_DAY` |
+| Apps em uso aprovados uma vez (migração 015) | Done | Conferido no banco local: o app da Alis ficou aprovado |
+| Deploy do Replit e empresas criadas em outra cópia do servidor | Done | Confirmar na primeira publicação |
+| Teste de credencial um por vez; auditoria sem anônimos | Done | |
+| Testes das telas estáveis (304/304) | Done | |
+| Confirmação de e-mail no cadastro | Pending | Precisa de SMTP |
+| Limite de login compartilhado entre cópias do servidor | Pending | Hoje é por cópia |
+| Apps compartilhados por empresa | Pending | Nomes de containers, redes e endereços por empresa |
