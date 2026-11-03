@@ -4,6 +4,7 @@ import { Layout } from "@/components/Layout"
 import { AuthProvider, useAuth } from "@/lib/auth"
 import { ThemeProvider } from "@/lib/theme"
 import { ArtifactsPage } from "@/pages/ArtifactsPage"
+import { NewArtifactPage } from "@/pages/NewArtifactPage"
 import { AppPage } from "@/pages/AppPage"
 import { CatalogPage } from "@/pages/CatalogPage"
 import { InstallAgentPage } from "./pages/InstallAgentPage"
@@ -66,6 +67,7 @@ function Routed() {
           }
         />
         <Route path="artifacts" element={<ArtifactsPage />} />
+        <Route path="artifacts/novo" element={<NewArtifactPage />} />
         <Route path="equipe" element={<TeamPage />} />
         <Route path="servidor" element={<ServerPage />} />
         <Route path="pessoas" element={<Navigate to="/equipe" replace />} />
