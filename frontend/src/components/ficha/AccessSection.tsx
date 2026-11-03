@@ -109,12 +109,12 @@ export function AccessSection({ target, me }: { target: AccessTarget; me: Person
     <li key={`${whole ? "a" : "p"}-${g.person_id}`} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <span>
         {g.name}: {g.permissions.map(permLabel).join(", ")}
-        {whole && <span className="text-muted-foreground"> · todos os apps da área</span>}
+        {whole && <span className="text-muted-foreground"> · todos os apps e artifacts da área</span>}
       </span>
       {can.grants && (
         <span className="flex gap-3 text-sm">
           <button type="button" className="text-muted-foreground hover:text-foreground" aria-label={`Mudar ${who}`}
-            onClick={() => { setFormError(""); setForm({ person_id: g.person_id, permissions: g.permissions, whole_area: whole, from: { person_id: g.person_id, whole_area: whole } }) }}>
+            onClick={() => { setFormError(""); setForm({ person_id: g.person_id, permissions: g.permissions.filter((k) => grantList.some((x) => x.key === k)), whole_area: whole, from: { person_id: g.person_id, whole_area: whole } }) }}>
             Mudar
           </button>
           <button type="button" className="text-muted-foreground hover:text-destructive" aria-label={`Tirar ${who}`} disabled={busy}

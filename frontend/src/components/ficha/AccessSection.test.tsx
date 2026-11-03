@@ -37,7 +37,7 @@ it("the leader gives an extra access for the whole area", async () => {
   await userEvent.click(screen.getByLabelText(/Em todos os apps e artifacts da área/))
   await userEvent.click(screen.getByRole("button", { name: "Dar acesso" }))
   expect(set).toHaveBeenCalledWith(expect.any(Number), { person_id: 3, permissions: ["runs"], whole_area: true })
-  expect(await screen.findByText(/todos os apps da área/)).toBeInTheDocument()
+  expect(await screen.findByText(/todos os apps e artifacts da área/)).toBeInTheDocument()
 })
 
 it("lists extra accesses with their labels and removes one", async () => {
@@ -125,4 +125,17 @@ it("saves artifact viewers through the artifact api", async () => {
   await userEvent.click(screen.getByLabelText("Investimentos"))
   await userEvent.click(screen.getByRole("button", { name: "Salvar" }))
   expect(set).toHaveBeenCalledWith(7, { restricted: true, area_ids: [2], person_ids: [] })
+})
+
+it("on an artifact, Mudar prefills only the accesses an artifact offers", async () => {
+  vi.spyOn(api, "artifactAccess").mockResolvedValue({ ...open, area_grants: [{ person_id: 3, name: "Bia", permissions: ["edit", "runs", "tech"] }] })
+  vi.spyOn(api, "areas").mockResolvedValue([])
+  vi.spyOn(api, "people").mockResolvedValue([{ id: 3, name: "Bia", email: "bia@alis.com", role_id: 3, role_name: "Usuário", area_ids: [] }])
+  const set = vi.spyOn(api, "setArtifactGrants").mockResolvedValue(open)
+  render(<AccessSection target={{ kind: "artifact", id: 7, can: ALL_CAN, areaName: "Investimentos" }} me={henry} />)
+  await userEvent.click(await screen.findByRole("button", { name: "Mudar Bia (área)" }))
+  await userEvent.click(screen.getByLabelText("Voltar versões"))
+  await userEvent.click(screen.getByRole("button", { name: "Dar acesso" }))
+  await vi.waitFor(() => expect(set).toHaveBeenCalledTimes(1))
+  expect(set).toHaveBeenCalledWith(7, { person_id: 3, permissions: ["edit", "restore"], whole_area: true })
 })
