@@ -251,6 +251,41 @@ func (p *Portal) create(ctx context.Context, name, slug string, me sqlc.Person) 
 	return "/w/" + slug + "/", nil
 }
 
+var registrySlug = regexp.MustCompile(`^[a-z][a-z0-9-]{2,39}$`)
+
+// load attaches a company another server process created after this one
+// started (Replit may run several copies). Unknown slugs stay a 404.
+func (p *Portal) load(ctx context.Context, slug string) *entry {
+	if !registrySlug.MatchString(slug) {
+		return nil
+	}
+	p.createMu.Lock()
+	defer p.createMu.Unlock()
+	p.mu.RLock()
+	e := p.entries[slug]
+	p.mu.RUnlock()
+	if e != nil {
+		return e
+	}
+	e = &entry{slug: slug}
+	err := p.root.QueryRow(ctx, `SELECT name,schema_name FROM public.workspace_registry WHERE slug=$1 AND ready=TRUE`, slug).Scan(&e.name, &e.schema)
+	if err != nil || !regexp.MustCompile(`^tenant_[a-f0-9]{24}$`).MatchString(e.schema) {
+		return nil
+	}
+	if e.pool, err = p.newPool(ctx, e.schema); err != nil {
+		return nil
+	}
+	if err = database.Migrate(ctx, e.pool); err != nil {
+		e.pool.Close()
+		return nil
+	}
+	p.attach(e)
+	p.mu.Lock()
+	p.entries[slug] = e
+	p.mu.Unlock()
+	return e
+}
+
 func (p *Portal) Close() {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -275,6 +310,9 @@ func (p *Portal) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.mu.RLock()
 	e := p.entries[slug]
 	p.mu.RUnlock()
+	if e == nil {
+		e = p.load(r.Context(), slug)
+	}
 	if e == nil {
 		http.NotFound(w, r)
 		return

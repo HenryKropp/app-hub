@@ -4,7 +4,7 @@
 # Releasing a new agent: bump agentproto.Version, run this script, then restart
 # the Hub. Connected agents (0.2.0+) update themselves; same version = no update.
 set -euo pipefail
-ROOT="$(git rev-parse --show-toplevel)"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HUB_URL="${HUB_URL:-${REPLIT_DEV_DOMAIN:+https://$REPLIT_DEV_DOMAIN}}"
 HUB_URL="${HUB_URL:-http://localhost:8080}"
 mkdir -p "$ROOT/dist/agent"
