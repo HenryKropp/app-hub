@@ -122,6 +122,9 @@ func TestPortalCredentialVaultLifecycle(t *testing.T) {
 	// Exercise a real PostgreSQL archive, not just a JSON serialization. Only
 	// synthetic fixture data lives in this test database. Never print archive
 	// contents, connection parameters, stderr or environment on failure.
+	if _, err := exec.LookPath("pg_dump"); err != nil {
+		t.Skip("pg_dump not installed: backup half of the vault lifecycle not exercised")
+	}
 	dump := exec.Command("pg_dump", "--format=custom", "--data-only", "--table=public.credential_vault", "--no-owner", "--no-acl")
 	dump.Env = credentialBackupEnv(pool)
 	archive, err := dump.Output()
