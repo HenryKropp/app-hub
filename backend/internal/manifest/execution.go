@@ -117,6 +117,9 @@ func (m Manifest) ValidateRunInputs(values map[string][]string, files map[string
 			if !SafeRelative(f.Name) || strings.ContainsAny(f.Name, `/\`) || len(f.Name) > 180 {
 				return errors.New("O nome do arquivo enviado é inválido.")
 			}
+			if !in.AcceptsFile(f.Name) {
+				return fmt.Errorf("%s aceita só arquivos %s.", in.Label, in.AcceptText())
+			}
 			data, err := base64.StdEncoding.DecodeString(f.ContentBase64)
 			if err != nil {
 				return errors.New("Não consegui ler o arquivo enviado. Selecione-o novamente.")

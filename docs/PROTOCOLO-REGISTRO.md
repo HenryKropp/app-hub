@@ -202,6 +202,7 @@ inputs:
     path: ""                        # só para fixed_file
     options: []                     # só para choice
     multiple: false                 # (v0.2) só para choice: pode marcar várias
+    accept: [".txt", ".csv"]        # só para file: tipos aceitos (minúsculas, com ponto); vazio aceita qualquer arquivo
     required: true
 outputs:
   - label: Planilha com a rentabilidade
@@ -224,7 +225,7 @@ notes:
   - O caminho da planilha de saída aponta para a pasta pessoal do Henry.
 ```
 
-Regras de validação do Ziv (o registro é recusado sem elas): nome; tipo válido; responsável; reserva diferente do responsável; arquivo de início para os tipos que rodam; entradas com nome, tipo e origem válidos e sem `id` repetido; **(v0.2)** `multiple` só em lista de opções; o app não depende dele mesmo; `build` sempre com `source`.
+Regras de validação do Ziv (o registro é recusado sem elas): nome; tipo válido; responsável; reserva diferente do responsável; arquivo de início para os tipos que rodam; entradas com nome, tipo e origem válidos e sem `id` repetido; **(v0.2)** `multiple` só em lista de opções; `accept` só em entrada de arquivo, no formato `.txt` (até 20 tipos); o app não depende dele mesmo; `build` sempre com `source`.
 
 ---
 

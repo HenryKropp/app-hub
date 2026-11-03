@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Field, NativeSelect } from "@/components/bits"
 import type { Input as AppInput, Area, AppSummary, Manifest, Output, PersonRow } from "@/lib/api"
 import { INPUT_SOURCES, INPUT_TYPES, KINDS } from "@/lib/kinds"
+import { parseAccept } from "@/lib/accept"
 
 type Edit<T> = { value: T; onChange: (v: T) => void }
 
@@ -76,9 +77,10 @@ export function InputsEditor({ value, onChange }: Edit<AppInput[]>) {
     onChange(
       value.map((x, j) => {
         if (j !== i) return x
-        if (type === "choice") return { ...x, type }
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { options, multiple, ...rest } = x
+        const { options, multiple, accept, ...rest } = x
+        if (type === "choice") return { ...rest, options, multiple, type }
+        if (type === "file") return { ...rest, accept, type }
         return { ...rest, type }
       }),
     )
@@ -119,6 +121,7 @@ export function InputsEditor({ value, onChange }: Edit<AppInput[]>) {
                   </div>
                 </div>
               )}
+              {inp.type === "file" && <AcceptField index={i} name={name} value={inp.accept ?? []} onChange={(accept) => setInput(i, { accept: accept.length ? accept : undefined })} />}
               <div className="col-span-full grid gap-3 pl-1 sm:grid-cols-2">
                 <Field label="Como o app recebe" htmlFor={`f-source-${i}`} hint={inp.source === "dialog" ? `O script deve ler APP_HUB_INPUT_${inp.id.toUpperCase()}.` : inp.source === "prompt" ? "O valor é enviado ao script pela entrada padrão." : undefined}>
                   <NativeSelect id={`f-source-${i}`} value={inp.source} onChange={(e) => setInput(i, { source: e.target.value as AppInput["source"] })}>
@@ -153,6 +156,29 @@ export function InputsEditor({ value, onChange }: Edit<AppInput[]>) {
         <Plus /> Adicionar entrada
       </Button>
     </>
+  )
+}
+
+/** Free text while typing; normalized to [".txt", ".csv"] when the field loses focus. */
+function AcceptField({ index, name, value, onChange }: { index: number; name: string; value: string[]; onChange: (v: string[]) => void }) {
+  const [draft, setDraft] = useState<string | null>(null)
+  return (
+    <div className="col-span-full pl-1">
+      <Field label="Tipos de arquivo aceitos (opcional)" htmlFor={`f-accept-${index}`} hint="Ex.: .txt, .csv, .xlsx. A janela de escolha mostra só esses tipos e o Ziv recusa os outros. Vazio aceita qualquer arquivo.">
+        <Input
+          id={`f-accept-${index}`}
+          aria-label={`Tipos de arquivo aceitos em ${name}`}
+          value={draft ?? value.join(", ")}
+          placeholder=".txt, .csv"
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={(e) => {
+            onChange(parseAccept(e.target.value))
+            setDraft(null)
+          }}
+          className="font-mono text-xs"
+        />
+      </Field>
+    </div>
   )
 }
 

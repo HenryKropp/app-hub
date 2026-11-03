@@ -24,6 +24,8 @@ export type Input = {
   multiple?: boolean
   required: boolean
   flag?: string
+  /** Accepted file types for a file input, e.g. [".txt", ".csv"]. Empty: any file. */
+  accept?: string[]
 }
 
 export type Output = { label: string; pattern: string }

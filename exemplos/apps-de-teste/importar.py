@@ -19,8 +19,11 @@ EMAIL = sys.argv[2] if len(sys.argv) > 2 else "henry.kropp@alisinvestimentos.com
 AQUI = Path(__file__).parent
 
 
-def entrada(id_, label, type_="text", required=True, options=None):
-    return {"id": id_, "label": label, "type": type_, "source": "argument", "required": required, "options": options or [], "multiple": False}
+def entrada(id_, label, type_="text", required=True, options=None, accept=None):
+    campo = {"id": id_, "label": label, "type": type_, "source": "argument", "required": required, "options": options or [], "multiple": False}
+    if accept:
+        campo["accept"] = accept
+    return campo
 
 
 APPS = [
@@ -30,7 +33,7 @@ APPS = [
      [entrada("valor", "Valor inicial (R$)", "number"), entrada("taxa", "Taxa ao mês (%)", "number"), entrada("meses", "Quantos meses", "number")],
      [{"label": "Tabela mês a mês", "pattern": "simulacao.csv"}]),
     ("contador", "Contador de palavras", "Research", "Lê um arquivo de texto e lista as palavras mais usadas.",
-     [entrada("arquivo", "Arquivo de texto (.txt, .csv, .md)", "file")], [{"label": "Contagem", "pattern": "contagem.txt"}]),
+     [entrada("arquivo", "Arquivo de texto", "file", accept=[".txt", ".csv", ".md"])], [{"label": "Contagem", "pattern": "contagem.txt"}]),
     ("sorteio", "Sorteio da equipe", "Administrativo", "Divide uma lista de nomes em grupos aleatórios.",
      [entrada("nomes", "Nomes, separados por vírgula"), entrada("grupos", "Quantos grupos", "choice", options=["2", "3", "4"])],
      [{"label": "Grupos sorteados", "pattern": "grupos.txt"}]),
