@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -456,28 +455,11 @@ func (h *Handler) agentDownload(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Ziv.")
 		return
 	}
-	if h.workspace != nil && h.workspace.BasePath != "" {
+	name := brand.AgentFile
+	if h.agentTrailer() != nil {
 		// One EXE with this company's address appended (agentproto trailer):
 		// nothing to extract, and the file cannot lose its company.
-		file, err := os.Open(h.cfg.AgentBinaryPath)
-		if err != nil {
-			internalError(w, "agent package", err)
-			return
-		}
-		defer file.Close()
-		trailer := agentproto.HubURLTrailer(strings.TrimRight(h.cfg.BaseURL, "/"))
-		w.Header().Set("Content-Type", "application/vnd.microsoft.portable-executable")
-		w.Header().Set("Content-Disposition", `attachment; filename="`+strings.TrimSuffix(brand.AgentFile, ".exe")+"-"+h.workspace.Slug+`.exe"`)
-		_, err = io.Copy(w, file)
-		if err == nil {
-			_, err = w.Write(trailer)
-		}
-		if err != nil {
-			slog.Error("agent transfer failed")
-		}
-		return
+		name = strings.TrimSuffix(brand.AgentFile, ".exe") + "-" + h.workspace.Slug + ".exe"
 	}
-	w.Header().Set("Content-Type", "application/vnd.microsoft.portable-executable")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+brand.AgentFile+`"`)
-	http.ServeFile(w, r, h.cfg.AgentBinaryPath)
+	h.sendAgentPackage(w, name)
 }

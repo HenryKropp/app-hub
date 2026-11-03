@@ -8,8 +8,10 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -37,7 +39,7 @@ func (h *Handler) maybeEnqueueUpdate(ctx context.Context, c sqlc.Computer) error
 	if err != nil || failed >= maxUpdateTries {
 		return err
 	}
-	sum, size, err := fileDigest(h.cfg.AgentBinaryPath)
+	sum, size, err := fileDigest(h.cfg.AgentBinaryPath, h.agentTrailer())
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
@@ -52,7 +54,39 @@ func (h *Handler) maybeEnqueueUpdate(ctx context.Context, c sqlc.Computer) error
 	return err
 }
 
-func fileDigest(path string) (string, int64, error) {
+// agentTrailer is what this company appends to the Agente EXE: its Ziv
+// address (agentproto trailer), or nothing for the main company. Downloads and
+// updates send the same bytes, so an updated Agente still knows its company.
+func (h *Handler) agentTrailer() []byte {
+	if h.workspace == nil || h.workspace.BasePath == "" {
+		return nil
+	}
+	return agentproto.HubURLTrailer(strings.TrimRight(h.cfg.BaseURL, "/"))
+}
+
+// sendAgentPackage writes the Agente EXE followed by this company's trailer.
+func (h *Handler) sendAgentPackage(w http.ResponseWriter, filename string) {
+	file, err := os.Open(h.cfg.AgentBinaryPath)
+	if err != nil {
+		internalError(w, "agent package", err)
+		return
+	}
+	defer file.Close()
+	w.Header().Set("Content-Type", "application/vnd.microsoft.portable-executable")
+	if filename != "" {
+		w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	}
+	_, err = io.Copy(w, file)
+	if err == nil {
+		_, err = w.Write(h.agentTrailer())
+	}
+	if err != nil {
+		slog.Error("agent transfer failed")
+	}
+}
+
+// fileDigest is the SHA-256 and size of the file followed by extra.
+func fileDigest(path string, extra []byte) (string, int64, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", 0, err
@@ -68,7 +102,8 @@ func fileDigest(path string) (string, int64, error) {
 	if err != nil {
 		return "", 0, err
 	}
-	return hex.EncodeToString(sum.Sum(nil)), n, nil
+	sum.Write(extra)
+	return hex.EncodeToString(sum.Sum(nil)), n + int64(len(extra)), nil
 }
 
 // agentBinary serves the agent binary to a connected agent (update jobs).
@@ -84,8 +119,7 @@ func (h *Handler) agentBinary(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "O Agente ainda não foi preparado neste Ziv.")
 		return
 	}
-	w.Header().Set("Content-Type", "application/vnd.microsoft.portable-executable")
-	http.ServeFile(w, r, h.cfg.AgentBinaryPath)
+	h.sendAgentPackage(w, "")
 }
 
 // updateState summarises the latest update job of a computer for the page.

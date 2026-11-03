@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -281,5 +282,49 @@ func TestComputerUpdateState(t *testing.T) {
 	}
 	if s := state(); s.UpdateState != "gave_up" || !s.Outdated {
 		t.Fatalf("gave up: %+v", s)
+	}
+}
+
+// A company's Agente knows its company from the address appended to the EXE.
+// Updates must carry that address too, or the new Agente opens as the main
+// company, never reconnects and rolls back (seen on 2026-11-03).
+func TestCompanyUpdateKeepsItsAddress(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	token := pairComputer(t, c, "PC")
+	withBinary(t, h, "MZ-new")
+	h.cfg.BaseURL = "http://localhost:5173/w/teste/"
+	h.SetWorkspace(WorkspaceOptions{Slug: "teste", Name: "Teste", BasePath: "/w/teste"})
+	want := append([]byte("MZ-new"), agentproto.HubURLTrailer("http://localhost:5173/w/teste")...)
+
+	c.agent("POST", "/api/agent/hello", token, agentproto.Hello{Name: "PC", Version: "0.1.9", CanUpdate: true}, nil)
+	j, code := nextJob(t, c, token)
+	if code != http.StatusOK || j.Kind != agentproto.KindUpdate {
+		t.Fatalf("next %d %+v", code, j)
+	}
+	var p agentproto.UpdatePayload
+	_ = json.Unmarshal(j.Payload, &p)
+	sum := sha256.Sum256(want)
+	if p.SHA256 != hex.EncodeToString(sum[:]) || p.Size != int64(len(want)) {
+		t.Fatalf("payload %+v", p)
+	}
+
+	req, _ := http.NewRequest("GET", c.srv.URL+"/api/agent/binary", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK || !bytes.Equal(b, want) {
+		t.Fatalf("%d %q", resp.StatusCode, b)
+	}
+	exe := filepath.Join(t.TempDir(), "novo.exe")
+	if err := os.WriteFile(exe, b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := agentproto.ReadHubURLTrailer(exe); err != nil || got != "http://localhost:5173/w/teste" {
+		t.Fatalf("trailer %q %v", got, err)
 	}
 }
