@@ -332,7 +332,7 @@ export function AppPage() {
               </p>
               <p className="mt-1.5 pl-6 text-xs text-muted-foreground">A ficha também fica salva nessa pasta.</p>
             </Section>
-            {techSeen && person && <AccessSection app={app} me={person} />}
+            {techSeen && person && <AccessSection target={{ kind: "app", id: app.id, can: app.can, areaName: app.manifest.area }} me={person} />}
           </details>
         )}
       </div>

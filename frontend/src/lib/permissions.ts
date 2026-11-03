@@ -20,6 +20,8 @@ export const GRANTS: { key: string; label: string }[] = [
   { key: "runs", label: "Ver execuções de todos" },
 ]
 
+export const ARTIFACT_GRANTS = GRANTS.filter((g) => g.key === "edit" || g.key === "restore")
+
 export const has = (p: Person | null | undefined, perm: string) => !!p?.permissions.includes(perm)
 export const canRegister = (p: Person | null | undefined) => has(p, "register_apps") || (p?.leads.length ?? 0) > 0
 export const canSeeTeam = (p: Person | null | undefined) =>

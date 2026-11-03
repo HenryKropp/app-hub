@@ -249,6 +249,23 @@ export type VersionFile = { path: string; size: number; kind: "code" | "binary";
 export type RestorePlan = { rewrite: string[]; recreate: string[]; to_trash: string[]; binaries: string[] }
 export type RestoreResult = { number: number; done: string[]; failed: { path: string; error: string }[]; error?: string }
 
+export type ArtifactSummary = {
+  id: number; name: string; summary: string; kind: "link" | "file"; tags: string[]
+  area_id: number; area: string; owner_name: string; restricted: boolean; version: number; updated_at: string
+}
+export type ArtifactVersion = {
+  number: number; kind: "link" | "file"; url: string; file_name: string; size: number; note: string
+  author_name: string; restored_from: number | null; created_at: string
+}
+export type ArtifactDetail = ArtifactSummary & {
+  owner_id: number; backup_id: number | null; backup_name: string; origin: string
+  can: Can; versions: ArtifactVersion[]; current: number
+}
+export type ArtifactInput = {
+  name: string; summary: string; tags: string[]; area_id: number; kind: "link" | "file"
+  url?: string; file_name?: string; content_base64?: string; note?: string; confirm_secrets?: boolean
+}
+
 export class ApiError extends Error {
   status: number
   body?: unknown
@@ -378,6 +395,20 @@ export const api = {
     request<AppAccess>("PUT", `/api/apps/${id}/access`, b),
   setGrants: (id: number, b: { person_id: number; permissions: string[]; whole_area: boolean }) =>
     request<AppAccess>("PUT", `/api/apps/${id}/grants`, b),
+  artifacts: () => request<ArtifactSummary[]>("GET", "/api/artifacts"),
+  artifact: (id: number) => request<ArtifactDetail>("GET", `/api/artifacts/${id}`),
+  createArtifact: (b: ArtifactInput) => request<ArtifactDetail>("POST", "/api/artifacts", b),
+  updateArtifact: (id: number, b: { name: string; summary: string; tags: string[]; owner_id?: number; backup_id?: number | null; area_id?: number }) =>
+    request<ArtifactDetail>("PUT", `/api/artifacts/${id}`, b),
+  artifactVersion: (id: number, b: Omit<ArtifactInput, "name" | "summary" | "tags" | "area_id">) =>
+    request<ArtifactDetail>("POST", `/api/artifacts/${id}/versions`, b),
+  restoreArtifact: (id: number, n: number) => request<ArtifactDetail>("POST", `/api/artifacts/${id}/versions/${n}/restore`),
+  deleteArtifact: (id: number) => request<void>("DELETE", `/api/artifacts/${id}`),
+  artifactAccess: (id: number) => request<AppAccess>("GET", `/api/artifacts/${id}/access`),
+  setArtifactAccess: (id: number, b: { restricted: boolean; area_ids: number[]; person_ids: number[] }) =>
+    request<AppAccess>("PUT", `/api/artifacts/${id}/access`, b),
+  setArtifactGrants: (id: number, b: { person_id: number; permissions: string[]; whole_area: boolean }) =>
+    request<AppAccess>("PUT", `/api/artifacts/${id}/grants`, b),
   computers: () => request<ComputersInfo>("GET", "/api/computers/me"),
   disconnect: (id: number) => request<void>("DELETE", `/api/computers/${id}`),
   pairing: (code: string) => request<Pairing>("GET", `/api/pairings/${encodeURIComponent(code)}`),
@@ -453,3 +484,7 @@ export const selectedUrl = (runId: number, fileIds: number[]) => workspaceUrl(`/
 export const backupDownloadUrl = (id: number, bid: number) => workspaceUrl(`/api/apps/${id}/shared/backups/${bid}/download`)
 export const openSharedUrl = (slug: string, test = false) =>
   workspaceUrl(`/api/shared/authorize?app=${encodeURIComponent(slug)}${test ? "&teste=1" : ""}&volta=%2F`)
+export const artifactContentUrl = (id: number, v?: number, download = false) => {
+  const q = [v ? `v=${v}` : "", download ? "download=1" : ""].filter(Boolean).join("&")
+  return workspaceUrl(`/api/artifacts/${id}/content${q ? `?${q}` : ""}`)
+}
