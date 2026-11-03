@@ -16,6 +16,7 @@ func TestPortalAdminDashboardAndAppControl(t *testing.T) {
 	b.want("POST", "/api/workspaces", map[string]string{"name": "Admin company", "slug": "admin-company", "password": credentials["password"]}, 201)
 	const prefix = "/w/admin-company"
 	b.want("POST", prefix+"/api/auth/login", credentials, 200)
+	b.want("PUT", prefix+"/api/security/settings", map[string]any{"retention_days": 30, "require_app_approval": true, "block_embedded_secrets": true, "local_execution_enabled": true}, 200)
 	id := importApp(t, b, prefix, "Dashboard app")
 	app := fmt.Sprintf("%s/api/apps/%d", prefix, id)
 

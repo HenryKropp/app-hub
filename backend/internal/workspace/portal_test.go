@@ -185,6 +185,8 @@ func TestPortalIsolationSecurityLifecycle(t *testing.T) {
 	if string(bytes.TrimSpace(raw)) != "[]" {
 		t.Fatal("root apps leaked into new company")
 	}
+	// New companies start with approval off; this test exercises it on.
+	b.want("PUT", prefix+"/api/security/settings", map[string]any{"retention_days": 30, "require_app_approval": true, "block_embedded_secrets": true, "local_execution_enabled": true}, 200)
 	tenantApp := importApp(t, b, prefix, "Tenant app")
 	if rootApp != tenantApp {
 		t.Fatal("test needs overlapping IDs to exercise namespace isolation")
@@ -482,5 +484,25 @@ func TestAnonymousCallsDoNotFloodAudit(t *testing.T) {
 	}
 	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM security_audit`).Scan(&after); err != nil || after != before {
 		t.Fatalf("anonymous calls wrote %d audit rows (err=%v)", after-before, err)
+	}
+}
+
+// Artifacts need no approval, and a new company starts with app approval off.
+func TestNewCompanyStartsWithoutApprovalRequired(t *testing.T) {
+	p, pool, _ := testPortal(t)
+	ctx := context.Background()
+	if _, err := p.create(ctx, "Aurora", "aurora", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	var schema string
+	if err := pool.QueryRow(ctx, `SELECT schema_name FROM public.workspace_registry WHERE slug='aurora'`).Scan(&schema); err != nil {
+		t.Fatal(err)
+	}
+	var required bool
+	if err := pool.QueryRow(ctx, `SELECT require_app_approval FROM `+pgx.Identifier{schema}.Sanitize()+`.security_settings`).Scan(&required); err != nil {
+		t.Fatal(err)
+	}
+	if required {
+		t.Fatal("new company has require_app_approval = true, want false")
 	}
 }
