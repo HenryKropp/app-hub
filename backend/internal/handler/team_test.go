@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -212,5 +213,19 @@ func TestCannotChangeRoleOfBiggerPerson(t *testing.T) {
 	admin.do("PUT", "/api/people/3", map[string]any{"role_id": 2}, nil)
 	if code := ana.do("PUT", "/api/people/3", map[string]any{"role_id": 3}, &out); code != http.StatusForbidden || out["error"] != msg {
 		t.Fatalf("RH demotes criador = %d %v", code, out)
+	}
+}
+
+func TestDeleteAreaWithArtifacts(t *testing.T) {
+	admin, _, _, _ := team(t)
+	var a areaOut
+	admin.do("POST", "/api/areas", map[string]string{"name": "Com artifacts"}, &a)
+	exec(t, `INSERT INTO artifacts (name, kind, area_id, owner_id, created_by) VALUES ('Painel', 'link', $1, 1, 1)`, a.ID)
+	var out map[string]any
+	if code := admin.do("DELETE", "/api/areas/"+itoa(a.ID), nil, &out); code != http.StatusConflict {
+		t.Fatalf("delete area with artifact = %d %v", code, out)
+	}
+	if msg, _ := out["error"].(string); !strings.Contains(msg, "Essa área ainda tem apps ou artifacts") {
+		t.Fatalf("message = %q", msg)
 	}
 }
