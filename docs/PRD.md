@@ -138,6 +138,7 @@ Em linguagem de produto, quem pode o quê:
 - **Tela Equipe** (barra lateral, para quem cuida de pessoas, áreas ou cargos, ou lidera uma área), com três abas: Pessoas (só para quem pode cadastrar pessoas), Áreas e Cargos.
 - **Cofre local:** chaves e senhas guardadas criptografadas. O app recebe a chave na hora de rodar e o usuário nunca a vê. Registro de qual app usou qual chave e quando. (Pendente, Fase 6.)
 - **Empresa e times (combinado em 2026-09-30, para depois):** a empresa é a conta (nome, padrões, cofre, chave da IA); no piloto existe uma só (Alis). A Etapa 2 entregou áreas, líderes, apps restritos e acessos por app; ainda ficam para depois a pessoa em várias empresas, configurações próprias por time, limites e aprovação antes de publicar.
+- **Aprovação de app novo (Admin):** "exigir aprovação" começa **desligado** numa empresa nova; as empresas que já existiam mantêm a opção como estava. Artifacts (3.14) nunca passam por aprovação.
 
 ### 3.7b Apps compartilhados (construído em 2026-10, ADR 010)
 Alguns apps precisam ficar no ar para muita gente usar ao mesmo tempo, com os mesmos dados. O Hub passa a rodá-los num servidor, em vez de abrir no computador de cada pessoa.
@@ -193,6 +194,17 @@ Ideia do Henry em 2026-10-26: gerir tokens e créditos de IA pelo Hub. Três ní
 2. **Chave de IA centralizada (o nível que mais vale):** os apps não guardam chave. Pedem a IA através do Hub, que usa a chave da empresa guardada no cofre. O Hub mede o gasto por app, pessoa e área, e acaba com chave escondida no código (risco já visto na importação de scripts).
 3. **Créditos e limites:** orçamento mensal por área ou pessoa, aviso em 80%, bloqueio ou aprovação ao estourar, relatório de consumo. Para vender o Hub, também serve de base para cobrança.
 - **Ligações:** cofre (1.7), página Servidor e gastos e porteiro dos apps compartilhados (3.7b), skills do Claude (3.12).
+
+### 3.14 Artifacts (construído em 2026-11, ADR 018)
+Páginas que o Claude (ou alguém) gerou, como um gráfico ou um painel em HTML, guardadas e compartilhadas pelo Ziv. Não rodam nada: só se abrem.
+- **Como entra:** colando um **link** (`https://`) ou subindo **um arquivo** `.html` (até 16 MB). Quem tem o cargo de registrar apps registra artifacts.
+- **Catálogo próprio:** aba Artifacts, com cartões, **busca** por nome, etiqueta e área, filtro por área e **etiquetas** livres.
+- **Mesmas regras de acesso dos apps:** aberto ou restrito, responsável e reserva, área, acessos extras. As permissões de cargo (editar qualquer ficha, voltar versões, ver todos) e os acessos dados na área toda valem também para os artifacts da área; o acesso extra num artifact só oferece editar a ficha e voltar versões.
+- **Versões:** cada envio novo vira uma versão; dá para abrir uma antiga e voltar a ela.
+- **Sem aprovação:** artifact novo já aparece, nunca vai para "Esperando aprovação" no Admin.
+- **Segurança:** o HTML aparece numa **caixa isolada** (iframe com sandbox e cabeçalho `Content-Security-Policy: sandbox`): a página roda scripts, mas não enxerga o login nem a conta de ninguém. Segredos escritos no HTML são tratados como na importação de scripts.
+- **Área com artifacts não pode ser apagada** até eles mudarem de área.
+- **Depois:** publicar o artifact pelo MCP (3.11) e a aba Home.
 
 ---
 
