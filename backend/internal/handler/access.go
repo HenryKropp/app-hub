@@ -75,7 +75,8 @@ func (h *Handler) loadAccess(ctx context.Context, me sqlc.Person) (*access.Perso
 		return nil, err
 	}
 	p := &access.Person{ID: me.ID, Perms: map[string]bool{}, Leads: map[int64]bool{}, Member: map[int64]bool{},
-		ViewerApps: map[int64]bool{}, AppGrants: map[int64]map[string]bool{}, AreaGrants: map[int64]map[string]bool{}}
+		ViewerApps: map[int64]bool{}, AppGrants: map[int64]map[string]bool{}, AreaGrants: map[int64]map[string]bool{},
+		ViewerArtifacts: map[int64]bool{}, ArtifactGrants: map[int64]map[string]bool{}}
 	for _, perm := range role.Permissions {
 		p.Perms[perm] = true
 	}
@@ -120,7 +121,28 @@ func (h *Handler) loadAccess(ctx context.Context, me sqlc.Person) (*access.Perso
 		}
 		p.AreaGrants[g.AreaID][g.Permission] = true
 	}
+	viewerArtifacts, err := h.q.ListViewerArtifactIDs(ctx, pgtype.Int8{Int64: me.ID, Valid: true})
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range viewerArtifacts {
+		p.ViewerArtifacts[id] = true
+	}
+	artifactGrants, err := h.q.ListPersonArtifactGrants(ctx, me.ID)
+	if err != nil {
+		return nil, err
+	}
+	for _, g := range artifactGrants {
+		if p.ArtifactGrants[g.ArtifactID] == nil {
+			p.ArtifactGrants[g.ArtifactID] = map[string]bool{}
+		}
+		p.ArtifactGrants[g.ArtifactID][g.Permission] = true
+	}
 	return p, nil
+}
+
+func artifactRef(a sqlc.Artifact) access.App {
+	return access.App{ID: a.ID, AreaID: a.AreaID, OwnerID: a.OwnerID, BackupID: a.BackupID.Int64, Restricted: a.Restricted}
 }
 
 func appRef(a sqlc.App) access.App {
