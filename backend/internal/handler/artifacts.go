@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"mime"
 	"net/http"
 	"net/url"
@@ -53,6 +54,7 @@ type artifactSummaryJSON struct {
 	Restricted bool      `json:"restricted"`
 	Version    int32     `json:"version"`
 	UpdatedAt  time.Time `json:"updated_at"`
+	Favorite   bool      `json:"favorite"`
 }
 
 type artifactVersionJSON struct {
@@ -342,6 +344,10 @@ func (h *Handler) writeArtifactDetail(w http.ResponseWriter, r *http.Request, me
 		internalError(w, "artifact detail", err)
 		return
 	}
+	if d.Favorite, err = h.isFavorite(ctx, me.ID, "artifact", a.ID); err != nil {
+		internalError(w, "favorite", err)
+		return
+	}
 	writeJSON(w, status, d)
 }
 
@@ -360,6 +366,11 @@ func (h *Handler) listArtifacts(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "list artifacts", err)
 		return
 	}
+	stars, err := h.favoriteSet(r.Context(), me.ID)
+	if err != nil {
+		internalError(w, "list favorites", err)
+		return
+	}
 	out := []artifactSummaryJSON{}
 	for _, a := range rows {
 		ref := access.App{ID: a.ID, AreaID: a.AreaID, OwnerID: a.OwnerID, BackupID: a.BackupID.Int64, Restricted: a.Restricted}
@@ -372,7 +383,7 @@ func (h *Handler) listArtifacts(w http.ResponseWriter, r *http.Request) {
 		}
 		out = append(out, artifactSummaryJSON{ID: a.ID, Name: a.Name, Summary: a.Summary, Kind: a.Kind, Tags: tags,
 			AreaID: a.AreaID, Area: a.AreaName, OwnerName: a.OwnerName, Restricted: a.Restricted,
-			Version: a.CurrentVersion, UpdatedAt: a.UpdatedAt.Time})
+			Version: a.CurrentVersion, UpdatedAt: a.UpdatedAt.Time, Favorite: stars[favoriteKey{"artifact", a.ID}]})
 	}
 	slices.SortStableFunc(out, func(x, y artifactSummaryJSON) int { return y.UpdatedAt.Compare(x.UpdatedAt) })
 	writeJSON(w, http.StatusOK, out)
@@ -434,7 +445,7 @@ func (h *Handler) createArtifact(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) getArtifact(w http.ResponseWriter, r *http.Request) {
-	a, _, _, can, ok := h.artifactFor(w, r)
+	a, me, _, can, ok := h.artifactFor(w, r)
 	if !ok {
 		return
 	}
@@ -442,6 +453,14 @@ func (h *Handler) getArtifact(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internalError(w, "artifact detail", err)
 		return
+	}
+	if d.Favorite, err = h.isFavorite(r.Context(), me.ID, "artifact", a.ID); err != nil {
+		internalError(w, "favorite", err)
+		return
+	}
+	// Opening is recorded only here (not on save). A failure never blocks the page.
+	if err := h.q.RecordArtifactOpen(r.Context(), sqlc.RecordArtifactOpenParams{ArtifactID: a.ID, PersonID: me.ID}); err != nil {
+		slog.Error("record artifact open", "err", err)
 	}
 	writeJSON(w, http.StatusOK, d)
 }
@@ -609,7 +628,13 @@ func (h *Handler) deleteArtifact(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "Só quem cuida do artifact pode apagá-lo.")
 		return
 	}
-	if err := h.q.DeleteArtifact(r.Context(), a.ID); err != nil {
+	err := h.q.InTx(r.Context(), func(q *sqlc.Queries) error {
+		if err := q.DeleteItemFavorites(r.Context(), sqlc.DeleteItemFavoritesParams{Kind: "artifact", ItemID: a.ID}); err != nil {
+			return err
+		}
+		return q.DeleteArtifact(r.Context(), a.ID)
+	})
+	if err != nil {
 		internalError(w, "delete artifact", err)
 		return
 	}

@@ -130,6 +130,7 @@ type appSummary struct {
 	RememberedFolder string       `json:"remembered_folder"`
 	Can              access.Can   `json:"can"`
 	Shared           *sharedBrief `json:"shared"`
+	Favorite         bool         `json:"favorite"`
 }
 
 func (h *Handler) listApps(w http.ResponseWriter, r *http.Request) {
@@ -161,6 +162,11 @@ func (h *Handler) listApps(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "list shared apps", err)
 		return
 	}
+	stars, err := h.favoriteSet(r.Context(), me.ID)
+	if err != nil {
+		internalError(w, "list favorites", err)
+		return
+	}
 	out := make([]appSummary, 0, len(apps))
 	for _, a := range apps {
 		can := acc.For(access.App{ID: a.ID, AreaID: a.AreaID, OwnerID: a.OwnerID, BackupID: a.BackupID.Int64, Restricted: a.Restricted})
@@ -168,7 +174,7 @@ func (h *Handler) listApps(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		out = append(out, appSummary{ListAppsRow: a, FolderDisplay: hostpath.ToDisplay(a.FolderPath),
-			CanRun: canRunKind(a.Kind, a.Entrypoint), RememberedFolder: remembered[a.ID], Can: can, Shared: shared[a.ID]})
+			CanRun: canRunKind(a.Kind, a.Entrypoint), RememberedFolder: remembered[a.ID], Can: can, Shared: shared[a.ID], Favorite: stars[favoriteKey{"app", a.ID}]})
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -191,6 +197,7 @@ type appDetail struct {
 	DependsOn        []appLink          `json:"depends_on_apps,omitempty"`
 	UsedBy           []appLink          `json:"used_by,omitempty"`
 	Shared           *sharedBrief       `json:"shared"`
+	Favorite         bool               `json:"favorite"`
 	Control          *appControl        `json:"control"`
 	NeedsRestart     bool               `json:"needs_restart,omitempty"` // PUT /shared: the running app must be turned on again
 	NeedsPublish     bool               `json:"needs_publish,omitempty"` // PUT /shared: a new port only counts after a new publish
@@ -265,6 +272,10 @@ func (h *Handler) writeDetailWith(w http.ResponseWriter, r *http.Request, me sql
 		return
 	}
 	d.Can = acc.For(appRef(a))
+	if d.Favorite, err = h.isFavorite(r.Context(), me.ID, "app", a.ID); err != nil {
+		internalError(w, "favorite", err)
+		return
+	}
 	if d.Shared, err = h.sharedBriefOf(r, a.ID); err != nil {
 		internalError(w, "shared brief", err)
 		return
