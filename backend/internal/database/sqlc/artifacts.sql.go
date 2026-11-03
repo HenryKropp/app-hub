@@ -129,9 +129,9 @@ func (q *Queries) CreateArtifact(ctx context.Context, arg CreateArtifactParams) 
 }
 
 const createArtifactVersion = `-- name: CreateArtifactVersion :one
-INSERT INTO artifact_versions (artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at
+INSERT INTO artifact_versions (artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, embeddable)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at, embeddable
 `
 
 type CreateArtifactVersionParams struct {
@@ -145,6 +145,7 @@ type CreateArtifactVersionParams struct {
 	Note         string      `json:"note"`
 	RestoredFrom pgtype.Int4 `json:"restored_from"`
 	AuthorID     pgtype.Int8 `json:"author_id"`
+	Embeddable   bool        `json:"embeddable"`
 }
 
 func (q *Queries) CreateArtifactVersion(ctx context.Context, arg CreateArtifactVersionParams) (ArtifactVersion, error) {
@@ -159,6 +160,7 @@ func (q *Queries) CreateArtifactVersion(ctx context.Context, arg CreateArtifactV
 		arg.Note,
 		arg.RestoredFrom,
 		arg.AuthorID,
+		arg.Embeddable,
 	)
 	var i ArtifactVersion
 	err := row.Scan(
@@ -174,6 +176,7 @@ func (q *Queries) CreateArtifactVersion(ctx context.Context, arg CreateArtifactV
 		&i.RestoredFrom,
 		&i.AuthorID,
 		&i.CreatedAt,
+		&i.Embeddable,
 	)
 	return i, err
 }
@@ -222,7 +225,7 @@ func (q *Queries) GetArtifact(ctx context.Context, id int64) (Artifact, error) {
 }
 
 const getArtifactVersion = `-- name: GetArtifactVersion :one
-SELECT id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at FROM artifact_versions WHERE artifact_id = $1 AND number = $2
+SELECT id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at, embeddable FROM artifact_versions WHERE artifact_id = $1 AND number = $2
 `
 
 type GetArtifactVersionParams struct {
@@ -246,12 +249,13 @@ func (q *Queries) GetArtifactVersion(ctx context.Context, arg GetArtifactVersion
 		&i.RestoredFrom,
 		&i.AuthorID,
 		&i.CreatedAt,
+		&i.Embeddable,
 	)
 	return i, err
 }
 
 const latestArtifactVersion = `-- name: LatestArtifactVersion :one
-SELECT id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at FROM artifact_versions WHERE artifact_id = $1 ORDER BY number DESC LIMIT 1
+SELECT id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at, embeddable FROM artifact_versions WHERE artifact_id = $1 ORDER BY number DESC LIMIT 1
 `
 
 func (q *Queries) LatestArtifactVersion(ctx context.Context, artifactID int64) (ArtifactVersion, error) {
@@ -270,6 +274,7 @@ func (q *Queries) LatestArtifactVersion(ctx context.Context, artifactID int64) (
 		&i.RestoredFrom,
 		&i.AuthorID,
 		&i.CreatedAt,
+		&i.Embeddable,
 	)
 	return i, err
 }
@@ -308,7 +313,7 @@ func (q *Queries) ListArtifactGrants(ctx context.Context, artifactID int64) ([]L
 
 const listArtifactVersions = `-- name: ListArtifactVersions :many
 SELECT v.id, v.artifact_id, v.number, v.kind, v.url, v.blob_sha256, v.file_name, v.size, v.note,
-       v.restored_from, v.author_id, p.name AS author_name, v.created_at
+       v.restored_from, v.author_id, p.name AS author_name, v.created_at, v.embeddable
 FROM artifact_versions v
 LEFT JOIN people p ON p.id = v.author_id
 WHERE v.artifact_id = $1
@@ -329,6 +334,7 @@ type ListArtifactVersionsRow struct {
 	AuthorID     pgtype.Int8        `json:"author_id"`
 	AuthorName   pgtype.Text        `json:"author_name"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Embeddable   bool               `json:"embeddable"`
 }
 
 func (q *Queries) ListArtifactVersions(ctx context.Context, artifactID int64) ([]ListArtifactVersionsRow, error) {
@@ -354,6 +360,7 @@ func (q *Queries) ListArtifactVersions(ctx context.Context, artifactID int64) ([
 			&i.AuthorID,
 			&i.AuthorName,
 			&i.CreatedAt,
+			&i.Embeddable,
 		); err != nil {
 			return nil, err
 		}

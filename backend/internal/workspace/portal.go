@@ -301,6 +301,7 @@ func (p *Portal) Close() {
 }
 
 func (p *Portal) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	handler.NoFraming(w.Header())
 	slug := "principal"
 	rest := r.URL.Path
 	if strings.HasPrefix(rest, "/w/") {

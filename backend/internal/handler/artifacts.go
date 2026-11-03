@@ -65,6 +65,7 @@ type artifactVersionJSON struct {
 	AuthorName   string    `json:"author_name"`
 	RestoredFrom *int32    `json:"restored_from"`
 	CreatedAt    time.Time `json:"created_at"`
+	Embeddable   bool      `json:"embeddable"` // a link whose site lets the Ziv show it inside the page
 }
 
 type artifactDetailJSON struct {
@@ -153,11 +154,12 @@ func normalizeTags(in []string) []string {
 
 // preparedVersion is a validated version ready to store.
 type preparedVersion struct {
-	kind     string
-	url      string
-	fileName string
-	content  []byte
-	note     string
+	kind       string
+	url        string
+	fileName   string
+	content    []byte
+	note       string
+	embeddable bool
 }
 
 // prepareVersion validates the input and runs the secrets policy, writing the
@@ -179,7 +181,9 @@ func (h *Handler) prepareVersion(w http.ResponseWriter, r *http.Request, in arti
 		writeError(w, http.StatusBadRequest, msg)
 		return p, false
 	}
-	if p.kind != "file" {
+	if p.kind == "link" {
+		// Network call, before any transaction: up to 5 s.
+		p.embeddable = !h.zivHost(p.url) && h.embedCheck(r.Context(), p.url, h.zivHost)
 		return p, true
 	}
 	// Same policy as script import: only a count leaves the handler.
@@ -223,6 +227,7 @@ func addVersion(ctx context.Context, q *sqlc.Queries, artifactID int64, p prepar
 		Size: size, Note: p.note, RestoredFrom: restoredFrom, AuthorID: pgInt8(authorID), BlobSha256: blob}
 	if p.kind == "link" {
 		params.Url = pgtype.Text{String: p.url, Valid: true}
+		params.Embeddable = p.embeddable
 	}
 	if p.kind == "file" && !blob.Valid {
 		sum := sha256.Sum256(p.content)
@@ -305,7 +310,7 @@ func (h *Handler) artifactDetail(ctx context.Context, a sqlc.Artifact, can acces
 	}
 	for _, v := range versions {
 		out := artifactVersionJSON{Number: v.Number, Kind: v.Kind, URL: v.Url.String, FileName: v.FileName, Size: v.Size,
-			Note: v.Note, AuthorName: v.AuthorName.String, CreatedAt: v.CreatedAt.Time}
+			Note: v.Note, AuthorName: v.AuthorName.String, CreatedAt: v.CreatedAt.Time, Embeddable: v.Embeddable}
 		if v.RestoredFrom.Valid {
 			n := v.RestoredFrom.Int32
 			out.RestoredFrom = &n
@@ -584,7 +589,7 @@ func (h *Handler) restoreArtifactVersion(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	ctx := r.Context()
-	p := preparedVersion{kind: old.Kind, url: old.Url.String, fileName: old.FileName}
+	p := preparedVersion{kind: old.Kind, url: old.Url.String, fileName: old.FileName, embeddable: old.Embeddable && !h.zivHost(old.Url.String)}
 	err := h.q.InTx(ctx, func(q *sqlc.Queries) error {
 		return addVersion(ctx, q, a.ID, p, me.ID, pgtype.Int4{Int32: old.Number, Valid: true}, old.BlobSha256, old.Size)
 	})
@@ -634,7 +639,9 @@ func (h *Handler) artifactContent(w http.ResponseWriter, r *http.Request) {
 	}
 	hd := w.Header()
 	hd.Set("Content-Type", "text/html; charset=utf-8")
-	hd.Set("Content-Security-Policy", artifactCSP)
+	// Only the Ziv's own page may frame it (overrides NoFraming).
+	hd.Set("Content-Security-Policy", artifactCSP+"; frame-ancestors 'self'")
+	hd.Set("X-Frame-Options", "SAMEORIGIN")
 	hd.Set("X-Content-Type-Options", "nosniff")
 	hd.Set("Referrer-Policy", "no-referrer")
 	hd.Set("Cache-Control", "private, no-store")

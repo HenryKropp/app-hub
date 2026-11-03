@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { ApiError, api, type ArtifactDetail } from "@/lib/api"
 import * as auth from "@/lib/auth"
 import { ALL_CAN, VIEW_ONLY, bia, henry } from "@/test/fixtures"
-import { ARTIFACT_SANDBOX, ArtifactPage } from "./ArtifactPage"
+import { ARTIFACT_SANDBOX, ArtifactPage, LINK_SANDBOX } from "./ArtifactPage"
 
 vi.mock("@/components/ficha/AccessSection", () => ({ AccessSection: () => <p>Acesso de teste</p> }))
 
@@ -62,6 +62,46 @@ test("renders link artifact with Abrir in new tab", async () => {
   expect(links[0].getAttribute("rel")).toBe("noopener noreferrer")
   expect(screen.getByText("claude.ai")).toBeInTheDocument()
   expect(screen.queryByTitle("Vendas")).toBeNull()
+})
+
+const linkVersion = (url: string, embeddable: boolean) => ({ number: 1, kind: "link" as const, url, file_name: "", size: 0, note: "", author_name: "Ana", restored_from: null, created_at: "2026-11-02T10:00:00Z", embeddable })
+
+test("an embeddable link is shown inside the page like a file", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art({ kind: "link", versions: [linkVersion("https://app.powerbi.com/view?r=abc", true)], current: 1, version: 1 }))
+  mount()
+  const frame = await screen.findByTitle("Vendas")
+  expect(frame).toHaveAttribute("src", "https://app.powerbi.com/view?r=abc")
+  expect(frame).toHaveAttribute("sandbox", LINK_SANDBOX)
+  expect(frame).toHaveAttribute("referrerpolicy", "no-referrer")
+  expect(screen.getByRole("link", { name: "Abrir em tela cheia" })).toHaveAttribute("href", "https://app.powerbi.com/view?r=abc")
+  expect(screen.queryByText("Este artifact abre em outro site")).toBeNull()
+})
+
+test("a link to the Ziv itself is never framed, even if marked embeddable", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art({ kind: "link", versions: [linkVersion(`${window.location.origin}/apps`, true)], current: 1, version: 1 }))
+  mount()
+  await screen.findByText("Este artifact abre em outro site")
+  expect(screen.queryByTitle("Vendas")).toBeNull()
+})
+
+test("a Claude link explains how to show it inside, only to who can edit", async () => {
+  const claude = art({ kind: "link", versions: [linkVersion("https://claude.ai/public/artifacts/abc", false)], current: 1, version: 1 })
+  vi.spyOn(api, "artifact").mockResolvedValue(claude)
+  const { unmount } = mount()
+  expect(await screen.findByText(/Links do Claude não aparecem dentro do Ziv/)).toBeInTheDocument()
+  expect(screen.queryByTitle("Vendas")).toBeNull()
+  unmount()
+  vi.spyOn(api, "artifact").mockResolvedValue({ ...claude, can: VIEW_ONLY })
+  mount()
+  await screen.findByText("Este artifact abre em outro site")
+  expect(screen.queryByText(/Links do Claude não aparecem dentro do Ziv/)).toBeNull()
+})
+
+test("a link that is not from Claude and not embeddable shows no hint", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art({ kind: "link", versions: [linkVersion("https://lookerstudio.google.com/x", false)], current: 1, version: 1 }))
+  mount()
+  await screen.findByText("Este artifact abre em outro site")
+  expect(screen.queryByText(/Links do Claude/)).toBeNull()
 })
 
 test("hides edit, new version and restore without permission", async () => {

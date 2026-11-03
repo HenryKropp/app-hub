@@ -121,6 +121,7 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 func (h *Handler) Secure(next http.Handler) http.Handler {
 	limiter := &securityLimiter{}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		NoFraming(w.Header())
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")

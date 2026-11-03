@@ -35,13 +35,13 @@ UPDATE artifacts SET updated_at = now() WHERE id = $1;
 DELETE FROM artifacts WHERE id = $1;
 
 -- name: CreateArtifactVersion :one
-INSERT INTO artifact_versions (artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO artifact_versions (artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, embeddable)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: ListArtifactVersions :many
 SELECT v.id, v.artifact_id, v.number, v.kind, v.url, v.blob_sha256, v.file_name, v.size, v.note,
-       v.restored_from, v.author_id, p.name AS author_name, v.created_at
+       v.restored_from, v.author_id, p.name AS author_name, v.created_at, v.embeddable
 FROM artifact_versions v
 LEFT JOIN people p ON p.id = v.author_id
 WHERE v.artifact_id = $1

@@ -19,6 +19,26 @@ export function sourceError(v: ArtifactSource): string {
   return ""
 }
 
+// isClaudeLink: Claude's shared artifact links refuse to be shown inside other sites.
+export function isClaudeLink(url: string): boolean {
+  try {
+    const host = new URL(url.trim()).hostname.toLowerCase()
+    return ["claude.ai", "claude.site"].some((d) => host === d || host.endsWith(`.${d}`))
+  } catch {
+    return false
+  }
+}
+
+export function ClaudeLinkHint({ className }: { className?: string }) {
+  return (
+    <p className={cn("rounded-lg bg-accent px-3 py-2 text-sm text-muted-foreground", className)}>
+      Links do Claude não aparecem dentro do Ziv, só abrem em outra aba. Para ver o artifact aqui dentro: no Claude, abra o
+      artifact, use <strong className="font-medium text-foreground">Baixar</strong> (Download) e envie o arquivo{" "}
+      <code>.html</code> em <strong className="font-medium text-foreground">Subir arquivo</strong>.
+    </p>
+  )
+}
+
 // sourceReady is true once there is something valid to send.
 export const sourceReady = (v: ArtifactSource) => (v.kind === "link" ? v.url.trim() !== "" : !!v.file) && sourceError(v) === ""
 
@@ -86,6 +106,7 @@ export function ArtifactSourceField({ value, onChange }: { value: ArtifactSource
           />
         </>
       )}
+      {value.kind === "link" && !error && isClaudeLink(value.url) && <ClaudeLinkHint />}
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}
