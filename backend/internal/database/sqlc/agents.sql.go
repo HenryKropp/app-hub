@@ -461,7 +461,7 @@ func (q *Queries) LatestUpdateJob(ctx context.Context, computerID int64) (AgentJ
 }
 
 const listPersonComputers = `-- name: ListPersonComputers :many
-SELECT id, person_id, name, token_hash, agent_version, last_seen_at, created_at, revoked_at, can_update, can_stop, (last_seen_at > now() - interval '60 seconds')::boolean AS connected
+SELECT id, person_id, name, token_hash, agent_version, last_seen_at, created_at, revoked_at, can_update, can_stop, COALESCE(last_seen_at > now() - interval '60 seconds', FALSE)::boolean AS connected
 FROM computers
 WHERE person_id = $1 AND revoked_at IS NULL
 ORDER BY last_seen_at DESC NULLS LAST
