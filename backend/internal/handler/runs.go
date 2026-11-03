@@ -613,7 +613,36 @@ func (h *Handler) downloadAll(w http.ResponseWriter, r *http.Request) {
 		downloadError(w, r, http.StatusNotFound, "Essa execução não criou arquivos.")
 		return
 	}
-	h.sendFiles(w, r, row, files, row.AppName+" - resultados")
+	h.sendFiles(w, r, row, resultFiles(files), row.AppName+" - resultados")
+}
+
+// consoleLog is the file the Agente writes with what a script printed.
+const consoleLog = ".apphub-console.txt"
+
+func isConsoleLog(rel string) bool { return rel == consoleLog || strings.HasSuffix(rel, "/"+consoleLog) }
+
+// resultFiles leaves out the console log when the app also made files of its
+// own: the download button brings the result, not the record of what it
+// printed. A script that only prints keeps its log, since that is its result.
+func resultFiles(files []sqlc.RunFile) []sqlc.RunFile {
+	out := make([]sqlc.RunFile, 0, len(files))
+	for _, f := range files {
+		if !isConsoleLog(f.RelPath) {
+			out = append(out, f)
+		}
+	}
+	if len(out) == 0 {
+		return files
+	}
+	return out
+}
+
+// resultCount is how many files the download button brings (see resultFiles).
+func resultCount(total, console int64) int64 {
+	if total > console {
+		return total - console
+	}
+	return total
 }
 
 // sendFiles relays one file as itself, or several as a zip called zipLabel.
@@ -738,6 +767,7 @@ type activeRunJSON struct {
 	ErrorMessage string     `json:"error_message"`
 	OutputFolder string     `json:"output_folder"`
 	FileCount    int64      `json:"file_count"`
+	ResultCount  int64      `json:"result_count"`
 	CreatedAt    time.Time  `json:"created_at"`
 	FinishedAt   *time.Time `json:"finished_at"`
 	CanStop      bool       `json:"can_stop"`
@@ -780,7 +810,7 @@ func (h *Handler) activeRuns(w http.ResponseWriter, r *http.Request) {
 	out := make([]activeRunJSON, 0, len(rows))
 	for _, x := range rows {
 		out = append(out, activeRunJSON{ID: x.ID, AppID: x.AppID, AppName: x.AppName, AppFolder: hostpath.ToDisplay(x.AppFolderPath), Status: x.Status,
-			ErrorMessage: x.ErrorMessage, OutputFolder: x.OutputFolder, FileCount: x.FileCount, CreatedAt: x.CreatedAt.Time, FinishedAt: tsPtr(x.FinishedAt),
+			ErrorMessage: x.ErrorMessage, OutputFolder: x.OutputFolder, FileCount: x.FileCount, ResultCount: resultCount(x.FileCount, x.ConsoleCount), CreatedAt: x.CreatedAt.Time, FinishedAt: tsPtr(x.FinishedAt),
 			CanStop: canStop(x.Status, x.ComputerCanStop)})
 	}
 	writeJSON(w, http.StatusOK, out)
