@@ -594,6 +594,30 @@ func (h *Handler) downloadSelected(w http.ResponseWriter, r *http.Request) {
 		}
 		files = append(files, f)
 	}
+	h.sendFiles(w, r, row, files, row.AppName+" - arquivos escolhidos")
+}
+
+// downloadAll sends every file of the run, for the button on the run strip:
+// one file as itself, several as a zip.
+func (h *Handler) downloadAll(w http.ResponseWriter, r *http.Request) {
+	row, _, ok := h.runForPerson(w, r)
+	if !ok {
+		return
+	}
+	files, err := h.q.ListRunFiles(r.Context(), row.ID)
+	if err != nil {
+		internalError(w, "list run files", err)
+		return
+	}
+	if len(files) == 0 {
+		downloadError(w, r, http.StatusNotFound, "Essa execução não criou arquivos.")
+		return
+	}
+	h.sendFiles(w, r, row, files, row.AppName+" - resultados")
+}
+
+// sendFiles relays one file as itself, or several as a zip called zipLabel.
+func (h *Handler) sendFiles(w http.ResponseWriter, r *http.Request, row sqlc.GetRunRow, files []sqlc.RunFile, zipLabel string) {
 	if len(files) == 1 {
 		name := files[0].RelPath[strings.LastIndex(files[0].RelPath, "/")+1:]
 		ctype := mime.TypeByExtension(filepath.Ext(name))
@@ -607,7 +631,7 @@ func (h *Handler) downloadSelected(w http.ResponseWriter, r *http.Request) {
 	for _, f := range files {
 		paths = append(paths, f.RelPath)
 	}
-	h.relayFromAgent(w, r, row, agentproto.SendFilePayload{RunID: row.ID, Paths: paths, Zip: true}, zipName(row.AppName+" - arquivos escolhidos"), "application/zip")
+	h.relayFromAgent(w, r, row, agentproto.SendFilePayload{RunID: row.ID, Paths: paths, Zip: true}, zipName(zipLabel), "application/zip")
 }
 
 func zipName(s string) string {

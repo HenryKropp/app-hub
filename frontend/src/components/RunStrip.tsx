@@ -1,8 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import { CircleCheck, Info, TriangleAlert, X } from "lucide-react"
+import { CircleCheck, Download, Info, TriangleAlert, X } from "lucide-react"
 import { Playing, SavedIn } from "./bits"
-import type { ActiveRun } from "@/lib/api"
+import { runDownloadUrl, type ActiveRun } from "@/lib/api"
 import { useRuns } from "@/lib/runs-context"
 import { isLive } from "@/lib/runs"
 
@@ -170,9 +170,21 @@ export function RunStrip() {
                       Trocar pasta
                     </button>
                   )}
-                  <button type="button" className={r.status === "done" || (r.status === "stopped" && r.file_count > 0) ? PRIMARY : ACTION} onClick={() => open(r.id)}>
-                    {r.status === "done" || (r.status === "stopped" && r.file_count > 0) ? "Ver e baixar" : "Ver detalhes"}
-                  </button>
+                  {(r.status === "done" || r.status === "stopped") && r.file_count > 0 ? (
+                    <>
+                      <button type="button" className={ACTION} onClick={() => open(r.id)}>
+                        Ver arquivos
+                      </button>
+                      <a href={runDownloadUrl(r.id)} download className={`${PRIMARY} inline-flex items-center gap-1.5`}
+                        title={r.file_count === 1 ? "Baixa o arquivo" : `Baixa os ${r.file_count} arquivos num .zip`}>
+                        <Download className="size-3.5" /> {r.file_count === 1 ? "Baixar" : "Baixar tudo"}
+                      </a>
+                    </>
+                  ) : (
+                    <button type="button" className={ACTION} onClick={() => open(r.id)}>
+                      Ver detalhes
+                    </button>
+                  )}
                   <Dismiss onClick={() => dismiss(r.id)} />
                 </>
               )

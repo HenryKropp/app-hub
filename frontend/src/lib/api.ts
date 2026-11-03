@@ -446,6 +446,7 @@ export const api = {
 export const AGENT_DOWNLOAD_URL = workspaceUrl("/api/agent/download")
 export const fileUrl = (runId: number, fileId: number) => workspaceUrl(`/api/runs/${runId}/files/${fileId}`)
 export const groupZipUrl = (runId: number, index: number) => workspaceUrl(`/api/runs/${runId}/groups/${index}/zip`)
+export const runDownloadUrl = (runId: number) => workspaceUrl(`/api/runs/${runId}/download`)
 export const selectedUrl = (runId: number, fileIds: number[]) => workspaceUrl(`/api/runs/${runId}/selected?files=${fileIds.join(",")}`)
 export const backupDownloadUrl = (id: number, bid: number) => workspaceUrl(`/api/apps/${id}/shared/backups/${bid}/download`)
 export const openSharedUrl = (slug: string, test = false) =>

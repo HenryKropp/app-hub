@@ -60,16 +60,28 @@ test("waiting run says it is opening", async () => {
   expect(await screen.findByText(/no seu computador…/)).toHaveTextContent("Abrindo Eq. Research Files Prep no seu computador…")
 })
 
-test("done run offers Ver e baixar, which dismisses and opens the run", async () => {
+test("done run offers Ver arquivos, which dismisses and opens the run", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "activeRuns").mockResolvedValue([activeRun({ status: "done", file_count: 4 })])
   const dismiss = vi.spyOn(api, "dismissRun").mockResolvedValue()
   mount()
   expect(await screen.findByText(/terminou: 4 arquivos novos/)).toBeInTheDocument()
   expect(screen.getByText("Salva em")).toBeInTheDocument()
-  await user.click(screen.getByRole("button", { name: "Ver e baixar" }))
+  expect(screen.getByRole("link", { name: "Baixar tudo" })).toHaveAttribute("href", expect.stringMatching(/\/api\/runs\/7\/download$/))
+  await user.click(screen.getByRole("button", { name: "Ver arquivos" }))
   expect(dismiss).toHaveBeenCalledWith(7)
   expect(await screen.findByText("página da execução")).toBeInTheDocument()
+})
+
+test("a run with one file offers Baixar; one without files offers no download", async () => {
+  vi.spyOn(api, "activeRuns").mockResolvedValue([
+    activeRun({ id: 1, status: "done", file_count: 1 }),
+    activeRun({ id: 2, status: "no_files", file_count: 0 }),
+  ])
+  mount()
+  expect(await screen.findByRole("link", { name: "Baixar" })).toHaveAttribute("href", expect.stringMatching(/\/api\/runs\/1\/download$/))
+  expect(screen.queryByRole("link", { name: "Baixar tudo" })).not.toBeInTheDocument()
+  expect(screen.getAllByRole("link", { name: /Baixar/ })).toHaveLength(1)
 })
 
 test("each ending has its own text", async () => {
@@ -265,6 +277,7 @@ test("stopped run tells it was stopped and offers its files", async () => {
   vi.spyOn(api, "activeRuns").mockResolvedValue([activeRun({ status: "stopped", file_count: 2 })])
   mount()
   expect(await screen.findByText(/Você parou o/)).toHaveTextContent("Você parou o Eq. Research Files Prep: 2 arquivos novos até ali")
-  expect(screen.getByRole("button", { name: "Ver e baixar" })).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "Ver arquivos" })).toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "Baixar tudo" })).toBeInTheDocument()
   expect(screen.queryByRole("alert")).not.toBeInTheDocument()
 })

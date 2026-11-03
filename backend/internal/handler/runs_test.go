@@ -461,6 +461,55 @@ func TestDownloadSelectedFiles(t *testing.T) {
 	}
 }
 
+func TestDownloadAllFiles(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	now := time.Now()
+	runID, token := finishedRun(t, c, []agentproto.FileEntry{
+		{Path: "P/FRE/a.pdf", Size: 1, Modified: now, Change: "new"},
+		{Path: "log.txt", Size: 1, Modified: now, Change: "new"},
+	})
+	sent := fakeAgentSend(t, c, token, "PK", false)
+	resp, err := c.c.Get(c.srv.URL + "/api/runs/" + strconv.FormatInt(runID, 10) + "/download")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	p := recvPayload(t, sent)
+	if resp.StatusCode != http.StatusOK || !p.Zip || len(p.Paths) != 2 {
+		t.Fatalf("%d payload %+v", resp.StatusCode, p)
+	}
+	if cd := resp.Header.Get("Content-Disposition"); !strings.Contains(cd, "resultados.zip") {
+		t.Fatalf("disposition %q", cd)
+	}
+}
+
+func TestDownloadAllSingleFileComesAsItself(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	runID, token := finishedRun(t, c, []agentproto.FileEntry{{Path: "sub/ola.txt", Size: 3, Modified: time.Now(), Change: "new"}})
+	sent := fakeAgentSend(t, c, token, "olá", false)
+	resp, err := c.c.Get(c.srv.URL + "/api/runs/" + strconv.FormatInt(runID, 10) + "/download")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	p := recvPayload(t, sent)
+	if resp.StatusCode != http.StatusOK || p.Zip || string(b) != "olá" || !strings.Contains(resp.Header.Get("Content-Disposition"), "ola.txt") {
+		t.Fatalf("%d %q payload %+v", resp.StatusCode, b, p)
+	}
+}
+
+func TestDownloadAllWithoutFiles(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	runID, _ := finishedRun(t, c, nil)
+	if code := c.do("GET", "/api/runs/"+strconv.FormatInt(runID, 10)+"/download", nil, nil); code != http.StatusNotFound {
+		t.Fatalf("got %d", code)
+	}
+}
+
 func TestDownloadSelectedRefusesForeignOrEmpty(t *testing.T) {
 	c, _ := newPoolClient(t)
 	setupAdmin(t, c)
