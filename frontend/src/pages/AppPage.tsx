@@ -11,6 +11,7 @@ import { BuildView, InputList, Notes, OtherApps, OutputList, People, RunList } f
 import { MakeShared, SharedSection } from "@/components/ficha/shared/SharedSection"
 import { AppControlBar } from "@/components/ficha/AppControl"
 import { Tech } from "@/components/ficha/shared/Tech"
+import { FavoriteStar } from "@/components/FavoriteStar"
 import { api, openSharedUrl, type AppDetail, type AppSummary, type Area, type Manifest, type PersonRow, type RunSummary } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
@@ -201,8 +202,8 @@ export function AppPage() {
 
   return (
     <article>
-      <Link to="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" /> Catálogo
+      <Link to="/apps" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="size-4" /> Apps
       </Link>
       <header className="flex flex-col gap-5 pb-8 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0 flex-1">
@@ -213,7 +214,10 @@ export function AppPage() {
             </div>
           ) : (
             <>
-              <h1 className="font-heading text-3xl leading-tight md:text-4xl">{m.name}</h1>
+              <h1 className="flex items-center gap-2 font-heading text-3xl leading-tight md:text-4xl">
+                {m.name}
+                <FavoriteStar kind="app" id={app.id} on={app.favorite} name={m.name} />
+              </h1>
               <p className="mt-3 max-w-[68ch] text-base leading-relaxed text-muted-foreground">
                 {m.summary || "Sem resumo ainda."}
                 {can.edit && (

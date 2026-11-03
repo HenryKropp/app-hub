@@ -8,6 +8,7 @@ import { Field, LoadError, NativeSelect, PageHeader } from "@/components/bits"
 import { AccessSection } from "@/components/ficha/AccessSection"
 import { EditLink, Section } from "@/components/ficha/Part"
 import { ArtifactSourceField, ClaudeLinkHint, isClaudeLink, readAsBase64, sourceReady, type ArtifactSource } from "@/components/ArtifactSourceField"
+import { FavoriteStar } from "@/components/FavoriteStar"
 import { ApiError, api, artifactContentUrl, type Area, type ArtifactDetail, type PersonRow } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { has } from "@/lib/permissions"
@@ -90,7 +91,10 @@ export function ArtifactPage() {
             <ArrowLeft className="size-3.5" />
             Artifacts
           </Link>
-          <h1 className="font-heading text-2xl leading-tight md:text-[1.75rem]">{art.name}</h1>
+          <h1 className="flex items-center gap-2 font-heading text-2xl leading-tight md:text-[1.75rem]">
+            {art.name}
+            <FavoriteStar kind="artifact" id={art.id} on={art.favorite} name={art.name} />
+          </h1>
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
             <span>{art.area}</span>
             {art.tags.map((t) => (

@@ -4,6 +4,7 @@ import { FileCode2, Link2, Lock, Plus, Search, X } from "lucide-react"
 import { buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EmptyState, LoadError, NativeSelect, PageHeader } from "@/components/bits"
+import { FavoriteStar } from "@/components/FavoriteStar"
 import { api, type ArtifactSummary } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { canRegister } from "@/lib/permissions"
@@ -129,6 +130,7 @@ export function ArtifactsPage() {
                     {a.name}
                   </Link>
                   {a.restricted && <Lock aria-label="Restrito" className="mt-1 size-3.5 shrink-0 text-muted-foreground" />}
+                  <span className="ml-auto -mt-0.5 -mr-1.5"><FavoriteStar kind="artifact" id={a.id} on={a.favorite} name={a.name} /></span>
                 </h2>
                 <p className="mt-1.5 line-clamp-1 text-sm text-muted-foreground">{a.summary || "Sem resumo ainda."}</p>
                 {a.tags.length > 0 && (

@@ -399,3 +399,11 @@ it("says what to do when the ficha does not reload after a shared change", async
   await user.click(screen.getByRole("button", { name: "Sim, parar" }))
   await vi.waitFor(() => expect(err).toHaveBeenCalledWith("Não consegui atualizar a ficha. Recarregue a página para ver o estado novo."))
 })
+
+test("the back link goes to /apps and the title has a star", async () => {
+  base(detail({ favorite: true }))
+  renderAt()
+  await screen.findByRole("heading", { name: "Eq. Research Files Prep" })
+  expect(screen.getByRole("link", { name: /Apps/ })).toHaveAttribute("href", "/apps")
+  expect(screen.getByRole("button", { name: "Tirar Eq. Research Files Prep dos favoritos" })).toHaveAttribute("aria-pressed", "true")
+})

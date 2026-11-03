@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
-import { History, KeyRound, LayoutDashboard, LibraryBig, ListChecks, PanelsTopLeft, LogOut, Server, Settings, Users } from "lucide-react"
+import { History, House, KeyRound, LayoutDashboard, LibraryBig, ListChecks, PanelsTopLeft, LogOut, Server, Settings, Users } from "lucide-react"
 import { api, type Person } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { canRegister, canSeeServer, canSeeTeam, has } from "@/lib/permissions"
@@ -19,7 +19,8 @@ import { AgentBanner } from "./AgentDownload"
 import { ComputerStatusProvider } from "@/lib/computer-status"
 
 const NAV = [
-  { to: "/", label: "Catálogo", icon: LibraryBig, show: (_p: Person) => true },
+  { to: "/", label: "Home", icon: House, show: (_p: Person) => true },
+  { to: "/apps", label: "Apps", icon: LibraryBig, show: (_p: Person) => true },
   { to: "/artifacts", label: "Artifacts", icon: PanelsTopLeft, show: (_p: Person) => true },
   { to: "/execucoes", label: "Minhas execuções", icon: History, show: (_p: Person) => true },
   { to: "/equipe", label: "Equipe", icon: Users, show: canSeeTeam },
@@ -54,7 +55,7 @@ const initials = (name: string) =>
 function Shell() {
   const { person, setPerson } = useAuth()
   const navigate = useNavigate()
-  // Registrar apps opens from the catalog's +, so it counts as the catalog.
+  // Registrar apps opens from the Apps page's +, so it counts as Apps.
   const path = useLocation().pathname
   const inCatalog = path.startsWith("/registrar")
   // Pages that already are about connecting the computer skip the strip.
@@ -106,11 +107,11 @@ function Shell() {
               key={to}
               to={to}
               end={to === "/"}
-              className={({ isActive }) => cn(NAV_ITEM, isActive || (to === "/" && inCatalog) ? NAV_ON : NAV_OFF)}
+              className={({ isActive }) => cn(NAV_ITEM, isActive || (to === "/apps" && inCatalog) ? NAV_ON : NAV_OFF)}
             >
               {({ isActive }) => (
                 <>
-                  <Icon className={cn("size-4", (isActive || (to === "/" && inCatalog)) && "text-foreground")} />
+                  <Icon className={cn("size-4", (isActive || (to === "/apps" && inCatalog)) && "text-foreground")} />
                   {label}
                   {to === "/execucoes" && openCount > 0 && (
                     <span aria-label={`${openCount} ${openCount === 1 ? "aberto" : "abertos"} agora`} className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-foreground">

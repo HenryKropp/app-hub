@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
+import { FavoriteStar } from "@/components/FavoriteStar"
 import { ArrowRight, ExternalLink, Lock, Play, Plus, Search, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { SharedStatusDot } from "@/components/SharedStatus"
@@ -123,11 +124,14 @@ export function CatalogPage() {
             <li key={a.id}>
               {/* The title link covers the card (after:inset-0); Rodar sits above it. */}
               <div className="group relative flex h-full min-h-44 flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-input hover:bg-[color-mix(in_oklch,var(--card),var(--foreground)_1.5%)]">
-                <h2 className="font-heading text-[1.05rem] leading-snug">
+                <h2 className="flex items-start gap-1 font-heading text-[1.05rem] leading-snug">
+                  <span className="min-w-0 flex-1">
                   <Link to={`/apps/${a.id}`} className="after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring">
                     {a.name}
                   </Link>
                   {a.restricted && <Lock aria-label="Restrito" className="ml-1.5 inline size-3.5 align-[-1px] text-muted-foreground" />}
+                  </span>
+                  <FavoriteStar kind="app" id={a.id} on={a.favorite} name={a.name} />
                 </h2>
                 <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{a.summary || "Sem resumo ainda."}</p>
                 <div className="mt-auto flex items-end justify-between gap-3 pt-5 text-xs text-muted-foreground">

@@ -138,6 +138,7 @@ export type AppSummary = {
   restricted: boolean
   can: Can
   shared: SharedBrief | null
+  favorite: boolean
 }
 
 export type AppDetail = {
@@ -156,6 +157,7 @@ export type AppDetail = {
   restricted: boolean
   can: Can
   shared: SharedBrief | null
+  favorite: boolean
   /** Approval and suspension; null outside a company portal. */
   control?: AppControl | null
   /** Only in the answer of PUT /shared: the running app must start again for the change to count. */
@@ -252,6 +254,26 @@ export type RestoreResult = { number: number; done: string[]; failed: { path: st
 export type ArtifactSummary = {
   id: number; name: string; summary: string; kind: "link" | "file"; tags: string[]
   area_id: number; area: string; owner_name: string; restricted: boolean; version: number; updated_at: string
+  favorite: boolean
+}
+export type HomeItem = { kind: "app" | "artifact"; id: number; name: string; summary: string; area: string; used_at?: string }
+export type HomeWarning = {
+  kind: "run_error" | "run_waiting" | "computer_offline" | "agent_outdated" | "shared_crashed" | "app_errors" | "approval_pending"
+  at: string // when it happened (run created, last seen, status changed, now)
+  app_id?: number; app_name?: string; run_id?: number
+  computer_name?: string; count?: number
+}
+export type Home = { attention: HomeWarning[]; favorites: HomeItem[]; recent: HomeItem[]; runs: RunListItem[] }
+export type TeamHome = {
+  scope: "company" | "areas"; areas: string[] // names of led areas when scope = "areas"
+  usage: { person_id: number; name: string; runs_7d: number; opens_7d: number }[]
+  never_used: { person_id: number; name: string }[]
+  creating: { kind: "app" | "artifact"; id: number; name: string; person_name: string; event: "created" | "new_version"; version: number; at: string }[]
+  pending: null | {
+    invitations: { id: number; email: string; created_at: string; expired: boolean }[]
+    requests: { id: number; name: string; email: string; created_at: string }[]
+    without_area: { id: number; name: string }[]
+  }
 }
 export type ArtifactVersion = {
   number: number; kind: "link" | "file"; url: string; file_name: string; size: number; note: string
@@ -396,6 +418,10 @@ export const api = {
     request<AppAccess>("PUT", `/api/apps/${id}/access`, b),
   setGrants: (id: number, b: { person_id: number; permissions: string[]; whole_area: boolean }) =>
     request<AppAccess>("PUT", `/api/apps/${id}/grants`, b),
+  home: () => request<Home>("GET", "/api/home"),
+  homeTeam: () => request<TeamHome>("GET", "/api/home/team"),
+  setFavorite: (kind: "app" | "artifact", id: number, on: boolean) =>
+    request<void>(on ? "PUT" : "DELETE", `/api/favorites/${kind}/${id}`),
   artifacts: () => request<ArtifactSummary[]>("GET", "/api/artifacts"),
   artifact: (id: number) => request<ArtifactDetail>("GET", `/api/artifacts/${id}`),
   createArtifact: (b: ArtifactInput) => request<ArtifactDetail>("POST", "/api/artifacts", b),

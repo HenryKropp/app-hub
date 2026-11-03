@@ -141,3 +141,10 @@ test("does not offer Abrir for a draft shared app", async () => {
   expect(screen.queryByRole("link", { name: "Abrir Notas" })).not.toBeInTheDocument()
   expect(screen.getByRole("button", { name: "Rodar Notas" })).toBeInTheDocument()
 })
+
+test("each card has a star that reflects favorite", async () => {
+  vi.spyOn(api, "apps").mockResolvedValue([appSummary({ favorite: true }), appSummary({ id: 4, name: "Outro", favorite: false })])
+  mount()
+  expect(await screen.findByRole("button", { name: "Tirar Eq. Research Files Prep dos favoritos" })).toHaveAttribute("aria-pressed", "true")
+  expect(screen.getByRole("button", { name: "Marcar Outro como favorito" })).toHaveAttribute("aria-pressed", "false")
+})
