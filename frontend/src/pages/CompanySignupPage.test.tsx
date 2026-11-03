@@ -27,7 +27,7 @@ async function fill(values: Partial<Record<"company" | "name" | "email" | "passw
 
 const submit = () => userEvent.click(screen.getByRole("button", { name: /Criar espaço da empresa/ }))
 
-test("signup creates the company, signs in to it and opens Começar", async () => {
+test("signup creates the company, signs in to it and opens the Agente step", async () => {
   const create = vi.spyOn(api, "createEntryCompany").mockResolvedValue({ url: "/w/horizonte/", name: "Horizonte", slug: "horizonte" })
   const login = vi.spyOn(api, "loginAt").mockResolvedValue({} as never)
   const { assign } = setup()
@@ -44,7 +44,7 @@ test("signup creates the company, signs in to it and opens Começar", async () =
     password: "senha-forte-123",
   })
   expect(login).toHaveBeenCalledWith("/w/horizonte", { email: "ana@example.com", password: "senha-forte-123" })
-  expect(assign).toHaveBeenCalledWith("/w/horizonte/comecar")
+  expect(assign).toHaveBeenCalledWith("/w/horizonte/instalar-agente")
 })
 
 test("if signing in after signup fails, the company still exists and the page opens its sign-in", async () => {

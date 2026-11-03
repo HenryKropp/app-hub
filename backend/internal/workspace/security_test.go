@@ -1,13 +1,16 @@
 package workspace
 
 import (
-	"archive/zip"
 	"bytes"
 	"context"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
 )
 
 func TestPortalRetentionAndTenantAgent(t *testing.T) {
@@ -84,31 +87,18 @@ func TestPortalRetentionAndTenantAgent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resp.StatusCode != 200 || resp.Header.Get("Content-Type") != "application/zip" {
-		t.Fatal("tenant agent package missing")
+	if resp.StatusCode != 200 || !strings.Contains(resp.Header.Get("Content-Disposition"), "ZivAgente-secure-company.exe") {
+		t.Fatal("tenant agent download missing")
 	}
-	z, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if err != nil {
+	exe := filepath.Join(t.TempDir(), "ZivAgente-secure-company.exe")
+	if err := os.WriteFile(exe, data, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	sidecar := ""
-	foundExe := false
-	for _, f := range z.File {
-		if f.Name == "ZivAgente.exe" {
-			foundExe = true
-		}
-		if f.Name == "apphub-url.txt" {
-			file, err := f.Open()
-			if err != nil {
-				t.Fatal(err)
-			}
-			raw, _ := io.ReadAll(file)
-			file.Close()
-			sidecar = string(raw)
-		}
+	if !bytes.HasPrefix(data, []byte("fixture binary")) {
+		t.Fatal("agent download lost the program")
 	}
-	if !foundExe || sidecar != "http://localhost"+prefix+"\n" {
-		t.Fatal("agent ZIP is not scoped to company URL")
+	if tagged, err := agentproto.ReadHubURLTrailer(exe); err != nil || tagged != "http://localhost"+prefix {
+		t.Fatalf("agent EXE is not scoped to company URL: %q %v", tagged, err)
 	}
 	req, _ = http.NewRequest("GET", srv.URL+"/api/agent/download", nil)
 	resp, err = b.c.Do(req)

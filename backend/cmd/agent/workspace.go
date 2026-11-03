@@ -9,10 +9,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
 )
 
-// The ZIP distributed by a company contains a non-secret endpoint sidecar.
-// Persist it alongside the installed agent so auto-updates retain the company.
+// A company's download is one EXE with the company's address appended
+// (agentproto trailer); older downloads were a ZIP with an apphub-url.txt
+// sidecar. Persist the address next to the installed agent so auto-updates
+// retain the company.
 func configureWorkspace(executable, root string) (string, error) {
 	if b, err := os.ReadFile(filepath.Join(filepath.Dir(executable), "apphub-url.txt")); err == nil {
 		if len(b) > 2048 {
@@ -21,6 +25,10 @@ func configureWorkspace(executable, root string) (string, error) {
 		hubURL = strings.TrimSpace(string(b))
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return "", err
+	} else if tagged, err := agentproto.ReadHubURLTrailer(executable); err != nil {
+		return "", err
+	} else if tagged != "" {
+		hubURL = tagged
 	}
 	if v := os.Getenv("APPHUB_URL"); v != "" {
 		hubURL = v

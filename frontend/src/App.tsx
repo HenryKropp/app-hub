@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from "@/lib/auth"
 import { ThemeProvider } from "@/lib/theme"
 import { AppPage } from "@/pages/AppPage"
 import { CatalogPage } from "@/pages/CatalogPage"
+import { InstallAgentPage } from "./pages/InstallAgentPage"
 import { ConnectPage } from "@/pages/ConnectPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { canRegister } from "@/lib/permissions"
@@ -71,6 +72,7 @@ function Routed() {
         <Route path="comecar" element={<SetupPage />} />
         <Route path="meu-computador" element={<Navigate to="/configuracoes" replace />} />
         <Route path="conectar" element={<ConnectPage />} />
+        <Route path="instalar-agente" element={<InstallAgentPage />} />
         <Route path="execucoes" element={<MyRunsPage />} />
         <Route path="execucoes/:id" element={<RunPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

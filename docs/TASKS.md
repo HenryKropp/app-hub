@@ -255,3 +255,13 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Confirmação de e-mail no cadastro | Pending | Precisa de SMTP |
 | Limite de login compartilhado entre cópias do servidor | Pending | Hoje é por cópia |
 | Apps compartilhados por empresa | Pending | Nomes de containers, redes e endereços por empresa |
+
+## Agente sem atrito (2026-11-03, ADR 016)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Agente das empresas em um EXE só, com o endereço dentro | Done | Sem ZIP; `ZivAgente-<empresa>.exe` |
+| Tela "Conecte seu computador" logo após o cadastro | Done | `/instalar-agente`; acompanha a conexão ao vivo; dá para pular |
+| Aviso de computador desconectado (faixa + diálogo no Rodar) | Done | "Sem o Agente, não será possível rodar os apps do catálogo." |
+| Começar sem a etapa do nome da empresa | Done | 4 etapas |
+| Teste no Windows do EXE com endereço dentro | Pending | Precisa recompilar o Agente |
