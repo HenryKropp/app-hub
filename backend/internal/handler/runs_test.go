@@ -501,6 +501,51 @@ func TestDownloadAllSingleFileComesAsItself(t *testing.T) {
 	}
 }
 
+func TestDownloadAllLeavesOutConsoleLog(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	now := time.Now()
+	runID, token := finishedRun(t, c, []agentproto.FileEntry{
+		{Path: "Execucao-1/ola.txt", Size: 3, Modified: now, Change: "new"},
+		{Path: "Execucao-1/.apphub-console.txt", Size: 9, Modified: now, Change: "new"},
+	})
+	var active []activeRunJSON
+	c.do("GET", "/api/runs/active", nil, &active)
+	if len(active) != 1 || active[0].FileCount != 2 || active[0].ResultCount != 1 {
+		t.Fatalf("active %+v", active)
+	}
+	sent := fakeAgentSend(t, c, token, "olá", false)
+	resp, err := c.c.Get(c.srv.URL + "/api/runs/" + strconv.FormatInt(runID, 10) + "/download")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	p := recvPayload(t, sent)
+	if p.Zip || len(p.Paths) != 1 || p.Paths[0] != "Execucao-1/ola.txt" {
+		t.Fatalf("payload %+v", p)
+	}
+}
+
+func TestDownloadAllKeepsConsoleLogWhenItIsTheResult(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	runID, token := finishedRun(t, c, []agentproto.FileEntry{{Path: "Execucao-1/.apphub-console.txt", Size: 9, Modified: time.Now(), Change: "new"}})
+	var active []activeRunJSON
+	c.do("GET", "/api/runs/active", nil, &active)
+	if len(active) != 1 || active[0].ResultCount != 1 {
+		t.Fatalf("active %+v", active)
+	}
+	sent := fakeAgentSend(t, c, token, "saida", false)
+	resp, err := c.c.Get(c.srv.URL + "/api/runs/" + strconv.FormatInt(runID, 10) + "/download")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if p := recvPayload(t, sent); len(p.Paths) != 1 || p.Paths[0] != "Execucao-1/.apphub-console.txt" {
+		t.Fatalf("payload %+v", p)
+	}
+}
+
 func TestDownloadAllWithoutFiles(t *testing.T) {
 	c, _ := newPoolClient(t)
 	setupAdmin(t, c)

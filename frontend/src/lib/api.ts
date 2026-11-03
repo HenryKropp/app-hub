@@ -186,6 +186,8 @@ export type Run = {
 export type ActiveRun = {
   id: number; app_id: number; app_name: string; app_folder_display: string; status: RunStatus; error_message: string
   output_folder: string; file_count: number; created_at: string; finished_at: string | null; can_stop: boolean
+  /** Files the Baixar button brings: the console log is left out when the app made files of its own. */
+  result_count?: number
 }
 export type RunListItem = {
   id: number; app_id: number; app_name: string; status: RunStatus; output_folder: string; person_id: number; person_name: string

@@ -176,8 +176,8 @@ export function RunStrip() {
                         Ver arquivos
                       </button>
                       <a href={runDownloadUrl(r.id)} download className={`${PRIMARY} inline-flex items-center gap-1.5`}
-                        title={r.file_count === 1 ? "Baixa o arquivo" : `Baixa os ${r.file_count} arquivos num .zip`}>
-                        <Download className="size-3.5" /> {r.file_count === 1 ? "Baixar" : "Baixar tudo"}
+                        title={(r.result_count ?? r.file_count) === 1 ? "Baixa o resultado" : `Baixa os ${r.result_count ?? r.file_count} arquivos num .zip`}>
+                        <Download className="size-3.5" /> {(r.result_count ?? r.file_count) === 1 ? "Baixar" : "Baixar tudo"}
                       </a>
                     </>
                   ) : (

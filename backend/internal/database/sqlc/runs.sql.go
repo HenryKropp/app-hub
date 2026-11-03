@@ -238,7 +238,9 @@ func (q *Queries) GetRunFolder(ctx context.Context, arg GetRunFolderParams) (str
 
 const listActiveRuns = `-- name: ListActiveRuns :many
 SELECT r.id, r.app_id, a.name AS app_name, a.folder_path AS app_folder_path, r.status, r.error_message, r.output_folder, r.created_at, r.finished_at,
-       (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count, c.can_stop AS computer_can_stop
+       (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count,
+       (SELECT count(*) FROM run_files f WHERE f.run_id = r.id AND f.rel_path ~ '(^|/)\.apphub-console\.txt$') AS console_count,
+       c.can_stop AS computer_can_stop
 FROM runs r
 JOIN apps a ON a.id = r.app_id
 JOIN computers c ON c.id = r.computer_id
@@ -258,6 +260,7 @@ type ListActiveRunsRow struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	FinishedAt      pgtype.Timestamptz `json:"finished_at"`
 	FileCount       int64              `json:"file_count"`
+	ConsoleCount    int64              `json:"console_count"`
 	ComputerCanStop bool               `json:"computer_can_stop"`
 }
 
@@ -281,6 +284,7 @@ func (q *Queries) ListActiveRuns(ctx context.Context, personID int64) ([]ListAct
 			&i.CreatedAt,
 			&i.FinishedAt,
 			&i.FileCount,
+			&i.ConsoleCount,
 			&i.ComputerCanStop,
 		); err != nil {
 			return nil, err

@@ -84,6 +84,14 @@ test("a run with one file offers Baixar; one without files offers no download", 
   expect(screen.getAllByRole("link", { name: /Baixar/ })).toHaveLength(1)
 })
 
+test("a run with its file and the console log offers Baixar, for the result only", async () => {
+  vi.spyOn(api, "activeRuns").mockResolvedValue([activeRun({ status: "done", file_count: 2, result_count: 1 })])
+  mount()
+  expect(await screen.findByText(/terminou: 2 arquivos novos/)).toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "Baixar" })).toBeInTheDocument()
+  expect(screen.queryByRole("link", { name: "Baixar tudo" })).not.toBeInTheDocument()
+})
+
 test("each ending has its own text", async () => {
   vi.spyOn(api, "activeRuns").mockResolvedValue([
     activeRun({ id: 1, status: "no_files" }),
