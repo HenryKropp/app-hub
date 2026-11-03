@@ -21,6 +21,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/config"
 	"github.com/HenryKropp/app-hub/backend/internal/database"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
+	"github.com/HenryKropp/app-hub/backend/internal/handler"
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -324,6 +325,25 @@ func TestPortalSharedRuntimeFailsClosed(t *testing.T) {
 	var jobs int
 	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM shared_deployments`).Scan(&jobs); err != nil || jobs != 0 {
 		t.Fatalf("disabled shared runtime created deployments: count=%d err=%v", jobs, err)
+	}
+}
+
+// The shared-app runtime is plugged into the main company only, never into
+// a company created by signup.
+func TestPortalPrincipalHookSkipsOtherCompanies(t *testing.T) {
+	p, pool, srv := testPortal(t)
+	b := browser(t, srv.URL)
+	credentials := map[string]any{"name": "Test admin", "email": "admin@example.test", "password": "test-password-not-a-real-secret"}
+	b.want("POST", "/api/auth/setup", credentials, 201)
+	b.want("POST", "/api/workspaces", map[string]any{"name": "Other company", "slug": "other-company", "password": credentials["password"]}, 201)
+	calls := 0
+	p2, err := New(context.Background(), pool, p.cfg, WithPrincipal(func(*handler.Handler) { calls++ }))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p2.Close()
+	if len(p2.entries) < 2 || calls != 1 {
+		t.Fatalf("principal hook ran %d times for %d companies", calls, len(p2.entries))
 	}
 }
 
