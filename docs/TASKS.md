@@ -289,4 +289,5 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Atualização automática do Agente de uma empresa (`/w/<empresa>`) falhava e voltava atrás | Done | O Ziv mandava o EXE sem o endereço da empresa; agora a atualização leva o mesmo final de arquivo do download. Testado no Windows: 0.3.2 → 0.3.3 em 5 s |
 | Ao reabrir um app importado depois de o PC reiniciar, duas leituras ao mesmo tempo recriam a pasta e uma dá erro | Pending | Visto no log (`restore imported working copy`); some na segunda leitura; corrigir com trava |
 | Nome da subpasta de resultados ("Execucao-N") | Pending | Henry: depende de cada app; nada decidido |
+| Botão Baixar na faixa de andamento | Done | Quando o app termina com arquivos, a faixa mostra "Baixar" (1 arquivo, vem ele mesmo) ou "Baixar tudo" (vários, num .zip), além de "Ver arquivos". Rota `GET /api/runs/{id}/download` |
 

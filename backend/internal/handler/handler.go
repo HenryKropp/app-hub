@@ -168,6 +168,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/runs/{id}/files/{fileId}", h.downloadFile)
 	mux.HandleFunc("GET /api/runs/{id}/groups/{index}/zip", h.downloadGroup)
 	mux.HandleFunc("GET /api/runs/{id}/selected", h.downloadSelected)
+	mux.HandleFunc("GET /api/runs/{id}/download", h.downloadAll)
 	mux.HandleFunc("POST /api/agent/jobs/{id}/upload", h.agentUpload)
 
 	mux.HandleFunc("POST /api/agent/pair/start", h.pairStart)
