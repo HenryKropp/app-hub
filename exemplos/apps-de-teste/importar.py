@@ -2,7 +2,10 @@
 
 Uso: python3 importar.py [endereço] [e-mail]
 Padrão: http://localhost:5173 e o e-mail de Henry. Apps que já existem são pulados.
+Empresas criadas pelo cadastro (/w/<empresa>) não aceitam o login de desenvolvimento:
+passe uma sessão válida em ZIV_SESSAO (valor do cookie hub_session).
 """
+import os
 import base64
 import http.cookiejar
 import json
@@ -44,12 +47,16 @@ web = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
 
 
 def chamar(method, path, body=None):
-    req = urllib.request.Request(BASE + path, method=method, data=json.dumps(body).encode() if body is not None else None, headers={"Content-Type": "application/json", "Origin": BASE})
+    headers = {"Content-Type": "application/json", "Origin": BASE.split("/w/")[0]}
+    if os.environ.get("ZIV_SESSAO"):
+        headers["Cookie"] = "hub_session=" + os.environ["ZIV_SESSAO"]
+    req = urllib.request.Request(BASE + path, method=method, data=json.dumps(body).encode() if body is not None else None, headers=headers)
     with web.open(req) as r:
         return json.loads(r.read() or b"null")
 
 
-chamar("POST", "/api/dev/login", {"email": EMAIL})
+if not os.environ.get("ZIV_SESSAO"):
+    chamar("POST", "/api/dev/login", {"email": EMAIL})
 existentes = {a["manifest"]["name"] if "manifest" in a else a.get("name") for a in chamar("GET", "/api/apps")}
 for pasta, nome, area, resumo, inputs, outputs in APPS:
     if nome in existentes:
