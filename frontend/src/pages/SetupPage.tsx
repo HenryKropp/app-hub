@@ -58,8 +58,8 @@ export function SetupPage() {
       <AgentDownloadButton variant="outline" available={onboarding.agent_available} />
       <Link to="/instalar-agente" className="inline-flex h-9 items-center gap-2 px-2 text-sm text-muted-foreground hover:text-foreground"><Laptop className="size-4" /> Passo a passo</Link>
     </div>,
-    <div key="apps-actions" className="mt-4 flex gap-2"><Link to="/registrar" className={cn(buttonVariants({ variant: "outline" }), "gap-2")}><WandSparkles className="size-4" /> Registrar app</Link><Link to="/" className="inline-flex h-9 items-center px-2 text-sm text-muted-foreground hover:text-foreground">Ver catálogo</Link></div>,
-    <div key="run-actions" className="mt-4 flex gap-2"><Link to="/" className={cn(buttonVariants({ variant: "default" }))}>Abrir catálogo</Link><Link to="/execucoes" className="inline-flex h-9 items-center px-2 text-sm text-muted-foreground hover:text-foreground">Ver execuções</Link></div>,
+    <div key="apps-actions" className="mt-4 flex gap-2"><Link to="/registrar" className={cn(buttonVariants({ variant: "outline" }), "gap-2")}><WandSparkles className="size-4" /> Registrar app</Link><Link to="/apps" className="inline-flex h-9 items-center px-2 text-sm text-muted-foreground hover:text-foreground">Ver catálogo</Link></div>,
+    <div key="run-actions" className="mt-4 flex gap-2"><Link to="/apps" className={cn(buttonVariants({ variant: "default" }))}>Abrir catálogo</Link><Link to="/execucoes" className="inline-flex h-9 items-center px-2 text-sm text-muted-foreground hover:text-foreground">Ver execuções</Link></div>,
     <div key="team-actions" className="mt-4 flex gap-2"><Link to="/equipe?aba=pessoas" className={cn(buttonVariants({ variant: "outline" }), "gap-2")}><Users className="size-4" /> Abrir equipe</Link></div>,
   ]
 

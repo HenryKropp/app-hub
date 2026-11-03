@@ -12,7 +12,7 @@ vi.mock("@/components/ficha/AccessSection", () => ({ AccessSection: () => <p>Ace
 const art = (over: Partial<ArtifactDetail> = {}): ArtifactDetail => ({
   id: 5, name: "Vendas", summary: "Por região", kind: "file", tags: ["vendas"], area_id: 1, area: "Comercial",
   owner_name: "Ana", restricted: false, version: 2, updated_at: "2026-11-03T10:00:00Z",
-  owner_id: 2, backup_id: null, backup_name: "", origin: "", can: ALL_CAN, current: 2,
+  favorite: false, owner_id: 2, backup_id: null, backup_name: "", origin: "", can: ALL_CAN, current: 2,
   versions: [
     { number: 2, kind: "file", url: "", file_name: "v2.html", size: 10, note: "Novo gráfico", author_name: "Ana", restored_from: null, created_at: "2026-11-03T10:00:00Z" },
     { number: 1, kind: "file", url: "", file_name: "v1.html", size: 10, note: "", author_name: "Ana", restored_from: null, created_at: "2026-11-02T10:00:00Z" },
@@ -246,4 +246,10 @@ test("without access the care editor is hidden, but the ficha editor stays", asy
   await screen.findByTitle("Vendas")
   expect(screen.getByRole("button", { name: "Editar o artifact" })).toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "Editar quem cuida" })).toBeNull()
+})
+
+test("the title has a star", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art({ favorite: true }))
+  mount()
+  expect(await screen.findByRole("button", { name: "Tirar Vendas dos favoritos" })).toHaveAttribute("aria-pressed", "true")
 })

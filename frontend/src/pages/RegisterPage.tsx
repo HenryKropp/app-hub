@@ -93,8 +93,8 @@ export function RegisterPage() {
 
   return (
     <>
-      <Link to="/" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="size-4" /> Catálogo
+      <Link to="/apps" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="size-4" /> Apps
       </Link>
       <PageHeader title="Traga os apps para o catálogo" />
 
@@ -170,7 +170,7 @@ export function RegisterPage() {
               {counts.published} no catálogo · {counts.pending} para revisar · {counts.skipped} pulados
             </p>
             {counts.pending === 0 && (
-              <Link to="/" className="text-sm font-medium underline underline-offset-4">
+              <Link to="/apps" className="text-sm font-medium underline underline-offset-4">
                 Ver o catálogo →
               </Link>
             )}

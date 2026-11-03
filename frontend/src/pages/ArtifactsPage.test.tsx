@@ -9,7 +9,7 @@ import { ArtifactsPage } from "./ArtifactsPage"
 
 const art = (o: Partial<ArtifactSummary> = {}): ArtifactSummary => ({
   id: 1, name: "Dashboard de vendas", summary: "Vendas por região", kind: "file", tags: ["vendas", "mensal"],
-  area_id: 1, area: "Comercial", owner_name: "Henry", restricted: false, version: 2, updated_at: new Date().toISOString(), ...o,
+  area_id: 1, area: "Comercial", owner_name: "Henry", restricted: false, version: 2, updated_at: new Date().toISOString(), favorite: false, ...o,
 })
 const list = () => [art(), art({ id: 2, name: "Guia de RH", summary: "Políticas", kind: "link", tags: ["pessoas"], area_id: 2, area: "Gente", restricted: true })]
 
@@ -79,4 +79,11 @@ test("shows empty state", async () => {
   expect(await screen.findByText("Nenhum artifact ainda")).toBeInTheDocument()
   expect(screen.getByText("Guarde aqui os dashboards e páginas que o time cria no Claude.")).toBeInTheDocument()
   expect(screen.getByRole("link", { name: /Novo artifact/ })).toBeInTheDocument()
+})
+
+test("each card has a star that reflects favorite", async () => {
+  vi.spyOn(api, "artifacts").mockResolvedValue([art({ favorite: true }), art({ id: 2, name: "Guia de RH" })])
+  mount()
+  expect(await screen.findByRole("button", { name: "Tirar Dashboard de vendas dos favoritos" })).toHaveAttribute("aria-pressed", "true")
+  expect(screen.getByRole("button", { name: "Marcar Guia de RH como favorito" })).toHaveAttribute("aria-pressed", "false")
 })

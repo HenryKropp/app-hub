@@ -8,13 +8,14 @@ import { Layout } from "./Layout"
 
 afterEach(() => vi.restoreAllMocks())
 
-const mount = (person: Person) => {
+const mount = (person: Person, at = "/") => {
   vi.spyOn(auth, "useAuth").mockReturnValue({ loading: false, needsSetup: false, person, refresh: async () => {}, setPerson: () => {} })
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[at]}>
       <Routes>
         <Route element={<Layout />}>
-          <Route index element={<p>catálogo</p>} />
+          <Route index element={<p>início</p>} />
+          <Route path="apps/:id" element={<p>ficha</p>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -73,4 +74,14 @@ test("shows Artifacts in the sidebar", async () => {
   vi.spyOn(api, "activeRuns").mockResolvedValue([])
   mount(bia)
   expect(screen.getByRole("link", { name: /Artifacts/ })).toHaveAttribute("href", "/artifacts")
+})
+
+test("sidebar has Home and Apps, no Catálogo; Apps stays on inside an app", async () => {
+  vi.spyOn(api, "activeRuns").mockResolvedValue([])
+  mount(bia, "/apps/12")
+  expect(screen.getByRole("link", { name: "Home" })).toHaveAttribute("href", "/")
+  expect(screen.getByRole("link", { name: "Apps" })).toHaveAttribute("href", "/apps")
+  expect(screen.queryByRole("link", { name: "Catálogo" })).toBeNull()
+  expect(screen.getByRole("link", { name: "Apps" })).toHaveAttribute("aria-current", "page")
+  expect(screen.getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current")
 })

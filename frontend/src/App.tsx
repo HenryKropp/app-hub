@@ -7,6 +7,7 @@ import { ArtifactsPage } from "@/pages/ArtifactsPage"
 import { NewArtifactPage } from "@/pages/NewArtifactPage"
 import { ArtifactPage } from "@/pages/ArtifactPage"
 import { AppPage } from "@/pages/AppPage"
+import { HomePage } from "@/pages/HomePage"
 import { CatalogPage } from "@/pages/CatalogPage"
 import { InstallAgentPage } from "./pages/InstallAgentPage"
 import { ConnectPage } from "@/pages/ConnectPage"
@@ -56,7 +57,8 @@ function Routed() {
       <Route path="/convite" element={<InvitationPage />} />
       <Route path="/entrar" element={<LoginPage />} />
       <Route element={<Protected />}>
-        <Route index element={<CatalogPage />} />
+        <Route index element={<HomePage />} />
+        <Route path="apps" element={<CatalogPage />} />
         <Route path="apps/:id" element={<AppPage />} />
         <Route path="apps/:id/versoes/:n" element={<VersionPage />} />
         <Route
