@@ -37,6 +37,9 @@ func (h *Handler) artifactAccessOf(ctx context.Context, artifactID int64) (appAc
 	if err != nil {
 		return out, err
 	}
+	// Only the area-wide accesses that reach artifacts (edit, restore); the
+	// app-only ones (tech, runs) are left out, and so is whoever has only those.
+	ag = slices.DeleteFunc(ag, func(g sqlc.ListAreaGrantsRow) bool { return !slices.Contains(access.ArtifactGrants, g.Permission) })
 	out.AreaGrants = groupGrants(len(ag), func(i int) (int64, string, string) { return ag[i].PersonID, ag[i].PersonName, ag[i].Permission })
 	return out, nil
 }

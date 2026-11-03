@@ -223,3 +223,18 @@ func TestForArtifactNeverRuns(t *testing.T) {
 		t.Fatalf("%+v", c)
 	}
 }
+
+// Area-wide tech or runs accesses are app-only: they must not reveal a
+// restricted artifact, while a restricted app still shows for them.
+func TestForArtifactAreaAppOnlyGrantsDoNotReveal(t *testing.T) {
+	for _, g := range []string{GrantTech, GrantRuns} {
+		p := person(9)
+		p.AreaGrants[1] = map[string]bool{g: true}
+		if c := p.ForArtifact(artifact); c != (Can{}) {
+			t.Fatalf("%s reveals artifact: %+v", g, c)
+		}
+		if c := p.For(artifact); !c.View {
+			t.Fatalf("%s no longer reveals app: %+v", g, c)
+		}
+	}
+}

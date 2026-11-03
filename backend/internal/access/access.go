@@ -76,15 +76,16 @@ type Can struct {
 // access on it (per app or for its area). The company-wide boxes (edit,
 // restore, technical part, everyone's runs) reach only apps the person sees.
 func (p *Person) For(a App) Can {
-	return p.forItem(a, p.ViewerApps[a.ID], p.AppGrants[a.ID])
+	return p.forItem(a, p.ViewerApps[a.ID], p.AppGrants[a.ID], Grants)
 }
 
 // ForArtifact follows the same rules as For, but viewers and per-item grants
 // come from the artifact maps (an app with the same id never leaks in). Area
-// grants and role permissions apply unchanged. Artifacts never run, and Tech
+// grants and role permissions apply, but only the area grants that reach
+// artifacts (edit, restore) reveal a restricted one. Artifacts never run, and Tech
 // (which gates the access section) is just Edit or Restore.
 func (p *Person) ForArtifact(a App) Can {
-	c := p.forItem(a, p.ViewerArtifacts[a.ID], p.ArtifactGrants[a.ID])
+	c := p.forItem(a, p.ViewerArtifacts[a.ID], p.ArtifactGrants[a.ID], ArtifactGrants)
 	if !c.View {
 		return c
 	}
@@ -93,12 +94,14 @@ func (p *Person) ForArtifact(a App) Can {
 	return c
 }
 
-func (p *Person) forItem(a App, viewer bool, itemGrants map[string]bool) Can {
+// forItem decides for one app or artifact; kinds lists the extra accesses
+// that count for this kind of item (any of them reveals a restricted one).
+func (p *Person) forItem(a App, viewer bool, itemGrants map[string]bool, kinds []string) Can {
 	leader := p.Leads[a.AreaID]
 	cares := leader || a.OwnerID == p.ID || (a.BackupID != 0 && a.BackupID == p.ID)
 	granted := func(g string) bool { return itemGrants[g] || p.AreaGrants[a.AreaID][g] }
 	anyGrant := false
-	for _, g := range Grants {
+	for _, g := range kinds {
 		anyGrant = anyGrant || granted(g)
 	}
 	if a.Restricted && !(p.Has(SeeAllApps) || viewer || cares || p.Has(ManageAreas) || anyGrant) {

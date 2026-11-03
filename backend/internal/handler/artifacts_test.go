@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -336,5 +337,57 @@ func TestArtifactWholeAreaGrantKeepsAppOnlyAccesses(t *testing.T) {
 	}
 	if code := bia.do("PUT", artifactPath(d.ID, ""), map[string]any{"name": "Novo"}, nil); code != http.StatusOK {
 		t.Fatalf("bia edit = %d", code)
+	}
+}
+
+// The artifact's access screen shows only the area-wide accesses that reach
+// artifacts (edit, restore); people with only tech/runs are left out.
+func TestArtifactAccessShowsOnlyArtifactAreaGrants(t *testing.T) {
+	admin, _, _, _ := team(t)
+	d := createArtifact(t, admin, linkBody("Painel", "https://exemplo.com"))
+	exec(t, "INSERT INTO area_grants (area_id, person_id, permission) VALUES (1, 3, 'runs'), (1, 3, 'tech'), (1, 3, 'edit'), (1, 2, 'runs')")
+	var acc struct {
+		AreaGrants []grantJSON `json:"area_grants"`
+	}
+	if code := admin.do("GET", artifactPath(d.ID, "/access"), nil, &acc); code != http.StatusOK {
+		t.Fatalf("access = %d", code)
+	}
+	if len(acc.AreaGrants) != 1 || acc.AreaGrants[0].PersonID != 3 || strings.Join(acc.AreaGrants[0].Permissions, ",") != "edit" {
+		t.Fatalf("area grants %+v", acc.AreaGrants)
+	}
+}
+
+// Uploads that arrive at the same time each get their own version number
+// (the artifact row is locked) instead of one failing with 500.
+func TestArtifactConcurrentVersions(t *testing.T) {
+	_, ana, _, _ := team(t)
+	d := createArtifact(t, ana, linkBody("Painel", "https://exemplo.com"))
+	const n = 6
+	codes := make(chan int, n)
+	var wg sync.WaitGroup
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			body := fmt.Sprintf(`{"kind":"link","url":"https://exemplo.com/%d"}`, i)
+			resp, err := ana.c.Post(ana.srv.URL+artifactPath(d.ID, "/versions"), "application/json", strings.NewReader(body))
+			if err != nil {
+				codes <- 0
+				return
+			}
+			resp.Body.Close()
+			codes <- resp.StatusCode
+		}(i)
+	}
+	wg.Wait()
+	close(codes)
+	for c := range codes {
+		if c != http.StatusOK {
+			t.Fatalf("concurrent version = %d", c)
+		}
+	}
+	var got artifactDetailJSON
+	if code := ana.do("GET", artifactPath(d.ID, ""), nil, &got); code != http.StatusOK || got.Current != n+1 || len(got.Versions) != n+1 {
+		t.Fatalf("after concurrent uploads = %d current %d versions %d", code, got.Current, len(got.Versions))
 	}
 }
