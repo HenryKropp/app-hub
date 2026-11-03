@@ -449,14 +449,16 @@ func (q *Queries) ListAreaMembers(ctx context.Context) ([]ListAreaMembersRow, er
 }
 
 const listAreas = `-- name: ListAreas :many
-SELECT a.id, a.name, (SELECT count(*) FROM apps x WHERE x.area_id = a.id) AS app_count
+SELECT a.id, a.name, (SELECT count(*) FROM apps x WHERE x.area_id = a.id) AS app_count,
+       (SELECT count(*) FROM artifacts x WHERE x.area_id = a.id) AS artifact_count
 FROM areas a ORDER BY a.name
 `
 
 type ListAreasRow struct {
-	ID       int64  `json:"id"`
-	Name     string `json:"name"`
-	AppCount int64  `json:"app_count"`
+	ID            int64  `json:"id"`
+	Name          string `json:"name"`
+	AppCount      int64  `json:"app_count"`
+	ArtifactCount int64  `json:"artifact_count"`
 }
 
 func (q *Queries) ListAreas(ctx context.Context) ([]ListAreasRow, error) {
@@ -468,7 +470,12 @@ func (q *Queries) ListAreas(ctx context.Context) ([]ListAreasRow, error) {
 	var items []ListAreasRow
 	for rows.Next() {
 		var i ListAreasRow
-		if err := rows.Scan(&i.ID, &i.Name, &i.AppCount); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.AppCount,
+			&i.ArtifactCount,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

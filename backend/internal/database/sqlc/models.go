@@ -64,6 +64,19 @@ type AppGrant struct {
 	Permission string `json:"permission"`
 }
 
+type AppSecurity struct {
+	AppID                int64              `json:"app_id"`
+	Classification       string             `json:"classification"`
+	Purpose              string             `json:"purpose"`
+	ExternalDomains      []string           `json:"external_domains"`
+	Approved             bool               `json:"approved"`
+	ReviewedManifestHash string             `json:"reviewed_manifest_hash"`
+	ReviewedVersion      int32              `json:"reviewed_version"`
+	Suspended            bool               `json:"suspended"`
+	ReviewedBy           pgtype.Int8        `json:"reviewed_by"`
+	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
+}
+
 type AppVersion struct {
 	ID             int64              `json:"id"`
 	AppID          int64              `json:"app_id"`
@@ -110,6 +123,50 @@ type AreaMember struct {
 	PersonID int64 `json:"person_id"`
 }
 
+type Artifact struct {
+	ID         int64              `json:"id"`
+	Name       string             `json:"name"`
+	Summary    string             `json:"summary"`
+	Kind       string             `json:"kind"`
+	Tags       []string           `json:"tags"`
+	AreaID     int64              `json:"area_id"`
+	OwnerID    int64              `json:"owner_id"`
+	BackupID   pgtype.Int8        `json:"backup_id"`
+	Restricted bool               `json:"restricted"`
+	Origin     string             `json:"origin"`
+	CreatedBy  int64              `json:"created_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ArtifactGrant struct {
+	ArtifactID int64  `json:"artifact_id"`
+	PersonID   int64  `json:"person_id"`
+	Permission string `json:"permission"`
+}
+
+type ArtifactVersion struct {
+	ID           int64              `json:"id"`
+	ArtifactID   int64              `json:"artifact_id"`
+	Number       int32              `json:"number"`
+	Kind         string             `json:"kind"`
+	Url          pgtype.Text        `json:"url"`
+	BlobSha256   pgtype.Text        `json:"blob_sha256"`
+	FileName     string             `json:"file_name"`
+	Size         int64              `json:"size"`
+	Note         string             `json:"note"`
+	RestoredFrom pgtype.Int4        `json:"restored_from"`
+	AuthorID     pgtype.Int8        `json:"author_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type ArtifactViewer struct {
+	ID         int64       `json:"id"`
+	ArtifactID int64       `json:"artifact_id"`
+	AreaID     pgtype.Int8 `json:"area_id"`
+	PersonID   pgtype.Int8 `json:"person_id"`
+}
+
 type CodeBlob struct {
 	Sha256  string `json:"sha256"`
 	Content []byte `json:"content"`
@@ -129,9 +186,53 @@ type Computer struct {
 	CanStop      bool               `json:"can_stop"`
 }
 
+type CredentialAudit struct {
+	ID           int64              `json:"id"`
+	CredentialID string             `json:"credential_id"`
+	ActorID      int64              `json:"actor_id"`
+	Revision     int32              `json:"revision"`
+	Action       string             `json:"action"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type CredentialVault struct {
+	ID          string             `json:"id"`
+	AppID       int64              `json:"app_id"`
+	Environment string             `json:"environment"`
+	RoleID      int64              `json:"role_id"`
+	Endpoint    string             `json:"endpoint"`
+	Revision    int32              `json:"revision"`
+	Envelope    []byte             `json:"envelope"`
+	Revoked     bool               `json:"revoked"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type HubSetting struct {
 	ID          bool   `json:"id"`
 	CompanyName string `json:"company_name"`
+}
+
+type MembershipInvitation struct {
+	ID         int64              `json:"id"`
+	TokenHash  string             `json:"token_hash"`
+	Email      string             `json:"email"`
+	RoleID     int64              `json:"role_id"`
+	CreatedBy  int64              `json:"created_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
+	AcceptedAt pgtype.Timestamptz `json:"accepted_at"`
+}
+
+type MembershipRequest struct {
+	ID         int64              `json:"id"`
+	Name       string             `json:"name"`
+	Email      string             `json:"email"`
+	Status     string             `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
+	ReviewedBy pgtype.Int8        `json:"reviewed_by"`
 }
 
 type Pairing struct {
@@ -197,6 +298,23 @@ type RunFolder struct {
 type ScriptSource struct {
 	AppID int64  `json:"app_id"`
 	Files []byte `json:"files"`
+}
+
+type SecurityAudit struct {
+	ID        int64              `json:"id"`
+	ActorID   pgtype.Int8        `json:"actor_id"`
+	Action    string             `json:"action"`
+	Route     string             `json:"route"`
+	Status    int32              `json:"status"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type SecuritySetting struct {
+	ID                    bool  `json:"id"`
+	RetentionDays         int32 `json:"retention_days"`
+	RequireAppApproval    bool  `json:"require_app_approval"`
+	BlockEmbeddedSecrets  bool  `json:"block_embedded_secrets"`
+	LocalExecutionEnabled bool  `json:"local_execution_enabled"`
 }
 
 type ServerSetting struct {

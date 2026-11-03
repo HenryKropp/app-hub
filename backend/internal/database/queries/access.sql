@@ -44,7 +44,8 @@ WHERE v.person_id = sqlc.arg(person_id)
    OR v.area_id IN (SELECT m.area_id FROM area_members m WHERE m.person_id = sqlc.arg(person_id));
 
 -- name: ListAreas :many
-SELECT a.id, a.name, (SELECT count(*) FROM apps x WHERE x.area_id = a.id) AS app_count
+SELECT a.id, a.name, (SELECT count(*) FROM apps x WHERE x.area_id = a.id) AS app_count,
+       (SELECT count(*) FROM artifacts x WHERE x.area_id = a.id) AS artifact_count
 FROM areas a ORDER BY a.name;
 
 -- name: ListAreaLeaders :many
