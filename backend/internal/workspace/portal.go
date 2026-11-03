@@ -39,10 +39,24 @@ type Portal struct {
 	entries        map[string]*entry
 	createMu       sync.Mutex
 	credentialKeys *vault.Keyring
+	principal      func(*handler.Handler)
 }
 
-func New(ctx context.Context, root *pgxpool.Pool, cfg config.Config) (*Portal, error) {
+// Option adjusts a Portal before its companies are attached.
+type Option func(*Portal)
+
+// WithPrincipal runs fn on the main company's handler only. Shared apps
+// (containers, gateway, app addresses) use global resource names, so they
+// are plugged into the main company and stay off for every other company.
+func WithPrincipal(fn func(*handler.Handler)) Option {
+	return func(p *Portal) { p.principal = fn }
+}
+
+func New(ctx context.Context, root *pgxpool.Pool, cfg config.Config, opts ...Option) (*Portal, error) {
 	p := &Portal{cfg: cfg, root: root, entries: map[string]*entry{}}
+	for _, o := range opts {
+		o(p)
+	}
 	// No generated fallback, SESSION_SECRET reuse or local key file. An unset
 	// keyring leaves the vault locked; malformed configuration stops startup.
 	if raw := os.Getenv("CREDENTIAL_VAULT_KEYRING"); raw != "" {
@@ -135,6 +149,9 @@ func (p *Portal) attach(e *entry) {
 	h := handler.New(sqlc.New(e.pool), cfg)
 	h.SetCredentialKeys(p.credentialKeys)
 	h.SetWorkspace(handler.WorkspaceOptions{Slug: e.slug, Name: e.name, BasePath: base, Create: p.create})
+	if e.slug == "principal" && p.principal != nil {
+		p.principal(h)
+	}
 	mux := http.NewServeMux()
 	h.Register(mux)
 	e.http = h.Secure(mux)

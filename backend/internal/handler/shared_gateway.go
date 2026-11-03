@@ -34,15 +34,18 @@ func (h *Handler) SetShared(s Shared) { h.shared = s }
 // sharedReady answers 503 (a plain page: the browser navigates here) when the shared-app parts are not running.
 func (h *Handler) sharedReady(w http.ResponseWriter, r *http.Request) bool {
 	if h.shared.Svc == nil || h.shared.Codes == nil {
-if h.workspace != nil {
-message := "A execução de apps compartilhados está desativada neste portal multiempresa. Ela exige um servidor compatível e isolamento dos containers, bancos e endereços por empresa."
-if r.URL.Path == "/api/shared/authorize" {
-gateway.Page(w, r, http.StatusServiceUnavailable, "Apps compartilhados indisponíveis", message, h.workspace.BasePath+"/")
-} else {
-writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": message, "code": "shared_runtime_unavailable"})
-}
-return false
-}
+		if h.workspace != nil {
+			message := "A execução de apps compartilhados está desativada para esta empresa. Ela exige isolamento dos containers, bancos e endereços por empresa."
+			if h.workspace.Slug == "principal" {
+				message = "O servidor de apps não está ligado. Tente de novo em alguns minutos ou fale com o administrador."
+			}
+			if r.URL.Path == "/api/shared/authorize" {
+				gateway.Page(w, r, http.StatusServiceUnavailable, "Apps compartilhados indisponíveis", message, h.workspace.BasePath+"/")
+			} else {
+				writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": message, "code": "shared_runtime_unavailable"})
+			}
+			return false
+		}
 		gateway.Page(w, r, http.StatusServiceUnavailable, "Apps indisponíveis", "O servidor de apps não está disponível. Tente de novo em alguns minutos ou fale com o administrador.", "/")
 		return false
 	}
