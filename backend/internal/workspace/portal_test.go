@@ -406,3 +406,20 @@ func TestPortalStartRepairsMissingDismissedAt(t *testing.T) {
 		t.Fatalf("dismissed_at not repaired on start (err=%v)", err)
 	}
 }
+
+// Wrong passwords lock only the account being guessed; people behind the same
+// proxy (one network address) keep signing in, and successful logins never count.
+func TestLoginLimitIsPerAccount(t *testing.T) {
+	_, _, srv := testPortal(t)
+	b := browser(t, srv.URL)
+	credentials := map[string]any{"name": "Test admin", "email": "admin@example.test", "password": "test-password-not-a-real-secret"}
+	b.want("POST", "/api/auth/setup", credentials, 201)
+	for i := 0; i < 25; i++ {
+		b.want("POST", "/api/auth/login", credentials, 200)
+	}
+	for i := 0; i < 10; i++ {
+		b.want("POST", "/api/auth/login", map[string]string{"email": "guessed@example.test", "password": "wrong"}, 401)
+	}
+	b.want("POST", "/api/auth/login", map[string]string{"email": "Guessed@example.test", "password": "wrong"}, 429)
+	b.want("POST", "/api/auth/login", credentials, 200)
+}

@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"io"
 	"log/slog"
 	"mime"
 	"net"
@@ -22,30 +25,77 @@ type securityLimiter struct {
 	entries map[string]rateWindow
 }
 
-func (l *securityLimiter) allow(key string, now time.Time) bool {
+const (
+	rateWindowLen   = 15 * time.Minute
+	rateMaxKeys     = 4096
+	accountFailures = 10  // wrong passwords per e-mail and route
+	addressAttempts = 300 // any attempt per network address; people often share one behind a proxy
+	signupAttempts  = 20  // sign-ups and setup per network address
+)
+
+// over reports whether key already used its limit in the current window.
+func (l *securityLimiter) over(key string, limit int, now time.Time) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	v, ok := l.entries[key]
+	return ok && now.Sub(v.start) < rateWindowLen && v.count >= limit
+}
+
+// add counts one attempt for key. When the table is full it drops expired
+// windows and then the oldest one, so attacker-made keys never lock others out.
+func (l *securityLimiter) add(key string, now time.Time) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if l.entries == nil {
 		l.entries = map[string]rateWindow{}
 	}
-	// Bound attacker-controlled keys and discard expired windows.
-	if len(l.entries) >= 4096 {
+	if _, ok := l.entries[key]; !ok && len(l.entries) >= rateMaxKeys {
+		oldest, first := "", true
 		for k, v := range l.entries {
-			if now.Sub(v.start) >= 15*time.Minute {
+			if now.Sub(v.start) >= rateWindowLen {
 				delete(l.entries, k)
+				continue
+			}
+			if first || v.start.Before(l.entries[oldest].start) {
+				oldest, first = k, false
 			}
 		}
-		if len(l.entries) >= 4096 {
-			return false
+		if len(l.entries) >= rateMaxKeys {
+			delete(l.entries, oldest)
 		}
 	}
 	v := l.entries[key]
-	if now.Sub(v.start) >= 15*time.Minute {
+	if now.Sub(v.start) >= rateWindowLen {
 		v = rateWindow{start: now}
 	}
 	v.count++
 	l.entries[key] = v
-	return v.count <= 20
+}
+
+// allow counts one attempt and reports whether it is within limit.
+func (l *securityLimiter) allow(key string, limit int, now time.Time) bool {
+	l.add(key, now)
+	return !l.over(key, limit+1, now)
+}
+
+func rateKey(parts ...string) string {
+	sum := sha256.Sum256([]byte(strings.Join(parts, "|")))
+	return hex.EncodeToString(sum[:])
+}
+
+// loginEmail reads the e-mail from a login body and puts the body back.
+func loginEmail(r *http.Request) string {
+	body, err := io.ReadAll(io.LimitReader(r.Body, 64<<10))
+	r.Body.Close()
+	r.Body = io.NopCloser(bytes.NewReader(body))
+	if err != nil {
+		return ""
+	}
+	var b struct {
+		Email string `json:"email"`
+	}
+	_ = json.Unmarshal(body, &b)
+	return strings.ToLower(strings.TrimSpace(b.Email))
 }
 
 type statusWriter struct {
@@ -101,18 +151,37 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 				}
 			}
 		}
-if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/auth/setup" || r.URL.Path == "/api/workspaces" || strings.HasPrefix(r.URL.Path, "/api/entry/") || r.URL.Path == "/api/agent/pair/start" {
+		limited := unsafe && (r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/auth/setup" || r.URL.Path == "/api/workspaces" || strings.HasPrefix(r.URL.Path, "/api/entry/") || r.URL.Path == "/api/agent/pair/start")
+		accountKey := ""
+		if limited {
 			// Never trust arbitrary X-Forwarded-For supplied by clients.
 			host, _, err := net.SplitHostPort(r.RemoteAddr)
 			if err != nil {
 				host = r.RemoteAddr
 			}
-			sum := sha256.Sum256([]byte(host + "|" + r.URL.Path))
-			if !limiter.allow(hex.EncodeToString(sum[:]), time.Now()) {
+			limit := signupAttempts
+			if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/entry/invitations/preview" || r.URL.Path == "/api/agent/pair/start" {
+				limit = addressAttempts
+			}
+			if r.URL.Path == "/api/auth/login" {
+				// Wrong passwords count per account, so one person mistyping
+				// does not lock out everyone behind the same proxy.
+				accountKey = rateKey("account", loginEmail(r), r.URL.Path)
+			}
+			if !limiter.allow(rateKey(host, r.URL.Path), limit, time.Now()) || (accountKey != "" && limiter.over(accountKey, accountFailures, time.Now())) {
 				w.Header().Set("Retry-After", "900")
 				writeError(w, 429, "Muitas tentativas. Aguarde alguns minutos e tente novamente.")
 				return
 			}
+		}
+		if accountKey != "" {
+			sw := &statusWriter{ResponseWriter: w}
+			defer func() {
+				if sw.status == http.StatusUnauthorized {
+					limiter.add(accountKey, time.Now())
+				}
+			}()
+			w = sw
 		}
 		if h.workspace != nil && ((r.URL.Path == "/api/scan" && r.Method == "POST") || (r.URL.Path == "/api/apps" && r.Method == "POST")) {
 			writeError(w, 403, "No portal multiempresa, importe os arquivos pelo navegador. A leitura de pastas do servidor foi desativada.")
