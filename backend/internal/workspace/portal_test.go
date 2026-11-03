@@ -450,3 +450,20 @@ func TestExistingAppsApprovedOnce(t *testing.T) {
 		}
 	}
 }
+
+// A company created by another server process answers here without a restart.
+func TestPortalLoadsCompanyCreatedElsewhere(t *testing.T) {
+	p, pool, _ := testPortal(t)
+	other, err := New(context.Background(), pool, p.cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer other.Close()
+	if _, err := other.create(context.Background(), "Horizonte", "horizonte", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(p)
+	defer srv.Close()
+	browser(t, srv.URL).want("GET", "/w/horizonte/api/workspace", nil, 200)
+	browser(t, srv.URL).want("GET", "/w/nobody-here/api/workspace", nil, 404)
+}

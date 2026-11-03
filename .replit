@@ -17,6 +17,11 @@ GOSUMDB = "sum.golang.org"
 PORT = "5000"
 AGENT_BINARY_PATH = "dist/agent/AppHubAgente.exe"
 
+[userenv.production]
+BASE_URL = "https://vibehub.replit.app"
+HUB_URL = "https://vibehub.replit.app"
+AGENT_BINARY_PATH = "dist/agent/AppHubAgente.exe"
+
 [workflows]
 runButton = "Project"
 
@@ -51,6 +56,6 @@ timeoutMs = 300000
 
 [deployment]
 deploymentTarget = "cloudrun"
-
-[deployment.run]
-args = ["sh", "-c", "/nix/store/60z37432vmgkg54krwr1z057bqwp7583-go-1.25.5/bin/go run $REPL_HOME"]
+# go.mod lives in backend/: build with the same scripts the workspace uses.
+build = ["bash", "scripts/post-merge.sh"]
+run = ["bash", "scripts/run-replit.sh"]
