@@ -175,7 +175,23 @@ func (p *Portal) create(ctx context.Context, name, slug string, me sqlc.Person) 
 	if err = conn.QueryRow(ctx, `SELECT count(*) FROM public.workspace_registry`).Scan(&count); err != nil {
 		return "", err
 	}
-	if count >= 20 {
+	limit := p.cfg.CompanyLimit
+	if limit <= 0 {
+		limit = 20
+	}
+	if count >= limit {
+		return "", handler.ErrWorkspaceCapacity
+	}
+	// A daily budget keeps a burst of fake signups from using up the portal.
+	perDay := p.cfg.CompanySignupsPerDay
+	if perDay <= 0 {
+		perDay = 10
+	}
+	var today int
+	if err = conn.QueryRow(ctx, `SELECT count(*) FROM public.workspace_registry WHERE slug<>'principal' AND created_at > now() - interval '24 hours'`).Scan(&today); err != nil {
+		return "", err
+	}
+	if today >= perDay {
 		return "", handler.ErrWorkspaceCapacity
 	}
 	buf := make([]byte, 12)

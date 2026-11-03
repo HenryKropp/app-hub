@@ -31,6 +31,21 @@ type Config struct {
 	// SharedDataDirExplicit is true when SHARED_DATA_DIR was set (no adoption).
 	SharedDataDirExplicit bool
 	ContainerEngine       string // CONTAINER_ENGINE
+
+	CompanyLimit         int             // COMPANY_LIMIT: companies in the portal, the main one included
+	CompanySignupsPerDay int             // COMPANY_SIGNUPS_PER_DAY: new companies in any 24 hours
+	ReservedSlugs        map[string]bool // built-in names plus RESERVED_COMPANY_SLUGS (comma-separated)
+}
+
+// builtinReservedSlugs are addresses public signup can never take.
+var builtinReservedSlugs = []string{"principal", "admin", "api", "app", "apps", "w", "www", "ziv", "suporte", "ajuda", "entrar", "login", "cadastro", "acesso", "convite"}
+
+func envInt(name string, def int) int {
+	var n int
+	if _, err := fmt.Sscan(os.Getenv(name), &n); err != nil || n <= 0 {
+		return def
+	}
+	return n
 }
 
 func envOr(name, def string) string {
@@ -65,6 +80,14 @@ func Load() (Config, error) {
 	cfg.SharedDataDir = envOr("SHARED_DATA_DIR", filepath.Join(home, ".local", "share", "ziv", "shared"))
 	cfg.SharedDataDirExplicit = os.Getenv("SHARED_DATA_DIR") != ""
 	cfg.ContainerEngine = envOr("CONTAINER_ENGINE", "podman")
+	cfg.CompanyLimit = envInt("COMPANY_LIMIT", 20)
+	cfg.CompanySignupsPerDay = envInt("COMPANY_SIGNUPS_PER_DAY", 10)
+	cfg.ReservedSlugs = map[string]bool{}
+	for _, s := range append(builtinReservedSlugs, strings.Split(os.Getenv("RESERVED_COMPANY_SLUGS"), ",")...) {
+		if s = strings.ToLower(strings.TrimSpace(s)); s != "" {
+			cfg.ReservedSlugs[s] = true
+		}
+	}
 	return cfg, nil
 }
 
