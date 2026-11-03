@@ -1,0 +1,141 @@
+import { render, screen, waitFor, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
+import { afterEach, beforeEach, expect, test, vi } from "vitest"
+import { ApiError, api, type ArtifactDetail } from "@/lib/api"
+import * as auth from "@/lib/auth"
+import { ALL_CAN, VIEW_ONLY, bia, henry } from "@/test/fixtures"
+import { ARTIFACT_SANDBOX, ArtifactPage } from "./ArtifactPage"
+
+vi.mock("@/components/ficha/AccessSection", () => ({ AccessSection: () => <p>Acesso de teste</p> }))
+
+const art = (over: Partial<ArtifactDetail> = {}): ArtifactDetail => ({
+  id: 5, name: "Vendas", summary: "Por região", kind: "file", tags: ["vendas"], area_id: 1, area: "Comercial",
+  owner_name: "Ana", restricted: false, version: 2, updated_at: "2026-11-03T10:00:00Z",
+  owner_id: 2, backup_id: null, backup_name: "", origin: "", can: ALL_CAN, current: 2,
+  versions: [
+    { number: 2, kind: "file", url: "", file_name: "v2.html", size: 10, note: "Novo gráfico", author_name: "Ana", restored_from: null, created_at: "2026-11-03T10:00:00Z" },
+    { number: 1, kind: "file", url: "", file_name: "v1.html", size: 10, note: "", author_name: "Ana", restored_from: null, created_at: "2026-11-02T10:00:00Z" },
+  ],
+  ...over,
+})
+
+function Where() {
+  const l = useLocation()
+  return <p data-testid="where">{l.pathname}</p>
+}
+
+beforeEach(() => {
+  vi.spyOn(auth, "useAuth").mockReturnValue({ loading: false, needsSetup: false, person: henry, refresh: async () => {}, setPerson: () => {} })
+})
+afterEach(() => vi.restoreAllMocks())
+
+const mount = () =>
+  render(
+    <MemoryRouter initialEntries={["/artifacts/5"]}>
+      <Routes>
+        <Route path="/artifacts/:id" element={<ArtifactPage />} />
+        <Route path="*" element={<Where />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+
+test("renders file artifact in a sandboxed iframe", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art())
+  mount()
+  const frame = await screen.findByTitle("Vendas")
+  expect(frame.getAttribute("sandbox")).toBe(ARTIFACT_SANDBOX)
+  expect(frame.getAttribute("sandbox")).not.toContain("allow-same-origin")
+  expect(frame.getAttribute("src")).toContain("/api/artifacts/5/content")
+  expect(screen.getByRole("link", { name: "Baixar" }).getAttribute("href")).toContain("download=1")
+  expect(screen.getByText("Acesso de teste")).toBeInTheDocument()
+})
+
+test("renders link artifact with Abrir in new tab", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(
+    art({ kind: "link", versions: [{ number: 1, kind: "link", url: "https://claude.ai/artifact/abc", file_name: "", size: 0, note: "", author_name: "Ana", restored_from: null, created_at: "2026-11-02T10:00:00Z" }], current: 1, version: 1 }),
+  )
+  mount()
+  const links = await screen.findAllByRole("link", { name: "Abrir" })
+  expect(links[0]).toHaveAttribute("href", "https://claude.ai/artifact/abc")
+  expect(links[0]).toHaveAttribute("target", "_blank")
+  expect(links[0].getAttribute("rel")).toBe("noopener noreferrer")
+  expect(screen.getByText("claude.ai")).toBeInTheDocument()
+  expect(screen.queryByTitle("Vendas")).toBeNull()
+})
+
+test("hides edit, new version and restore without permission", async () => {
+  vi.spyOn(auth, "useAuth").mockReturnValue({ loading: false, needsSetup: false, person: bia, refresh: async () => {}, setPerson: () => {} })
+  vi.spyOn(api, "artifact").mockResolvedValue(art({ can: VIEW_ONLY }))
+  mount()
+  await screen.findByTitle("Vendas")
+  expect(screen.queryByRole("button", { name: /Editar/ })).toBeNull()
+  expect(screen.queryByRole("button", { name: "Enviar versão nova" })).toBeNull()
+  expect(screen.queryByRole("button", { name: "Voltar para esta" })).toBeNull()
+  expect(screen.queryByRole("button", { name: "Apagar artifact" })).toBeNull()
+  expect(screen.queryByText("Acesso de teste")).toBeNull()
+})
+
+test("restores an older version", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art())
+  const restore = vi.spyOn(api, "restoreArtifact").mockResolvedValue(art({ current: 3 }))
+  const user = userEvent.setup()
+  mount()
+  await screen.findByTitle("Vendas")
+  const buttons = screen.getAllByRole("button", { name: "Voltar para esta" })
+  expect(buttons).toHaveLength(1)
+  await user.click(buttons[0])
+  await waitFor(() => expect(restore).toHaveBeenCalledWith(5, 1))
+})
+
+test("sends a new version with a note", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art())
+  const send = vi.spyOn(api, "artifactVersion").mockResolvedValue(art())
+  const user = userEvent.setup()
+  mount()
+  await screen.findByTitle("Vendas")
+  await user.click(screen.getByRole("button", { name: "Enviar versão nova" }))
+  await user.click(screen.getByRole("tab", { name: "Colar link" }))
+  await user.type(screen.getByLabelText("Link"), "https://x.com/novo")
+  await user.type(screen.getByLabelText("O que mudou?"), "Troquei as cores")
+  await user.click(screen.getByRole("button", { name: "Enviar" }))
+  await waitFor(() => expect(send).toHaveBeenCalledWith(5, { kind: "link", url: "https://x.com/novo", note: "Troquei as cores" }))
+})
+
+test("asks to confirm when secrets are found", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art())
+  const send = vi
+    .spyOn(api, "artifactVersion")
+    .mockRejectedValueOnce(new ApiError(409, "x", { code: "artifact_secrets_confirmation_required", secret_count: 2 }))
+    .mockResolvedValueOnce(art())
+  const user = userEvent.setup()
+  mount()
+  await screen.findByTitle("Vendas")
+  await user.click(screen.getByRole("button", { name: "Enviar versão nova" }))
+  await user.click(screen.getByRole("tab", { name: "Colar link" }))
+  await user.type(screen.getByLabelText("Link"), "https://x.com/novo")
+  await user.click(screen.getByRole("button", { name: "Enviar" }))
+  const dialog = await screen.findByRole("alertdialog")
+  await user.click(within(dialog).getByRole("button", { name: "Enviar mesmo assim" }))
+  await waitFor(() => expect(send).toHaveBeenLastCalledWith(5, expect.objectContaining({ confirm_secrets: true })))
+})
+
+test("deletes after confirmation and goes back to the list", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art())
+  const del = vi.spyOn(api, "deleteArtifact").mockResolvedValue(undefined)
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true)
+  const user = userEvent.setup()
+  mount()
+  await screen.findByTitle("Vendas")
+  await user.click(screen.getByRole("button", { name: "Apagar artifact" }))
+  expect(confirm).toHaveBeenCalledWith('Apagar "Vendas"? Isso não pode ser desfeito.')
+  await waitFor(() => expect(del).toHaveBeenCalledWith(5))
+  expect(await screen.findByTestId("where")).toHaveTextContent("/artifacts")
+})
+
+test("shows not found", async () => {
+  vi.spyOn(api, "artifact").mockRejectedValue(new ApiError(404, "nope"))
+  mount()
+  expect(await screen.findByText("Artifact não encontrado.")).toBeInTheDocument()
+  expect(screen.getByRole("link", { name: /artifacts/i })).toHaveAttribute("href", "/artifacts")
+})
