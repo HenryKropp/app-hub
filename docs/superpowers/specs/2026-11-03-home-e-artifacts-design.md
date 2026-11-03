@@ -1,6 +1,6 @@
 # Home e Artifacts — desenho
 
-**Data:** 2026-11-03 · **Status:** aprovado em conversa pelo Henry; aguardando revisão deste documento
+**Data:** 2026-11-03 · **Status:** aprovado pelo Henry em 2026-11-03 (documento e escolhas do cofundador)
 
 Duas abas novas, independentes, construídas nesta ordem: **Artifacts** primeiro, **Home** depois (a Home mostra artifacts nos favoritos e nas novidades do time).
 
