@@ -5,6 +5,7 @@ package manifest
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -114,6 +115,41 @@ type Input struct {
 	Multiple bool     `yaml:"multiple,omitempty" json:"multiple"`
 	Required bool     `yaml:"required" json:"required"`
 	Flag     string   `yaml:"flag,omitempty" json:"flag,omitempty"`
+	// Accept lists the file types a file input takes, as lowercase
+	// extensions with the dot (".txt"). Empty means any file.
+	Accept []string `yaml:"accept,omitempty" json:"accept,omitempty"`
+}
+
+// MaxAccept caps how many file types one input may list.
+const MaxAccept = 20
+
+var acceptPattern = regexp.MustCompile(`^\.[a-z0-9]{1,10}$`)
+
+// AcceptsFile reports whether a file name has one of the input's accepted
+// types. An input without a list takes any file.
+func (in Input) AcceptsFile(name string) bool {
+	if len(in.Accept) == 0 {
+		return true
+	}
+	ext := strings.ToLower(filepath.Ext(name))
+	for _, a := range in.Accept {
+		if ext == a {
+			return true
+		}
+	}
+	return false
+}
+
+// AcceptText renders the list for people: ".txt, .csv ou .md".
+func (in Input) AcceptText() string {
+	switch n := len(in.Accept); n {
+	case 0:
+		return ""
+	case 1:
+		return in.Accept[0]
+	default:
+		return strings.Join(in.Accept[:n-1], ", ") + " ou " + in.Accept[n-1]
+	}
 }
 
 type Output struct {
@@ -169,6 +205,20 @@ func (m Manifest) Validate() []string {
 		}
 		if in.Multiple && in.Type != "choice" {
 			errs = append(errs, fmt.Sprintf("Só uma lista de opções pode aceitar várias escolhas: %q.", in.Label))
+		}
+		if len(in.Accept) > 0 {
+			if in.Type != "file" {
+				errs = append(errs, fmt.Sprintf("Só uma entrada de arquivo tem tipos de arquivo aceitos: %q.", in.Label))
+			}
+			if len(in.Accept) > MaxAccept {
+				errs = append(errs, fmt.Sprintf("Liste no máximo %d tipos de arquivo em %q.", MaxAccept, in.Label))
+			}
+			for _, a := range in.Accept {
+				if !acceptPattern.MatchString(a) {
+					errs = append(errs, fmt.Sprintf("Tipo de arquivo inválido em %q: %q. Use o formato .txt.", in.Label, a))
+					break
+				}
+			}
 		}
 		if in.Type == "choice" && len(in.Options) == 0 {
 			errs = append(errs, fmt.Sprintf("Escreva ao menos uma opção para %q.", in.Label))

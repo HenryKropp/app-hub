@@ -168,6 +168,9 @@ func RenderFicha(m Manifest) string {
 		if len(in.Options) > 0 {
 			fmt.Fprintf(&b, ": %s", strings.Join(in.Options, ", "))
 		}
+		if len(in.Accept) > 0 {
+			fmt.Fprintf(&b, ": aceita %s", in.AcceptText())
+		}
 		if in.Path != "" {
 			fmt.Fprintf(&b, ": `%s`", in.Path)
 		}

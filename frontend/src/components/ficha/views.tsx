@@ -5,6 +5,7 @@ import { RunState } from "@/components/bits"
 import type { AppLink, Input, Manifest, RunSummary } from "@/lib/api"
 import { INPUT_SOURCES } from "@/lib/kinds"
 import { formatWhen } from "@/lib/runs"
+import { acceptText } from "@/lib/accept"
 
 // Most apps take every input in their own window; then saying it once is enough.
 export function InputList({ inputs }: { inputs: Input[] }) {
@@ -24,6 +25,7 @@ export function InputList({ inputs }: { inputs: Input[] }) {
                 {i.multiple && " (pode marcar mais de uma)"}
               </span>
             )}
+            {i.type === "file" && (i.accept ?? []).length > 0 && <span className="block text-muted-foreground">Aceita {acceptText(i.accept!)}</span>}
           </li>
         ))}
       </ul>

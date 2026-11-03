@@ -6,8 +6,8 @@ from pathlib import Path
 
 arquivo = Path(os.environ.get("APP_HUB_INPUT_ARQUIVO", ""))
 saida = Path(os.environ.get("APP_HUB_OUTPUT_DIR", "."))
-if not arquivo.is_file():
-    raise SystemExit("Escolha um arquivo de texto (.txt, .csv ou .md).")
+if not arquivo.is_file() or arquivo.suffix.lower() not in {".txt", ".csv", ".md"}:
+    raise SystemExit("Escolha um arquivo de texto (.txt, .csv ou .md). PDF, Word e Excel não servem.")
 
 texto = arquivo.read_text(encoding="utf-8", errors="replace")
 palavras = [p for p in re.findall(r"[^\W\d_]{3,}", texto.lower())]

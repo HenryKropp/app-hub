@@ -35,6 +35,18 @@ describe("InputsEditor", () => {
     expect(out()[0]).toMatchObject({ type: "choice", options: ["FRE", "DFP"], multiple: true })
   })
 
+  it("takes accepted file types for a file input and drops them for other types", async () => {
+    render(<Harness start={[{ id: "arq", label: "Arquivo", type: "file", source: "argument", required: true }]} />)
+    const field = screen.getByLabelText("Tipos de arquivo aceitos em Arquivo")
+    await userEvent.type(field, "txt, .CSV md")
+    await userEvent.tab()
+    expect(out()[0].accept).toEqual([".txt", ".csv", ".md"])
+    expect(field).toHaveValue(".txt, .csv, .md")
+    await userEvent.selectOptions(screen.getByLabelText("Tipo de Arquivo"), "text")
+    expect(out()[0].accept).toBeUndefined()
+    expect(screen.queryByLabelText("Tipos de arquivo aceitos em Arquivo")).not.toBeInTheDocument()
+  })
+
   it("drops options when the input stops being a list", async () => {
     render(<Harness start={[{ id: "d", label: "D", type: "choice", source: "window", required: true, options: ["A"], multiple: true }]} />)
     await userEvent.selectOptions(screen.getByLabelText("Tipo de D"), "text")

@@ -68,3 +68,23 @@ func TestScriptPathsAndCodeUploads(t *testing.T) {
 		t.Fatal(m.ScriptProblems())
 	}
 }
+
+func TestFileInputAcceptedTypes(t *testing.T) {
+	m := Manifest{Kind: KindScript, Entrypoint: "main.py", Inputs: []Input{
+		{ID: "arquivo", Label: "Arquivo de texto", Type: "file", Source: "argument", Required: true, Accept: []string{".txt", ".csv", ".md"}},
+	}}
+	file := func(name string) map[string]InputFile {
+		return map[string]InputFile{"arquivo": {Name: name, ContentBase64: base64.StdEncoding.EncodeToString([]byte("oi"))}}
+	}
+	for _, ok := range []string{"notas.txt", "DADOS.CSV", "leia.md"} {
+		if err := m.ValidateRunInputs(nil, file(ok)); err != nil {
+			t.Fatalf("%s: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"cv.pdf", "planilha.xlsx", "semextensao", "texto.txt.exe"} {
+		err := m.ValidateRunInputs(nil, file(bad))
+		if err == nil || err.Error() != "Arquivo de texto aceita só arquivos .txt, .csv ou .md." {
+			t.Fatalf("%s: %v", bad, err)
+		}
+	}
+}

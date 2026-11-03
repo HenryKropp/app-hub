@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input"
 import { Field } from "@/components/bits"
 import { api, type Input as AppInput, type Manifest } from "@/lib/api"
+import { acceptText, acceptsFile } from "@/lib/accept"
 import type { RunTarget } from "@/lib/runs-context"
 
 type SelectedFile = { file: File; value: string }
@@ -48,8 +49,19 @@ function ScriptField({ field, value, onChange, file, onFile, onError, disabled }
           ? `O arquivo será copiado para ${field.path || "o caminho definido no manifesto"}.`
           : undefined
   if (field.type === "file") {
-    return <Field label={field.label} htmlFor={id} hint={`${hint ? `${hint} ` : ""}Até 10 MB no total por execução.`}>
-      <Input id={id} type="file" className="h-auto min-h-10 bg-background py-2 file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-xs file:font-medium" disabled={disabled} required={field.required} onChange={(e) => onFile(e.target.files?.[0])} />
+    const types = field.accept ?? []
+    const pick = (input: HTMLInputElement) => {
+      const chosen = input.files?.[0]
+      if (chosen && !acceptsFile(types, chosen.name)) {
+        input.value = ""
+        onFile(undefined)
+        onError(`${field.label} aceita só arquivos ${acceptText(types)}. O arquivo ${chosen.name} não serve.`)
+        return
+      }
+      onFile(chosen)
+    }
+    return <Field label={field.label} htmlFor={id} hint={`${types.length ? `Aceita ${acceptText(types)}. ` : ""}${hint ? `${hint} ` : ""}Até 10 MB no total por execução.`}>
+      <Input id={id} type="file" accept={types.length ? types.join(",") : undefined} className="h-auto min-h-10 bg-background py-2 file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-xs file:font-medium" disabled={disabled} required={field.required} onChange={(e) => pick(e.target)} />
       {file && <p className="text-xs text-muted-foreground">{file.name}</p>}
       {file && <button type="button" className="mt-1 text-xs text-muted-foreground underline" onClick={() => onFile(undefined)}>Remover arquivo</button>}
     </Field>

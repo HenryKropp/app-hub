@@ -301,3 +301,35 @@ func TestIsManifestName(t *testing.T) {
 		}
 	}
 }
+
+func TestAcceptValidation(t *testing.T) {
+	base := func(in Input) Manifest {
+		return Manifest{ID: "x", Name: "X", Kind: KindScript, Area: "A", Entrypoint: "main.py", Inputs: []Input{in}}
+	}
+	ok := base(Input{ID: "a", Label: "A", Type: "file", Source: "argument", Accept: []string{".txt", ".xlsx"}})
+	if errs := ok.Validate(); hasText(errs, "tipo") {
+		t.Fatalf("valid accept rejected: %v", errs)
+	}
+	for _, bad := range []Input{
+		{ID: "a", Label: "A", Type: "text", Source: "argument", Accept: []string{".txt"}},
+		{ID: "a", Label: "A", Type: "file", Source: "argument", Accept: []string{"txt"}},
+		{ID: "a", Label: "A", Type: "file", Source: "argument", Accept: []string{".TXT"}},
+		{ID: "a", Label: "A", Type: "file", Source: "argument", Accept: []string{"*.txt"}},
+	} {
+		if errs := base(bad).Validate(); !hasText(errs, "tipo") && !hasText(errs, "Tipo") {
+			t.Fatalf("accepted %+v", bad)
+		}
+	}
+	if got := (Input{Accept: []string{".txt", ".csv", ".md"}}).AcceptText(); got != ".txt, .csv ou .md" {
+		t.Fatal(got)
+	}
+}
+
+func hasText(errs []string, part string) bool {
+	for _, e := range errs {
+		if strings.Contains(e, part) {
+			return true
+		}
+	}
+	return false
+}

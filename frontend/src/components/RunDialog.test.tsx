@@ -49,3 +49,23 @@ test("limits the total selected file size and keeps the form open on errors", as
   expect(await screen.findByRole("alert")).toHaveTextContent("passam de 10 MB")
   expect(confirm).not.toHaveBeenCalled()
 })
+
+test("restricts a file field to its accepted types and explains a wrong pick", async () => {
+  // applyAccept false: the person switched the system window to "all files".
+  const user = userEvent.setup({ applyAccept: false })
+  vi.spyOn(api, "app").mockResolvedValue(detail({ manifest: manifest({
+    inputs: [{ id: "arquivo", label: "Arquivo de texto", type: "file", source: "argument", required: true, accept: [".txt", ".csv", ".md"] }],
+  }) }))
+  const confirm = vi.fn()
+  render(<RunDialog target={{ id: 3, name: "Contador", folder_display: "C:\\apps", remembered_folder: "", kind: "script" }} onCancel={vi.fn()} onConfirm={confirm} />)
+  const input = await screen.findByLabelText("Arquivo de texto")
+  expect(input).toHaveAttribute("accept", ".txt,.csv,.md")
+  expect(screen.getByText(/Aceita \.txt, \.csv ou \.md\./)).toBeInTheDocument()
+
+  await user.upload(input, new File(["%PDF"], "cv.pdf", { type: "application/pdf" }))
+  expect(await screen.findByRole("alert")).toHaveTextContent("Arquivo de texto aceita só arquivos .txt, .csv ou .md. O arquivo cv.pdf não serve.")
+
+  await user.upload(input, new File(["oi"], "notas.TXT", { type: "text/plain" }))
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  expect(screen.getByText("notas.TXT")).toBeInTheDocument()
+})

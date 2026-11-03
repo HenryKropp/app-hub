@@ -277,3 +277,13 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Aba Segurança removida (`/seguranca` leva ao Admin) | Done | Classificação, domínios e exportação ficam só no servidor |
 | Cofre de credenciais escondido | Pending | Volta quando a chave `CREDENTIAL_VAULT_KEYRING` for configurada e um app precisar |
 | "Bloquear segredos embutidos" não tem efeito | Pending | A opção é salva mas nada a usa; decidir se implementa ou remove |
+
+## Teste com os apps de teste e tipos de arquivo aceitos (2026-11-03)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Teste manual dos 7 apps de teste na empresa Teste | Done | Conexão, rodar, suspensão, erro, Parar, número, data e arquivo ok no Windows |
+| Tipos de arquivo aceitos por campo de arquivo (`accept`) | Done | A janela de escolha filtra; o Ziv recusa outros tipos no navegador e no servidor; aparece na ficha |
+| Contador de palavras recusa PDF, Word e Excel | Done | `exemplos/apps-de-teste`; o importador já envia `accept` |
+| Nome da subpasta de resultados ("Execucao-N") | Pending | Henry: depende de cada app; nada decidido |
+
