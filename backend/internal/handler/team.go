@@ -277,11 +277,12 @@ type nameRef struct {
 }
 
 type areaJSON struct {
-	ID       int64     `json:"id"`
-	Name     string    `json:"name"`
-	AppCount int64     `json:"app_count"`
-	Leaders  []nameRef `json:"leaders"`
-	Members  []nameRef `json:"members"`
+	ID            int64     `json:"id"`
+	Name          string    `json:"name"`
+	AppCount      int64     `json:"app_count"`
+	ArtifactCount int64     `json:"artifact_count"`
+	Leaders       []nameRef `json:"leaders"`
+	Members       []nameRef `json:"members"`
 }
 
 func (h *Handler) listAreas(w http.ResponseWriter, r *http.Request) {
@@ -305,7 +306,7 @@ func (h *Handler) listAreas(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]areaJSON, 0, len(areas))
 	for _, a := range areas {
-		x := areaJSON{ID: a.ID, Name: a.Name, AppCount: a.AppCount, Leaders: []nameRef{}, Members: []nameRef{}}
+		x := areaJSON{ID: a.ID, Name: a.Name, AppCount: a.AppCount, ArtifactCount: a.ArtifactCount, Leaders: []nameRef{}, Members: []nameRef{}}
 		for _, l := range leaders {
 			if l.AreaID == a.ID {
 				x.Leaders = append(x.Leaders, nameRef{ID: l.ID, Name: l.Name})
@@ -401,8 +402,8 @@ func (h *Handler) deleteArea(w http.ResponseWriter, r *http.Request) {
 		if a.ID != id {
 			continue
 		}
-		if a.AppCount > 0 {
-			writeError(w, http.StatusConflict, "Essa área ainda tem apps. Mude a área deles antes de apagar.")
+		if a.AppCount+a.ArtifactCount > 0 {
+			writeError(w, http.StatusConflict, "Essa área ainda tem apps ou artifacts. Mude a área deles antes de apagar.")
 			return
 		}
 		if err := h.q.DeleteArea(r.Context(), id); err != nil {
