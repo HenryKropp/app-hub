@@ -95,3 +95,27 @@ func TestLimitedScriptLog(t *testing.T) {
 		t.Fatal("unbounded log")
 	}
 }
+
+// On Windows Python prints in cp1252 and crashed on "✓"; the Agente forces
+// UTF-8 for the console. The parent's cp1252 stands in for Windows here.
+func TestScriptPythonPrintsAnyCharacter(t *testing.T) {
+	if _, _, err := scriptInterpreter("python"); err != nil {
+		t.Skip(err)
+	}
+	t.Setenv("PYTHONIOENCODING", "cp1252")
+	out := t.TempDir()
+	r := &Runner{StateDir: t.TempDir()}
+	code := "print('Olá ✓ 🙂')\n"
+	p := agentproto.RunPayload{RunID: 310, AppFolder: `C:\missing`, Exe: "main.py", OutputFolder: out, Script: &agentproto.ScriptPayload{
+		Manifest: manifest.Manifest{Kind: "script", Entrypoint: "main.py"},
+		Sources:  map[string]manifest.InputFile{"main.py": {Name: "main.py", ContentBase64: base64.StdEncoding.EncodeToString([]byte(code))}},
+	}}
+	res := r.Run(context.Background(), p, func(agentproto.Result) {})
+	if res.Event != agentproto.EventFinished || res.ExitCode != 0 {
+		t.Fatalf("%+v", res)
+	}
+	log, err := os.ReadFile(filepath.Join(out, "Execucao-310", ".apphub-console.txt"))
+	if err != nil || !strings.Contains(string(log), "Olá ✓ 🙂") {
+		t.Fatalf("%q %v", log, err)
+	}
+}

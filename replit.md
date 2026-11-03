@@ -82,7 +82,7 @@ configured with a five-minute timeout.
 - **Registrar apps** now supports importing Python/JavaScript sources directly
   from the browser, alongside the existing folder-scanning flow.
 - The script run form is generated from the manifest. The agent is version
-  0.3.2; use **Configurações > Meu computador** to install/update it.
+  0.3.3; use **Configurações > Meu computador** to install/update it.
 - New-flow backend tests, Python/Node execution tests on Linux, 81 selected
   frontend tests, TypeScript, lint, the production build, and Windows agent
   compilation passed.
@@ -133,7 +133,7 @@ committed or published.
 
 ## Ziv identity and agent updates
 
-The GitHub Ziv identity and agent 0.3.2 are integrated without replacing the
+The GitHub Ziv identity and agent 0.3.3 are integrated without replacing the
 multi-company server. Downloads use `ZivAgente.exe` (or a company-specific ZIP
 containing that executable and `apphub-url.txt`). Installed agent filenames,
 startup settings, and the sidecar retain their legacy technical names for
