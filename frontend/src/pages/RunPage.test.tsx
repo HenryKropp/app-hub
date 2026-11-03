@@ -105,7 +105,8 @@ test("Rodar de novo for a script opens its form with the previous folder and sen
     { periodo: "2026-10" },
     { cnpjs: { name: "cnpjs.csv", content_base64: "MTIz" } },
   ))
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  // The dialog leaves after its closing animation.
+  await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
   expect(screen.getByRole("link", { name: /Minhas execuções/ })).toHaveAttribute("href", "/execucoes")
   expect(screen.getByRole("link", { name: "Eq. Research Files Prep" })).toHaveAttribute("href", "/apps/3")
 })
@@ -119,7 +120,8 @@ test("canceling Rodar de novo for a script does not start a run", async () => {
   await user.click(await screen.findByRole("button", { name: "Rodar de novo" }))
   await screen.findByLabelText("Arquivo cnpjs.csv")
   await user.click(screen.getByRole("button", { name: "Cancelar" }))
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  // The dialog leaves after its closing animation.
+  await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
   expect(start).not.toHaveBeenCalled()
 })
 
