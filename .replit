@@ -8,6 +8,9 @@ expertMode = true
 
 [userenv]
 
+[userenv.shared]
+RESERVED_COMPANY_SLUGS = "alis,alis-investimentos"
+
 [userenv.development]
 BASE_URL = "https://d8b51bed-d483-4654-af88-b7340389c831-00-pzpeyw2cylsm.riker.replit.dev"
 GOSUMDB = "sum.golang.org"

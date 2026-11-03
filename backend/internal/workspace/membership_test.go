@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"sync"
@@ -48,7 +49,7 @@ func TestPortalPublicCompanyAndMembership(t *testing.T) {
 	}
 	visitor.want("POST", "/api/entry/companies", registration, 409)
 	registration["slug"] = "principal"
-	visitor.want("POST", "/api/entry/companies", registration, 400)
+	visitor.want("POST", "/api/entry/companies", registration, 409)
 	registration["slug"] = "other"
 	visitor.want("POST", "/w/aurora/api/entry/companies", registration, 403)
 	visitor.want("GET", "/w/nonexistent/api/workspace", nil, 404)
@@ -220,4 +221,29 @@ func TestPortalEntryRejectsCrossOriginAndLimitsAttempts(t *testing.T) {
 	b.want("POST", "/api/entry/requests", map[string]string{"name": "X", "email": "x@example.com"}, 429)
 	// Invalid invite is explicitly unavailable, not a public lookup endpoint.
 	b.want("POST", "/api/entry/invitations/preview", map[string]string{"token": strings.Repeat("a", 43)}, 410)
+}
+
+// Public signup cannot take a reserved address, stops at the daily budget,
+// and a company made by signup cannot create further companies.
+func TestCompanySignupLimits(t *testing.T) {
+	p, pool, _ := testPortal(t)
+	cfg := p.cfg
+	cfg.ReservedSlugs = map[string]bool{"alis-investimentos": true}
+	cfg.CompanySignupsPerDay = 1
+	p2, err := New(context.Background(), pool, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(p2)
+	t.Cleanup(func() { srv.Close(); p2.Close() })
+	visitor := browser(t, srv.URL)
+	registration := map[string]string{"company_name": "Alis", "slug": "alis-investimentos", "name": "Lia", "email": "lia@example.com", "password": "aurora-password"}
+	visitor.want("POST", "/api/entry/companies", registration, 409)
+	registration["slug"] = "first-company"
+	visitor.want("POST", "/api/entry/companies", registration, 201)
+	registration["slug"] = "second-company"
+	visitor.want("POST", "/api/entry/companies", registration, 503)
+	admin := browser(t, srv.URL)
+	admin.want("POST", "/w/first-company/api/auth/login", map[string]string{"email": "lia@example.com", "password": "aurora-password"}, 200)
+	admin.want("POST", "/w/first-company/api/workspaces", map[string]string{"name": "More", "slug": "more-company", "password": "aurora-password"}, 403)
 }

@@ -86,6 +86,12 @@ func (h *Handler) createWorkspace(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 503, "A criação de empresas não está configurada.")
 		return
 	}
+	// Only the main company's admins open companies from inside the Ziv; an
+	// admin of a company made by public signup must not spawn more of them.
+	if h.workspace.Slug != "principal" {
+		writeError(w, 403, "Só a empresa principal pode criar outras empresas.")
+		return
+	}
 	var b struct {
 		Name     string `json:"name"`
 		Slug     string `json:"slug"`

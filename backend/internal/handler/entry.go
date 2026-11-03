@@ -63,8 +63,12 @@ func (h *Handler) registerCompany(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 400, msg)
 		return
 	}
-	if !validMemberEmail(c.Email) || utf8.RuneCountInString(c.Name) > 120 || b.CompanyName == "" || utf8.RuneCountInString(b.CompanyName) > 120 || !companySlug.MatchString(b.Slug) || b.Slug == "principal" {
-		writeError(w, 400, "Informe seus dados, o nome da empresa e um endereço de 3 a 40 letras minúsculas, números ou hífens. O endereço principal é reservado.")
+	if !validMemberEmail(c.Email) || utf8.RuneCountInString(c.Name) > 120 || b.CompanyName == "" || utf8.RuneCountInString(b.CompanyName) > 120 || !companySlug.MatchString(b.Slug) {
+		writeError(w, 400, "Informe seus dados, o nome da empresa e um endereço de 3 a 40 letras minúsculas, números ou hífens.")
+		return
+	}
+	if b.Slug == "principal" || h.cfg.ReservedSlugs[b.Slug] {
+		writeError(w, 409, "Esse endereço de empresa é reservado. Escolha outro.")
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(c.Password), 12)
@@ -78,7 +82,7 @@ func (h *Handler) registerCompany(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if errors.Is(err, ErrWorkspaceCapacity) {
-		writeError(w, 503, "O limite de empresas deste portal foi atingido. Fale com o responsável pelo Ziv.")
+		writeError(w, 503, "O Ziv não está aceitando novas empresas agora. Tente de novo amanhã ou fale com o responsável pelo Ziv.")
 		return
 	}
 	if err != nil {
