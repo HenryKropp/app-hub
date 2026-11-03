@@ -47,3 +47,68 @@ SELECT artifact_id, max(opened_at)::timestamptz AS used_at
 FROM artifact_opens
 WHERE person_id = $1 AND opened_at > now() - interval '30 days'
 GROUP BY artifact_id;
+
+-- name: TeamPeople :many
+SELECT p.id, p.name
+FROM people p
+WHERE sqlc.arg(all_areas)::bool
+   OR p.id IN (SELECT m.person_id FROM area_members m WHERE m.area_id = ANY(sqlc.arg(area_ids)::bigint[]))
+   OR p.id IN (SELECT l.person_id FROM area_leaders l WHERE l.area_id = ANY(sqlc.arg(area_ids)::bigint[]))
+ORDER BY p.name;
+
+-- name: TeamUsage :many
+SELECT p.id AS person_id,
+       (SELECT count(*) FROM runs r JOIN apps a ON a.id = r.app_id
+         WHERE r.person_id = p.id AND r.created_at > now() - interval '7 days'
+           AND (sqlc.arg(all_areas)::bool OR a.area_id = ANY(sqlc.arg(area_ids)::bigint[])))::bigint AS runs_7d,
+       (SELECT count(*) FROM artifact_opens o JOIN artifacts x ON x.id = o.artifact_id
+         WHERE o.person_id = p.id AND o.opened_at > now() - interval '7 days'
+           AND (sqlc.arg(all_areas)::bool OR x.area_id = ANY(sqlc.arg(area_ids)::bigint[])))::bigint AS opens_7d,
+       (EXISTS (SELECT 1 FROM runs r WHERE r.person_id = p.id)
+        OR EXISTS (SELECT 1 FROM artifact_opens o WHERE o.person_id = p.id))::bool AS ever_used
+FROM people p
+WHERE p.id = ANY(sqlc.arg(person_ids)::bigint[]);
+
+-- name: TeamCreations :many
+SELECT * FROM (
+    SELECT 'app'::text AS kind, a.id, a.name, a.area_id, a.owner_id, a.backup_id, a.restricted,
+           COALESCE(pe.name, '')::text AS person_name, 'created'::text AS event, 1::int AS version, a.created_at AS at
+    FROM apps a LEFT JOIN people pe ON pe.id = a.created_by
+    WHERE a.created_at > now() - interval '14 days'
+      AND (sqlc.arg(all_areas)::bool OR a.area_id = ANY(sqlc.arg(area_ids)::bigint[]))
+    UNION ALL
+    SELECT 'app', a.id, a.name, a.area_id, a.owner_id, a.backup_id, a.restricted,
+           COALESCE(pe.name, ''), 'new_version', v.number, v.created_at
+    FROM app_versions v JOIN apps a ON a.id = v.app_id LEFT JOIN people pe ON pe.id = v.author_id
+    WHERE v.number > 1 AND v.created_at > now() - interval '14 days'
+      AND (sqlc.arg(all_areas)::bool OR a.area_id = ANY(sqlc.arg(area_ids)::bigint[]))
+    UNION ALL
+    SELECT 'artifact', a.id, a.name, a.area_id, a.owner_id, a.backup_id, a.restricted,
+           COALESCE(pe.name, ''), 'created', 1, a.created_at
+    FROM artifacts a LEFT JOIN people pe ON pe.id = a.created_by
+    WHERE a.created_at > now() - interval '14 days'
+      AND (sqlc.arg(all_areas)::bool OR a.area_id = ANY(sqlc.arg(area_ids)::bigint[]))
+    UNION ALL
+    SELECT 'artifact', a.id, a.name, a.area_id, a.owner_id, a.backup_id, a.restricted,
+           COALESCE(pe.name, ''), 'new_version', v.number, v.created_at
+    FROM artifact_versions v JOIN artifacts a ON a.id = v.artifact_id LEFT JOIN people pe ON pe.id = v.author_id
+    WHERE v.number > 1 AND v.created_at > now() - interval '14 days'
+      AND (sqlc.arg(all_areas)::bool OR a.area_id = ANY(sqlc.arg(area_ids)::bigint[]))
+) e
+ORDER BY at DESC
+LIMIT 30;
+
+-- name: ListPendingInvitations :many
+SELECT id, email, created_at, (expires_at < now())::bool AS expired
+FROM membership_invitations
+WHERE accepted_at IS NULL AND revoked_at IS NULL
+ORDER BY created_at DESC;
+
+-- name: ListPendingRequests :many
+SELECT id, name, email, created_at FROM membership_requests WHERE status = 'pending' ORDER BY created_at DESC;
+
+-- name: ListPeopleWithoutArea :many
+SELECT p.id, p.name FROM people p
+WHERE NOT EXISTS (SELECT 1 FROM area_members m WHERE m.person_id = p.id)
+  AND NOT EXISTS (SELECT 1 FROM area_leaders l WHERE l.person_id = p.id)
+ORDER BY p.name;

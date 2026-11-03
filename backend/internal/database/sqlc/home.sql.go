@@ -214,6 +214,113 @@ func (q *Queries) ListMyRecentArtifacts(ctx context.Context, personID int64) ([]
 	return items, nil
 }
 
+const listPendingInvitations = `-- name: ListPendingInvitations :many
+SELECT id, email, created_at, (expires_at < now())::bool AS expired
+FROM membership_invitations
+WHERE accepted_at IS NULL AND revoked_at IS NULL
+ORDER BY created_at DESC
+`
+
+type ListPendingInvitationsRow struct {
+	ID        int64              `json:"id"`
+	Email     string             `json:"email"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Expired   bool               `json:"expired"`
+}
+
+func (q *Queries) ListPendingInvitations(ctx context.Context) ([]ListPendingInvitationsRow, error) {
+	rows, err := q.db.Query(ctx, listPendingInvitations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPendingInvitationsRow
+	for rows.Next() {
+		var i ListPendingInvitationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.CreatedAt,
+			&i.Expired,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingRequests = `-- name: ListPendingRequests :many
+SELECT id, name, email, created_at FROM membership_requests WHERE status = 'pending' ORDER BY created_at DESC
+`
+
+type ListPendingRequestsRow struct {
+	ID        int64              `json:"id"`
+	Name      string             `json:"name"`
+	Email     string             `json:"email"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) ListPendingRequests(ctx context.Context) ([]ListPendingRequestsRow, error) {
+	rows, err := q.db.Query(ctx, listPendingRequests)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPendingRequestsRow
+	for rows.Next() {
+		var i ListPendingRequestsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Email,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPeopleWithoutArea = `-- name: ListPeopleWithoutArea :many
+SELECT p.id, p.name FROM people p
+WHERE NOT EXISTS (SELECT 1 FROM area_members m WHERE m.person_id = p.id)
+  AND NOT EXISTS (SELECT 1 FROM area_leaders l WHERE l.person_id = p.id)
+ORDER BY p.name
+`
+
+type ListPeopleWithoutAreaRow struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+func (q *Queries) ListPeopleWithoutArea(ctx context.Context) ([]ListPeopleWithoutAreaRow, error) {
+	rows, err := q.db.Query(ctx, listPeopleWithoutArea)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPeopleWithoutAreaRow
+	for rows.Next() {
+		var i ListPeopleWithoutAreaRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const recordArtifactOpen = `-- name: RecordArtifactOpen :exec
 INSERT INTO artifact_opens (artifact_id, person_id)
 SELECT $1::bigint, $2::bigint
@@ -247,4 +354,176 @@ type RemoveFavoriteParams struct {
 func (q *Queries) RemoveFavorite(ctx context.Context, arg RemoveFavoriteParams) error {
 	_, err := q.db.Exec(ctx, removeFavorite, arg.PersonID, arg.Kind, arg.ItemID)
 	return err
+}
+
+const teamCreations = `-- name: TeamCreations :many
+SELECT kind, id, name, area_id, owner_id, backup_id, restricted, person_name, event, version, at FROM (
+    SELECT 'app'::text AS kind, a.id, a.name, a.area_id, a.owner_id, a.backup_id, a.restricted,
+           COALESCE(pe.name, '')::text AS person_name, 'created'::text AS event, 1::int AS version, a.created_at AS at
+    FROM apps a LEFT JOIN people pe ON pe.id = a.created_by
+    WHERE a.created_at > now() - interval '14 days'
+      AND ($1::bool OR a.area_id = ANY($2::bigint[]))
+    UNION ALL
+    SELECT 'app', a.id, a.name, a.area_id, a.owner_id, a.backup_id, a.restricted,
+           COALESCE(pe.name, ''), 'new_version', v.number, v.created_at
+    FROM app_versions v JOIN apps a ON a.id = v.app_id LEFT JOIN people pe ON pe.id = v.author_id
+    WHERE v.number > 1 AND v.created_at > now() - interval '14 days'
+      AND ($1::bool OR a.area_id = ANY($2::bigint[]))
+    UNION ALL
+    SELECT 'artifact', a.id, a.name, a.area_id, a.owner_id, a.backup_id, a.restricted,
+           COALESCE(pe.name, ''), 'created', 1, a.created_at
+    FROM artifacts a LEFT JOIN people pe ON pe.id = a.created_by
+    WHERE a.created_at > now() - interval '14 days'
+      AND ($1::bool OR a.area_id = ANY($2::bigint[]))
+    UNION ALL
+    SELECT 'artifact', a.id, a.name, a.area_id, a.owner_id, a.backup_id, a.restricted,
+           COALESCE(pe.name, ''), 'new_version', v.number, v.created_at
+    FROM artifact_versions v JOIN artifacts a ON a.id = v.artifact_id LEFT JOIN people pe ON pe.id = v.author_id
+    WHERE v.number > 1 AND v.created_at > now() - interval '14 days'
+      AND ($1::bool OR a.area_id = ANY($2::bigint[]))
+) e
+ORDER BY at DESC
+LIMIT 30
+`
+
+type TeamCreationsParams struct {
+	AllAreas bool    `json:"all_areas"`
+	AreaIds  []int64 `json:"area_ids"`
+}
+
+type TeamCreationsRow struct {
+	Kind       string             `json:"kind"`
+	ID         int64              `json:"id"`
+	Name       string             `json:"name"`
+	AreaID     int64              `json:"area_id"`
+	OwnerID    int64              `json:"owner_id"`
+	BackupID   pgtype.Int8        `json:"backup_id"`
+	Restricted bool               `json:"restricted"`
+	PersonName string             `json:"person_name"`
+	Event      string             `json:"event"`
+	Version    int32              `json:"version"`
+	At         pgtype.Timestamptz `json:"at"`
+}
+
+func (q *Queries) TeamCreations(ctx context.Context, arg TeamCreationsParams) ([]TeamCreationsRow, error) {
+	rows, err := q.db.Query(ctx, teamCreations, arg.AllAreas, arg.AreaIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TeamCreationsRow
+	for rows.Next() {
+		var i TeamCreationsRow
+		if err := rows.Scan(
+			&i.Kind,
+			&i.ID,
+			&i.Name,
+			&i.AreaID,
+			&i.OwnerID,
+			&i.BackupID,
+			&i.Restricted,
+			&i.PersonName,
+			&i.Event,
+			&i.Version,
+			&i.At,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const teamPeople = `-- name: TeamPeople :many
+SELECT p.id, p.name
+FROM people p
+WHERE $1::bool
+   OR p.id IN (SELECT m.person_id FROM area_members m WHERE m.area_id = ANY($2::bigint[]))
+   OR p.id IN (SELECT l.person_id FROM area_leaders l WHERE l.area_id = ANY($2::bigint[]))
+ORDER BY p.name
+`
+
+type TeamPeopleParams struct {
+	AllAreas bool    `json:"all_areas"`
+	AreaIds  []int64 `json:"area_ids"`
+}
+
+type TeamPeopleRow struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+func (q *Queries) TeamPeople(ctx context.Context, arg TeamPeopleParams) ([]TeamPeopleRow, error) {
+	rows, err := q.db.Query(ctx, teamPeople, arg.AllAreas, arg.AreaIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TeamPeopleRow
+	for rows.Next() {
+		var i TeamPeopleRow
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const teamUsage = `-- name: TeamUsage :many
+SELECT p.id AS person_id,
+       (SELECT count(*) FROM runs r JOIN apps a ON a.id = r.app_id
+         WHERE r.person_id = p.id AND r.created_at > now() - interval '7 days'
+           AND ($1::bool OR a.area_id = ANY($2::bigint[])))::bigint AS runs_7d,
+       (SELECT count(*) FROM artifact_opens o JOIN artifacts x ON x.id = o.artifact_id
+         WHERE o.person_id = p.id AND o.opened_at > now() - interval '7 days'
+           AND ($1::bool OR x.area_id = ANY($2::bigint[])))::bigint AS opens_7d,
+       (EXISTS (SELECT 1 FROM runs r WHERE r.person_id = p.id)
+        OR EXISTS (SELECT 1 FROM artifact_opens o WHERE o.person_id = p.id))::bool AS ever_used
+FROM people p
+WHERE p.id = ANY($3::bigint[])
+`
+
+type TeamUsageParams struct {
+	AllAreas  bool    `json:"all_areas"`
+	AreaIds   []int64 `json:"area_ids"`
+	PersonIds []int64 `json:"person_ids"`
+}
+
+type TeamUsageRow struct {
+	PersonID int64 `json:"person_id"`
+	Runs7d   int64 `json:"runs_7d"`
+	Opens7d  int64 `json:"opens_7d"`
+	EverUsed bool  `json:"ever_used"`
+}
+
+func (q *Queries) TeamUsage(ctx context.Context, arg TeamUsageParams) ([]TeamUsageRow, error) {
+	rows, err := q.db.Query(ctx, teamUsage, arg.AllAreas, arg.AreaIds, arg.PersonIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TeamUsageRow
+	for rows.Next() {
+		var i TeamUsageRow
+		if err := rows.Scan(
+			&i.PersonID,
+			&i.Runs7d,
+			&i.Opens7d,
+			&i.EverUsed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

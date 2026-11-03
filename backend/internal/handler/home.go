@@ -293,3 +293,183 @@ func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, homeJSON{Attention: attention, Favorites: favs, Recent: recent, Runs: runs})
 }
+
+const homeTeamCreatingMax = 20
+
+type teamUsageJSON struct {
+	PersonID int64  `json:"person_id"`
+	Name     string `json:"name"`
+	Runs7d   int64  `json:"runs_7d"`
+	Opens7d  int64  `json:"opens_7d"`
+}
+
+type teamPersonJSON struct {
+	PersonID int64  `json:"person_id"`
+	Name     string `json:"name"`
+}
+
+type teamCreatingJSON struct {
+	Kind       string    `json:"kind"`
+	ID         int64     `json:"id"`
+	Name       string    `json:"name"`
+	PersonName string    `json:"person_name"`
+	Event      string    `json:"event"`
+	Version    int32     `json:"version"`
+	At         time.Time `json:"at"`
+}
+
+type teamInvitationJSON struct {
+	ID        int64     `json:"id"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
+	Expired   bool      `json:"expired"`
+}
+
+type teamRequestJSON struct {
+	ID        int64     `json:"id"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type teamNoAreaJSON struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+type teamPendingJSON struct {
+	Invitations []teamInvitationJSON `json:"invitations"`
+	Requests    []teamRequestJSON    `json:"requests"`
+	WithoutArea []teamNoAreaJSON     `json:"without_area"`
+}
+
+type teamHomeJSON struct {
+	Scope     string             `json:"scope"`
+	Areas     []string           `json:"areas"`
+	Usage     []teamUsageJSON    `json:"usage"`
+	NeverUsed []teamPersonJSON   `json:"never_used"`
+	Creating  []teamCreatingJSON `json:"creating"`
+	Pending   *teamPendingJSON   `json:"pending"`
+}
+
+// homeTeam is the "Meu time" block: the whole company for manage_roles,
+// otherwise the areas the asker leads; everyone else gets 404.
+func (h *Handler) homeTeam(w http.ResponseWriter, r *http.Request) {
+	me, ok := h.currentPerson(w, r)
+	if !ok {
+		return
+	}
+	ctx := r.Context()
+	acc, err := h.loadAccess(ctx, me)
+	if err != nil {
+		internalError(w, "load access", err)
+		return
+	}
+	all := acc.Has(access.ManageRoles)
+	if !all && len(acc.Leads) == 0 {
+		writeError(w, http.StatusNotFound, msgFavoriteNotFound)
+		return
+	}
+	out := teamHomeJSON{Scope: "company", Areas: []string{}, Usage: []teamUsageJSON{}, NeverUsed: []teamPersonJSON{},
+		Creating: []teamCreatingJSON{}}
+	areaIDs := []int64{}
+	if !all {
+		out.Scope = "areas"
+		areas, err := h.q.ListAreas(ctx)
+		if err != nil {
+			internalError(w, "team areas", err)
+			return
+		}
+		for _, a := range areas {
+			if acc.Leads[a.ID] {
+				areaIDs = append(areaIDs, a.ID)
+				out.Areas = append(out.Areas, a.Name)
+			}
+		}
+	}
+
+	people, err := h.q.TeamPeople(ctx, sqlc.TeamPeopleParams{AllAreas: all, AreaIds: areaIDs})
+	if err != nil {
+		internalError(w, "team people", err)
+		return
+	}
+	ids := make([]int64, 0, len(people))
+	for _, p := range people {
+		ids = append(ids, p.ID)
+	}
+	usage, err := h.q.TeamUsage(ctx, sqlc.TeamUsageParams{AllAreas: all, AreaIds: areaIDs, PersonIds: ids})
+	if err != nil {
+		internalError(w, "team usage", err)
+		return
+	}
+	byID := map[int64]sqlc.TeamUsageRow{}
+	for _, u := range usage {
+		byID[u.PersonID] = u
+	}
+	for _, p := range people {
+		u := byID[p.ID]
+		if u.Runs7d+u.Opens7d > 0 {
+			out.Usage = append(out.Usage, teamUsageJSON{PersonID: p.ID, Name: p.Name, Runs7d: u.Runs7d, Opens7d: u.Opens7d})
+		}
+		if !u.EverUsed {
+			out.NeverUsed = append(out.NeverUsed, teamPersonJSON{PersonID: p.ID, Name: p.Name})
+		}
+	}
+	sort.SliceStable(out.Usage, func(i, j int) bool {
+		a, b := out.Usage[i], out.Usage[j]
+		return a.Runs7d+a.Opens7d > b.Runs7d+b.Opens7d
+	})
+
+	events, err := h.q.TeamCreations(ctx, sqlc.TeamCreationsParams{AllAreas: all, AreaIds: areaIDs})
+	if err != nil {
+		internalError(w, "team creations", err)
+		return
+	}
+	for _, e := range events {
+		item := access.App{ID: e.ID, AreaID: e.AreaID, OwnerID: e.OwnerID, BackupID: e.BackupID.Int64, Restricted: e.Restricted}
+		var can access.Can
+		if e.Kind == "app" {
+			can = acc.For(item)
+		} else {
+			can = acc.ForArtifact(item)
+		}
+		if !can.View {
+			continue
+		}
+		out.Creating = append(out.Creating, teamCreatingJSON{Kind: e.Kind, ID: e.ID, Name: e.Name,
+			PersonName: e.PersonName, Event: e.Event, Version: e.Version, At: e.At.Time})
+		if len(out.Creating) == homeTeamCreatingMax {
+			break
+		}
+	}
+
+	if acc.Has(access.ManagePeople) {
+		p := &teamPendingJSON{Invitations: []teamInvitationJSON{}, Requests: []teamRequestJSON{}, WithoutArea: []teamNoAreaJSON{}}
+		invs, err := h.q.ListPendingInvitations(ctx)
+		if err != nil {
+			internalError(w, "team invitations", err)
+			return
+		}
+		for _, i := range invs {
+			p.Invitations = append(p.Invitations, teamInvitationJSON{ID: i.ID, Email: i.Email, CreatedAt: i.CreatedAt.Time, Expired: i.Expired})
+		}
+		reqs, err := h.q.ListPendingRequests(ctx)
+		if err != nil {
+			internalError(w, "team requests", err)
+			return
+		}
+		for _, q := range reqs {
+			p.Requests = append(p.Requests, teamRequestJSON{ID: q.ID, Name: q.Name, Email: q.Email, CreatedAt: q.CreatedAt.Time})
+		}
+		none, err := h.q.ListPeopleWithoutArea(ctx)
+		if err != nil {
+			internalError(w, "team without area", err)
+			return
+		}
+		for _, n := range none {
+			p.WithoutArea = append(p.WithoutArea, teamNoAreaJSON{ID: n.ID, Name: n.Name})
+		}
+		out.Pending = p
+	}
+	writeJSON(w, http.StatusOK, out)
+}
