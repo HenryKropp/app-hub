@@ -467,3 +467,20 @@ func TestPortalLoadsCompanyCreatedElsewhere(t *testing.T) {
 	browser(t, srv.URL).want("GET", "/w/horizonte/api/workspace", nil, 200)
 	browser(t, srv.URL).want("GET", "/w/nobody-here/api/workspace", nil, 404)
 }
+
+// Anonymous calls outside the entry routes do not write audit rows.
+func TestAnonymousCallsDoNotFloodAudit(t *testing.T) {
+	_, pool, srv := testPortal(t)
+	b := browser(t, srv.URL)
+	var before, after int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM security_audit`).Scan(&before); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 30; i++ {
+		b.do("POST", "/api/apps/1/run", map[string]string{})
+		b.do("POST", "/api/no-such-route", map[string]string{})
+	}
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM security_audit`).Scan(&after); err != nil || after != before {
+		t.Fatalf("anonymous calls wrote %d audit rows (err=%v)", after-before, err)
+	}
+}

@@ -199,6 +199,13 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 				actor = &id
 			}
 		}
+		// Anonymous calls are audited only on the rate-limited entry routes;
+		// every other route refuses them, and auditing them let anyone grow
+		// the table without limit and push real events out of view.
+		if actor == nil && !limited {
+			next.ServeHTTP(w, r)
+			return
+		}
 		// Persist the attempt before allowing state changes. No body, query,
 		// cookie, password, token, domain or source text enters this record.
 		var eventID int64
