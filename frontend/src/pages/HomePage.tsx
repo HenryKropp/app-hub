@@ -1,32 +1,58 @@
 import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
-import { X } from "lucide-react"
+import { AppWindow, PanelsTopLeft, TriangleAlert, X } from "lucide-react"
 import { FavoriteStar } from "@/components/FavoriteStar"
 import { LoadError, RunState } from "@/components/bits"
 import { Badge } from "@/components/ui/badge"
 import { api, type Home, type HomeItem, type HomeWarning, type TeamHome } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
+import { useComputerStatus } from "@/lib/computer-status"
 import { has } from "@/lib/permissions"
 import { relativeTime } from "@/lib/runs"
+import { cn } from "@/lib/utils"
 
 function greeting(name: string, hour = new Date().getHours()) {
   const g = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite"
   return `${g}, ${name.split(" ")[0]}`
 }
 
-function Section({ title, subtitle, action, children }: { title: string; subtitle?: string; action?: React.ReactNode; children: React.ReactNode }) {
+function Section({ title, count, aside, action, children, className }: { title: string; count?: number; aside?: string; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
-    <section className="mt-8">
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <div className="flex flex-wrap items-baseline gap-x-3">
-          <h2 className="font-heading text-xl">{title}</h2>
-          {subtitle && <span className="text-sm text-muted-foreground">{subtitle}</span>}
+    <section className={className}>
+      <div className="mb-2.5 flex min-h-6 flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <h2 className="font-heading text-base">{title}</h2>
+          {count !== undefined && <span className="text-sm text-muted-foreground tabular-nums">{count}</span>}
+          {aside && <span className="text-sm text-muted-foreground">{aside}</span>}
         </div>
         {action}
       </div>
       {children}
     </section>
   )
+}
+
+/** A bordered list with hairlines between rows: the one container every Home block uses. */
+const box = "divide-y divide-border overflow-hidden rounded-xl border border-border bg-card"
+const moreLink = "text-sm text-muted-foreground hover:text-foreground hover:underline"
+
+function today() {
+  const d = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })
+  return d.charAt(0).toUpperCase() + d.slice(1)
+}
+
+/** The same computer warning can come more than once (two Agente versions, same name); and when the
+ * top banner already says this computer is not connected, the Home does not repeat it. */
+function cleanWarnings(list: HomeWarning[], bannerShown: boolean): HomeWarning[] {
+  const seen = new Set<string>()
+  return list.filter((w) => {
+    if (w.kind === "computer_offline" && bannerShown) return false
+    if (w.kind !== "computer_offline" && w.kind !== "agent_outdated") return true
+    const key = `${w.kind}:${w.computer_name}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 function warningLine(w: HomeWarning, admin: boolean): { text: string; to: string } {
@@ -44,117 +70,140 @@ function warningLine(w: HomeWarning, admin: boolean): { text: string; to: string
   }
 }
 
-function Cards({ items, onUnstar }: { items: HomeItem[]; onUnstar?: (it: HomeItem) => void }) {
+function Items({ items, onUnstar }: { items: HomeItem[]; onUnstar?: (it: HomeItem) => void }) {
   return (
-    <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      {items.map((it) => (
-        <li key={`${it.kind}-${it.id}`}>
-          <div className="group relative flex h-full min-h-28 flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-input hover:bg-[color-mix(in_oklch,var(--card),var(--foreground)_1.5%)]">
-            <h3 className="flex items-start gap-2 font-heading text-[1.05rem] leading-snug">
-              <Link to={`/${it.kind === "app" ? "apps" : "artifacts"}/${it.id}`} className="min-w-0 break-words after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring">
+    <ul className={box}>
+      {items.map((it) => {
+        const Icon = it.kind === "app" ? AppWindow : PanelsTopLeft
+        return (
+          <li key={`${it.kind}-${it.id}`} className="group relative flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-accent/60">
+            <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            <div className="min-w-0 flex-1">
+              <Link
+                to={`/${it.kind === "app" ? "apps" : "artifacts"}/${it.id}`}
+                className="block truncate font-medium after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-ring"
+              >
                 {it.name}
               </Link>
-              <span className="ml-auto -mt-0.5 -mr-1.5">
-                <FavoriteStar kind={it.kind} id={it.id} on={onUnstar !== undefined} name={it.name} onChange={(on) => !on && onUnstar?.(it)} />
-              </span>
-            </h3>
-            {it.summary && <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">{it.summary}</p>}
-            <p className="mt-auto flex flex-wrap items-center gap-2 pt-3 text-xs text-muted-foreground">
-              <Badge variant="secondary">{it.kind === "app" ? "App" : "Artifact"}</Badge>
-              {it.area && <span>{it.area}</span>}
-            </p>
-          </div>
-        </li>
-      ))}
+              {it.summary && <p className="truncate text-sm text-muted-foreground">{it.summary}</p>}
+            </div>
+            <span className="sr-only shrink-0 text-xs text-muted-foreground sm:not-sr-only">
+              {it.kind === "app" ? "App" : "Artifact"}{it.area && ` · ${it.area}`}
+            </span>
+            <span className="relative z-10 -mr-1.5 shrink-0">
+              <FavoriteStar kind={it.kind} id={it.id} on={onUnstar !== undefined} name={it.name} onChange={(on) => !on && onUnstar?.(it)} />
+            </span>
+          </li>
+        )
+      })}
     </ul>
   )
 }
 
+const CREATING_SHOWN = 5
+const PENDING_SHOWN = 5
+
 function Team({ t }: { t: TeamHome }) {
+  const [allCreating, setAllCreating] = useState(false)
   const p = t.pending
-  const showPending = !!p && (p.invitations.length > 0 || p.requests.length > 0 || p.without_area.length > 0)
+  const pending = p
+    ? [
+        ...p.invitations.map((i) => ({ key: `i${i.id}`, text: `Convite para ${i.email} ainda não aceito`, expired: i.expired, at: i.created_at as string | undefined })),
+        ...p.requests.map((r) => ({ key: `r${r.id}`, text: `${r.name} pediu acesso`, expired: false, at: r.created_at as string | undefined })),
+        ...p.without_area.map((a) => ({ key: `a${a.id}`, text: `Sem área: ${a.name}`, expired: false, at: undefined })),
+      ]
+    : []
+  const creating = allCreating ? t.creating : t.creating.slice(0, CREATING_SHOWN)
   return (
-    <Section title="Meu time" subtitle={t.scope === "company" ? "Empresa toda" : `Áreas: ${t.areas.join(", ")}`}>
-      <div className="space-y-6">
-        {t.usage.length > 0 && (
-          <div>
-            <h3 className="mb-2 font-medium">Quem está usando</h3>
-            <div className="overflow-x-auto rounded-xl border border-border bg-card">
-              <table className="w-full text-sm">
-                <thead className="text-left text-xs text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-2 font-normal">Pessoa</th>
-                    <th className="px-4 py-2 text-right font-normal">Execuções (7 dias)</th>
-                    <th className="px-4 py-2 text-right font-normal">Artifacts abertos (7 dias)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {t.usage.map((u) => (
-                    <tr key={u.person_id}>
-                      <td className="px-4 py-2.5 font-medium">{u.name}</td>
-                      <td className="px-4 py-2.5 text-right">{u.runs_7d}</td>
-                      <td className="px-4 py-2.5 text-right">{u.opens_7d}</td>
+    <section className="mt-12 border-t border-border pt-8">
+      <div className="mb-5 flex flex-wrap items-baseline gap-x-2">
+        <h2 className="font-heading text-lg">Meu time</h2>
+        <span className="text-sm text-muted-foreground">{t.scope === "company" ? "Empresa toda" : `Áreas: ${t.areas.join(", ")}`}</span>
+      </div>
+      <div className="grid grid-cols-1 gap-x-8 gap-y-8 lg:grid-cols-2">
+        {(t.usage.length > 0 || t.never_used.length > 0) && (
+          <Section title="Quem está usando" aside="últimos 7 dias">
+            {t.usage.length > 0 && (
+              <div className="overflow-x-auto rounded-xl border border-border bg-card">
+                <table className="w-full text-sm">
+                  <thead className="text-left text-xs text-muted-foreground">
+                    <tr className="border-b border-border">
+                      <th className="px-4 py-2 font-normal">Pessoa</th>
+                      <th className="px-4 py-2 text-right font-normal">Execuções</th>
+                      <th className="px-4 py-2 text-right font-normal">Artifacts abertos</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-        {t.never_used.length > 0 && (
-          <div>
-            <h3 className="mb-1 font-medium">Ainda não usaram</h3>
-            <p className="text-sm text-muted-foreground">{t.never_used.map((n) => n.name).join(", ")}</p>
-          </div>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {t.usage.map((u) => (
+                      <tr key={u.person_id}>
+                        <td className="px-4 py-2.5 font-medium">{u.name}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">{u.runs_7d}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">{u.opens_7d}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {t.never_used.length > 0 && (
+              <p className={t.usage.length > 0 ? "mt-3 text-sm text-muted-foreground" : "text-sm text-muted-foreground"}>
+                <span className="text-foreground">Ainda não usaram:</span> {t.never_used.map((n) => n.name).join(", ")}
+              </p>
+            )}
+          </Section>
         )}
         {t.creating.length > 0 && (
-          <div>
-            <h3 className="mb-2 font-medium">O que estão criando</h3>
-            <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-              {t.creating.map((c) => (
-                <li key={`${c.kind}-${c.id}-${c.event}-${c.version}-${c.at}`} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-2.5 text-sm">
-                  <span className="min-w-0">
-                    {c.person_name} {c.event === "created" ? "criou" : `subiu a versão ${c.version} de`}{" "}
+          <Section
+            title="O que estão criando"
+            action={t.creating.length > CREATING_SHOWN && (
+              <button type="button" onClick={() => setAllCreating((v) => !v)} className={moreLink}>
+                {allCreating ? "Mostrar menos" : `Ver tudo (${t.creating.length})`}
+              </button>
+            )}
+          >
+            <ul className={box}>
+              {creating.map((c) => (
+                <li key={`${c.kind}-${c.id}-${c.event}-${c.version}-${c.at}`} className="flex items-baseline justify-between gap-4 px-4 py-2.5 text-sm">
+                  <span className="min-w-0 truncate">
+                    <span className="text-muted-foreground">{c.person_name} {c.event === "created" ? "criou" : `subiu a versão ${c.version} de`}</span>{" "}
                     <Link to={`/${c.kind === "app" ? "apps" : "artifacts"}/${c.id}`} className="font-medium hover:underline">{c.name}</Link>
                   </span>
-                  <span className="text-xs text-muted-foreground">{relativeTime(c.at)}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">{relativeTime(c.at)}</span>
                 </li>
               ))}
             </ul>
-          </div>
+          </Section>
         )}
-        {showPending && p && (
-          <div>
-            <h3 className="mb-2 font-medium">Pendências de gestão</h3>
-            <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card text-sm">
-              {p.invitations.map((i) => (
-                <li key={`i${i.id}`} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
-                  <Link to="/equipe" className="hover:underline">Convite para {i.email} ainda não aceito</Link>
-                  {i.expired && <Badge variant="destructive">venceu</Badge>}
-                  <span className="ml-auto text-xs text-muted-foreground">{relativeTime(i.created_at)}</span>
+        {pending.length > 0 && (
+          <Section
+            title="Pendências de gestão"
+            count={pending.length}
+            action={<Link to="/equipe" className={moreLink}>Abrir Equipe</Link>}
+          >
+            <ul className={box}>
+              {pending.slice(0, PENDING_SHOWN).map((x) => (
+                <li key={x.key} className="flex items-center gap-2 px-4 py-2.5 text-sm">
+                  <Link to="/equipe" className="min-w-0 truncate hover:underline">{x.text}</Link>
+                  {x.expired && <Badge variant="destructive">venceu</Badge>}
+                  {x.at && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{relativeTime(x.at)}</span>}
                 </li>
               ))}
-              {p.requests.map((r) => (
-                <li key={`r${r.id}`} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
-                  <Link to="/equipe" className="hover:underline">{r.name} pediu acesso</Link>
-                  <span className="ml-auto text-xs text-muted-foreground">{relativeTime(r.created_at)}</span>
+              {pending.length > PENDING_SHOWN && (
+                <li className="px-4 py-2.5 text-sm">
+                  <Link to="/equipe" className={moreLink}>e mais {pending.length - PENDING_SHOWN} na Equipe</Link>
                 </li>
-              ))}
-              {p.without_area.map((a) => (
-                <li key={`a${a.id}`} className="px-4 py-2.5">
-                  <Link to="/equipe" className="hover:underline">Sem área: {a.name}</Link>
-                </li>
-              ))}
+              )}
             </ul>
-          </div>
+          </Section>
         )}
       </div>
-    </Section>
+    </section>
   )
 }
 
 export function HomePage() {
   const { person } = useAuth()
+  const { connected } = useComputerStatus()
   const [home, setHome] = useState<Home | null>(null)
   const [team, setTeam] = useState<TeamHome | null>(null)
   const [error, setError] = useState("")
@@ -189,26 +238,32 @@ export function HomePage() {
     )
   }
   const unstar = (it: HomeItem) => setHome((h) => h && { ...h, favorites: h.favorites.filter((f) => !(f.kind === it.kind && f.id === it.id)) })
+  const warnings = home ? cleanWarnings(home.attention, connected === false) : []
 
   return (
     <>
-      <h1 className="font-heading text-3xl">{greeting(person?.name ?? "")}</h1>
-      {error && <div className="mt-4"><LoadError message={error} onRetry={() => { setError(""); setTries((n) => n + 1) }} /></div>}
-      {home === null && !error && <p className="mt-4 text-muted-foreground">Carregando…</p>}
+      <header>
+        <h1 className="font-heading text-2xl">{greeting(person?.name ?? "")}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{today()}</p>
+      </header>
+      {error && <div className="mt-6"><LoadError message={error} onRetry={() => { setError(""); setTries((n) => n + 1) }} /></div>}
+      {home === null && !error && <p className="mt-6 text-sm text-muted-foreground">Carregando…</p>}
 
       {home && (
         <>
-          {home.attention.length > 0 && (
-            <Section title="Atenção">
-              <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-                {home.attention.map((w, i) => {
+          {warnings.length > 0 && (
+            <Section title="Atenção" count={warnings.length} className="mt-8">
+              <ul className={box}>
+                {warnings.map((w, i) => {
                   const line = warningLine(w, admin)
+                  const canDismiss = !!w.run_id && (w.kind === "run_error" || w.kind === "run_waiting" || w.kind === "run_interrupted")
                   return (
-                    <li key={`${w.kind}-${w.run_id ?? w.app_id ?? w.computer_name}-${i}`} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-                      <Link to={line.to} className="min-w-0 font-medium hover:underline">{line.text}</Link>
-                      <span className="text-xs text-muted-foreground">{w.at && <>{relativeTime(w.at)}</>}</span>
-                      {w.run_id && (w.kind === "run_error" || w.kind === "run_waiting" || w.kind === "run_interrupted") && (
-                        <button type="button" onClick={() => dismiss(w)} className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground">
+                    <li key={`${w.kind}-${w.run_id ?? w.app_id ?? w.computer_name}-${i}`} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                      <TriangleAlert className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <Link to={line.to} className="min-w-0 flex-1 truncate font-medium hover:underline">{line.text}</Link>
+                      {w.at && <span className="shrink-0 text-xs text-muted-foreground">{relativeTime(w.at)}</span>}
+                      {canDismiss && (
+                        <button type="button" onClick={() => dismiss(w)} aria-label={`Dispensar: ${line.text}`} className="-my-1 inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground">
                           <X className="size-3.5" /> Dispensar
                         </button>
                       )}
@@ -219,35 +274,40 @@ export function HomePage() {
             </Section>
           )}
 
-          <Section title="Favoritos">
-            {home.favorites.length === 0 ? (
-              <p className="text-muted-foreground">Marque apps e artifacts com a estrela ☆ para eles aparecerem aqui.</p>
-            ) : (
-              <Cards items={home.favorites} onUnstar={unstar} />
+          <div className={cn("mt-8 grid grid-cols-1 gap-x-8 gap-y-8", home.runs.length > 0 && "lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]")}>
+            <div className="space-y-8">
+              <Section title="Favoritos">
+                {home.favorites.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-border px-4 py-5 text-sm text-muted-foreground">
+                    Marque apps e artifacts com a estrela ☆ para eles aparecerem aqui.
+                  </p>
+                ) : (
+                  <Items items={home.favorites} onUnstar={unstar} />
+                )}
+              </Section>
+              {home.recent.length > 0 && (
+                <Section title="Usados recentemente">
+                  <Items items={home.recent} />
+                </Section>
+              )}
+            </div>
+
+            {home.runs.length > 0 && (
+              <Section title="Minhas últimas execuções" action={<Link to="/execucoes" className={moreLink}>Ver todas</Link>}>
+                <ul className={box}>
+                  {home.runs.map((r) => (
+                    <li key={r.id} className="px-4 py-2.5">
+                      <Link to={`/execucoes/${r.id}`} className="block truncate text-sm font-medium hover:underline">{r.app_name}</Link>
+                      <span className="mt-0.5 flex items-center justify-between gap-3 text-xs">
+                        <RunState status={r.status} className="[&_svg]:size-3.5" />
+                        <span className="text-muted-foreground">{relativeTime(r.created_at)}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </Section>
             )}
-          </Section>
-
-          {home.recent.length > 0 && (
-            <Section title="Usados recentemente">
-              <Cards items={home.recent} />
-            </Section>
-          )}
-
-          {home.runs.length > 0 && (
-            <Section title="Minhas últimas execuções" action={<Link to="/execucoes" className="text-sm text-muted-foreground hover:text-foreground hover:underline">Ver todas</Link>}>
-              <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-                {home.runs.map((r) => (
-                  <li key={r.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2.5 text-sm">
-                    <Link to={`/execucoes/${r.id}`} className="min-w-0 font-medium hover:underline">{r.app_name}</Link>
-                    <span className="flex items-center gap-3">
-                      <RunState status={r.status} />
-                      <span className="text-xs text-muted-foreground">{relativeTime(r.created_at)}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
+          </div>
         </>
       )}
 

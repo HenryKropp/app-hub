@@ -134,8 +134,8 @@
   }
   html {
     @apply font-sans;
-    /* 15px instead of the browser's 16px: every rem-based size (text and spacing) shrinks together. */
-    font-size: 15px;
+    /* 14px instead of the browser's 16px: every rem-based size (text and spacing) shrinks together. */
+    font-size: 14px;
     color-scheme: light;
   }
   html.dark {
