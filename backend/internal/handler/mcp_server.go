@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -57,8 +58,8 @@ func (h *Handler) mcpHTTPFor(s *mcp.Server) http.Handler {
 		DisableLocalhostProtection: true,
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, _ := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if !strings.HasPrefix(token, "ziv_") {
+		scheme, token, _ := strings.Cut(r.Header.Get("Authorization"), " ")
+		if !strings.EqualFold(scheme, "Bearer") || !strings.HasPrefix(token, "ziv_") {
 			token = ""
 		}
 		_, p, err := h.mcpConnection(r.Context(), token)
@@ -88,28 +89,79 @@ func (h *Handler) mcpResourceMetadataURL() string {
 	return origin + "/.well-known/oauth-protected-resource" + base + "/mcp"
 }
 
+// mcpRoutes are the only API routes MCP tools may call: each one was
+// reviewed for use by Claude. {id} matches digits only.
+var mcpRoutes = []string{
+	"GET /api/auth/status",
+	"GET /api/apps",
+	"GET /api/apps/{id}",
+	"POST /api/apps/{id}/runs",
+	"GET /api/runs",
+	"GET /api/runs/{id}",
+	"GET /api/artifacts",
+	"GET /api/artifacts/{id}",
+	"POST /api/artifacts",
+	"POST /api/artifacts/{id}/versions",
+	"GET /api/areas",
+}
+
+var errMCPRoute = errors.New("mcp: rota não liberada para o Claude")
+
+func mcpRouteAllowed(method, path string) bool {
+	got := strings.Split(path, "/")
+	for _, route := range mcpRoutes {
+		m, pattern, _ := strings.Cut(route, " ")
+		want := strings.Split(pattern, "/")
+		if m != method || len(want) != len(got) {
+			continue
+		}
+		ok := true
+		for i, seg := range want {
+			if seg == "{id}" {
+				ok = got[i] != "" && strings.Trim(got[i], "0123456789") == ""
+			} else {
+				ok = seg == got[i]
+			}
+			if !ok {
+				break
+			}
+		}
+		if ok {
+			return true
+		}
+	}
+	return false
+}
+
 // callAPI runs one API route internally as the MCP person in ctx (set by
 // mcpHTTP, see withMCPPerson); without one the route answers 401. It goes
-// straight to the route table, so the browser checks in Secure do not apply.
-func (h *Handler) callAPI(ctx context.Context, method, path string, body any) (int, []byte) {
+// straight to the route table, so everything Secure adds is bypassed: the
+// browser checks, the rate limits, the audit and the portal guard against
+// reading server folders. That is why only the routes in mcpRoutes may be
+// called; any other route is refused with errMCPRoute.
+func (h *Handler) callAPI(ctx context.Context, method, path string, body any) (int, []byte, error) {
+	route, _, _ := strings.Cut(path, "?")
+	if !mcpRouteAllowed(method, route) {
+		return 0, nil, fmt.Errorf("%w: %s %s", errMCPRoute, method, route)
+	}
 	var rd io.Reader
 	if body != nil {
 		buf, err := json.Marshal(body)
 		if err != nil {
-			return http.StatusInternalServerError, nil
+			return 0, nil, err
 		}
 		rd = bytes.NewReader(buf)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, path, rd)
 	if err != nil {
-		return http.StatusInternalServerError, nil
+		return 0, nil, err
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	rec := httptest.NewRecorder()
 	h.api.ServeHTTP(rec, req)
-	return rec.Code, rec.Body.Bytes()
+	return rec.Code, rec.Body.Bytes(), nil
 }
 
 // apiError is the "error" text of an API JSON reply, or "".
