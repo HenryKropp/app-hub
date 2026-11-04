@@ -6,7 +6,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Ziv public entry: editorial, warm paper + deep petroleum, with signal coral. */
+/*
+  Direção visual do Ziv: limpo e neutro, com uma só cor viva.
+  O coral só preenche: o botão Rodar, as barrinhas do que está rodando agora
+  e o marcador do item ativo. Nunca é cor de texto, ícone ou decoração.
+  Todo o resto é branco, cinza e quase preto. O petróleo fica só no logo.
+*/
 
 @theme inline {
   --font-heading: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
@@ -52,67 +57,67 @@
 :root {
   --radius: 0.5rem;
 
-  --background: #F6F4EE;
-  --foreground: #193A3B;
-  --card: #FFFEFA;
-  --card-foreground: #193A3B;
-  --popover: #FFFEFA;
-  --popover-foreground: #193A3B;
-  --primary: #16474A;
-  --primary-foreground: #FFFDF7;
-  --secondary: #E9EFEB;
-  --secondary-foreground: #20494A;
-  --muted: #ECEDE7;
-  --muted-foreground: #637575;
-  --accent: #F5E5DA;
-  --accent-foreground: #714A3F;
-  --destructive: #A7413B;
-  --border: #D9E0DA;
-  --input: #B8C4BE;
-  --ring: #E56F52;
+  --background: #FFFFFF;
+  --foreground: #11161A;
+  --card: #FFFFFF;
+  --card-foreground: #11161A;
+  --popover: #FFFFFF;
+  --popover-foreground: #11161A;
+  --primary: #11161A;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F2F2F2;
+  --secondary-foreground: #11161A;
+  --muted: #F2F2F2;
+  --muted-foreground: #6B6F73;
+  --accent: #F0F0F0;
+  --accent-foreground: #11161A;
+  --destructive: #B4232F;
+  --border: #EAEAEA;
+  --input: #8C9196;
+  --ring: #11161A;
 
-  --sidebar: #EDF1EB;
-  --sidebar-border: #D9E0DA;
+  --sidebar: #FAFAFA;
+  --sidebar-border: #EAEAEA;
 
-  --brand: #E87557;
-  --brand-hover: #D75F43;
-  --brand-foreground: #193A3B;
-  --logo-square: #16474A;
+  --brand: #FF6B4A;
+  --brand-hover: #F0562F;
+  --brand-foreground: #11161A;
+  --logo-square: #0E3B43;
   --warn: oklch(0.55 0.12 85);
   --warn-soft: oklch(0.965 0.04 85);
   --ok: oklch(0.52 0.13 150);
   --ok-soft: oklch(0.96 0.035 150);
 
-  --shadow-pop: 0 2px 4px #1c45420a, 0 18px 48px -24px #16474a40;
+  --shadow-pop: 0 1px 2px oklch(0 0 0 / 0.04), 0 8px 24px -6px oklch(0 0 0 / 0.12);
 }
 
 .dark {
-  --background: #142D30;
-  --foreground: #EFF2E8;
-  --card: #1B383A;
-  --card-foreground: #EFF2E8;
-  --popover: #203F41;
-  --popover-foreground: #EFF2E8;
-  --primary: #E7EFE6;
-  --primary-foreground: #193A3B;
-  --secondary: #294648;
-  --secondary-foreground: #EAF1E8;
-  --muted: #294648;
-  --muted-foreground: #B2C2BC;
-  --accent: #543D36;
-  --accent-foreground: #F7DDD0;
-  --destructive: #F27E73;
-  --border: #365557;
-  --input: #67817E;
-  --ring: #F08A6D;
+  --background: #11161A;
+  --foreground: #EEF0F1;
+  --card: #161C21;
+  --card-foreground: #EEF0F1;
+  --popover: #1A2127;
+  --popover-foreground: #EEF0F1;
+  --primary: #EEF0F1;
+  --primary-foreground: #11161A;
+  --secondary: #232A30;
+  --secondary-foreground: #EEF0F1;
+  --muted: #232A30;
+  --muted-foreground: #A3A9AE;
+  --accent: #1E252B;
+  --accent-foreground: #EEF0F1;
+  --destructive: #F2707B;
+  --border: #252C33;
+  --input: #5E6870;
+  --ring: #EEF0F1;
 
-  --sidebar: #182F32;
-  --sidebar-border: #365557;
+  --sidebar: #141A1F;
+  --sidebar-border: #252C33;
 
-  --brand: #F08A6D;
-  --brand-hover: #F6A087;
-  --brand-foreground: #183638;
-  --logo-square: #74A49B;
+  --brand: #FF6B4A;
+  --brand-hover: #F0562F;
+  --brand-foreground: #11161A;
+  --logo-square: #256A75;
   --warn: oklch(0.8 0.13 85);
   --warn-soft: oklch(0.27 0.05 85);
   --ok: oklch(0.77 0.14 150);

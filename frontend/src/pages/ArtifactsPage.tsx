@@ -45,7 +45,7 @@ export function ArtifactsPage() {
 
   const canReg = canRegister(person)
   const newButton = (className?: string) => (
-    <Link to="/artifacts/novo" className={cn(buttonVariants({ variant: "run" }), "h-9 gap-1.5 rounded-lg px-3 [&_svg]:fill-none", className)}>
+    <Link to="/artifacts/novo" className={cn(buttonVariants(), "h-9 gap-1.5 rounded-lg px-3 [&_svg]:fill-none", className)}>
       <Plus className="size-4" />
       Novo artifact
     </Link>
@@ -115,7 +115,7 @@ export function ArtifactsPage() {
             <li key={a.id}>
               <div className="group relative flex h-full min-h-40 flex-col rounded-xl border border-border bg-card p-5 transition-colors hover:border-input hover:bg-[color-mix(in_oklch,var(--card),var(--foreground)_1.5%)]">
                 <h2 className="flex items-start gap-2 font-heading text-[1.05rem] leading-snug">
-                  <Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-brand" />
+                  <Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                   <Link to={`/artifacts/${a.id}`} className="min-w-0 after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring">
                     {a.name}
                   </Link>

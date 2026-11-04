@@ -191,7 +191,7 @@ export function CredentialVault({ apps }: Props) {
     <section className={`${panelClass} mb-10`} aria-labelledby="credential-vault-heading">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex gap-3">
-          <div className="mt-0.5 rounded-lg bg-brand/10 p-2 text-brand"><KeyRound className="size-5" /></div>
+          <div className="mt-0.5 rounded-lg bg-muted p-2 text-foreground"><KeyRound className="size-5" /></div>
           <div>
             <h2 id="credential-vault-heading" className="font-heading text-xl">Cofre de credenciais</h2>
             <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Tokens ficam fora do código e são exibidos apenas como metadados. O valor não pode ser lido, copiado ou recuperado por esta tela.</p>
@@ -281,13 +281,13 @@ export function CredentialVault({ apps }: Props) {
         </form>
 
         <div className="mt-7 border-t border-border pt-6">
-          <h3 className="flex items-center gap-2 font-heading text-lg"><Shield className="size-4 text-brand" />Auditoria do cofre</h3>
+          <h3 className="flex items-center gap-2 font-heading text-lg"><Shield className="size-4 text-muted-foreground" />Auditoria do cofre</h3>
           <p className="mt-1 text-xs text-muted-foreground">Eventos e revisões, sem conteúdo dos tokens.</p>
           {events.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">Nenhum evento de credencial disponível.</p> : <ol className="mt-3 max-h-64 divide-y overflow-auto">{events.map((event) => <li key={event.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"><span className="font-medium">{event.action} · revisão {event.revision}</span><time className="text-xs text-muted-foreground">{new Date(event.created_at).toLocaleString("pt-BR")}</time><span className="w-full text-xs text-muted-foreground">Credencial {event.credential_id} · {event.actor_id === 0 ? "Sistema" : `Pessoa ${event.actor_id}`}</span></li>)}</ol>}
         </div>
       </>}
       {loadError && !loading && <p className="mt-4 text-xs text-muted-foreground">O conteúdo do cofre não pôde ser atualizado; tente novamente para ver o estado atual.</p>}
-      {!loading && available && <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground"><Check className="mt-0.5 size-3.5 shrink-0 text-brand" />A disponibilidade do keyring não altera aprovação de aplicativos ou permissões de acesso.</p>}
+      {!loading && available && <p className="mt-4 flex items-start gap-2 text-xs text-muted-foreground"><Check className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />A disponibilidade do keyring não altera aprovação de aplicativos ou permissões de acesso.</p>}
     </section>
   )
 }

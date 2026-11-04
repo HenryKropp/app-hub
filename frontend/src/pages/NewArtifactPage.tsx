@@ -121,7 +121,7 @@ export function NewArtifactPage() {
           <legend className="mb-1.5 text-sm font-medium">Quem vê</legend>
           {([["all", "Todos"], ["chosen", "Só quem eu escolher"]] as const).map(([v, label]) => (
             <label key={v} className="flex cursor-pointer items-center gap-2 text-sm">
-              <input type="radio" name="who" checked={who === v} onChange={() => setWho(v)} className="accent-[var(--brand)]" />
+              <input type="radio" name="who" checked={who === v} onChange={() => setWho(v)} className="accent-foreground" />
               {label}
             </label>
           ))}
@@ -147,7 +147,7 @@ export function NewArtifactPage() {
           </p>
         )}
         <div className="flex gap-2">
-          <Button type="submit" variant="run" disabled={!ready || busy} className="[&_svg]:fill-none">
+          <Button type="submit" disabled={!ready || busy} className="[&_svg]:fill-none">
             {busy ? "Criando…" : "Criar artifact"}
           </Button>
           <Link to="/artifacts" className={buttonVariants({ variant: "outline" })}>

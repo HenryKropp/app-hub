@@ -223,7 +223,7 @@ function CompanyControls({ settings, onSaved }: { settings: SecuritySettings; on
         </Control>
         <Control title="Aprovar apps novos antes de rodarem" text="Com isto ligado, um app novo ou com código alterado só roda depois que um administrador aprova.">
           <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
-            <input type="checkbox" className="size-4 accent-[var(--brand)]" checked={settings.require_app_approval} disabled={busy} onChange={(e) => void save({ ...settings, require_app_approval: e.target.checked })} />
+            <input type="checkbox" className="size-4 accent-foreground" checked={settings.require_app_approval} disabled={busy} onChange={(e) => void save({ ...settings, require_app_approval: e.target.checked })} />
             {settings.require_app_approval ? "Ligado" : "Desligado"}
           </label>
         </Control>
