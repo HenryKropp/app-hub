@@ -130,7 +130,10 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 		}
 		unsafe := r.Method != "GET" && r.Method != "HEAD" && r.Method != "OPTIONS"
 		isAgent := strings.HasPrefix(r.URL.Path, "/api/agent/")
-		if unsafe && !isAgent {
+		// MCP and the OAuth token/registration endpoints are called by Claude,
+		// not a browser session: a bearer token or PKCE protects them, no cookie.
+		isClaude := r.URL.Path == "/mcp" || r.URL.Path == "/oauth/token" || r.URL.Path == "/oauth/register"
+		if unsafe && !isAgent && !isClaude {
 			origin := r.Header.Get("Origin")
 			if origin != "" {
 				want, err := url.Parse(h.cfg.BaseURL)
@@ -152,7 +155,7 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 				}
 			}
 		}
-		limited := unsafe && (r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/auth/setup" || r.URL.Path == "/api/workspaces" || strings.HasPrefix(r.URL.Path, "/api/entry/") || r.URL.Path == "/api/agent/pair/start")
+		limited := unsafe && (r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/auth/setup" || r.URL.Path == "/api/workspaces" || strings.HasPrefix(r.URL.Path, "/api/entry/") || r.URL.Path == "/api/agent/pair/start" || r.URL.Path == "/oauth/register" || r.URL.Path == "/oauth/token")
 		accountKey := ""
 		if limited {
 			// Never trust arbitrary X-Forwarded-For supplied by clients.
@@ -161,7 +164,7 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 				host = r.RemoteAddr
 			}
 			limit := signupAttempts
-			if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/entry/invitations/preview" || r.URL.Path == "/api/agent/pair/start" {
+			if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/entry/invitations/preview" || r.URL.Path == "/api/agent/pair/start" || r.URL.Path == "/oauth/register" || r.URL.Path == "/oauth/token" {
 				limit = addressAttempts
 			}
 			if r.URL.Path == "/api/auth/login" {

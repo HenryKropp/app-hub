@@ -300,18 +300,30 @@ func (p *Portal) Close() {
 	}
 }
 
-func (p *Portal) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	handler.NoFraming(w.Header())
-	slug := "principal"
-	rest := r.URL.Path
-	if strings.HasPrefix(rest, "/w/") {
-		parts := strings.SplitN(strings.TrimPrefix(rest, "/w/"), "/", 2)
-		slug = parts[0]
-		rest = "/"
-		if len(parts) == 2 {
-			rest += parts[1]
+// splitWorkspacePath picks the company and the path inside it. Besides
+// /w/<slug>/..., OAuth clients look up metadata at the root with the company
+// path appended (RFC 9728/8414): /.well-known/<name>/w/<slug>/<tail>.
+func splitWorkspacePath(p string) (slug, rest string) {
+	for _, name := range []string{"oauth-protected-resource", "oauth-authorization-server"} {
+		prefix := "/.well-known/" + name + "/w/"
+		if after, ok := strings.CutPrefix(p, prefix); ok {
+			slug, tail, found := strings.Cut(after, "/")
+			if found {
+				tail = "/" + tail
+			}
+			return slug, "/.well-known/" + name + tail
 		}
 	}
+	if after, ok := strings.CutPrefix(p, "/w/"); ok {
+		slug, tail, _ := strings.Cut(after, "/")
+		return slug, "/" + tail
+	}
+	return "principal", p
+}
+
+func (p *Portal) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	handler.NoFraming(w.Header())
+	slug, rest := splitWorkspacePath(r.URL.Path)
 	p.mu.RLock()
 	e := p.entries[slug]
 	p.mu.RUnlock()
@@ -322,7 +334,8 @@ func (p *Portal) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if strings.HasPrefix(rest, "/api/") || rest == "/up" {
+	if strings.HasPrefix(rest, "/api/") || rest == "/up" || rest == "/mcp" ||
+		strings.HasPrefix(rest, "/oauth/") || strings.HasPrefix(rest, "/.well-known/") {
 		clone := r.Clone(r.Context())
 		u := *r.URL
 		u.Path = rest
