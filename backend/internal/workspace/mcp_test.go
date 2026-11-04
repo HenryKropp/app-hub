@@ -3,6 +3,7 @@ package workspace
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -88,17 +89,28 @@ func TestPortalRoutesMCPAndWellKnown(t *testing.T) {
 		t.Fatalf("teste token on principal: %d", resp.StatusCode)
 	}
 	// The root /.well-known/<name>/w/<slug>/... form goes to the company
-	// handler (its routes come with OAuth), never to the web app page.
-	for _, path := range []string{"/.well-known/oauth-protected-resource/w/teste/mcp", "/w/teste/.well-known/oauth-authorization-server", "/w/teste/oauth/token"} {
+	// handler, never to the web app page, and answers with that company's URLs.
+	for path, want := range map[string]string{
+		"/.well-known/oauth-protected-resource/w/teste/mcp": `"resource":"http://localhost/w/teste/mcp"`,
+		"/.well-known/oauth-authorization-server/w/teste":   `"issuer":"http://localhost/w/teste"`,
+		"/w/teste/.well-known/oauth-authorization-server":   `"token_endpoint":"http://localhost/w/teste/oauth/token"`,
+		"/.well-known/oauth-protected-resource/mcp":         `"resource":"http://localhost/mcp"`,
+	} {
 		resp, err := http.Get(srv.URL + path)
 		if err != nil {
 			t.Fatal(err)
 		}
+		var body strings.Builder
+		_, _ = io.Copy(&body, resp.Body)
 		resp.Body.Close()
 		// The web app page fallback is the only answer marked no-cache.
-		if resp.StatusCode != 404 || resp.Header.Get("Cache-Control") == "no-cache" {
-			t.Fatalf("%s: %d, Cache-Control %q", path, resp.StatusCode, resp.Header.Get("Cache-Control"))
+		if resp.StatusCode != 200 || resp.Header.Get("Cache-Control") == "no-cache" || !strings.Contains(body.String(), want) {
+			t.Fatalf("%s: %d, Cache-Control %q, body %s", path, resp.StatusCode, resp.Header.Get("Cache-Control"), body.String())
 		}
+	}
+	// The token endpoint is the company's too (GET is not allowed there).
+	if resp, err := http.Get(srv.URL + "/w/teste/oauth/token"); err != nil || resp.StatusCode != http.StatusMethodNotAllowed || resp.Header.Get("Cache-Control") != "no-store" {
+		t.Fatalf("/w/teste/oauth/token: %v %+v", err, resp)
 	}
 	if status, _ := b.do("GET", "/.well-known/oauth-protected-resource/w/nobody-here/mcp", nil); status != 404 {
 		t.Fatalf("unknown company: %d", status)
