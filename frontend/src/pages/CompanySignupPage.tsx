@@ -4,6 +4,7 @@ import { Link } from "react-router-dom"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field, Wordmark } from "@/components/bits"
+import { AuthLayout, authBack, authError, authLink } from "@/components/AuthLayout"
 import { api, ApiError } from "@/lib/api"
 
 function localPath(url: string) {
@@ -85,36 +86,35 @@ export function CompanySignupPage() {
   const isInvalid = (id: string) => invalid === id || undefined
 
   return (
-    <main className="auth-shell auth-signup">
-      <header className="auth-header"><Link to="/boas-vindas" aria-label="Ziv, início"><Wordmark className="h-9 w-auto" /></Link><Link className="auth-back" to="/acesso"><ArrowLeft size={15} /> Já tenho acesso</Link></header>
-      <div className="signup-content signup-single">
-        <section className="auth-card signup-card">
-          <h1>Cadastre sua empresa</h1>
-          <p className="auth-card-description">Você começa como administrador e, em seguida, conecta seu computador.</p>
-          {/* noValidate: the page explains every problem in text that stays; the browser's bubble vanishes. */}
-          <form onSubmit={createCompany} className="auth-form signup-form" noValidate>
-            <Field label="Nome da empresa" htmlFor="company-name">
-              <Input id="company-name" value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="Ex.: Horizonte Logística" autoComplete="organization" aria-invalid={isInvalid("company-name")} required />
-            </Field>
-            <div className="signup-divider"><span>ADMINISTRADOR DO ESPAÇO</span></div>
-            <div className="signup-pair">
-              <Field label="Seu nome" htmlFor="owner-name"><Input id="owner-name" value={ownerName} onChange={(event) => setOwnerName(event.target.value)} autoComplete="name" aria-invalid={isInvalid("owner-name")} required /></Field>
-              <Field label="E-mail de trabalho" htmlFor="owner-email"><Input id="owner-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" aria-invalid={isInvalid("owner-email")} required /></Field>
-            </div>
-            <Field label="Senha" htmlFor="owner-password" hint="Pelo menos 8 caracteres.">
-              <div className="password-field">
-                <Input id="owner-password" type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" aria-invalid={isInvalid("owner-password")} required />
-                <button type="button" className="password-toggle" onClick={() => setShowPassword((shown) => !shown)} aria-label={showPassword ? "Esconder senha" : "Mostrar senha"}>
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </Field>
-            {error && <p role="alert" className="auth-error">{error}</p>}
-            <Button type="submit" size="lg" className="auth-submit" disabled={busy}>{busy ? "Criando espaço…" : "Criar espaço da empresa"} {!busy && <ArrowRight size={17} />}</Button>
-          </form>
-        </section>
-      </div>
-      <footer className="auth-footer"><span>Ziv · um lugar compartilhado para as ferramentas da equipe</span><Link to="/acesso">Já tem um espaço? Login</Link></footer>
-    </main>
+    <AuthLayout
+      wide
+      back={<Link className={authBack} to="/acesso"><ArrowLeft size={15} /> Já tenho acesso</Link>}
+      logo={<Link to="/boas-vindas" aria-label="Ziv, início" className="rounded-md"><Wordmark className="h-10 w-auto" /></Link>}
+      below={<p>Já tem um espaço? <Link to="/acesso" className={authLink}>Entrar</Link></p>}
+    >
+      <h1 className="font-heading text-2xl leading-tight">Cadastre sua empresa</h1>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Você começa como administrador e, em seguida, conecta seu computador.</p>
+      {/* noValidate: the page explains every problem in text that stays; the browser's bubble vanishes. */}
+      <form onSubmit={createCompany} className="mt-6 flex flex-col gap-4" noValidate>
+        <Field label="Nome da empresa" htmlFor="company-name">
+          <Input id="company-name" value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="Ex.: Horizonte Logística" autoComplete="organization" aria-invalid={isInvalid("company-name")} required className="h-9" />
+        </Field>
+        <p className="mt-1 border-t border-border pt-4 text-sm font-medium">Administrador do espaço</p>
+        <div className="grid gap-4 sm:grid-cols-2 sm:gap-3">
+          <Field label="Seu nome" htmlFor="owner-name"><Input id="owner-name" value={ownerName} onChange={(event) => setOwnerName(event.target.value)} autoComplete="name" aria-invalid={isInvalid("owner-name")} required className="h-9" /></Field>
+          <Field label="E-mail de trabalho" htmlFor="owner-email"><Input id="owner-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" aria-invalid={isInvalid("owner-email")} required className="h-9" /></Field>
+        </div>
+        <Field label="Senha" htmlFor="owner-password" hint="Pelo menos 8 caracteres.">
+          <div className="relative">
+            <Input id="owner-password" type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" aria-invalid={isInvalid("owner-password")} required className="h-9 pr-10" />
+            <Button type="button" variant="ghost" size="icon-sm" className="absolute top-1 right-1 text-muted-foreground" onClick={() => setShowPassword((shown) => !shown)} aria-label={showPassword ? "Esconder senha" : "Mostrar senha"}>
+              {showPassword ? <EyeOff /> : <Eye />}
+            </Button>
+          </div>
+        </Field>
+        {error && <p role="alert" className={authError}>{error}</p>}
+        <Button type="submit" size="lg" className="mt-1 w-full" disabled={busy}>{busy ? "Criando espaço…" : "Criar espaço da empresa"} {!busy && <ArrowRight data-icon="inline-end" />}</Button>
+      </form>
+    </AuthLayout>
   )
 }
