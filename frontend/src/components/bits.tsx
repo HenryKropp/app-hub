@@ -178,6 +178,11 @@ export function EmptyState({ title, children, action }: { title: string; childre
   )
 }
 
+/** Marks something that came in through Claude (the Ziv connector). Neutral on purpose: coral is only for Rodar. */
+export function ByClaude({ className }: { className?: string }) {
+  return <span className={cn("inline-flex h-5 items-center rounded-full bg-secondary px-2 text-xs font-medium whitespace-nowrap text-muted-foreground", className)}>pelo Claude</span>
+}
+
 /** A run's state as icon plus words. Only a live run is coral; the rest stay quiet. */
 export function RunState({ status, className }: { status: RunStatus; className?: string }) {
   const st = STATUS[status]

@@ -253,3 +253,17 @@ test("the title has a star", async () => {
   mount()
   expect(await screen.findByRole("button", { name: "Tirar Vendas dos favoritos" })).toHaveAttribute("aria-pressed", "true")
 })
+
+test("an artifact published by Claude says pelo Claude", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art({ origin: "mcp" }))
+  mount()
+  const label = await screen.findByText("pelo Claude")
+  expect(label.className).not.toMatch(/brand|coral/)
+})
+
+test("a manual artifact has no pelo Claude", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art({ origin: "manual" }))
+  mount()
+  expect(await screen.findByRole("heading", { level: 1 })).toBeInTheDocument()
+  expect(screen.queryByText("pelo Claude")).not.toBeInTheDocument()
+})

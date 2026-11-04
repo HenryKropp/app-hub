@@ -292,7 +292,7 @@ func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
 		if len(runs) == homeRunsMax {
 			break
 		}
-		runs = append(runs, runListItemJSON{ID: x.ID, AppID: x.AppID, AppName: x.AppName, Status: x.Status,
+		runs = append(runs, runListItemJSON{ID: x.ID, AppID: x.AppID, AppName: x.AppName, Status: x.Status, Origin: x.Origin,
 			OutputFolder: x.OutputFolder, PersonID: x.PersonID, PersonName: x.PersonName, CreatedAt: x.CreatedAt.Time,
 			StartedAt: tsPtr(x.StartedAt), FinishedAt: tsPtr(x.FinishedAt), FileCount: x.FileCount})
 	}

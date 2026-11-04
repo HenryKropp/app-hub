@@ -197,7 +197,7 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: me.ID, ComputerID: comp.ID, OutputFolder: out, VersionID: versionID})
+	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: me.ID, ComputerID: comp.ID, OutputFolder: out, VersionID: versionID, Origin: originOf(ctx)})
 	if err != nil {
 		unlock()
 		internalError(w, "create run", err)
@@ -311,7 +311,7 @@ func plainRunError(runID int64, msg string) string {
 func (h *Handler) toRunJSON(ctx context.Context, row sqlc.GetRunRow) (runJSON, error) {
 	j := runJSON{
 		ID: row.ID, AppID: row.AppID, AppName: row.AppName, PersonName: row.PersonName, ComputerName: row.ComputerName,
-		OutputFolder: row.OutputFolder, Status: row.Status, ErrorMessage: row.ErrorMessage, AppVersion: row.AppVersion,
+		OutputFolder: row.OutputFolder, Status: row.Status, Origin: row.Origin, ErrorMessage: row.ErrorMessage, AppVersion: row.AppVersion,
 		CreatedAt: row.CreatedAt.Time, StartedAt: tsPtr(row.StartedAt), FinishedAt: tsPtr(row.FinishedAt),
 		Groups: []runGroupJSON{},
 	}
@@ -417,7 +417,7 @@ func (h *Handler) listAppRuns(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]runSummaryJSON, 0, len(rows))
 	for _, x := range rows {
-		out = append(out, runSummaryJSON{ID: x.ID, Status: x.Status, PersonName: x.PersonName, CreatedAt: x.CreatedAt.Time,
+		out = append(out, runSummaryJSON{ID: x.ID, Status: x.Status, Origin: x.Origin, PersonName: x.PersonName, CreatedAt: x.CreatedAt.Time,
 			StartedAt: tsPtr(x.StartedAt), FinishedAt: tsPtr(x.FinishedAt), FileCount: x.FileCount})
 	}
 	writeJSON(w, http.StatusOK, out)
@@ -483,6 +483,7 @@ type runJSON struct {
 	ComputerName  string         `json:"computer_name"`
 	OutputFolder  string         `json:"output_folder"`
 	Status        string         `json:"status"`
+	Origin        string         `json:"origin"`
 	ExitCode      *int32         `json:"exit_code"`
 	ErrorMessage  string         `json:"error_message"`
 	AppVersion    string         `json:"app_version"`
@@ -496,6 +497,7 @@ type runJSON struct {
 type runSummaryJSON struct {
 	ID         int64      `json:"id"`
 	Status     string     `json:"status"`
+	Origin     string     `json:"origin"`
 	PersonName string     `json:"person_name"`
 	CreatedAt  time.Time  `json:"created_at"`
 	StartedAt  *time.Time `json:"started_at"`
@@ -778,6 +780,7 @@ type runListItemJSON struct {
 	AppID        int64      `json:"app_id"`
 	AppName      string     `json:"app_name"`
 	Status       string     `json:"status"`
+	Origin       string     `json:"origin"`
 	OutputFolder string     `json:"output_folder"`
 	PersonID     int64      `json:"person_id"`
 	PersonName   string     `json:"person_name"`
@@ -895,7 +898,7 @@ func (h *Handler) listRuns(w http.ResponseWriter, r *http.Request) {
 			out.More = true
 			break
 		}
-		out.Items = append(out.Items, runListItemJSON{ID: x.ID, AppID: x.AppID, AppName: x.AppName, Status: x.Status,
+		out.Items = append(out.Items, runListItemJSON{ID: x.ID, AppID: x.AppID, AppName: x.AppName, Status: x.Status, Origin: x.Origin,
 			OutputFolder: x.OutputFolder, PersonID: x.PersonID, PersonName: x.PersonName, CreatedAt: x.CreatedAt.Time,
 			StartedAt: tsPtr(x.StartedAt), FinishedAt: tsPtr(x.FinishedAt), FileCount: x.FileCount})
 	}

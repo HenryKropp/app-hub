@@ -430,7 +430,7 @@ func (h *Handler) createArtifact(w http.ResponseWriter, r *http.Request) {
 	var id int64
 	err = h.q.InTx(ctx, func(q *sqlc.Queries) error {
 		a, err := q.CreateArtifact(ctx, sqlc.CreateArtifactParams{Name: name, Summary: strings.TrimSpace(b.Summary), Kind: p.kind,
-			Tags: normalizeTags(b.Tags), AreaID: b.AreaID, OwnerID: me.ID, Origin: "manual", CreatedBy: me.ID})
+			Tags: normalizeTags(b.Tags), AreaID: b.AreaID, OwnerID: me.ID, Origin: originOf(ctx), CreatedBy: me.ID})
 		if err != nil {
 			return err
 		}

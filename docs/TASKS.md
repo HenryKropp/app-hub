@@ -111,11 +111,25 @@ Pedido do Henry: o objetivo é as pessoas pararem de rodar apps no PC e usarem p
 | Publicar e testar de verdade | Pending | Precisa da 8080 livre (o alis-research-hub-v2 usa a mesma porta) e do Podman respondendo (em 2026-10-28 `podman version` estava sendo morto) |
 | Henry desliga a tarefa agendada do PC | Pending | Depois de o app estar no ar |
 
-## Fase 2b — Registro pelo Claude via MCP (3.11) — pausada
+## Fase 2b — Claude conectado ao Ziv (MCP, 3.11)
 
-**Depois do News Scrapper (decidido em 2026-10-28):** Henry quer retomar esta fase. Registrar app pela tela exige saber achar pasta e .exe, o que não serve para um leigo; pelo Claude, a pessoa só conversa. O primeiro app registrado assim também libera o teste de vários apps juntos.
+Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mcp-design.md`). A ordem mudou: primeiro conectar, achar, rodar e publicar; depois registrar, criar e agendar.
 
-Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prioridade acima. Primeiro o protocolo, testado localmente; depois o MCP. Substitui a necessidade de chave da API para o diagnóstico por IA.
+### Etapa 1 — conectar, achar, rodar e publicar artifacts (ADR 021)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Conexões, códigos pessoais e origem "pelo Claude" | Done | Migração 019; `mcp_connections` só com hash; `runs.origin` |
+| Endereço `/mcp` por empresa, com chave obrigatória | Done | SDK oficial em Go; `callAPI` limitado a 11 rotas; `Cache-Control: no-store` |
+| OAuth 2.1 para o claude.ai e o app do Claude | Done | DCR, PKCE S256, chave de renovação troca a cada uso; descoberta por empresa com sufixo de caminho; limite por endereço |
+| Ferramentas: buscar, ver app/artifact, rodar, ver execução (espera 30 s), minhas execuções, publicar artifact, guia de visual | Done | Rodar e publicar gravam auditoria `mcp.request.*`; nada de segredos nas respostas |
+| Tela Conectar o Claude e confirmação de acesso | Done | Em Configurações (`#claude`), passo opcional em Começar; aviso quando o destino não é do Claude; selo "pelo Claude" |
+| Teste real com o Claude Code | Done | 2026-11-04: `claude mcp add` na empresa Teste, conectado, `buscar` devolveu os 7 apps |
+| Teste com as mãos do Henry | Done | 2026-11-04 na empresa Teste: código gerado, Claude Code listou os apps, rodou o Olá Ziv (agora pergunta a pasta antes de rodar, pedido do Henry), publicou o artifact "Calculadora de Fita" pelo Claude, e cancelar cortou o acesso. O claude.ai fica para depois de publicar |
+| Teste no claude.ai | Pending | Só depois de o Ziv estar publicado na internet |
+| Pendências pequenas do MCP | Pending | Sem detecção de reuso da chave de renovação; parâmetro `resource` ignorado; `ver_app` carrega o catálogo inteiro; sem teste de concorrência do código OAuth; `people.sql.go` editado à mão quebra com `sqlc generate`; erro ao atualizar "último uso" dá 500; clientes OAuth cadastrados nunca são limpos; quando o Ziv ganhar "desativar pessoa", é preciso revogar as `mcp_connections` dela, e `mcpConnection`, a chave de renovação e o código de acesso precisam checar que a pessoa está ativa (hoje só apagar a pessoa corta o acesso) |
+
+### Etapa 2 — registrar apps prontos
 
 | Tarefa | Status | Notas |
 |---|---|---|
@@ -123,17 +137,14 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Teste local do protocolo em 4 apps da Alis | In Progress | Rodada 1 (Eq. Research Files Prep, app extra) aprovada. Faltam: Python Rentabilidade fundos, Research Platform, transcritor-calls, CVM Downloader (decidir aí a relação com o Files Prep) |
 | Formato v0.2 do manifesto | Done | Origem `window`, `multiple`, `depends_on`, `build`, todos opcionais; comando `cmd/validate-manifest` para validar rascunhos |
 | Tela de revisão: mostrar/editar `depends_on`, `build` e várias escolhas | Done | Etapa 2 (2026-10-05): a tela de registro usa os mesmos editores da ficha |
-| ADR: servidor MCP dentro do binário do Ziv | Pending | HTTP (streamable) em `/mcp`, SDK oficial de MCP em Go; mesmas regras dos handlers |
-| Código de acesso pessoal (token) | Pending | Gerado/revogado na tela Equipe (aba Pessoas); guardado com hash; a IA age com o perfil da pessoa |
-| Ferramenta: listar catálogo e ler ficha | Pending | Para achar duplicados antes de registrar |
-| Ferramenta: formato do manifesto e regras da empresa | Pending | Esquema + explicação em português (padrões 1.5) |
-| Ferramenta: listar pessoas | Pending | Para escolher responsável e reserva |
-| Ferramenta: varrer pasta e diagnóstico por regras | Pending | Reaproveita `internal/scanner` como ponto de partida |
-| Ferramenta: ler arquivos de um app com segredos mascarados | Pending | Só dentro da pasta registrada/varrida; limite de tamanho; nunca devolve valor de chave |
-| Ferramenta: registrar/atualizar app | Pending | Mesmo caminho do botão Publicar; marca "via IA" (coluna nova) |
-| Marca "via IA" no catálogo e na ficha | Pending | |
-| Instruções de conexão (Claude Code e Claude Desktop) | Pending | Tela "Conectar o Claude" com o comando pronto |
-| Testes (Go) + teste de ponta a ponta com um cliente MCP | Pending | |
+| Ferramentas: formato do manifesto, pessoas, ler pasta pelo Agente com segredos mascarados, registrar | Pending | Mesmo caminho do botão Publicar; marca "via Claude"; libera o teste de vários apps juntos |
+
+### Etapa 3 — criar apps para o Ziv · Etapa 4 — agendar
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Criar apps com `ziv.yaml` pronto | Pending | Depois da Etapa 2 |
+| Agendamento no Ziv e ferramentas de agendar | Pending | Primeiro o Ziv aprende a agendar |
 
 ## Fase 3 — Catálogo e ficha (1.2, 1.4)
 
@@ -300,7 +311,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Aba Home | Done | Ver a seção "Home" abaixo (ADR 019) |
 | Correções da revisão final: prévia recarrega na versão nova, acessos de área técnicos/execuções não alcançam artifacts, "Editar quem cuida" (responsável, reserva, área), busca no celular, trava na versão nova | Done | 2026-11-03 |
 | Link que aceita frame aparece dentro da página; link do Claude sugere subir o HTML | Done | 2026-11-03, pedido do Henry após o teste; `artifact_versions.embeddable` (migração 017) |
-| Publicar artifact pelo MCP | Pending | Junto do registro pelo Claude (3.11) |
+| Publicar artifact pelo MCP | Done | 2026-11-04, Etapa 1 do MCP (ADR 021) |
 | Pendências pequenas dos Artifacts | Pending | Sem teste de que empresa antiga mantém a aprovação; grant de restaurar e `see_tech_any_app` sem teste; lista de artifacts duplica `artifactRef`; PUT troca resumo e etiquetas (o front manda a ficha toda); URL do link sem limite de tamanho; permissão duplicada dá 500; blobs órfãos em `code_blobs` nunca limpos; sem teste de `setArtifactGrants`; dicas e ARIA das abas da tela nova; página não reinicia ao trocar de `:id`; sem teste de editar Sobre, rolar para `#acesso` e apagar |
 
 ## Home (2026-11-04, ADR 019)
