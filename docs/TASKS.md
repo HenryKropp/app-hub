@@ -125,7 +125,7 @@ Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mc
 | Ferramentas: buscar, ver app/artifact, rodar, ver execução (espera 30 s), minhas execuções, publicar artifact, guia de visual | Done | Rodar e publicar gravam auditoria `mcp.request.*`; nada de segredos nas respostas |
 | Tela Conectar o Claude e confirmação de acesso | Done | Em Configurações (`#claude`), passo opcional em Começar; aviso quando o destino não é do Claude; selo "pelo Claude" |
 | Teste real com o Claude Code | Done | 2026-11-04: `claude mcp add` na empresa Teste, conectado, `buscar` devolveu os 7 apps |
-| Teste com as mãos do Henry | Pending | Gerar código, colar no Claude Code, buscar, rodar Olá Ziv, publicar HTML, cancelar |
+| Teste com as mãos do Henry | Done | 2026-11-04 na empresa Teste: código gerado, Claude Code listou os apps, rodou o Olá Ziv (agora pergunta a pasta antes de rodar, pedido do Henry), publicou o artifact "Calculadora de Fita" pelo Claude, e cancelar cortou o acesso. O claude.ai fica para depois de publicar |
 | Teste no claude.ai | Pending | Só depois de o Ziv estar publicado na internet |
 | Pendências pequenas do MCP | Pending | Sem detecção de reuso da chave de renovação; parâmetro `resource` ignorado; `ver_app` carrega o catálogo inteiro; sem teste de concorrência do código OAuth; `people.sql.go` editado à mão quebra com `sqlc generate`; erro ao atualizar "último uso" dá 500; clientes OAuth cadastrados nunca são limpos; quando o Ziv ganhar "desativar pessoa", é preciso revogar as `mcp_connections` dela, e `mcpConnection`, a chave de renovação e o código de acesso precisam checar que a pessoa está ativa (hoje só apagar a pessoa corta o acesso) |
 
