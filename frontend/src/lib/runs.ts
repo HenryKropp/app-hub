@@ -34,8 +34,10 @@ export function formatWhen(iso: string): string {
   return `${p(d.getDate())}/${p(d.getMonth() + 1)} às ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-export function relativeDate(iso: string): string {
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
+export function relativeDate(iso: string, nowMs = Date.now()): string {
+  // Calendar days in local time: last night is "ontem" even when it was only hours ago.
+  const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const days = Math.round((dayStart(new Date(nowMs)) - dayStart(new Date(iso))) / 86_400_000)
   if (days <= 0) return "hoje"
   if (days === 1) return "ontem"
   if (days < 30) return `há ${days} dias`
@@ -51,5 +53,5 @@ export function relativeTime(iso: string, nowMs = Date.now()): string {
   if (mins < 1) return "agora"
   if (mins < 60) return `há ${mins} min`
   if (mins < 60 * 24 && new Date(iso).getDate() === new Date(nowMs).getDate()) return `há ${Math.floor(mins / 60)} h`
-  return relativeDate(iso)
+  return relativeDate(iso, nowMs)
 }

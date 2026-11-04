@@ -28,13 +28,13 @@ type homeItemJSON struct {
 }
 
 type homeWarningJSON struct {
-	Kind         string    `json:"kind"`
-	At           time.Time `json:"at"`
-	AppID        int64     `json:"app_id,omitempty"`
-	AppName      string    `json:"app_name,omitempty"`
-	RunID        int64     `json:"run_id,omitempty"`
-	ComputerName string    `json:"computer_name,omitempty"`
-	Count        int       `json:"count,omitempty"`
+	Kind         string     `json:"kind"`
+	At           *time.Time `json:"at,omitempty"` // nil when there is no honest time to show
+	AppID        int64      `json:"app_id,omitempty"`
+	AppName      string     `json:"app_name,omitempty"`
+	RunID        int64      `json:"run_id,omitempty"`
+	ComputerName string     `json:"computer_name,omitempty"`
+	Count        int        `json:"count,omitempty"`
 }
 
 type homeJSON struct {
@@ -150,10 +150,13 @@ func (h *Handler) homeAttention(r *http.Request, me sqlc.Person, acc *access.Per
 			continue
 		}
 		kind := "run_error"
-		if x.Status == "waiting" {
+		switch x.Status {
+		case "waiting":
 			kind = "run_waiting"
+		case "interrupted":
+			kind = "run_interrupted"
 		}
-		out = append(out, homeWarningJSON{Kind: kind, At: x.CreatedAt.Time, AppID: x.AppID, AppName: x.AppName, RunID: x.ID})
+		out = append(out, homeWarningJSON{Kind: kind, At: &x.CreatedAt.Time, AppID: x.AppID, AppName: x.AppName, RunID: x.ID})
 	}
 
 	comps, err := h.q.ListPersonComputers(ctx, me.ID)
@@ -171,7 +174,7 @@ func (h *Handler) homeAttention(r *http.Request, me sqlc.Person, acc *access.Per
 		if !at.Valid {
 			at = comps[0].CreatedAt
 		}
-		out = append(out, homeWarningJSON{Kind: "computer_offline", At: at.Time, ComputerName: comps[0].Name})
+		out = append(out, homeWarningJSON{Kind: "computer_offline", At: &at.Time, ComputerName: comps[0].Name})
 	}
 	for _, pc := range comps {
 		if pc.AgentVersion != "" && pc.AgentVersion != agentproto.Version {
@@ -179,7 +182,7 @@ func (h *Handler) homeAttention(r *http.Request, me sqlc.Person, acc *access.Per
 			if !at.Valid {
 				at = pc.CreatedAt
 			}
-			out = append(out, homeWarningJSON{Kind: "agent_outdated", At: at.Time, ComputerName: pc.Name})
+			out = append(out, homeWarningJSON{Kind: "agent_outdated", At: &at.Time, ComputerName: pc.Name})
 		}
 	}
 
@@ -202,8 +205,10 @@ func (h *Handler) homeAttention(r *http.Request, me sqlc.Person, acc *access.Per
 		return nil, err
 	}
 	errCount := map[int64]int{}
+	errAt := map[int64]time.Time{}
 	for _, e := range errs {
 		errCount[e.AppID] = int(e.Errors)
+		errAt[e.AppID] = e.LastAt.Time
 	}
 	pending := map[int64]bool{}
 	if h.workspace != nil {
@@ -223,17 +228,16 @@ func (h *Handler) homeAttention(r *http.Request, me sqlc.Person, acc *access.Per
 			}
 		}
 	}
-	now := time.Now()
 	sort.SliceStable(care, func(i, j int) bool { return care[i].Name < care[j].Name })
 	for _, a := range care {
 		if b := briefs[a.ID]; b != nil && b.Status == "crashed" {
-			out = append(out, homeWarningJSON{Kind: "shared_crashed", At: now, AppID: a.ID, AppName: a.Name})
+			out = append(out, homeWarningJSON{Kind: "shared_crashed", AppID: a.ID, AppName: a.Name})
 		}
 		if n := errCount[a.ID]; n > 0 {
-			out = append(out, homeWarningJSON{Kind: "app_errors", At: now, AppID: a.ID, AppName: a.Name, Count: n})
+			out = append(out, homeWarningJSON{Kind: "app_errors", At: ptrTime(errAt[a.ID]), AppID: a.ID, AppName: a.Name, Count: n})
 		}
 		if pending[a.ID] {
-			out = append(out, homeWarningJSON{Kind: "approval_pending", At: now, AppID: a.ID, AppName: a.Name})
+			out = append(out, homeWarningJSON{Kind: "approval_pending", AppID: a.ID, AppName: a.Name})
 		}
 	}
 	return out, nil
@@ -243,6 +247,11 @@ func (h *Handler) homeAttention(r *http.Request, me sqlc.Person, acc *access.Per
 func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
 	me, ok := h.currentPerson(w, r)
 	if !ok {
+		return
+	}
+	// Settle stale waiting runs first, so the warnings below see them as interrupted.
+	if err := h.q.ExpireStaleRuns(r.Context()); err != nil {
+		internalError(w, "expire runs", err)
 		return
 	}
 	acc, err := h.loadAccess(r.Context(), me)
@@ -268,10 +277,6 @@ func (h *Handler) home(w http.ResponseWriter, r *http.Request) {
 	attention, err := h.homeAttention(r, me, acc, c)
 	if err != nil {
 		internalError(w, "home attention", err)
-		return
-	}
-	if err := h.q.ExpireStaleRuns(r.Context()); err != nil {
-		internalError(w, "expire runs", err)
 		return
 	}
 	rows, err := h.q.ListRuns(r.Context(), sqlc.ListRunsParams{PersonID: me.ID, AppIds: []int64{}, Lim: homeRunsFetch})
@@ -473,3 +478,5 @@ func (h *Handler) homeTeam(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, out)
 }
+
+func ptrTime(t time.Time) *time.Time { return &t }

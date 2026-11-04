@@ -16,9 +16,10 @@ type homeItemT struct {
 
 type homeT struct {
 	Attention []struct {
-		Kind  string `json:"kind"`
-		RunID int64  `json:"run_id"`
-		Count int    `json:"count"`
+		Kind  string    `json:"kind"`
+		RunID int64     `json:"run_id"`
+		Count int       `json:"count"`
+		At    time.Time `json:"at"`
 	} `json:"attention"`
 	Favorites []homeItemT `json:"favorites"`
 	Recent    []homeItemT `json:"recent"`
@@ -132,6 +133,40 @@ func TestHomeAttentionIsMine(t *testing.T) {
 	if n != 2 || got["run_error"] != e || got["run_waiting"] != w {
 		t.Fatalf("attention = %+v (want error %d, waiting %d)", h.Attention, e, w)
 	}
+}
+
+func TestHomeInterruptedRun(t *testing.T) {
+	_, _, bia, appID := team(t)
+	mine := runAt(t, appID, 3, "interrupted", "1 hour", false)
+	runAt(t, appID, 2, "interrupted", "1 hour", false)
+	runAt(t, appID, 3, "interrupted", "2 hours", true)
+	h := getHome(t, bia)
+	var ids []int64
+	for _, a := range h.Attention {
+		if a.Kind == "run_interrupted" {
+			ids = append(ids, a.RunID)
+		}
+	}
+	if len(ids) != 1 || ids[0] != mine {
+		t.Fatalf("attention = %+v (want only run %d)", h.Attention, mine)
+	}
+}
+
+func TestHomeAppErrorsUsesLastErrorTime(t *testing.T) {
+	_, ana, _, appID := team(t)
+	ownerOf(t, appID, 2)
+	runAt(t, appID, 3, "error", "3 days", false)
+	runAt(t, appID, 3, "error", "2 hours", false)
+	h := getHome(t, ana)
+	for _, a := range h.Attention {
+		if a.Kind == "app_errors" {
+			if age := time.Since(a.At); age < time.Hour || age > 3*time.Hour {
+				t.Fatalf("at = %v (age %v)", a.At, age)
+			}
+			return
+		}
+	}
+	t.Fatalf("no app_errors: %+v", h.Attention)
 }
 
 func TestHomeComputerWarnings(t *testing.T) {

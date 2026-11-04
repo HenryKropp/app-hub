@@ -258,8 +258,8 @@ export type ArtifactSummary = {
 }
 export type HomeItem = { kind: "app" | "artifact"; id: number; name: string; summary: string; area: string; used_at?: string }
 export type HomeWarning = {
-  kind: "run_error" | "run_waiting" | "computer_offline" | "agent_outdated" | "shared_crashed" | "app_errors" | "approval_pending"
-  at: string // when it happened (run created, last seen, status changed, now)
+  kind: "run_error" | "run_waiting" | "run_interrupted" | "computer_offline" | "agent_outdated" | "shared_crashed" | "app_errors" | "approval_pending"
+  at?: string // when it happened (run created, last seen, last error); absent when unknown
   app_id?: number; app_name?: string; run_id?: number
   computer_name?: string; count?: number
 }
