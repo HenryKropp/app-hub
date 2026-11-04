@@ -168,7 +168,8 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 		Description: "Roda um app do Ziv no computador da pessoa, pelo Agente do Ziv. Veja antes com ver_app o que ele pede. " +
 			"Em entradas, mande as respostas pelo id de cada entrada (texto, número, data ou escolha). " +
 			"Entradas de arquivo ainda não podem ir pelo Claude: nesse caso, peça para a pessoa rodar pelo Ziv. " +
-			"Em pasta_saida, a pasta completa no computador da pessoa onde os arquivos vão ficar (ex.: C:\\Users\\ana\\Documentos); sem ela, usa a pasta de sempre. " +
+			"Antes de rodar, PERGUNTE à pessoa em qual pasta do computador dela os arquivos devem ficar; nunca escolha uma pasta sozinho. " +
+			"Se ver_app mostrar pasta_de_sempre, ofereça essa pasta na pergunta. Mande a resposta em pasta_saida, com o caminho completo (ex.: C:\\Users\\ana\\Documentos). " +
 			"Depois de rodar, chame ver_execucao com esperar 30, de novo e de novo na mesma resposta, até a execução terminar; " +
 			"então diga o resultado e onde ficaram os arquivos. Se a conversa parar antes, confira de novo com ver_execucao quando a pessoa perguntar.",
 		Annotations: changes,
@@ -366,6 +367,9 @@ func (h *Handler) toolVerApp(ctx context.Context, _ *mcp.CallToolRequest, in idI
 	if d.Shared != nil {
 		out["endereco"] = d.Shared.URL
 	}
+	if d.RememberedFolder != "" {
+		out["pasta_de_sempre"] = d.RememberedFolder
+	}
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s (app %d)\n", nome, d.ID)
@@ -392,7 +396,10 @@ func (h *Handler) toolVerApp(ctx context.Context, _ *mcp.CallToolRequest, in idI
 	case d.Shared != nil:
 		b.WriteString("Este app fica aberto no servidor; abra pelo link: " + d.Shared.URL + "\n")
 	case d.CanRun:
-		b.WriteString("Pode rodar pelo Claude, no computador da pessoa (rodar_app).\n")
+		b.WriteString("Pode rodar pelo Claude, no computador da pessoa (rodar_app). Antes, pergunte em qual pasta os arquivos devem ficar.\n")
+		if d.RememberedFolder != "" {
+			b.WriteString("Pasta de sempre: " + d.RememberedFolder + "\n")
+		}
 	default:
 		b.WriteString("Este app não roda pelo Ziv.\n")
 	}
@@ -463,7 +470,7 @@ func (h *Handler) toolVerArtifact(ctx context.Context, _ *mcp.CallToolRequest, i
 type rodarIn struct {
 	ID         int64          `json:"id" jsonschema:"o número do app no Ziv"`
 	Entradas   map[string]any `json:"entradas,omitempty" jsonschema:"as respostas do que o app pede, pelo id de cada entrada"`
-	PastaSaida string         `json:"pasta_saida,omitempty" jsonschema:"pasta completa no computador da pessoa onde os arquivos vão ficar"`
+	PastaSaida string         `json:"pasta_saida,omitempty" jsonschema:"a pasta que a pessoa escolheu, com o caminho completo no computador dela; pergunte antes de rodar"`
 }
 
 // runInputs turns the answers Claude sent into what the run form takes:
@@ -507,6 +514,13 @@ func (h *Handler) toolRodarApp(ctx context.Context, _ *mcp.CallToolRequest, in r
 			link = h.mcpLink("/apps/%d", d.ID)
 		}
 		return toolOK("Este app fica aberto no servidor; abra pelo link: "+link, map[string]any{"compartilhado": true, "link": link})
+	}
+	if strings.TrimSpace(in.PastaSaida) == "" {
+		msg := "Falta a pasta. Pergunte à pessoa em qual pasta do computador dela os arquivos devem ficar e mande em pasta_saida."
+		if d.RememberedFolder != "" {
+			msg += " A pasta de sempre dela para este app é " + d.RememberedFolder + "; ofereça essa."
+		}
+		return toolFail(msg)
 	}
 	inputs, msg := runInputs(in.Entradas)
 	if msg != "" {
