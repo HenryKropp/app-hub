@@ -315,3 +315,18 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Página Home: Meu dia e Meu time | Done | Partes vazias somem, menos "Favoritos" |
 | Conferência visual e documentação | Done | `e2e/home.mjs` (claro, escuro, celular 390 px, pessoa sem nada); PRD 3.15; ADR 019 |
 | "Apps e artifacts sem responsável ativo" em Pendências de gestão | Pending | Volta quando existir "desativar pessoa" |
+
+## Visual preto e branco (2026-11-04, ADR 020)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Tokens neutros do `DESIGN.md` de volta; coral só em Rodar, "+ Registrar apps", marca da navegação ativa, seleção e indicadores ao vivo | Done | Revertida a deriva creme/petróleo de 2026-10-30 (commit 942c2d9) |
+| Páginas públicas no visual neutro com `AuthLayout` | Done | `/boas-vindas`, `/entrar`, `/cadastre-se`, `/acesso`, `/convite`; catálogo de exemplo honesto, sem produto falso |
+| Palavras simples ("Hub" vira "Ziv", "Escolher arquivos", "Endereço da empresa no Ziv") | Done | |
+| Erros com próximo passo (Conectar e mensagem geral) | Done | "Algo deu errado. Tente de novo; se continuar, avise quem administra o Ziv." |
+| Conferência visual | Done | `e2e/visual-neutro.mjs` (somente leitura; 1440 e 390 px; claro e escuro em Home, Apps e Entrar); sem defeito novo |
+| Banners demais e faixa de execução velha | Pending | Crítica de 2026-11-04 (22/40): empilham no topo e no rodapé |
+| Home sem botão Rodar | Pending | Favoritos e recentes só abrem a ficha |
+| Nomes duplicados no catálogo | Pending | |
+| Tela Admin muito longa | Pending | |
+| Botão de voltar versão | Pending | Hoje a volta de versão está escondida |
