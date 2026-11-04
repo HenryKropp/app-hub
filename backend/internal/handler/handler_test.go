@@ -51,7 +51,7 @@ func TestMain(m *testing.M) {
 // resetSQL empties the Hub and puts back the built-in roles and two areas
 // (Research = 1, Investimentos = 2), so every test starts the same way.
 const resetSQL = `
-TRUNCATE favorites, artifact_opens, artifact_grants, artifact_viewers, artifact_versions, artifacts, shared_usage, shared_backups, app_config, shared_apps, shared_deployments, run_files, agent_jobs, runs, app_changes, app_versions, code_blobs, pairings, computers,
+TRUNCATE mcp_connections, mcp_auth_requests, mcp_clients, favorites, artifact_opens, artifact_grants, artifact_viewers, artifact_versions, artifacts, shared_usage, shared_backups, app_config, shared_apps, shared_deployments, run_files, agent_jobs, runs, app_changes, app_versions, code_blobs, pairings, computers,
          app_grants, app_viewers, area_grants, area_leaders, area_members, apps, sessions, people, areas
          RESTART IDENTITY CASCADE;
 DELETE FROM roles WHERE key IS NULL;
