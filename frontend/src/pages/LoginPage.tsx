@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react"
 import { ShieldCheck } from "lucide-react"
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Field, Wordmark } from "@/components/bits"
+import { Field } from "@/components/bits"
+import { AuthLayout, authError, authLink } from "@/components/AuthLayout"
 import { api, OFFLINE, workspaceUrl } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 
@@ -83,48 +84,36 @@ export function LoginPage() {
   }
 
   return (
-    <div className="auth-shell login-shell">
-      <section className="login-story">
-        <div className="flex items-center gap-2.5">
-          <Wordmark className="h-11 w-auto" />
-        </div>
-        <div className="login-story-copy">
-          <span className="auth-kicker"><span /> ESPAÇO PRIVADO DA EMPRESA</span>
-          <h1>As ferramentas do time, <em>em boas mãos.</em></h1>
-          <p>Um lugar compartilhado para microapps e scripts da equipe. Entre para encontrar o que precisa e seguir com o trabalho.</p>
-          <div className="login-story-note"><span><ShieldCheck size={17} /></span> Este acesso pertence somente a esta empresa.</div>
-        </div>
-      </section>
-
-      <section className="login-main">
-        <div className="login-card">
-          <form id="login-form" onSubmit={submit}>
-          <div className="login-mobile-logo">
-            <Wordmark className="h-11 w-auto" />
-          </div>
-          {statusError ? (
-            <section className="mt-5 rounded-xl border border-warn/30 bg-warn-soft p-4" aria-labelledby="status-error">
-              <h2 id="status-error" className="font-heading text-lg">Não consegui confirmar o estado do Ziv</h2>
-              <p role="alert" className="mt-2 text-sm">{statusError}</p>
-              <p className="mt-2 text-sm text-muted-foreground">Confira o endereço da página e tente de novo. Não é possível saber se este Ziv já foi configurado até ele responder.</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button type="button" onClick={() => void refresh()}>Tentar novamente</Button>
-                <a className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium hover:bg-accent" href={window.location.href} target="_blank" rel="noreferrer">Abrir esta página em outra aba</a>
-              </div>
-            </section>
-          ) : <>
-          <span className="auth-kicker"><span /> {workspaceName ? workspaceName.toLocaleUpperCase("pt-BR") : "ACESSO DA EMPRESA"}</span>
-          <h2 className="login-title">{needsSetup ? "Configure o primeiro acesso" : "Bom ter você de volta."}</h2>
-          {needsSetup && <p className="mt-2 text-sm text-muted-foreground">Crie a conta de administrador para começar. Depois, convide as pessoas da empresa.</p>}
+    <AuthLayout
+      below={!statusError && <p className="inline-flex items-center gap-1.5"><ShieldCheck className="size-4 shrink-0" /> Este acesso pertence somente a esta empresa.</p>}
+    >
+      <form id="login-form" onSubmit={submit}>
+        {statusError ? (
+          <section className="rounded-lg border border-warn/30 bg-warn-soft p-4" aria-labelledby="status-error">
+            <h1 id="status-error" className="font-heading text-lg leading-snug">Não consegui confirmar o estado do Ziv</h1>
+            <p role="alert" className="mt-2 text-sm">{statusError}</p>
+            <p className="mt-2 text-sm text-muted-foreground">Confira o endereço da página e tente de novo. Não é possível saber se este Ziv já foi configurado até ele responder.</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button type="button" onClick={() => void refresh()}>Tentar novamente</Button>
+              <a className={buttonVariants({ variant: "outline" })} href={window.location.href} target="_blank" rel="noreferrer">Abrir esta página em outra aba</a>
+            </div>
+          </section>
+        ) : <>
+          <h1 className="font-heading text-2xl leading-tight">{needsSetup ? "Configure o primeiro acesso" : "Bom ter você de volta."}</h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            {needsSetup
+              ? "Crie a conta de administrador para começar. Depois, convide as pessoas da empresa."
+              : workspaceName ? <>Entre no espaço <span className="font-medium text-foreground">{workspaceName}</span>.</> : "Entre no espaço da sua empresa."}
+          </p>
 
           <div className="mt-6 flex flex-col gap-4">
             {needsSetup && (
               <Field label="Seu nome" htmlFor="name">
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" />
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" className="h-9" />
               </Field>
             )}
             <Field label="E-mail" htmlFor="email">
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" className="h-9" />
             </Field>
             <Field label="Senha" htmlFor="password" hint={needsSetup ? "Pelo menos 8 caracteres." : undefined}>
               <Input
@@ -134,48 +123,47 @@ export function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete={needsSetup ? "new-password" : "current-password"}
+                className="h-9"
               />
             </Field>
             {error && (
               <div>
-                <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+                <p role="alert" className={authError}>{error}</p>
                 {error === OFFLINE && <div className="mt-2 flex flex-wrap gap-3 text-xs">
-                  <button type="button" className="font-medium underline underline-offset-4" onClick={() => (document.getElementById("login-form") as HTMLFormElement | null)?.requestSubmit()}>Tentar novamente</button>
-                  <a href={window.location.href} target="_blank" rel="noreferrer" className="text-muted-foreground underline underline-offset-4">Abrir esta página em outra aba</a>
+                  <button type="button" className={authLink} onClick={() => (document.getElementById("login-form") as HTMLFormElement | null)?.requestSubmit()}>Tentar novamente</button>
+                  <a href={window.location.href} target="_blank" rel="noreferrer" className="text-muted-foreground underline underline-offset-4 hover:text-foreground">Abrir esta página em outra aba</a>
                 </div>}
               </div>
             )}
-            <Button type="submit" size="lg" disabled={busy} className="mt-2 h-10">
+            <Button type="submit" size="lg" disabled={busy} className="mt-1 w-full">
               {busy ? "Aguarde…" : needsSetup ? "Criar conta e entrar" : "Entrar"}
             </Button>
           </div>
-          </>}
-          </form>
-          <div className="login-links">
-            <a href="/acesso">Trocar de empresa</a>
-            {canRequestAccess && <button type="button" onClick={() => { setRequestOpen((open) => !open); setRequestError(""); setRequestMessage("") }} className="font-medium text-logo-square underline-offset-4 hover:underline">
-              {requestOpen ? "Fechar solicitação" : "Solicitar acesso"}
-            </button>}
+        </>}
+      </form>
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5 text-sm">
+        <a href="/acesso" className="text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline">Trocar de empresa</a>
+        {canRequestAccess && <button type="button" aria-expanded={requestOpen} onClick={() => { setRequestOpen((open) => !open); setRequestError(""); setRequestMessage("") }} className={authLink}>
+          {requestOpen ? "Fechar solicitação" : "Solicitar acesso"}
+        </button>}
+      </div>
+      {canRequestAccess && requestOpen && (
+        <form onSubmit={requestAccess} className="mt-5 border-t border-border pt-5">
+          <h2 className="font-heading text-base">Peça acesso a {workspaceName || "esta empresa"}</h2>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">A administração receberá seu nome e e-mail para decidir sobre o acesso.</p>
+          <div className="mt-4 flex flex-col gap-3">
+            <Field label="Seu nome" htmlFor="request-name">
+              <Input id="request-name" value={requestName} onChange={(event) => setRequestName(event.target.value)} autoComplete="name" required className="h-9" />
+            </Field>
+            <Field label="E-mail de trabalho" htmlFor="request-email">
+              <Input id="request-email" type="email" value={requestEmail} onChange={(event) => setRequestEmail(event.target.value)} autoComplete="email" required className="h-9" />
+            </Field>
+            {requestError && <p role="alert" className={authError}>{requestError}</p>}
+            {requestMessage && <p role="status" className="rounded-lg bg-ok-soft px-3 py-2 text-sm text-ok">{requestMessage}</p>}
+            <Button type="submit" variant="outline" size="lg" className="w-full" disabled={requestBusy}>{requestBusy ? "Enviando…" : "Enviar solicitação"}</Button>
           </div>
-          {canRequestAccess && requestOpen && (
-            <form onSubmit={requestAccess} className="request-access-card">
-              <h3 className="font-heading text-base">Peça acesso a {workspaceName || "esta empresa"}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">A administração receberá seu nome e e-mail para decidir sobre o acesso.</p>
-              <div className="mt-4 flex flex-col gap-3">
-                <Field label="Seu nome" htmlFor="request-name">
-                  <Input id="request-name" value={requestName} onChange={(event) => setRequestName(event.target.value)} autoComplete="name" required />
-                </Field>
-                <Field label="E-mail de trabalho" htmlFor="request-email">
-                  <Input id="request-email" type="email" value={requestEmail} onChange={(event) => setRequestEmail(event.target.value)} autoComplete="email" required />
-                </Field>
-                {requestError && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{requestError}</p>}
-                {requestMessage && <p role="status" className="rounded-md bg-ok-soft px-3 py-2 text-sm text-ok">{requestMessage}</p>}
-                <Button type="submit" variant="outline" disabled={requestBusy}>{requestBusy ? "Enviando…" : "Enviar solicitação"}</Button>
-              </div>
-            </form>
-          )}
-        </div>
-      </section>
-    </div>
+        </form>
+      )}
+    </AuthLayout>
   )
 }
