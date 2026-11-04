@@ -31,20 +31,6 @@ func (h *Handler) newMCPServer() *mcp.Server {
 	return s
 }
 
-// registerMCPTools is the one place where tools are added to the server.
-func (h *Handler) registerMCPTools(s *mcp.Server) {
-	type buscarIn struct {
-		Texto string `json:"texto" jsonschema:"o que procurar"`
-	}
-	mcp.AddTool(s, &mcp.Tool{
-		Name:        "buscar",
-		Description: "Procura apps, scripts e artifacts no Ziv pelo nome.",
-		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
-	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ buscarIn) (*mcp.CallToolResult, any, error) {
-		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "A busca ainda não está pronta."}}}, nil, nil
-	})
-}
-
 // mcpHTTP is the /mcp endpoint: a stateless MCP server behind a bearer check.
 func (h *Handler) mcpHTTP() http.Handler {
 	return h.mcpHTTPFor(h.newMCPServer())
