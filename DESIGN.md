@@ -204,6 +204,8 @@ A grayscale world with a single coral and three small status hues. Values live a
 **Heading Font:** Geist Variable, weight 600 with -0.02em tracking
 **Mono Font:** Geist Mono Variable (with ui-monospace)
 
+**Base size:** the root is 14px (Henry, 2026-11-04: "diminui as fontes"), so every rem size and rem spacing is relative to 14px.
+
 **Character:** One modern grotesk for everything, tightened for headings, with tabular figures on by default so counts and times line up. Mono is a precise instrument for machine-shaped facts, not a style.
 
 ### Hierarchy

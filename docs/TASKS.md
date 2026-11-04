@@ -326,6 +326,7 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 | Erros com próximo passo (Conectar e mensagem geral) | Done | "Algo deu errado. Tente de novo; se continuar, avise quem administra o Ziv." |
 | Conferência visual | Done | `e2e/visual-neutro.mjs` (somente leitura; 1440 e 390 px; claro e escuro em Home, Apps e Entrar); sem defeito novo |
 | Banners demais e faixa de execução velha | Pending | Crítica de 2026-11-04 (22/40): empilham no topo e no rodapé |
+| Fonte base 14px e Home mais limpa | Done | Linhas compactas em vez de cartões; Home em duas colunas (favoritos e recentes; últimas execuções); avisos do mesmo computador aparecem uma vez e o de computador desconectado some quando a faixa do topo já avisa; "O que estão criando" e pendências mostram 5 |
 | Home sem botão Rodar | Pending | Favoritos e recentes só abrem a ficha |
 | Nomes duplicados no catálogo | Pending | |
 | Tela Admin muito longa | Pending | |

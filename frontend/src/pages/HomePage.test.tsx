@@ -34,7 +34,7 @@ test("shows warnings with links", async () => {
   mount()
   const link = await screen.findByRole("link", { name: "Rentabilidade deu erro" })
   expect(link).toHaveAttribute("href", "/execucoes/9")
-  await user.click(screen.getByRole("button", { name: "Dispensar" }))
+  await user.click(screen.getByRole("button", { name: /^Dispensar/ }))
   expect(dismiss).toHaveBeenCalledWith(9)
   await waitFor(() => expect(screen.queryByRole("link", { name: "Rentabilidade deu erro" })).not.toBeInTheDocument())
 })
@@ -46,7 +46,7 @@ test("shows the interrupted run warning", async () => {
   mount()
   const link = await screen.findByRole("link", { name: "Rentabilidade não rodou: seu computador não respondeu" })
   expect(link).toHaveAttribute("href", "/execucoes/11")
-  await user.click(screen.getByRole("button", { name: "Dispensar" }))
+  await user.click(screen.getByRole("button", { name: /^Dispensar/ }))
   expect(dismiss).toHaveBeenCalledWith(11)
 })
 
@@ -114,4 +114,11 @@ test("unstar removes the favorite card", async () => {
   await user.click(screen.getByRole("button", { name: "Tirar Guia de RH dos favoritos" }))
   await waitFor(() => expect(screen.queryByRole("link", { name: /Guia de RH/ })).not.toBeInTheDocument())
   expect(screen.getByText(/Marque apps e artifacts com a estrela/)).toBeInTheDocument()
+})
+
+test("shows each computer warning once", async () => {
+  const outdated = { kind: "agent_outdated" as const, computer_name: "PC-1", at: now() }
+  vi.spyOn(api, "home").mockResolvedValue({ ...empty, attention: [outdated, { ...outdated }] })
+  mount()
+  expect(await screen.findAllByRole("link", { name: /O Agente do computador PC-1 está desatualizado/ })).toHaveLength(1)
 })
