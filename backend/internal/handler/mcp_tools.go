@@ -168,7 +168,7 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 		Description: "Roda um app do Ziv no computador da pessoa, pelo Agente do Ziv. Veja antes com ver_app o que ele pede. " +
 			"Em entradas, mande as respostas pelo id de cada entrada (texto, número, data ou escolha). " +
 			"Entradas de arquivo ainda não podem ir pelo Claude: nesse caso, peça para a pessoa rodar pelo Ziv. " +
-			"Antes de rodar, PERGUNTE à pessoa em qual pasta do computador dela os arquivos devem ficar; nunca escolha uma pasta sozinho. " +
+			"Antes de rodar, PERGUNTE à pessoa em qual pasta do computador dela os arquivos devem ficar e espere a resposta, mesmo que ela não tenha falado de pasta; nunca escolha uma pasta sozinho. " +
 			"Se ver_app mostrar pasta_de_sempre, ofereça essa pasta na pergunta. Mande a resposta em pasta_saida, com o caminho completo (ex.: C:\\Users\\ana\\Documentos). " +
 			"Depois de rodar, chame ver_execucao com esperar 30, de novo e de novo na mesma resposta, até a execução terminar; " +
 			"então diga o resultado e onde ficaram os arquivos. Se a conversa parar antes, confira de novo com ver_execucao quando a pessoa perguntar.",
@@ -516,9 +516,9 @@ func (h *Handler) toolRodarApp(ctx context.Context, _ *mcp.CallToolRequest, in r
 		return toolOK("Este app fica aberto no servidor; abra pelo link: "+link, map[string]any{"compartilhado": true, "link": link})
 	}
 	if strings.TrimSpace(in.PastaSaida) == "" {
-		msg := "Falta a pasta. Pergunte à pessoa em qual pasta do computador dela os arquivos devem ficar e mande em pasta_saida."
+		msg := "Falta a pasta. Não escolha uma pasta sozinho: pergunte à pessoa em qual pasta do computador dela os arquivos devem ficar, espere a resposta e então chame rodar_app de novo com pasta_saida."
 		if d.RememberedFolder != "" {
-			msg += " A pasta de sempre dela para este app é " + d.RememberedFolder + "; ofereça essa."
+			msg += " Sugira a pasta de sempre dela para este app (" + d.RememberedFolder + ") e pergunte se pode usar."
 		}
 		return toolFail(msg)
 	}
