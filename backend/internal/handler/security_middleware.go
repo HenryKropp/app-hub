@@ -156,6 +156,9 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 			}
 		}
 		limited := unsafe && (r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/auth/setup" || r.URL.Path == "/api/workspaces" || strings.HasPrefix(r.URL.Path, "/api/entry/") || r.URL.Path == "/api/agent/pair/start" || r.URL.Path == "/oauth/register" || r.URL.Path == "/oauth/token")
+		// /oauth/authorize is a GET with no login that writes a pending row, so it
+		// is limited per address too.
+		limited = limited || r.URL.Path == "/oauth/authorize"
 		accountKey := ""
 		if limited {
 			// Never trust arbitrary X-Forwarded-For supplied by clients.
@@ -164,7 +167,7 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 				host = r.RemoteAddr
 			}
 			limit := signupAttempts
-			if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/entry/invitations/preview" || r.URL.Path == "/api/agent/pair/start" || r.URL.Path == "/oauth/register" || r.URL.Path == "/oauth/token" {
+			if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/entry/invitations/preview" || r.URL.Path == "/api/agent/pair/start" || r.URL.Path == "/oauth/register" || r.URL.Path == "/oauth/token" || r.URL.Path == "/oauth/authorize" {
 				limit = addressAttempts
 			}
 			if r.URL.Path == "/api/auth/login" {
