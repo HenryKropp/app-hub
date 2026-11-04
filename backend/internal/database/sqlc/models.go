@@ -228,6 +228,40 @@ type HubSetting struct {
 	CompanyName string `json:"company_name"`
 }
 
+type McpAuthRequest struct {
+	ID            string             `json:"id"`
+	ClientID      pgtype.Text        `json:"client_id"`
+	RedirectUri   pgtype.Text        `json:"redirect_uri"`
+	CodeChallenge pgtype.Text        `json:"code_challenge"`
+	State         pgtype.Text        `json:"state"`
+	PersonID      pgtype.Int8        `json:"person_id"`
+	CodeHash      pgtype.Text        `json:"code_hash"`
+	CodeExpiresAt pgtype.Timestamptz `json:"code_expires_at"`
+	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
+}
+
+type McpClient struct {
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	RedirectUris []string           `json:"redirect_uris"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type McpConnection struct {
+	ID               int64              `json:"id"`
+	PersonID         int64              `json:"person_id"`
+	Kind             string             `json:"kind"`
+	Name             string             `json:"name"`
+	ClientID         pgtype.Text        `json:"client_id"`
+	TokenHash        string             `json:"token_hash"`
+	AccessExpiresAt  pgtype.Timestamptz `json:"access_expires_at"`
+	RefreshHash      pgtype.Text        `json:"refresh_hash"`
+	RefreshExpiresAt pgtype.Timestamptz `json:"refresh_expires_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt       pgtype.Timestamptz `json:"last_used_at"`
+	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
+}
+
 type MembershipInvitation struct {
 	ID         int64              `json:"id"`
 	TokenHash  string             `json:"token_hash"`
@@ -290,6 +324,7 @@ type Run struct {
 	StartedAt    pgtype.Timestamptz `json:"started_at"`
 	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
 	VersionID    pgtype.Int8        `json:"version_id"`
+	Origin       string             `json:"origin"`
 }
 
 type RunFile struct {

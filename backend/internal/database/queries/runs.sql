@@ -1,6 +1,6 @@
 -- name: CreateRun :one
-INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id, origin)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: StartRun :exec
@@ -27,7 +27,7 @@ LEFT JOIN app_versions v ON v.id = r.version_id
 WHERE r.id = $1;
 
 -- name: ListAppRuns :many
-SELECT r.id, r.status, r.created_at, r.started_at, r.finished_at, r.person_id, p.name AS person_name,
+SELECT r.id, r.status, r.origin, r.created_at, r.started_at, r.finished_at, r.person_id, p.name AS person_name,
        (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count
 FROM runs r
 JOIN people p ON p.id = r.person_id
@@ -59,7 +59,7 @@ WHERE id = $1 AND person_id = $2 AND dismissed_at IS NULL;
 
 -- name: ListRuns :many
 SELECT r.id, r.app_id, a.name AS app_name, r.status, r.output_folder, r.created_at, r.started_at, r.finished_at,
-       r.person_id, p.name AS person_name,
+       r.person_id, p.name AS person_name, r.origin,
        (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count
 FROM runs r
 JOIN apps a ON a.id = r.app_id

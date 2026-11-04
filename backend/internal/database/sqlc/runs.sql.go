@@ -54,9 +54,9 @@ func (q *Queries) ClearRunFolder(ctx context.Context, arg ClearRunFolderParams) 
 }
 
 const createRun = `-- name: CreateRun :one
-INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, app_id, person_id, computer_id, output_folder, status, exit_code, error_message, app_version, created_at, started_at, finished_at, version_id
+INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id, origin)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, app_id, person_id, computer_id, output_folder, status, exit_code, error_message, app_version, created_at, started_at, finished_at, version_id, origin
 `
 
 type CreateRunParams struct {
@@ -65,6 +65,7 @@ type CreateRunParams struct {
 	ComputerID   int64       `json:"computer_id"`
 	OutputFolder string      `json:"output_folder"`
 	VersionID    pgtype.Int8 `json:"version_id"`
+	Origin       string      `json:"origin"`
 }
 
 func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, error) {
@@ -74,6 +75,7 @@ func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, erro
 		arg.ComputerID,
 		arg.OutputFolder,
 		arg.VersionID,
+		arg.Origin,
 	)
 	var i Run
 	err := row.Scan(
@@ -90,6 +92,7 @@ func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, erro
 		&i.StartedAt,
 		&i.FinishedAt,
 		&i.VersionID,
+		&i.Origin,
 	)
 	return i, err
 }
@@ -136,7 +139,7 @@ func (q *Queries) FinishRun(ctx context.Context, arg FinishRunParams) error {
 }
 
 const getRun = `-- name: GetRun :one
-SELECT r.id, r.app_id, r.person_id, r.computer_id, r.output_folder, r.status, r.exit_code, r.error_message, r.app_version, r.created_at, r.started_at, r.finished_at, r.version_id, a.name AS app_name, a.manifest AS app_manifest, p.name AS person_name, c.name AS computer_name,
+SELECT r.id, r.app_id, r.person_id, r.computer_id, r.output_folder, r.status, r.exit_code, r.error_message, r.app_version, r.created_at, r.started_at, r.finished_at, r.version_id, r.origin, a.name AS app_name, a.manifest AS app_manifest, p.name AS person_name, c.name AS computer_name,
        c.can_stop AS computer_can_stop, v.number AS version_number
 FROM runs r
 JOIN apps a ON a.id = r.app_id
@@ -160,6 +163,7 @@ type GetRunRow struct {
 	StartedAt       pgtype.Timestamptz `json:"started_at"`
 	FinishedAt      pgtype.Timestamptz `json:"finished_at"`
 	VersionID       pgtype.Int8        `json:"version_id"`
+	Origin          string             `json:"origin"`
 	AppName         string             `json:"app_name"`
 	AppManifest     []byte             `json:"app_manifest"`
 	PersonName      string             `json:"person_name"`
@@ -185,6 +189,7 @@ func (q *Queries) GetRun(ctx context.Context, id int64) (GetRunRow, error) {
 		&i.StartedAt,
 		&i.FinishedAt,
 		&i.VersionID,
+		&i.Origin,
 		&i.AppName,
 		&i.AppManifest,
 		&i.PersonName,
@@ -298,7 +303,7 @@ func (q *Queries) ListActiveRuns(ctx context.Context, personID int64) ([]ListAct
 }
 
 const listAppRuns = `-- name: ListAppRuns :many
-SELECT r.id, r.status, r.created_at, r.started_at, r.finished_at, r.person_id, p.name AS person_name,
+SELECT r.id, r.status, r.origin, r.created_at, r.started_at, r.finished_at, r.person_id, p.name AS person_name,
        (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count
 FROM runs r
 JOIN people p ON p.id = r.person_id
@@ -316,6 +321,7 @@ type ListAppRunsParams struct {
 type ListAppRunsRow struct {
 	ID         int64              `json:"id"`
 	Status     string             `json:"status"`
+	Origin     string             `json:"origin"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	StartedAt  pgtype.Timestamptz `json:"started_at"`
 	FinishedAt pgtype.Timestamptz `json:"finished_at"`
@@ -336,6 +342,7 @@ func (q *Queries) ListAppRuns(ctx context.Context, arg ListAppRunsParams) ([]Lis
 		if err := rows.Scan(
 			&i.ID,
 			&i.Status,
+			&i.Origin,
 			&i.CreatedAt,
 			&i.StartedAt,
 			&i.FinishedAt,
@@ -457,7 +464,7 @@ func (q *Queries) ListRunFolders(ctx context.Context, personID int64) ([]ListRun
 
 const listRuns = `-- name: ListRuns :many
 SELECT r.id, r.app_id, a.name AS app_name, r.status, r.output_folder, r.created_at, r.started_at, r.finished_at,
-       r.person_id, p.name AS person_name,
+       r.person_id, p.name AS person_name, r.origin,
        (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count
 FROM runs r
 JOIN apps a ON a.id = r.app_id
@@ -486,6 +493,7 @@ type ListRunsRow struct {
 	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
 	PersonID     int64              `json:"person_id"`
 	PersonName   string             `json:"person_name"`
+	Origin       string             `json:"origin"`
 	FileCount    int64              `json:"file_count"`
 }
 
@@ -514,6 +522,7 @@ func (q *Queries) ListRuns(ctx context.Context, arg ListRunsParams) ([]ListRunsR
 			&i.FinishedAt,
 			&i.PersonID,
 			&i.PersonName,
+			&i.Origin,
 			&i.FileCount,
 		); err != nil {
 			return nil, err

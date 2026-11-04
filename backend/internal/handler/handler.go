@@ -64,6 +64,9 @@ type Handler struct {
 
 	// Says whether a link artifact's site allows being shown in a frame;
 	// tests replace it to stay off the network.
+	// api is the whole route table, for the MCP endpoint to call internally.
+	api http.Handler
+
 	embedCheck func(ctx context.Context, url string, own func(string) bool) bool
 }
 
@@ -203,6 +206,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/agent/binary", h.agentBinary)
 	mux.HandleFunc("GET /api/agent/next", h.agentNext)
 	mux.HandleFunc("POST /api/agent/jobs/{id}/result", h.agentResult)
+	h.registerMCPAuth(mux)
+	h.api = mux
 }
 
 // --- helpers ---
@@ -235,6 +240,18 @@ func internalError(w http.ResponseWriter, msg string, err error) {
 
 // currentPerson returns the logged-in person, or writes 401 and returns false.
 func (h *Handler) currentPerson(w http.ResponseWriter, r *http.Request) (sqlc.Person, bool) {
+	if id, ok := mcpPersonID(r.Context()); ok {
+		p, err := h.q.GetPerson(r.Context(), id)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				writeError(w, http.StatusUnauthorized, "Entre no Ziv para continuar.")
+			} else {
+				internalError(w, "get mcp person", err)
+			}
+			return sqlc.Person{}, false
+		}
+		return p, true
+	}
 	c, err := r.Cookie(cookieName)
 	if err == nil && c.Value != "" {
 		p, err := h.q.GetSessionPerson(r.Context(), c.Value)
@@ -278,7 +295,13 @@ func (h *Handler) authStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	resp := map[string]any{"needs_setup": count == 0, "person": nil}
-	if c, err := r.Cookie(cookieName); err == nil {
+	if id, ok := mcpPersonID(r.Context()); ok {
+		if p, err := h.q.GetPerson(r.Context(), id); err == nil {
+			if out, err := h.personOut(r.Context(), p); err == nil {
+				resp["person"] = out
+			}
+		}
+	} else if c, err := r.Cookie(cookieName); err == nil {
 		if p, err := h.q.GetSessionPerson(r.Context(), c.Value); err == nil {
 			if out, err := h.personOut(r.Context(), p); err == nil {
 				resp["person"] = out
