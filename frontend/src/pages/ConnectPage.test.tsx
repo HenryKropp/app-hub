@@ -59,3 +59,11 @@ test("approve failure keeps its message and the two links", async () => {
   expect(screen.getByRole("link", { name: "Ir para Configurações" })).toBeInTheDocument()
   expect(screen.getByRole("link", { name: "Como instalar o Agente" })).toBeInTheDocument()
 })
+
+test("a server failure shows its own message, not the not-found text", async () => {
+  vi.spyOn(api, "pairing").mockRejectedValue(new ApiError(503, "O Ziv não respondeu."))
+  renderAt("/conectar?codigo=ABC")
+  expect(await screen.findByText("O Ziv não respondeu.")).toBeInTheDocument()
+  expect(screen.queryByText(/Não encontramos/)).not.toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "Como instalar o Agente" })).toBeInTheDocument()
+})

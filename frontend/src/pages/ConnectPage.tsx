@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { Laptop } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { api, type Pairing } from "@/lib/api"
+import { api, ApiError, type Pairing } from "@/lib/api"
 
 export function ConnectPage() {
   const [params] = useSearchParams()
@@ -14,7 +14,7 @@ export function ConnectPage() {
   const [loadFailed, setLoadFailed] = useState(false)
 
   useEffect(() => {
-    api.pairing(code).then(setPairing, (e: Error) => { setLoadFailed(true); setError(e.message) })
+    api.pairing(code).then(setPairing, (e: Error) => { setLoadFailed(!code || (e instanceof ApiError && (e.status === 400 || e.status === 404))); setError(e.message || "Algo deu errado. Tente de novo; se continuar, avise quem administra o Ziv.") })
   }, [code])
 
   const approve = async () => {
@@ -34,7 +34,7 @@ export function ConnectPage() {
       <Laptop className="mx-auto size-10 text-muted-foreground" />
       {error ? (
         <div role="alert" className="mt-4">
-          <h1 className="font-heading text-2xl">{loadFailed ? "Não encontramos esse pedido de conexão" : "Não foi possível conectar"}</h1>
+          <h1 className="font-heading text-2xl">{loadFailed ? "Não encontramos esse pedido de conexão" : pairing ? "Não foi possível conectar" : "Não foi possível abrir o pedido de conexão"}</h1>
           <p className="mt-3 text-muted-foreground">{loadFailed ? "Abra o Agente do Ziv no seu computador de novo; ele abre esta página com o código certo." : error}</p>
           <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm">
             <Link className="underline underline-offset-4" to="/configuracoes">Ir para Configurações</Link>

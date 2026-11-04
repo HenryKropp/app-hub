@@ -206,9 +206,9 @@ export function ScriptImportForm() {
       </div>
       <Field label="Arquivos do script" htmlFor="script-files" hint="Selecione o arquivo de entrada e os arquivos locais que ele importa. Até 10 MB no total.">
         <div className="flex flex-wrap items-center gap-2">
-          <input ref={filesInput} id="script-files" type="file" multiple disabled={busy} className="sr-only" onChange={(e) => chooseFiles(e.target.files)} />
+          <input ref={filesInput} id="script-files" type="file" multiple tabIndex={-1} disabled={busy} className="sr-only" onChange={(e) => chooseFiles(e.target.files)} />
           <Button type="button" variant="outline" disabled={busy} onClick={() => filesInput.current?.click()}>Escolher arquivos</Button>
-          <span className="text-sm text-muted-foreground">{files.length === 0 ? "Nenhum arquivo escolhido" : files.length === 1 ? sourcePath(files[0]) : `${files.length} arquivos escolhidos`}</span>
+          <span aria-live="polite" className="text-sm text-muted-foreground">{files.length === 0 ? "Nenhum arquivo escolhido" : files.length === 1 ? sourcePath(files[0]) : `${files.length} arquivos escolhidos`}</span>
           <label htmlFor="script-folder-files" className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium hover:bg-accent">Adicionar pasta do script</label>
           <input id="script-folder-files" type="file" multiple disabled={busy} className="sr-only" {...({ webkitdirectory: "" } as ComponentProps<"input">)} onChange={(e) => chooseFiles(e.target.files, true)} />
         </div>
