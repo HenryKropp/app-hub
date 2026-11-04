@@ -184,6 +184,8 @@ export type Run = {
   created_at: string; started_at: string | null; finished_at: string | null; groups: RunGroup[]
   // Only for the person who ran it, while it is open and their Agente can stop it.
   can_stop: boolean
+  /** "mcp" when Claude started it through the Ziv connector. */
+  origin?: "manual" | "mcp"
 }
 export type ActiveRun = {
   id: number; app_id: number; app_name: string; app_folder_display: string; status: RunStatus; error_message: string
@@ -284,6 +286,11 @@ export type ArtifactDetail = ArtifactSummary & {
   owner_id: number; backup_id: number | null; backup_name: string; origin: string
   can: Can; versions: ArtifactVersion[]; current: number
 }
+/** A way Claude reaches the Ziv as this person: claude.ai (OAuth) or a Claude Code code. */
+export type McpConnection = { id: number; kind: "oauth" | "code"; name: string; created_at: string; last_used_at: string | null }
+export type McpCode = { id: number; name: string; code: string; command: string }
+export type OAuthRequest = { client_name: string; redirect_host: string }
+
 export type ArtifactInput = {
   name: string; summary: string; tags: string[]; area_id: number; kind: "link" | "file"
   url?: string; file_name?: string; content_base64?: string; note?: string; confirm_secrets?: boolean
@@ -351,6 +358,12 @@ export const api = {
   credentialAudit: () => request<CredentialEvent[]>("GET", "/api/security/credentials/audit"),
   checkCredential: (c: CredentialMeta) => request<{ upstream_status: number; credential_revision: number }>("POST", `/api/apps/${c.app_id}/credentials/${c.id}/check`, { environment: c.environment }),
   workspace: () => request<Workspace>("GET", "/api/workspace"),
+  mcpConnections: () => request<McpConnection[]>("GET", "/api/mcp/connections"),
+  createMcpCode: (name: string) => request<McpCode>("POST", "/api/mcp/codes", { name }),
+  revokeMcpConnection: (id: number) => request<void>("DELETE", `/api/mcp/connections/${id}`),
+  oauthRequest: (id: string) => request<OAuthRequest>("GET", `/api/oauth/requests/${encodeURIComponent(id)}`),
+  approveOauth: (id: string) => request<{ redirect: string }>("POST", `/api/oauth/requests/${encodeURIComponent(id)}/approve`),
+  denyOauth: (id: string) => request<{ redirect: string }>("POST", `/api/oauth/requests/${encodeURIComponent(id)}/deny`),
   entryCompany: () => request<EntryCompany>("GET", "/api/entry/company"),
   entryCompanyBySlug: (slug: string) =>
     requestAt<EntryCompany>("GET", `/w/${encodeURIComponent(slug)}/api/entry/company`),

@@ -146,3 +146,14 @@ test("stopped run explains and lists its files", async () => {
   expect(screen.getByText(/Você parou o app pelo Ziv\. Abaixo estão/)).toBeInTheDocument()
   expect(screen.getByRole("heading", { name: /Data Pack/ })).toBeInTheDocument()
 })
+
+test("a run started by Claude says pelo Claude; a manual one does not", async () => {
+  vi.spyOn(api, "run").mockResolvedValueOnce(run({ origin: "mcp" })).mockResolvedValueOnce(run({ origin: "manual" }))
+  const { unmount } = renderAt()
+  const label = await screen.findByText("pelo Claude")
+  expect(label.className).not.toMatch(/brand|coral/)
+  unmount()
+  renderAt()
+  expect(await screen.findByText("Concluída")).toBeInTheDocument()
+  expect(screen.queryByText("pelo Claude")).not.toBeInTheDocument()
+})

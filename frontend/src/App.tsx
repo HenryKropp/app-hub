@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom"
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom"
 import { Toaster } from "@/components/ui/sonner"
 import { Layout } from "@/components/Layout"
 import { AuthProvider, useAuth } from "@/lib/auth"
@@ -27,9 +27,11 @@ import { CompanyEntryPage } from "@/pages/CompanyEntryPage"
 import { CompanySignupPage } from "@/pages/CompanySignupPage"
 import { LandingPage } from "@/pages/LandingPage"
 import { InvitationPage } from "@/pages/InvitationPage"
+import { ClaudeConsentPage } from "@/pages/ClaudeConsentPage"
 import { workspaceBasePath } from "@/lib/api"
 
-function Protected() {
+// bare: a signed-in page without the sidebar (the Claude consent screen).
+function Protected({ bare = false }: { bare?: boolean }) {
   const { loading, person } = useAuth()
   const location = useLocation()
   if (loading) return <div className="mx-auto mt-20 w-full max-w-sm space-y-3 px-4" role="status" aria-label="Verificando acesso"><div className="h-7 w-2/3 animate-pulse rounded bg-muted" /><div className="h-4 w-full animate-pulse rounded bg-muted" /><div className="h-10 w-full animate-pulse rounded bg-muted" /></div>
@@ -37,7 +39,7 @@ function Protected() {
     const destination = !workspaceBasePath() && location.pathname === "/" ? "/boas-vindas" : "/entrar"
     return <Navigate to={destination} replace state={{ from: location.pathname + location.search }} />
   }
-  return <Layout />
+  return bare ? <Outlet /> : <Layout />
 }
 
 function CreatorsOnly({ children }: { children: React.ReactNode }) {
@@ -56,6 +58,9 @@ function Routed() {
       <Route path="/cadastre-se" element={<CompanySignupPage />} />
       <Route path="/convite" element={<InvitationPage />} />
       <Route path="/entrar" element={<LoginPage />} />
+      <Route element={<Protected bare />}>
+        <Route path="conectar-claude/autorizar" element={<ClaudeConsentPage />} />
+      </Route>
       <Route element={<Protected />}>
         <Route index element={<HomePage />} />
         <Route path="apps" element={<CatalogPage />} />
