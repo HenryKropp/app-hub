@@ -13,8 +13,12 @@ export default defineConfig({
       '/api': 'http://localhost:8080',
       '/auth': 'http://localhost:8080',
       '/up': 'http://localhost:8080',
+      // Claude's MCP endpoint and its OAuth routes are served by Go too.
+      '/mcp': 'http://localhost:8080',
+      '/oauth': 'http://localhost:8080',
+      '/.well-known': 'http://localhost:8080',
       // Company pages live under /w/<slug>/; their API calls must reach Go too.
-      '^/w/[^/]+/(api/|auth/|up$)': 'http://localhost:8080',
+      '^/w/[^/]+/(api/|auth/|up$|mcp$|oauth/|\\.well-known/)': 'http://localhost:8080',
     },
   },
   test: {

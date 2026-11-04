@@ -1,0 +1,124 @@
+package handler
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+)
+
+const mcpInstructions = "O Ziv é o lugar da empresa onde ficam os apps, os scripts e os artifacts do time. " +
+	"Estas ferramentas agem como a pessoa que conectou o Claude: veem e fazem só o que ela pode ver e fazer no Ziv."
+
+// mcpPersonFrom is the person a tool call acts for (0 outside MCP).
+func mcpPersonFrom(ctx context.Context) int64 {
+	id, _ := mcpPersonID(ctx)
+	return id
+}
+
+// newMCPServer builds the MCP server for this company with all its tools.
+func (h *Handler) newMCPServer() *mcp.Server {
+	s := mcp.NewServer(&mcp.Implementation{Name: "ziv", Version: "1"}, &mcp.ServerOptions{Instructions: mcpInstructions})
+	h.registerMCPTools(s)
+	return s
+}
+
+// registerMCPTools is the one place where tools are added to the server.
+func (h *Handler) registerMCPTools(s *mcp.Server) {
+	type buscarIn struct {
+		Texto string `json:"texto" jsonschema:"o que procurar"`
+	}
+	mcp.AddTool(s, &mcp.Tool{
+		Name:        "buscar",
+		Description: "Procura apps, scripts e artifacts no Ziv pelo nome.",
+		Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true},
+	}, func(ctx context.Context, _ *mcp.CallToolRequest, _ buscarIn) (*mcp.CallToolResult, any, error) {
+		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: "A busca ainda não está pronta."}}}, nil, nil
+	})
+}
+
+// mcpHTTP is the /mcp endpoint: a stateless MCP server behind a bearer check.
+func (h *Handler) mcpHTTP() http.Handler {
+	return h.mcpHTTPFor(h.newMCPServer())
+}
+
+func (h *Handler) mcpHTTPFor(s *mcp.Server) http.Handler {
+	sdk := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, &mcp.StreamableHTTPOptions{
+		Stateless: true,
+		// The endpoint needs a bearer token, and behind a proxy on the same
+		// machine the public Host is never localhost.
+		DisableLocalhostProtection: true,
+	})
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token, _ := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if !strings.HasPrefix(token, "ziv_") {
+			token = ""
+		}
+		_, p, err := h.mcpConnection(r.Context(), token)
+		if err != nil {
+			if !errors.Is(err, errMCPUnauthorized) {
+				internalError(w, "mcp connection", err)
+				return
+			}
+			w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="`+h.mcpResourceMetadataURL()+`"`)
+			writeError(w, http.StatusUnauthorized, "Conecte o Claude ao Ziv de novo.")
+			return
+		}
+		sdk.ServeHTTP(w, r.WithContext(withMCPPerson(r.Context(), p.ID)))
+	})
+}
+
+// mcpResourceMetadataURL is <origin>/.well-known/oauth-protected-resource<basePath>/mcp.
+func (h *Handler) mcpResourceMetadataURL() string {
+	origin := strings.TrimRight(h.cfg.BaseURL, "/")
+	if u, err := url.Parse(h.cfg.BaseURL); err == nil && u.Scheme != "" && u.Host != "" {
+		origin = u.Scheme + "://" + u.Host
+	}
+	base := ""
+	if h.workspace != nil {
+		base = h.workspace.BasePath
+	}
+	return origin + "/.well-known/oauth-protected-resource" + base + "/mcp"
+}
+
+// callAPI runs one API route internally as the MCP person in ctx (set by
+// mcpHTTP, see withMCPPerson); without one the route answers 401. It goes
+// straight to the route table, so the browser checks in Secure do not apply.
+func (h *Handler) callAPI(ctx context.Context, method, path string, body any) (int, []byte) {
+	var rd io.Reader
+	if body != nil {
+		buf, err := json.Marshal(body)
+		if err != nil {
+			return http.StatusInternalServerError, nil
+		}
+		rd = bytes.NewReader(buf)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, path, rd)
+	if err != nil {
+		return http.StatusInternalServerError, nil
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	rec := httptest.NewRecorder()
+	h.api.ServeHTTP(rec, req)
+	return rec.Code, rec.Body.Bytes()
+}
+
+// apiError is the "error" text of an API JSON reply, or "".
+func apiError(raw []byte) string {
+	var e struct {
+		Error string `json:"error"`
+	}
+	if json.Unmarshal(raw, &e) != nil {
+		return ""
+	}
+	return e.Error
+}
