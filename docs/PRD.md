@@ -165,17 +165,32 @@ Alguns apps precisam ficar no ar para muita gente usar ao mesmo tempo, com os me
 ### 3.10 Painel de governança (1.10)
 - Uma tela com inventário (apps por área e tipo), uso (mais usados, execuções por semana) e apps em risco.
 
-### 3.11 Registro pelo Claude via MCP (1.11, antecipado)
-Pedido do Henry em 2026-09-30: registrar apps de dentro do Claude, sem preencher nada à mão.
-- O criador conecta o Claude que já usa ao Hub, com um **código de acesso pessoal** gerado na tela Pessoas.
-- O criador pede, por exemplo, "registra todos os apps da pasta de programação". O Claude:
-  1. lista as pastas e o que já está no catálogo;
-  2. lê o código de cada app, com **chaves e senhas mascaradas** pelo Hub (o Claude nunca vê os valores);
-  3. parte do diagnóstico por regras e completa com o que entendeu do código: resumo em português, entradas, saídas, arquivo de início, área e pontos de atenção;
-  4. registra o app com responsável e reserva, usando o formato padrão do manifesto.
-- **Confirmação humana:** cada registro passa pela confirmação do próprio Claude ("permitir registrar?"), e o app fica marcado no Hub como **registrado via IA**.
-- A IA age com as permissões de quem gerou o código de acesso, nunca mais que isso.
-- **Não precisa de chave da Claude API:** quem lê e escreve é o Claude do criador.
+### 3.11 Claude conectado ao Ziv (MCP)
+O Henry pediu isto em 2026-09-30 e redesenhou em 2026-11-04. A pessoa usa o Ziv de dentro do Claude que já usa (claude.ai, app do Claude ou Claude Code), sempre com as permissões dela e nunca mais que isso. Quem pensa é o Claude da própria pessoa, então o Ziv não precisa de chave da API do Claude.
+
+**Os 5 usos:**
+1. registrar apps prontos;
+2. criar apps já pensando no Ziv;
+3. publicar artifacts bonitos no Ziv;
+4. agendar rodadas;
+5. achar e rodar apps.
+
+**As 4 etapas:**
+- **Etapa 1 (feita em 2026-11-04, ADR 021):** conectar, achar, rodar e publicar artifacts.
+  - **Tela Conectar o Claude:** fica em Configurações. Mostra o endereço do conector para o claude.ai e o app do Claude, um código pessoal para o Claude Code e a lista **Conexões ativas**, com o botão Cancelar.
+  - **Conectar pelo claude.ai:** a pessoa clica em Conectar no Claude, entra no Ziv e confirma em "Permitir que o Claude use o Ziv como você?". A tela mostra para onde o acesso vai e avisa quando o endereço não é do Claude.
+  - **Ferramentas:**
+    - buscar, ver app, ver artifact;
+    - rodar app;
+    - ver execução, que espera até 30 s por vez para o Claude acompanhar até terminar;
+    - minhas execuções;
+    - publicar artifact, que cria um novo ou uma versão nova, com o mesmo aviso de segredos da tela;
+    - guia de visual.
+  - Rodar e publicar pedem "permitir?" no Claude, ficam marcados como **pelo Claude** e entram no registro de segurança.
+  - O acesso acaba quando a pessoa cancela, quando é removida ou quando a chave vence.
+- **Etapa 2: registrar apps prontos.** O Claude lê a pasta do app pelo Agente, com chaves e senhas mascaradas, e segue `docs/PROTOCOLO-REGISTRO.md`. Depois registra o app com responsável e reserva pelo mesmo caminho do botão Publicar, e o app fica marcado "via Claude".
+- **Etapa 3: criar apps para o Ziv.** O Claude recebe o formato do manifesto, as regras e exemplos, e entrega o app com o `ziv.yaml` pronto.
+- **Etapa 4: agendar.** Primeiro o Ziv aprende a agendar; depois o Claude ganha agendar, ver agendamentos e cancelar.
 
 ### 3.12 Skills do Claude no catálogo (ideia, não decidida)
 Ideia do Henry em 2026-10-26: compartilhar skills do Claude pelo Hub, como se compartilham apps.

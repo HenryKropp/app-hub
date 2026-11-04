@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { Check, CircleAlert, CircleCheck, Laptop, RefreshCw, Users, WandSparkles } from "lucide-react"
+import { Check, CircleAlert, CircleCheck, Laptop, Plug, RefreshCw, Users, WandSparkles } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { PageHeader } from "@/components/bits"
 import { AgentDownloadButton } from "@/components/AgentDownload"
@@ -83,6 +83,14 @@ export function SetupPage() {
           </div>
         </li>
       })}
+      <li className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-xl border border-dashed border-border p-4 sm:grid-cols-[3rem_1fr] sm:gap-4 sm:p-5">
+        <div className="flex size-10 items-center justify-center rounded-full bg-secondary text-muted-foreground"><Plug className="size-5" /></div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="text-xs text-muted-foreground">Opcional</span><h2 className="font-heading text-base">Conectar o Claude</h2></div>
+          <p className="mt-1 text-sm text-muted-foreground">Deixe o Claude achar apps e artifacts, rodar apps e publicar artifacts com as suas permissões.</p>
+          <div className="mt-4 flex gap-2"><Link to="/configuracoes#claude" className={cn(buttonVariants({ variant: "outline" }))}>Conectar o Claude</Link></div>
+        </div>
+      </li>
     </ol>
     {totalDone === steps.length && <p className="mt-5 rounded-xl border border-ok/25 bg-ok-soft p-4 text-sm font-medium text-ok">Tudo pronto. Sua equipe já pode encontrar e usar os apps no catálogo.</p>}
   </>

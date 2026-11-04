@@ -4,7 +4,7 @@ import { ArrowLeft, Download, ExternalLink, Link2 } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Field, LoadError, NativeSelect, PageHeader } from "@/components/bits"
+import { ByClaude, Field, LoadError, NativeSelect, PageHeader } from "@/components/bits"
 import { AccessSection } from "@/components/ficha/AccessSection"
 import { EditLink, Section } from "@/components/ficha/Part"
 import { ArtifactSourceField, ClaudeLinkHint, isClaudeLink, readAsBase64, sourceReady, type ArtifactSource } from "@/components/ArtifactSourceField"
@@ -97,6 +97,7 @@ export function ArtifactPage() {
           </h1>
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
             <span>{art.area}</span>
+            {art.origin === "mcp" && <ByClaude />}
             {art.tags.map((t) => (
               <span key={t} className="rounded-full border border-border px-2 py-0.5 text-xs">
                 {t}

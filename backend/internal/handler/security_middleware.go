@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -125,12 +126,15 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
 		w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-		if strings.HasPrefix(r.URL.Path, "/api/") {
+		if strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/mcp" || strings.HasPrefix(r.URL.Path, "/oauth/") {
 			w.Header().Set("Cache-Control", "no-store")
 		}
 		unsafe := r.Method != "GET" && r.Method != "HEAD" && r.Method != "OPTIONS"
 		isAgent := strings.HasPrefix(r.URL.Path, "/api/agent/")
-		if unsafe && !isAgent {
+		// MCP and the OAuth token/registration endpoints are called by Claude,
+		// not a browser session: a bearer token or PKCE protects them, no cookie.
+		isClaude := r.URL.Path == "/mcp" || r.URL.Path == "/oauth/token" || r.URL.Path == "/oauth/register"
+		if unsafe && !isAgent && !isClaude {
 			origin := r.Header.Get("Origin")
 			if origin != "" {
 				want, err := url.Parse(h.cfg.BaseURL)
@@ -152,7 +156,10 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 				}
 			}
 		}
-		limited := unsafe && (r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/auth/setup" || r.URL.Path == "/api/workspaces" || strings.HasPrefix(r.URL.Path, "/api/entry/") || r.URL.Path == "/api/agent/pair/start")
+		limited := unsafe && (r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/auth/setup" || r.URL.Path == "/api/workspaces" || strings.HasPrefix(r.URL.Path, "/api/entry/") || r.URL.Path == "/api/agent/pair/start" || r.URL.Path == "/oauth/register" || r.URL.Path == "/oauth/token")
+		// /oauth/authorize is a GET with no login that writes a pending row, so it
+		// is limited per address too.
+		limited = limited || r.URL.Path == "/oauth/authorize"
 		accountKey := ""
 		if limited {
 			// Never trust arbitrary X-Forwarded-For supplied by clients.
@@ -161,7 +168,7 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 				host = r.RemoteAddr
 			}
 			limit := signupAttempts
-			if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/entry/invitations/preview" || r.URL.Path == "/api/agent/pair/start" {
+			if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/entry/invitations/preview" || r.URL.Path == "/api/agent/pair/start" || r.URL.Path == "/oauth/token" || r.URL.Path == "/oauth/authorize" {
 				limit = addressAttempts
 			}
 			if r.URL.Path == "/api/auth/login" {
@@ -209,8 +216,8 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 		}
 		// Persist the attempt before allowing state changes. No body, query,
 		// cookie, password, token, domain or source text enters this record.
-		var eventID int64
-		if err := h.q.SecurityDB().QueryRow(r.Context(), `INSERT INTO security_audit(actor_id,action) VALUES($1,$2) RETURNING id`, actor, "request.started").Scan(&eventID); err != nil {
+		eventID, err := h.auditStart(r.Context(), actor, "request.started")
+		if err != nil {
 			writeError(w, 503, "Não foi possível registrar a operação com segurança.")
 			return
 		}
@@ -221,8 +228,22 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 			status = 200
 		}
 		// r.Pattern is a server-defined route template, never a raw URL.
-		if _, err := h.q.SecurityDB().Exec(r.Context(), `UPDATE security_audit SET action='request.completed',route=$2,status=$3 WHERE id=$1`, eventID, r.Pattern, status); err != nil {
-			slog.Error("audit completion failed", "event_id", eventID)
-		}
+		h.auditFinish(r.Context(), eventID, "request.completed", r.Pattern, status)
 	})
+}
+
+// auditStart records an attempt before it may change anything and returns
+// the event id. No body, query, cookie, password, token or source text goes in.
+func (h *Handler) auditStart(ctx context.Context, actor *int64, action string) (int64, error) {
+	var eventID int64
+	err := h.q.SecurityDB().QueryRow(ctx, `INSERT INTO security_audit(actor_id,action) VALUES($1,$2) RETURNING id`, actor, action).Scan(&eventID)
+	return eventID, err
+}
+
+// auditFinish completes the event with the server-defined route template
+// (never a raw URL) and the answer's status. A failure is only logged.
+func (h *Handler) auditFinish(ctx context.Context, eventID int64, action, route string, status int) {
+	if _, err := h.q.SecurityDB().Exec(ctx, `UPDATE security_audit SET action=$2,route=$3,status=$4 WHERE id=$1`, eventID, action, route, status); err != nil {
+		slog.Error("audit completion failed", "event_id", eventID)
+	}
 }
