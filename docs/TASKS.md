@@ -127,7 +127,7 @@ Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mc
 | Teste real com o Claude Code | Done | 2026-11-04: `claude mcp add` na empresa Teste, conectado, `buscar` devolveu os 7 apps |
 | Teste com as mãos do Henry | Pending | Gerar código, colar no Claude Code, buscar, rodar Olá Ziv, publicar HTML, cancelar |
 | Teste no claude.ai | Pending | Só depois de o Ziv estar publicado na internet |
-| Pendências pequenas do MCP | Pending | Sem detecção de reuso da chave de renovação; parâmetro `resource` ignorado; `ver_app` carrega o catálogo inteiro; sem teste de concorrência do código OAuth; `people.sql.go` editado à mão quebra com `sqlc generate`; erro ao atualizar "último uso" dá 500 |
+| Pendências pequenas do MCP | Pending | Sem detecção de reuso da chave de renovação; parâmetro `resource` ignorado; `ver_app` carrega o catálogo inteiro; sem teste de concorrência do código OAuth; `people.sql.go` editado à mão quebra com `sqlc generate`; erro ao atualizar "último uso" dá 500; clientes OAuth cadastrados nunca são limpos; quando o Ziv ganhar "desativar pessoa", é preciso revogar as `mcp_connections` dela, e `mcpConnection`, a chave de renovação e o código de acesso precisam checar que a pessoa está ativa (hoje só apagar a pessoa corta o acesso) |
 
 ### Etapa 2 — registrar apps prontos
 

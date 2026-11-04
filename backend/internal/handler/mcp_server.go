@@ -42,6 +42,10 @@ func (h *Handler) mcpHTTPFor(s *mcp.Server) http.Handler {
 		// The endpoint needs a bearer token, and behind a proxy on the same
 		// machine the public Host is never localhost.
 		DisableLocalhostProtection: true,
+		// The SDK default (4 MiB) is below what the screen allows: a 16 MiB
+		// HTML plus JSON escaping and the tool call envelope.
+		MaxRequestBodyBytes:          maxArtifactBody + 1<<20,
+		PropagateRequestCancellation: true,
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		scheme, token, _ := strings.Cut(r.Header.Get("Authorization"), " ")
@@ -78,7 +82,6 @@ func (h *Handler) mcpResourceMetadataURL() string {
 // mcpRoutes are the only API routes MCP tools may call: each one was
 // reviewed for use by Claude. {id} matches digits only.
 var mcpRoutes = []string{
-	"GET /api/auth/status",
 	"GET /api/apps",
 	"GET /api/apps/{id}",
 	"POST /api/apps/{id}/runs",

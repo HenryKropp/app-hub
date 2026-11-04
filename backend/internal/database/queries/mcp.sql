@@ -11,7 +11,8 @@ UPDATE mcp_connections SET last_used_at = now()
 WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - interval '1 minute');
 
 -- name: ListMCPConnections :many
-SELECT * FROM mcp_connections WHERE person_id = $1 AND revoked_at IS NULL ORDER BY id DESC;
+SELECT * FROM mcp_connections WHERE person_id = $1 AND revoked_at IS NULL
+  AND (refresh_expires_at IS NULL OR refresh_expires_at > now()) ORDER BY id DESC;
 
 -- name: RevokeMCPConnection :execrows
 UPDATE mcp_connections SET revoked_at = now()

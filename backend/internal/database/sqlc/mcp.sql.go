@@ -299,7 +299,8 @@ func (q *Queries) GetPendingMCPAuthRequest(ctx context.Context, id string) (GetP
 }
 
 const listMCPConnections = `-- name: ListMCPConnections :many
-SELECT id, person_id, kind, name, client_id, token_hash, access_expires_at, refresh_hash, refresh_expires_at, created_at, last_used_at, revoked_at FROM mcp_connections WHERE person_id = $1 AND revoked_at IS NULL ORDER BY id DESC
+SELECT id, person_id, kind, name, client_id, token_hash, access_expires_at, refresh_hash, refresh_expires_at, created_at, last_used_at, revoked_at FROM mcp_connections WHERE person_id = $1 AND revoked_at IS NULL
+  AND (refresh_expires_at IS NULL OR refresh_expires_at > now()) ORDER BY id DESC
 `
 
 func (q *Queries) ListMCPConnections(ctx context.Context, personID int64) ([]McpConnection, error) {

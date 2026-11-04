@@ -44,6 +44,7 @@ Este ADR cobre a Etapa 1 e a forma técnica que as próximas etapas vão herdar.
 **Cons:**
 - `callAPI` pula o `Secure`, o que exige a lista fechada de rotas e o registro de auditoria próprio. Cada etapa nova precisa liberar as rotas dela de forma deliberada.
 - O cadastro aberto de clientes OAuth permite phishing de consentimento. A defesa é a tela mostrar o endereço de destino e avisar quando ele não é do Claude.
+- Quando o Ziv ganhar "desativar pessoa", é preciso revogar as `mcp_connections` dela, e `mcpConnection`, a chave de renovação e o código de acesso precisam checar que a pessoa está ativa. Hoje só apagar a pessoa corta o acesso.
 - O claude.ai só pode ser testado depois que o Ziv estiver publicado na internet.
 
 ## Alternatives Considered

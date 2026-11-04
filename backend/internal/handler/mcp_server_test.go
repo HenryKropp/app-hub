@@ -136,7 +136,7 @@ func TestMCPToolsActAsPerson(t *testing.T) {
 	s := h.newMCPServer()
 	type none struct{}
 	mcp.AddTool(s, &mcp.Tool{Name: "quem"}, func(ctx context.Context, _ *mcp.CallToolRequest, _ none) (*mcp.CallToolResult, any, error) {
-		status, raw, err := h.callAPI(ctx, "GET", "/api/auth/status", nil)
+		status, raw, err := h.callAPI(ctx, "GET", "/api/areas", nil)
 		text := fmt.Sprintf("%d|%d|%v|%s", mcpPersonFrom(ctx), status, err, raw)
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: text}}}, nil, nil
 	})
@@ -152,7 +152,7 @@ func TestMCPToolsActAsPerson(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := res.Content[0].(*mcp.TextContent).Text
-	if !strings.HasPrefix(text, fmt.Sprintf("%d|200|<nil>|", admin.ID)) || !strings.Contains(text, `"email":"henry@alis.com"`) {
+	if !strings.HasPrefix(text, fmt.Sprintf("%d|200|<nil>|", admin.ID)) {
 		t.Fatalf("tool saw %q", text)
 	}
 }

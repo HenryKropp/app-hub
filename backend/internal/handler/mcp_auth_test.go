@@ -82,6 +82,22 @@ func TestMCPCodeOtherPersonCannotRevoke(t *testing.T) {
 	}
 }
 
+func TestMCPConnectionListSkipsExpiredRefresh(t *testing.T) {
+	c, _ := newPoolClient(t)
+	p := setupAdmin(t, c)
+	for i, exp := range []string{"now() - interval '1 hour'", "now() + interval '1 hour'"} {
+		q := fmt.Sprintf(`INSERT INTO mcp_connections (person_id, kind, name, token_hash, refresh_hash, refresh_expires_at) VALUES ($1, 'oauth', $2, $3, $4, %s)`, exp)
+		if _, err := testPool.Exec(context.Background(), q, p.ID, fmt.Sprintf("c%d", i), fmt.Sprintf("th%d", i), fmt.Sprintf("rh%d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var list []mcpConnOut
+	c.do("GET", "/api/mcp/connections", nil, &list)
+	if len(list) != 1 || list[0].Name != "c1" {
+		t.Fatalf("list = %+v", list)
+	}
+}
+
 func TestCurrentPersonFromMCPContext(t *testing.T) {
 	c, h := newPoolClient(t)
 	p := setupAdmin(t, c)
