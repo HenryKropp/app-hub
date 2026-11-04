@@ -297,8 +297,21 @@ Antecipada a pedido do Henry (2026-09-30), pausada no mesmo dia em favor da prio
 |---|---|---|
 | Artifacts: link ou arquivo `.html`, etiquetas, busca, versões, acesso como nos apps, sem aprovação | Done | `/artifacts`; HTML numa caixa isolada; conferência visual em `e2e/artifacts.mjs` |
 | "Exigir aprovação" começa desligado em empresa nova | Done | Empresas que já existiam mantêm a opção |
-| Aba Home | Pending | Plano próprio |
+| Aba Home | Done | Ver a seção "Home" abaixo (ADR 019) |
 | Correções da revisão final: prévia recarrega na versão nova, acessos de área técnicos/execuções não alcançam artifacts, "Editar quem cuida" (responsável, reserva, área), busca no celular, trava na versão nova | Done | 2026-11-03 |
 | Link que aceita frame aparece dentro da página; link do Claude sugere subir o HTML | Done | 2026-11-03, pedido do Henry após o teste; `artifact_versions.embeddable` (migração 017) |
 | Publicar artifact pelo MCP | Pending | Junto do registro pelo Claude (3.11) |
 | Pendências pequenas dos Artifacts | Pending | Sem teste de que empresa antiga mantém a aprovação; grant de restaurar e `see_tech_any_app` sem teste; lista de artifacts duplica `artifactRef`; PUT troca resumo e etiquetas (o front manda a ficha toda); URL do link sem limite de tamanho; permissão duplicada dá 500; blobs órfãos em `code_blobs` nunca limpos; sem teste de `setArtifactGrants`; dicas e ARIA das abas da tela nova; página não reinicia ao trocar de `:id`; sem teste de editar Sobre, rolar para `#acesso` e apagar |
+
+## Home (2026-11-04, ADR 019)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Favoritos e registro de aberturas de artifacts | Done | Migração 018 (`favorites`, `artifact_opens`); `PUT/DELETE /api/favorites/{kind}/{id}`; abertura registrada no máximo a cada 30 min |
+| `GET /api/home` (Meu dia): atenção, favoritos, recentes, últimas execuções | Done | Tudo passa pela checagem de acesso; favorito que virou restrito ou foi apagado some sem erro |
+| Home esconde execuções de apps que a pessoa não vê | Done | Correção da revisão da tarefa 2 |
+| `GET /api/home/team` (Meu time) | Done | Administrador = empresa toda; líder = soma das áreas; os demais recebem 404 |
+| Estrela de favorito e catálogo em `/apps` | Done | `/` passa a ser a Home; "Apps" fica marcado em `/apps` e `/apps/:id` |
+| Página Home: Meu dia e Meu time | Done | Partes vazias somem, menos "Favoritos" |
+| Conferência visual e documentação | Done | `e2e/home.mjs` (claro, escuro, celular 390 px, pessoa sem nada); PRD 3.15; ADR 019 |
+| "Apps e artifacts sem responsável ativo" em Pendências de gestão | Pending | Volta quando existir "desativar pessoa" |
