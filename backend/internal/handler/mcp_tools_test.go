@@ -12,6 +12,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
+	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 )
 
 // toolSession connects to the client's /mcp with a fresh personal code.
@@ -57,12 +58,12 @@ func maxAuditID(t *testing.T) int64 {
 }
 
 // claudeAudits counts the audit rows written by MCP tools since id after.
-func claudeAudits(t *testing.T, after int64, route string) int {
+func claudeAudits(t *testing.T, after int64, route string, actor int64) int {
 	t.Helper()
 	var n int
 	err := testPool.QueryRow(context.Background(),
-		`SELECT count(*) FROM security_audit WHERE id > $1 AND action = 'mcp.request.completed' AND route = $2 AND actor_id IS NOT NULL AND status BETWEEN 200 AND 299`,
-		after, route).Scan(&n)
+		`SELECT count(*) FROM security_audit WHERE id > $1 AND action = 'mcp.request.completed' AND route = $2 AND actor_id = $3 AND status BETWEEN 200 AND 299`,
+		after, route, actor).Scan(&n)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +120,7 @@ func TestToolRodarSemComputador(t *testing.T) {
 
 func TestToolRodarEVerExecucao(t *testing.T) {
 	c, _ := newPoolClient(t)
-	setupAdmin(t, c)
+	admin := setupAdmin(t, c)
 	app := insertApp(t, filesPrepManifest())
 	token := pairComputer(t, c, "PC")
 	s := toolSession(t, c)
@@ -137,7 +138,7 @@ func TestToolRodarEVerExecucao(t *testing.T) {
 	if err := testPool.QueryRow(context.Background(), `SELECT origin FROM runs WHERE id = $1`, runID).Scan(&origin); err != nil || origin != "mcp" {
 		t.Fatalf("origin %q %v", origin, err)
 	}
-	if n := claudeAudits(t, before, "POST /api/apps/{id}/runs"); n != 1 {
+	if n := claudeAudits(t, before, "POST /api/apps/{id}/runs", admin.ID); n != 1 {
 		t.Fatalf("audit rows = %d", n)
 	}
 
@@ -172,7 +173,7 @@ func TestToolRodarEVerExecucao(t *testing.T) {
 
 func TestToolPublicarArtifact(t *testing.T) {
 	c, _ := newPoolClient(t)
-	setupAdmin(t, c)
+	admin := setupAdmin(t, c)
 	s := toolSession(t, c)
 	before := maxAuditID(t)
 	html := "<!doctype html><html><body><h1>Painel</h1></body></html>"
@@ -191,14 +192,14 @@ func TestToolPublicarArtifact(t *testing.T) {
 		t.Fatalf("origin %q area %d %v", origin, area, err)
 	}
 
-	res, text, out = callTool(t, s, "publicar_artifact", map[string]any{"nome": "Painel", "html": html + "<p>2</p>", "artifact_id": id, "nota": "segunda"})
+	res, text, out = callTool(t, s, "publicar_artifact", map[string]any{"html": html + "<p>2</p>", "artifact_id": id, "nota": "segunda"})
 	if res.IsError || out["versao"].(float64) != 2 || int64(out["artifact_id"].(float64)) != id {
 		t.Fatalf("versão: %v %q %v", res.IsError, text, out)
 	}
-	if n := claudeAudits(t, before, "POST /api/artifacts"); n != 1 {
+	if n := claudeAudits(t, before, "POST /api/artifacts", admin.ID); n != 1 {
 		t.Fatalf("create audit rows = %d", n)
 	}
-	if n := claudeAudits(t, before, "POST /api/artifacts/{id}/versions"); n != 1 {
+	if n := claudeAudits(t, before, "POST /api/artifacts/{id}/versions", admin.ID); n != 1 {
 		t.Fatalf("version audit rows = %d", n)
 	}
 
@@ -213,6 +214,9 @@ func TestToolPublicarSegredos(t *testing.T) {
 	setupAdmin(t, c)
 	s := toolSession(t, c)
 	html := `<html><script>const k = "sk-ant-` + strings.Repeat("a1B2", 10) + `";</script></html>`
+	if res, text, _ := callTool(t, s, "publicar_artifact", map[string]any{"html": "<html></html>"}); !res.IsError || !strings.Contains(text, "nome") {
+		t.Fatalf("create without nome: %v %q", res.IsError, text)
+	}
 	res, text, _ := callTool(t, s, "publicar_artifact", map[string]any{"nome": "Com chave", "html": html})
 	if !res.IsError || !strings.Contains(text, "confirmar_segredos") {
 		t.Fatalf("%v %q", res.IsError, text)
@@ -252,6 +256,9 @@ func TestToolAnnotations(t *testing.T) {
 		if !ok || tool.Annotations == nil || tool.Annotations.ReadOnlyHint != ro {
 			t.Fatalf("%s: annotations %+v", tool.Name, tool.Annotations)
 		}
+		if !ro && (tool.Annotations.DestructiveHint == nil || *tool.Annotations.DestructiveHint) {
+			t.Fatalf("%s: destructiveHint must be false", tool.Name)
+		}
 	}
 }
 
@@ -260,15 +267,27 @@ func TestToolVerApp(t *testing.T) {
 	c, _ := newPoolClient(t)
 	setupAdmin(t, c)
 	m := filesPrepManifest()
-	m.Secrets = nil
+	m.Secrets = []manifest.SecretRef{{Name: "ZIVREF_NOME_SEGREDO", File: "config_segredo.py", Line: 7, Hint: "dica-do-cofre-xyz"}}
+	m.Shared = &manifest.Shared{Env: []manifest.EnvVar{{Name: "ZIVENV_TOKEN_API", Label: "Token da API", Secret: true, Default: "valor-padrao-secreto-123"}}}
 	app := insertApp(t, m)
+	if _, err := testPool.Exec(context.Background(), `UPDATE apps SET name = 'Nome no Catálogo', summary = 'Resumo do catálogo' WHERE id = $1`, app); err != nil {
+		t.Fatal(err)
+	}
 	s := toolSession(t, c)
 	res, text, out := callTool(t, s, "ver_app", map[string]any{"id": app})
-	if res.IsError || !strings.Contains(text, "Eq. Research Files Prep") || out["link"] != fmt.Sprintf("http://hub.test/apps/%d", app) || out["pode_rodar"] != true {
+	if res.IsError || !strings.Contains(text, "Nome no Catálogo") || !strings.Contains(text, "Resumo do catálogo") ||
+		out["nome"] != "Nome no Catálogo" || out["resumo"] != "Resumo do catálogo" ||
+		out["link"] != fmt.Sprintf("http://hub.test/apps/%d", app) || out["pode_rodar"] != true {
 		t.Fatalf("%v %q %v", res.IsError, text, out)
 	}
 	if _, ok := out["manifest"]; ok {
 		t.Fatalf("raw manifest passed through: %v", out)
+	}
+	raw, _ := json.Marshal(out)
+	for _, secret := range []string{"ZIVREF_NOME_SEGREDO", "config_segredo.py", "dica-do-cofre-xyz", "ZIVENV_TOKEN_API", "Token da API", "valor-padrao-secreto-123"} {
+		if strings.Contains(text, secret) || strings.Contains(string(raw), secret) {
+			t.Fatalf("ver_app leaked %q: %q %s", secret, text, raw)
+		}
 	}
 	res, text, _ = callTool(t, s, "ver_app", map[string]any{"id": app + 99})
 	if !res.IsError || text == "" {
