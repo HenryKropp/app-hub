@@ -1,4 +1,5 @@
 import { PageHeader, ThemeToggle } from "@/components/bits"
+import { ClaudeConnections } from "@/components/ClaudeConnections"
 import { ComputerSection } from "./ComputerSection"
 
 export function SettingsPage() {
@@ -7,6 +8,7 @@ export function SettingsPage() {
       <PageHeader title="Configurações" />
       <div className="flex flex-col gap-12">
         <ComputerSection />
+        <ClaudeConnections />
         <section aria-labelledby="aparencia">
           <h2 id="aparencia" className="font-heading text-lg">Aparência</h2>
           <p className="mt-1 mb-5 max-w-[68ch] text-muted-foreground">Vale só para este navegador.</p>

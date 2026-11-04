@@ -53,3 +53,11 @@ test("has a single h1 and a neutral Abrir catálogo", async () => {
   expect(link.className).not.toContain("bg-brand")
   expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1)
 })
+
+test("has an optional Conectar o Claude step that leads to the settings section", async () => {
+  vi.spyOn(api, "onboarding").mockResolvedValue(state({ company_name: "Acme" }))
+  mount()
+  expect(await screen.findByRole("heading", { name: "Conectar o Claude" })).toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "Conectar o Claude" })).toHaveAttribute("href", "/configuracoes#claude")
+  expect(screen.getByText("/4")).toBeInTheDocument()
+})
