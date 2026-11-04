@@ -617,9 +617,9 @@ function MembershipTab({ membership, setMembership, roles, me, reload }: { membe
 
   return (
     <div className="flex max-w-4xl flex-col gap-6">
-      <section className="grid gap-5 rounded-xl border border-logo-square/15 bg-logo-square/[0.035] p-5 sm:grid-cols-[1fr_auto] sm:items-center">
+      <section className="grid gap-5 rounded-xl border border-border bg-sidebar p-5 sm:grid-cols-[1fr_auto] sm:items-center">
         <div>
-          <p className="flex items-center gap-2 font-heading text-lg"><MailPlus className="size-4 text-logo-square" /> Convide alguém</p>
+          <p className="flex items-center gap-2 font-heading text-lg"><MailPlus className="size-4 text-muted-foreground" /> Convide alguém</p>
           <p className="mt-1 max-w-xl text-sm leading-5 text-muted-foreground">O link vale por 7 dias e só pode ser usado uma vez. O Ziv não envia e-mail: copie o endereço e envie ao e-mail da pessoa por um canal confiável. Quem tiver o link poderá ativar o acesso; não o publique em grupos.</p>
         </div>
         <span className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground"><Link2 className="size-3.5" /> Acesso restrito à empresa</span>

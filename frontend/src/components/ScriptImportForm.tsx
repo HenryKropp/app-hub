@@ -79,6 +79,7 @@ export function ScriptImportForm() {
   }
 
   const filesInput = useRef<HTMLInputElement>(null)
+  const folderInput = useRef<HTMLInputElement>(null)
   const chooseFiles = (list: FileList | null, append = false) => {
     resetSecretConfirmation()
     const next = Array.from(list ?? []) as UploadFile[]
@@ -209,8 +210,8 @@ export function ScriptImportForm() {
           <input ref={filesInput} id="script-files" type="file" multiple tabIndex={-1} disabled={busy} className="sr-only" onChange={(e) => chooseFiles(e.target.files)} />
           <Button type="button" variant="outline" disabled={busy} onClick={() => filesInput.current?.click()}>Escolher arquivos</Button>
           <span aria-live="polite" className="text-sm text-muted-foreground">{files.length === 0 ? "Nenhum arquivo escolhido" : files.length === 1 ? sourcePath(files[0]) : `${files.length} arquivos escolhidos`}</span>
-          <label htmlFor="script-folder-files" className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium hover:bg-accent">Adicionar pasta do script</label>
-          <input id="script-folder-files" type="file" multiple disabled={busy} className="sr-only" {...({ webkitdirectory: "" } as ComponentProps<"input">)} onChange={(e) => chooseFiles(e.target.files, true)} />
+          <Button type="button" variant="outline" disabled={busy} onClick={() => folderInput.current?.click()}>Adicionar pasta do script</Button>
+          <input ref={folderInput} id="script-folder-files" type="file" multiple tabIndex={-1} disabled={busy} className="sr-only" {...({ webkitdirectory: "" } as ComponentProps<"input">)} onChange={(e) => chooseFiles(e.target.files, true)} />
         </div>
         {files.length > 0 && <ul className="mt-2 flex max-h-32 flex-col gap-1 overflow-y-auto text-xs text-muted-foreground">
           {files.map((file) => <li key={sourcePath(file)} className="flex items-center gap-2"><FilePlus2 className="size-3.5 shrink-0" /><span className="min-w-0 flex-1 truncate font-mono">{sourcePath(file)}</span><span className="shrink-0">{(file.size / 1024).toFixed(0)} KB</span><button type="button" aria-label={`Remover ${file.name}`} className="rounded p-1 hover:bg-accent" disabled={busy} onClick={() => { resetSecretConfirmation(); setFiles((current) => current.filter((item) => item !== file)); if (entrypoint === sourcePath(file)) setEntrypoint("") }}><X className="size-3.5" /></button></li>)}
