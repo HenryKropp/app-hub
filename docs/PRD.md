@@ -205,11 +205,24 @@ Páginas que o Claude (ou alguém) gerou, como um gráfico ou um painel em HTML,
 - **Sem aprovação:** artifact novo já aparece, nunca vai para "Esperando aprovação" no Admin.
 - **Segurança:** o HTML aparece numa **caixa isolada** (iframe com sandbox e cabeçalho `Content-Security-Policy: sandbox`): a página roda scripts, mas não enxerga o login nem a conta de ninguém. Segredos escritos no HTML são tratados como na importação de scripts.
 - **Área com artifacts não pode ser apagada** até eles mudarem de área.
-- **Depois:** publicar o artifact pelo MCP (3.11) e a aba Home.
+- **Depois:** publicar o artifact pelo MCP (3.11). A aba Home está em 3.15.
+
+### 3.15 Home (construído em 2026-11, ADR 019)
+A primeira tela depois do login (`/`): o resumo do dia da pessoa. O catálogo de apps passou para `/apps`.
+- **Atenção** (some quando não há nada): minhas execuções com erro ou paradas esperando o computador (dá para "Dispensar"); meu computador desconectado ou com Agente desatualizado; para quem cuida de apps (responsável, reserva, líder da área): app compartilhado com problema, app com execução com erro na semana e versão nova esperando aprovação (só se a empresa ligou a aprovação). Cada aviso leva à página certa. Quem nunca conectou um computador não recebe aviso de computador: o "Começar" já cobre isso.
+- **Favoritos:** apps e artifacts marcados com a estrela, na ordem em que foram marcados. A estrela fica nos cartões e nas páginas de app e de artifact; clicar nela não abre o cartão. Sem favoritos, uma linha curta explica a estrela.
+- **Usados recentemente:** até 6 apps e artifacts que a pessoa rodou ou abriu nos últimos 30 dias, sem repetir os favoritos. Abrir um artifact conta como uso (no máximo uma vez a cada 30 minutos por pessoa e artifact).
+- **Minhas últimas execuções:** as 5 mais recentes, com link para "Minhas execuções".
+- **Meu time** (administrador = empresa toda; líder de área = pessoas e itens das áreas que lidera; quem não lidera nada não vê a seção): **Quem está usando** (execuções e artifacts abertos nos últimos 7 dias, por pessoa) com a lista de quem ainda não usou; **O que estão criando** (apps e artifacts novos ou com versão nova nos últimos 14 dias); **Pendências de gestão** (só para quem cadastra pessoas): convites não aceitos (com a marca "venceu"), pedidos de acesso e pessoas sem área.
+- Partes vazias não aparecem; a única que sempre aparece é "Favoritos".
+- Nada disso guarda um "feed" próprio: a Home lê o que já existe, e tudo o que mostra passa pela mesma checagem de acesso do item.
+- **Depois:** "apps e artifacts sem responsável ativo" volta quando for possível desativar uma pessoa.
 
 ---
 
 ## 4. Fluxos principais
+
+**Entrada:** depois do login, a pessoa cai na Home (3.15). De lá chega aos apps (`/apps`), aos artifacts e às execuções; os fluxos abaixo partem do catálogo.
 
 **A. Registrar os apps existentes (criador)**
 1. Abre o Hub e, no catálogo, clica em "+ Registrar apps".
