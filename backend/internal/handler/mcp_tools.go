@@ -5,6 +5,7 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -99,6 +100,9 @@ func apiFailure(status int, raw []byte) string {
 // the person.
 func (h *Handler) toolAPI(ctx context.Context, method, route string, body, out any) (int, []byte, string) {
 	status, raw, err := h.callAPI(ctx, method, route, body)
+	if errors.Is(err, errMCPRoute) {
+		return 0, nil, "Não encontrei isso no Ziv, ou você não tem acesso."
+	}
 	if err != nil {
 		slog.Error("mcp tool api", "method", method, "err", err)
 		return 0, nil, msgMCPAPIDown
@@ -696,6 +700,9 @@ func (h *Handler) artifactArea(ctx context.Context, name string) (int64, string)
 func (h *Handler) toolPublicarArtifact(ctx context.Context, _ *mcp.CallToolRequest, in publicarIn) (*mcp.CallToolResult, any, error) {
 	if strings.TrimSpace(in.HTML) == "" {
 		return toolFail("Mande o HTML da página em html.")
+	}
+	if len(in.HTML) > maxArtifactBytes {
+		return toolFail(msgArtifactTooBig)
 	}
 	version := map[string]any{
 		"kind": "file", "file_name": "artifact.html", "content_base64": base64.StdEncoding.EncodeToString([]byte(in.HTML)),

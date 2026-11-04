@@ -209,6 +209,22 @@ func TestToolPublicarArtifact(t *testing.T) {
 	}
 }
 
+func TestToolPublicarArtifactGrande(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	s := toolSession(t, c)
+	big := "<!doctype html><html><body>" + strings.Repeat("x", 5<<20) + "</body></html>"
+	res, text, _ := callTool(t, s, "publicar_artifact", map[string]any{"nome": "Grande", "html": big})
+	if res.IsError {
+		t.Fatalf("5 MiB: %q", text)
+	}
+	huge := "<!doctype html><html><body>" + strings.Repeat("x", maxArtifactBytes) + "</body></html>"
+	res, text, _ = callTool(t, s, "publicar_artifact", map[string]any{"nome": "Enorme", "html": huge})
+	if !res.IsError || text != msgArtifactTooBig {
+		t.Fatalf("over limit: %v %q", res.IsError, text)
+	}
+}
+
 func TestToolPublicarSegredos(t *testing.T) {
 	c, _ := newPoolClient(t)
 	setupAdmin(t, c)
@@ -288,6 +304,10 @@ func TestToolVerApp(t *testing.T) {
 		if strings.Contains(text, secret) || strings.Contains(string(raw), secret) {
 			t.Fatalf("ver_app leaked %q: %q %s", secret, text, raw)
 		}
+	}
+	res, text, _ = callTool(t, s, "ver_app", map[string]any{"id": -1})
+	if !res.IsError || text != "Não encontrei isso no Ziv, ou você não tem acesso." {
+		t.Fatalf("id -1: %v %q", res.IsError, text)
 	}
 	res, text, _ = callTool(t, s, "ver_app", map[string]any{"id": app + 99})
 	if !res.IsError || text == "" {

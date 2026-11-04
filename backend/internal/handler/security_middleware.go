@@ -168,7 +168,7 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 				host = r.RemoteAddr
 			}
 			limit := signupAttempts
-			if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/entry/invitations/preview" || r.URL.Path == "/api/agent/pair/start" || r.URL.Path == "/oauth/register" || r.URL.Path == "/oauth/token" || r.URL.Path == "/oauth/authorize" {
+			if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/entry/invitations/preview" || r.URL.Path == "/api/agent/pair/start" || r.URL.Path == "/oauth/token" || r.URL.Path == "/oauth/authorize" {
 				limit = addressAttempts
 			}
 			if r.URL.Path == "/api/auth/login" {
