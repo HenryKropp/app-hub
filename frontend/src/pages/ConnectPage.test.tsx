@@ -37,5 +37,25 @@ test("expired code", async () => {
 test("unknown code", async () => {
   vi.spyOn(api, "pairing").mockRejectedValue(new ApiError(404, "Não encontrei esse pedido de conexão. Abra o Agente de novo."))
   renderAt("/conectar?codigo=Z")
-  expect(await screen.findByRole("alert")).toHaveTextContent("Não encontrei esse pedido")
+  expect(await screen.findByRole("alert")).toHaveTextContent("Não encontramos esse pedido de conexão")
+})
+
+test("no code shows what to do next", async () => {
+  vi.spyOn(api, "pairing").mockRejectedValue(new ApiError(400, "x"))
+  renderAt("/conectar")
+  expect(await screen.findByText("Não encontramos esse pedido de conexão")).toBeInTheDocument()
+  expect(screen.getByText(/Abra o Agente do Ziv no seu computador de novo/)).toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "Ir para Configurações" })).toHaveAttribute("href", "/configuracoes")
+  expect(screen.getByRole("link", { name: "Como instalar o Agente" })).toHaveAttribute("href", "/instalar-agente")
+})
+
+test("approve failure keeps its message and the two links", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "pairing").mockResolvedValue({ code: "A", computer_name: "PC", expired: false, approved: false })
+  vi.spyOn(api, "approvePairing").mockRejectedValue(new Error("Falhou ao conectar."))
+  renderAt("/conectar?codigo=A")
+  await user.click(await screen.findByRole("button", { name: "Conectar" }))
+  expect(await screen.findByText("Falhou ao conectar.")).toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "Ir para Configurações" })).toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "Como instalar o Agente" })).toBeInTheDocument()
 })

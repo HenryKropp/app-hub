@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useNavigate, useSearchParams } from "react-router-dom"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { Laptop } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { api, type Pairing } from "@/lib/api"
@@ -11,13 +11,15 @@ export function ConnectPage() {
   const [pairing, setPairing] = useState<Pairing | null>(null)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const [loadFailed, setLoadFailed] = useState(false)
 
   useEffect(() => {
-    api.pairing(code).then(setPairing, (e: Error) => setError(e.message))
+    api.pairing(code).then(setPairing, (e: Error) => { setLoadFailed(true); setError(e.message) })
   }, [code])
 
   const approve = async () => {
     setBusy(true)
+    setLoadFailed(false)
     try {
       await api.approvePairing(code)
       navigate("/configuracoes")
@@ -31,7 +33,14 @@ export function ConnectPage() {
     <section className="mx-auto mt-10 max-w-lg rounded-xl border border-border bg-card p-8 text-center">
       <Laptop className="mx-auto size-10 text-muted-foreground" />
       {error ? (
-        <p role="alert" className="mt-4 text-destructive">{error}</p>
+        <div role="alert" className="mt-4">
+          <h1 className="font-heading text-2xl">{loadFailed ? "Não encontramos esse pedido de conexão" : "Não foi possível conectar"}</h1>
+          <p className="mt-3 text-muted-foreground">{loadFailed ? "Abra o Agente do Ziv no seu computador de novo; ele abre esta página com o código certo." : error}</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm">
+            <Link className="underline underline-offset-4" to="/configuracoes">Ir para Configurações</Link>
+            <Link className="underline underline-offset-4" to="/instalar-agente">Como instalar o Agente</Link>
+          </div>
+        </div>
       ) : !pairing ? (
         <p className="mt-4 text-muted-foreground">Carregando…</p>
       ) : pairing.expired || pairing.approved ? (

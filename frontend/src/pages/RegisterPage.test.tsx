@@ -93,7 +93,7 @@ test("folder scanning stays hidden until workspace access is confirmed and can r
     .mockRejectedValueOnce(new Error("O Hub não respondeu."))
     .mockResolvedValueOnce({ slug: "principal", name: "Empresa principal", base_path: "", can_manage: true, local_execution_is_sandboxed: false, filesystem_registration_enabled: true })
   renderPage()
-  expect(await screen.findByText(/indisponível até o Hub confirmar o isolamento/)).toBeInTheDocument()
+  expect(await screen.findByText(/indisponível até o Ziv confirmar o isolamento/)).toBeInTheDocument()
   expect(screen.queryByLabelText("Onde estão os apps?")).not.toBeInTheDocument()
   await user.click(screen.getByRole("button", { name: "Tentar novamente" }))
   expect(await screen.findByLabelText("Onde estão os apps?")).toBeInTheDocument()

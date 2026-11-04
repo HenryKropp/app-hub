@@ -323,7 +323,7 @@ async function requestAt<T>(method: string, url: string, body?: unknown): Promis
   const text = await res.text().catch(() => "")
   if (res.ok && text === "") return undefined as T
   const data = (() => { try { return text ? JSON.parse(text) : {} } catch { return {} } })()
-  if (!res.ok) throw new ApiError(res.status, data?.error || (res.status >= 500 ? DOWN : "Não foi possível completar a ação."), data)
+  if (!res.ok) throw new ApiError(res.status, data?.error || (res.status >= 500 ? DOWN : "Algo deu errado. Tente de novo; se continuar, avise quem administra o Ziv."), data)
   return data as T
 }
 
