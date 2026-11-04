@@ -121,22 +121,23 @@ func (h *Handler) toolAPI(ctx context.Context, method, route string, body, out a
 // that says it came through Claude.
 func (h *Handler) auditedAPI(ctx context.Context, method, route, pattern string, body, out any) (int, []byte, string) {
 	actor := mcpPersonFrom(ctx)
-	var eventID int64
-	if err := h.q.SecurityDB().QueryRow(ctx, `INSERT INTO security_audit(actor_id,action) VALUES($1,$2) RETURNING id`, actor, "mcp.request.started").Scan(&eventID); err != nil {
+	eventID, err := h.auditStart(ctx, &actor, "mcp.request.started")
+	if err != nil {
 		slog.Error("mcp audit start failed")
 		return 0, nil, "Não foi possível registrar a operação com segurança."
 	}
 	status, raw, msg := h.toolAPI(ctx, method, route, body, out)
-	if _, err := h.q.SecurityDB().Exec(context.WithoutCancel(ctx), `UPDATE security_audit SET action='mcp.request.completed',route=$2,status=$3 WHERE id=$1`, eventID, pattern, status); err != nil {
-		slog.Error("mcp audit completion failed", "event_id", eventID)
-	}
+	h.auditFinish(context.WithoutCancel(ctx), eventID, "mcp.request.completed", pattern, status)
 	return status, raw, msg
 }
 
 // registerMCPTools is the one place where tools are added to the server.
 func (h *Handler) registerMCPTools(s *mcp.Server) {
 	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true}
-	changes := &mcp.ToolAnnotations{ReadOnlyHint: false}
+	// Run and publish create things and never delete: Claude still asks
+	// "permitir?" because they are not read-only.
+	notDestructive := false
+	changes := &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive}
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "buscar",
@@ -316,21 +317,24 @@ func (h *Handler) toolVerApp(ctx context.Context, _ *mcp.CallToolRequest, in idI
 		return toolFail(msg)
 	}
 	// The catalog row has the owner and area names the ficha lacks.
+	m := d.Manifest
 	var list []struct {
 		ID        int64  `json:"id"`
+		Name      string `json:"name"`
+		Summary   string `json:"summary"`
 		Area      string `json:"area"`
 		OwnerName string `json:"owner_name"`
 	}
 	if _, _, msg := h.toolAPI(ctx, "GET", "/api/apps", nil, &list); msg != "" {
 		return toolFail(msg)
 	}
-	var area, owner string
+	// Name and summary as the catalog shows them (and buscar returns them).
+	nome, resumo, area, owner := m.Name, m.Summary, "", ""
 	for _, a := range list {
 		if a.ID == d.ID {
-			area, owner = a.Area, a.OwnerName
+			nome, resumo, area, owner = a.Name, a.Summary, a.Area, a.OwnerName
 		}
 	}
-	m := d.Manifest
 	entradas := []entradaOut{}
 	for _, x := range m.Inputs {
 		if x.Source == "window" { // asked by the app's own window, never before running
@@ -347,7 +351,7 @@ func (h *Handler) toolVerApp(ctx context.Context, _ *mcp.CallToolRequest, in idI
 		substituto = m.Backup.Name
 	}
 	out := map[string]any{
-		"id": d.ID, "nome": m.Name, "resumo": m.Summary, "tipo": m.Kind, "area": area,
+		"id": d.ID, "nome": nome, "resumo": resumo, "tipo": m.Kind, "area": area,
 		"dono": owner, "substituto": substituto, "entradas": entradas, "saidas": saidas,
 		"compartilhado": d.Shared != nil, "pode_rodar": d.CanRun && d.Shared == nil,
 		"link": h.mcpLink("/apps/%d", d.ID),
@@ -360,9 +364,9 @@ func (h *Handler) toolVerApp(ctx context.Context, _ *mcp.CallToolRequest, in idI
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s (app %d)\n", m.Name, d.ID)
-	if m.Summary != "" {
-		b.WriteString(m.Summary + "\n")
+	fmt.Fprintf(&b, "%s (app %d)\n", nome, d.ID)
+	if resumo != "" {
+		b.WriteString(resumo + "\n")
 	}
 	if label, ok := manifest.KindLabels[m.Kind]; ok {
 		b.WriteString("Tipo: " + label + "\n")
@@ -650,7 +654,7 @@ func (h *Handler) toolMinhasExecucoes(ctx context.Context, _ *mcp.CallToolReques
 // ---- publicar_artifact ----
 
 type publicarIn struct {
-	Nome              string   `json:"nome" jsonschema:"o nome do artifact"`
+	Nome              string   `json:"nome,omitempty" jsonschema:"o nome do artifact; obrigatório para criar, ignorado com artifact_id"`
 	HTML              string   `json:"html" jsonschema:"a página inteira, em um arquivo HTML só"`
 	Resumo            string   `json:"resumo,omitempty" jsonschema:"uma frase dizendo o que é"`
 	Etiquetas         []string `json:"etiquetas,omitempty" jsonschema:"palavras para achar depois"`
@@ -706,6 +710,9 @@ func (h *Handler) toolPublicarArtifact(ctx context.Context, _ *mcp.CallToolReque
 	if in.ArtifactID != 0 {
 		status, raw, msg = h.auditedAPI(ctx, "POST", fmt.Sprintf("/api/artifacts/%d/versions", in.ArtifactID), "POST /api/artifacts/{id}/versions", version, &d)
 	} else {
+		if strings.TrimSpace(in.Nome) == "" {
+			return toolFail("Dê um nome ao artifact em nome para criar um artifact novo.")
+		}
 		areaID, areaMsg := h.artifactArea(ctx, in.Area)
 		if areaMsg != "" {
 			return toolFail(areaMsg)

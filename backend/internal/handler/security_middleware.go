@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -215,8 +216,8 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 		}
 		// Persist the attempt before allowing state changes. No body, query,
 		// cookie, password, token, domain or source text enters this record.
-		var eventID int64
-		if err := h.q.SecurityDB().QueryRow(r.Context(), `INSERT INTO security_audit(actor_id,action) VALUES($1,$2) RETURNING id`, actor, "request.started").Scan(&eventID); err != nil {
+		eventID, err := h.auditStart(r.Context(), actor, "request.started")
+		if err != nil {
 			writeError(w, 503, "Não foi possível registrar a operação com segurança.")
 			return
 		}
@@ -227,8 +228,22 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 			status = 200
 		}
 		// r.Pattern is a server-defined route template, never a raw URL.
-		if _, err := h.q.SecurityDB().Exec(r.Context(), `UPDATE security_audit SET action='request.completed',route=$2,status=$3 WHERE id=$1`, eventID, r.Pattern, status); err != nil {
-			slog.Error("audit completion failed", "event_id", eventID)
-		}
+		h.auditFinish(r.Context(), eventID, "request.completed", r.Pattern, status)
 	})
+}
+
+// auditStart records an attempt before it may change anything and returns
+// the event id. No body, query, cookie, password, token or source text goes in.
+func (h *Handler) auditStart(ctx context.Context, actor *int64, action string) (int64, error) {
+	var eventID int64
+	err := h.q.SecurityDB().QueryRow(ctx, `INSERT INTO security_audit(actor_id,action) VALUES($1,$2) RETURNING id`, actor, action).Scan(&eventID)
+	return eventID, err
+}
+
+// auditFinish completes the event with the server-defined route template
+// (never a raw URL) and the answer's status. A failure is only logged.
+func (h *Handler) auditFinish(ctx context.Context, eventID int64, action, route string, status int) {
+	if _, err := h.q.SecurityDB().Exec(ctx, `UPDATE security_audit SET action=$2,route=$3,status=$4 WHERE id=$1`, eventID, action, route, status); err != nil {
+		slog.Error("audit completion failed", "event_id", eventID)
+	}
 }
