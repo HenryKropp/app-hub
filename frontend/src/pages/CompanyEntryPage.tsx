@@ -31,7 +31,7 @@ export function CompanyEntryPage() {
       window.location.assign(next)
     } catch (reason) {
       setError(reason instanceof ApiError && reason.status === 404
-        ? "Não encontrei uma empresa com esse endereço. Confira o endereço. Se não souber, pergunte a quem administra o Ziv na sua empresa."
+        ? "Não encontrei uma empresa com esse endereço. Confira se digitou certo; se não souber, pergunte a quem administra o Ziv na sua empresa."
         : reason instanceof Error ? reason.message : "Não foi possível confirmar essa empresa. Tente de novo; se continuar, pergunte a quem administra o Ziv na sua empresa.")
     } finally {
       setBusy(false)

@@ -33,9 +33,9 @@ export function ConnectPage() {
     <section className="mx-auto mt-10 max-w-lg rounded-xl border border-border bg-card p-8 text-center">
       <Laptop className="mx-auto size-10 text-muted-foreground" />
       {error ? (
-        <div role="alert" className="mt-4">
+        <div className="mt-4">
           <h1 className="font-heading text-2xl">{loadFailed ? "Não encontramos esse pedido de conexão" : pairing ? "Não foi possível conectar" : "Não foi possível abrir o pedido de conexão"}</h1>
-          <p className="mt-3 text-muted-foreground">{loadFailed ? "Abra o Agente do Ziv no seu computador de novo; ele abre esta página com o código certo." : error}</p>
+          <p role="alert" className="mt-3 text-muted-foreground">{loadFailed ? "Abra o Agente do Ziv no seu computador de novo; ele abre esta página com o código certo." : error}</p>
           <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm">
             <Link className="underline underline-offset-4" to="/configuracoes">Ir para Configurações</Link>
             <Link className="underline underline-offset-4" to="/instalar-agente">Como instalar o Agente</Link>

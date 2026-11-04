@@ -8,8 +8,10 @@
 
 /*
   Direção visual do Ziv: limpo e neutro, com uma só cor viva.
-  O coral só preenche: o botão Rodar, as barrinhas do que está rodando agora
-  e o marcador do item ativo. Nunca é cor de texto, ícone ou decoração.
+  Usos permitidos do coral: o botão de ação principal (Rodar/Abrir/Testar/Publicar),
+  "+ Registrar apps", o marcador de 3px do item ativo do menu, as barrinhas do que
+  está rodando agora, o ponto "Ligando" e a seleção de texto.
+  Nunca é cor de texto, ícone ou decoração.
   Todo o resto é branco, cinza e quase preto. O petróleo fica só no logo.
 */
 

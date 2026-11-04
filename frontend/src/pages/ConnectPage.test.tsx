@@ -37,7 +37,8 @@ test("expired code", async () => {
 test("unknown code", async () => {
   vi.spyOn(api, "pairing").mockRejectedValue(new ApiError(404, "Não encontrei esse pedido de conexão. Abra o Agente de novo."))
   renderAt("/conectar?codigo=Z")
-  expect(await screen.findByRole("alert")).toHaveTextContent("Não encontramos esse pedido de conexão")
+  expect(await screen.findByRole("heading", { name: "Não encontramos esse pedido de conexão" })).toBeInTheDocument()
+  expect(screen.getByRole("alert")).toHaveTextContent("Abra o Agente do Ziv")
 })
 
 test("no code shows what to do next", async () => {

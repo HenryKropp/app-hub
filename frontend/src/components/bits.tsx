@@ -178,7 +178,7 @@ export function EmptyState({ title, children, action }: { title: string; childre
   )
 }
 
-/** A run's state as icon plus words. Only a live run is violet; the rest stay quiet. */
+/** A run's state as icon plus words. Only a live run is coral; the rest stay quiet. */
 export function RunState({ status, className }: { status: RunStatus; className?: string }) {
   const st = STATUS[status]
   return (
