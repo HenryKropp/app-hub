@@ -1,5 +1,5 @@
 import { expect, test } from "vitest"
-import { formatDuration, formatSize, formatWhen, isLive } from "./runs"
+import { formatDuration, formatSize, formatWhen, isLive, relativeDate, relativeTime } from "./runs"
 
 test("durations", () => {
   const t0 = "2026-09-30T14:10:00Z"
@@ -22,4 +22,16 @@ test("when and live", () => {
   expect(formatWhen("2026-09-30T14:10:00-03:00")).toMatch(/30\/09 às \d\d:10/)
   expect(isLive("running")).toBe(true)
   expect(isLive("done")).toBe(false)
+})
+
+test("relative dates compare calendar days in local time", () => {
+  const morning = new Date(2026, 10, 4, 8, 0).getTime()
+  const lastNight = new Date(2026, 10, 3, 23, 0).toISOString() // 9 h earlier, previous day
+  expect(relativeDate(lastNight, morning)).toBe("ontem")
+  expect(relativeTime(lastNight, morning)).toBe("ontem")
+  const sameDay = new Date(2026, 10, 4, 1, 0).toISOString()
+  expect(relativeDate(sameDay, morning)).toBe("hoje")
+  expect(relativeTime(sameDay, morning)).toBe("há 7 h")
+  expect(relativeDate(new Date(2026, 10, 1, 12, 0).toISOString(), morning)).toBe("há 3 dias")
+  expect(relativeTime(new Date(2026, 10, 4, 7, 30).toISOString(), morning)).toBe("há 30 min")
 })

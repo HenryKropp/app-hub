@@ -26,12 +26,12 @@ FROM runs r
 JOIN apps a ON a.id = r.app_id
 WHERE r.person_id = $1 AND r.dismissed_at IS NULL
   AND r.created_at > now() - interval '7 days'
-  AND (r.status = 'error' OR (r.status = 'waiting' AND r.created_at < now() - interval '5 minutes'))
+  AND (r.status IN ('error', 'interrupted') OR (r.status = 'waiting' AND r.created_at < now() - interval '5 minutes'))
 ORDER BY r.created_at DESC
 LIMIT 10;
 
 -- name: CountAppErrorsSince :many
-SELECT app_id, count(*)::bigint AS errors
+SELECT app_id, count(*)::bigint AS errors, max(created_at)::timestamptz AS last_at
 FROM runs
 WHERE status = 'error' AND created_at > sqlc.arg(since)::timestamptz
 GROUP BY app_id;

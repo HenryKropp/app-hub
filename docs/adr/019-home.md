@@ -10,7 +10,7 @@ Depois do login a pessoa caía direto no catálogo de apps. Faltava um resumo do
 - **A Home lê dados que já existem, sem feed guardado.** `GET /api/home` (Meu dia) e `GET /api/home/team` (Meu time) montam a resposta na hora a partir de `runs`, `computers`, `apps`, `artifacts`, versões, convites e pedidos de acesso. Todo item mostrado (favorito, recente, aviso, novidade do time) passa pela checagem de acesso do próprio item (`acc.For` para apps, `acc.ForArtifact` para artifacts): o que a pessoa não pode ver não aparece e o nome não vaza. Marcar com estrela algo que não se pode ver responde 404 e não grava nada.
 - **Navegação:** `/` é a Home; o catálogo foi para `/apps`. "Home" só fica marcada em `/`; "Apps" fica marcada em `/apps` e `/apps/:id`.
 - **Meu time:** quem tem a permissão `manage_roles` vê a empresa toda; quem lidera uma ou mais áreas vê as pessoas (membros e líderes) e os itens dessas áreas, somados; os demais recebem 404 e a tela esconde a seção. "Pendências de gestão" só aparecem para quem tem `manage_people` e sempre cobrem a empresa toda.
-- **Números fixos:** execução parada esperando o computador há mais de 5 minutos; janela de avisos de 7 dias; 6 itens em "Usados recentemente" (janela de 30 dias); 5 últimas execuções; "Quem está usando" em 7 dias; "O que estão criando" em 14 dias.
+- **Números fixos:** execução parada esperando o computador há mais de 5 minutos, ou já marcada como interrompida (o Hub a interrompe em cerca de 2 minutos sem resposta do Agente; é o caso real, aviso `run_interrupted`); janela de avisos de 7 dias; 6 itens em "Usados recentemente" (janela de 30 dias); 5 últimas execuções; "Quem está usando" em 7 dias; "O que estão criando" em 14 dias.
 
 ### Escolhas do cofundador no plano
 1. **"App com ponto de atenção"** = app que a pessoa cuida (responsável, reserva ou líder da área) com pelo menos uma execução **com erro, de qualquer pessoa, nos últimos 7 dias**. Os "Pontos de atenção" da ficha são anotações fixas; usá-los deixaria o aviso sempre cheio para todo responsável.
@@ -25,12 +25,13 @@ Ler do que já existe evita um segundo lugar para manter em dia e nunca fica des
 
 ## Trade-offs
 **Pros:**
-- Nada para sincronizar nem limpar: apagar o item ou a pessoa leva junto o favorito e as aberturas (`ON DELETE CASCADE`).
+- Pouco para limpar: `favorites` não tem chave estrangeira para o item. O favorito de um artifact é apagado explicitamente ao apagar o artifact (`DeleteItemFavorites`); apps não podem ser apagados hoje; e linhas órfãs ficam escondidas pelo filtro de acesso. Só `artifact_opens` e a exclusão da pessoa usam `ON DELETE CASCADE`.
 - Mesmas regras de acesso em todo lugar.
 
 **Cons:**
 - A resposta é calculada a cada abertura da Home, com várias consultas. Hoje é barato; se a empresa crescer muito, pode pedir cache.
 - Favorito de algo que ficou restrito some sem aviso (por desenho, para não vazar o nome).
+- "Ainda não usaram" do líder conta uso em qualquer lugar: quem só usou itens fora das áreas do líder não aparece nem em "Quem está usando" nem em "Ainda não usaram" (escolha consciente).
 - `artifact_opens` só cresce; não há limpeza de aberturas antigas.
 - "Apps e artifacts sem responsável ativo" ainda não existe.
 

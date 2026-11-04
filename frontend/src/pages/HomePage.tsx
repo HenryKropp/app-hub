@@ -35,6 +35,7 @@ function warningLine(w: HomeWarning, admin: boolean): { text: string; to: string
   switch (w.kind) {
     case "run_error": return { text: `${app} deu erro`, to: runTo }
     case "run_waiting": return { text: `${app} está esperando seu computador`, to: runTo }
+    case "run_interrupted": return { text: `${app} não rodou: seu computador não respondeu`, to: runTo }
     case "computer_offline": return { text: `Seu computador ${w.computer_name} está desconectado`, to: "/configuracoes" }
     case "agent_outdated": return { text: `O Agente do computador ${w.computer_name} está desatualizado`, to: "/configuracoes" }
     case "shared_crashed": return { text: `${app} caiu e não voltou sozinho`, to: `/apps/${w.app_id}` }
@@ -205,8 +206,8 @@ export function HomePage() {
                   return (
                     <li key={`${w.kind}-${w.run_id ?? w.app_id ?? w.computer_name}-${i}`} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
                       <Link to={line.to} className="min-w-0 font-medium hover:underline">{line.text}</Link>
-                      <span className="text-xs text-muted-foreground">{relativeTime(w.at)}</span>
-                      {w.run_id && (w.kind === "run_error" || w.kind === "run_waiting") && (
+                      <span className="text-xs text-muted-foreground">{w.at && <>{relativeTime(w.at)}</>}</span>
+                      {w.run_id && (w.kind === "run_error" || w.kind === "run_waiting" || w.kind === "run_interrupted") && (
                         <button type="button" onClick={() => dismiss(w)} className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground">
                           <X className="size-3.5" /> Dispensar
                         </button>

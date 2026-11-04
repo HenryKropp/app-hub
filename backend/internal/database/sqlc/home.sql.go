@@ -28,15 +28,16 @@ func (q *Queries) AddFavorite(ctx context.Context, arg AddFavoriteParams) error 
 }
 
 const countAppErrorsSince = `-- name: CountAppErrorsSince :many
-SELECT app_id, count(*)::bigint AS errors
+SELECT app_id, count(*)::bigint AS errors, max(created_at)::timestamptz AS last_at
 FROM runs
 WHERE status = 'error' AND created_at > $1::timestamptz
 GROUP BY app_id
 `
 
 type CountAppErrorsSinceRow struct {
-	AppID  int64 `json:"app_id"`
-	Errors int64 `json:"errors"`
+	AppID  int64              `json:"app_id"`
+	Errors int64              `json:"errors"`
+	LastAt pgtype.Timestamptz `json:"last_at"`
 }
 
 func (q *Queries) CountAppErrorsSince(ctx context.Context, since pgtype.Timestamptz) ([]CountAppErrorsSinceRow, error) {
@@ -48,7 +49,7 @@ func (q *Queries) CountAppErrorsSince(ctx context.Context, since pgtype.Timestam
 	var items []CountAppErrorsSinceRow
 	for rows.Next() {
 		var i CountAppErrorsSinceRow
-		if err := rows.Scan(&i.AppID, &i.Errors); err != nil {
+		if err := rows.Scan(&i.AppID, &i.Errors, &i.LastAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -109,7 +110,7 @@ FROM runs r
 JOIN apps a ON a.id = r.app_id
 WHERE r.person_id = $1 AND r.dismissed_at IS NULL
   AND r.created_at > now() - interval '7 days'
-  AND (r.status = 'error' OR (r.status = 'waiting' AND r.created_at < now() - interval '5 minutes'))
+  AND (r.status IN ('error', 'interrupted') OR (r.status = 'waiting' AND r.created_at < now() - interval '5 minutes'))
 ORDER BY r.created_at DESC
 LIMIT 10
 `

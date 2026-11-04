@@ -39,6 +39,24 @@ test("shows warnings with links", async () => {
   await waitFor(() => expect(screen.queryByRole("link", { name: "Rentabilidade deu erro" })).not.toBeInTheDocument())
 })
 
+test("shows the interrupted run warning", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "home").mockResolvedValue({ ...empty, attention: [{ kind: "run_interrupted", at: now(), app_id: 4, app_name: "Rentabilidade", run_id: 11 }] })
+  const dismiss = vi.spyOn(api, "dismissRun").mockResolvedValue(undefined)
+  mount()
+  const link = await screen.findByRole("link", { name: "Rentabilidade não rodou: seu computador não respondeu" })
+  expect(link).toHaveAttribute("href", "/execucoes/11")
+  await user.click(screen.getByRole("button", { name: "Dispensar" }))
+  expect(dismiss).toHaveBeenCalledWith(11)
+})
+
+test("warnings without a time show none", async () => {
+  vi.spyOn(api, "home").mockResolvedValue({ ...empty, attention: [{ kind: "approval_pending", app_id: 4, app_name: "Rentabilidade" }] })
+  mount()
+  await screen.findByRole("link", { name: /esperando aprovação/ })
+  expect(screen.queryByText("agora")).not.toBeInTheDocument()
+})
+
 test("hides empty parts", async () => {
   vi.spyOn(api, "home").mockResolvedValue(empty)
   mount()

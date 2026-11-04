@@ -86,13 +86,16 @@ try {
       const page = await ctx.newPage()
       await page.goto(`${BASE}/apps`)
       await page.getByText(app.name).first().waitFor()
-      const btn = page.getByRole("button", { name: /favorit/i }).first()
+      const btn = page.locator("div.group", { hasText: app.name }).first().getByRole("button", { name: /favorit/i })
+      const toggled = page.waitForResponse((r) => r.url().includes("/api/favorites/") && r.request().method() !== "GET")
       await btn.click()
-      await page.waitForTimeout(600)
+      await toggled
+      await page.waitForTimeout(300)
       const stayed = new URL(page.url()).pathname === "/apps"
       console.log("star click keeps catalog:", stayed ? "ok" : "FAIL " + page.url())
+      const back = page.waitForResponse((r) => r.url().includes("/api/favorites/") && r.request().method() !== "GET")
       await btn.click() // toggle back
-      await page.waitForTimeout(400)
+      await back
       await page.close()
     }
     await ctx.close()
