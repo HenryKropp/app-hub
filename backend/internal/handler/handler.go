@@ -207,6 +207,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/agent/next", h.agentNext)
 	mux.HandleFunc("POST /api/agent/jobs/{id}/result", h.agentResult)
 	h.registerMCPAuth(mux)
+	h.registerMCPOAuth(mux)
 	mux.Handle("/mcp", h.mcpHTTP())
 	h.api = mux
 }
