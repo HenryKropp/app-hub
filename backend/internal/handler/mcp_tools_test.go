@@ -323,8 +323,12 @@ func TestToolRodarPedePasta(t *testing.T) {
 	s := toolSession(t, c)
 	before := countRuns(t)
 	res, text, _ := callTool(t, s, "rodar_app", map[string]any{"id": app})
-	if !res.IsError || !strings.Contains(text, "Pergunte à pessoa em qual pasta") {
+	if !res.IsError || !strings.Contains(text, "pergunte à pessoa em qual pasta") {
 		t.Fatalf("%v %q", res.IsError, text)
+	}
+	res, _, _ = callTool(t, s, "rodar_app", map[string]any{"id": app, "pasta_saida": "   "})
+	if !res.IsError {
+		t.Fatal("blank folder accepted")
 	}
 	if countRuns(t) != before {
 		t.Fatal("a run was created without a folder")
