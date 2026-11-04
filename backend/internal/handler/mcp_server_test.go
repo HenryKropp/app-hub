@@ -2,9 +2,11 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -106,7 +108,7 @@ func TestMCPWithCodeListsTools(t *testing.T) {
 	for _, tool := range res.Tools {
 		names = append(names, tool.Name)
 	}
-	if !strings.Contains(strings.Join(names, ","), "buscar") {
+	if !slices.Contains(names, "buscar") {
 		t.Fatalf("tools = %v", names)
 	}
 }
@@ -134,8 +136,8 @@ func TestMCPToolsActAsPerson(t *testing.T) {
 	s := h.newMCPServer()
 	type none struct{}
 	mcp.AddTool(s, &mcp.Tool{Name: "quem"}, func(ctx context.Context, _ *mcp.CallToolRequest, _ none) (*mcp.CallToolResult, any, error) {
-		status, raw := h.callAPI(ctx, "GET", "/api/mcp/connections", nil)
-		text := fmt.Sprintf("%d|%d|%s", mcpPersonFrom(ctx), status, raw)
+		status, raw, err := h.callAPI(ctx, "GET", "/api/auth/status", nil)
+		text := fmt.Sprintf("%d|%d|%v|%s", mcpPersonFrom(ctx), status, err, raw)
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: text}}}, nil, nil
 	})
 	srv := httptest.NewServer(h.mcpHTTPFor(s))
@@ -150,7 +152,7 @@ func TestMCPToolsActAsPerson(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := res.Content[0].(*mcp.TextContent).Text
-	if !strings.HasPrefix(text, fmt.Sprintf("%d|200|", admin.ID)) || !strings.Contains(text, "Notebook") {
+	if !strings.HasPrefix(text, fmt.Sprintf("%d|200|<nil>|", admin.ID)) || !strings.Contains(text, `"email":"henry@alis.com"`) {
 		t.Fatalf("tool saw %q", text)
 	}
 }
@@ -159,12 +161,12 @@ func TestCallAPIAndAPIError(t *testing.T) {
 	c, h := newPoolClient(t)
 	admin := setupAdmin(t, c)
 	ctx := withMCPPerson(context.Background(), admin.ID)
-	status, raw := h.callAPI(ctx, "POST", "/api/mcp/codes", map[string]string{"name": ""})
-	if status != http.StatusBadRequest || apiError(raw) != "Dê um nome para este código, por exemplo o nome do seu computador." {
-		t.Fatalf("status %d, error %q", status, apiError(raw))
+	status, raw, err := h.callAPI(ctx, "POST", "/api/artifacts", map[string]string{"name": ""})
+	if err != nil || status != http.StatusBadRequest || apiError(raw) != "Dê um nome ao artifact." {
+		t.Fatalf("status %d, err %v, error %q", status, err, apiError(raw))
 	}
-	if status, _ := h.callAPI(context.Background(), "GET", "/api/mcp/connections", nil); status != http.StatusUnauthorized {
-		t.Fatalf("no person: status %d", status)
+	if status, _, err := h.callAPI(context.Background(), "GET", "/api/apps?area=1", nil); err != nil || status != http.StatusUnauthorized {
+		t.Fatalf("no person: status %d, err %v", status, err)
 	}
 	if got := apiError([]byte("not json")); got != "" {
 		t.Fatalf("apiError(non-json) = %q", got)
@@ -186,8 +188,14 @@ func TestSecureLetsClaudeEndpointsThrough(t *testing.T) {
 		return rec.Code
 	}
 	for _, path := range []string{"/mcp", "/oauth/token", "/oauth/register"} {
-		if got := call(path, "application/x-www-form-urlencoded"); got != http.StatusOK {
-			t.Fatalf("%s = %d, want 200", path, got)
+		req := httptest.NewRequest("POST", path, strings.NewReader("grant_type=x"))
+		req.Header.Set("Origin", "https://claude.ai")
+		req.Header.Set("Sec-Fetch-Site", "cross-site")
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		rec := httptest.NewRecorder()
+		sec.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK || rec.Header().Get("Cache-Control") != "no-store" {
+			t.Fatalf("%s = %d, Cache-Control %q", path, rec.Code, rec.Header().Get("Cache-Control"))
 		}
 	}
 	if got := call("/api/mcp/codes", "application/json"); got != http.StatusForbidden {
@@ -201,5 +209,50 @@ func TestSecureLetsClaudeEndpointsThrough(t *testing.T) {
 		if last != http.StatusTooManyRequests {
 			t.Fatalf("%s after %d attempts = %d, want 429", path, addressAttempts+1, last)
 		}
+	}
+}
+
+// callAPI reaches only reviewed routes: never the folder scan, never MCP codes.
+func TestCallAPIRefusesUnlistedRoutes(t *testing.T) {
+	c, h := newPoolClient(t)
+	admin := setupAdmin(t, c)
+	ctx := withMCPPerson(context.Background(), admin.ID)
+	for _, r := range [][2]string{
+		{"POST", "/api/scan"},
+		{"POST", "/api/apps"},
+		{"POST", "/api/mcp/codes"},
+		{"GET", "/api/mcp/connections"},
+		{"DELETE", "/api/apps/1"},
+		{"GET", "/api/apps/abc"},
+		{"GET", "/api/apps/../scan"},
+		{"GET", "/api/apps/1/history"},
+	} {
+		status, raw, err := h.callAPI(ctx, r[0], r[1], map[string]string{"root": "/tmp"})
+		if !errors.Is(err, errMCPRoute) || status != 0 || raw != nil {
+			t.Fatalf("%s %s: status %d, err %v", r[0], r[1], status, err)
+		}
+	}
+	for _, r := range [][2]string{{"GET", "/api/apps/12"}, {"POST", "/api/apps/7/runs"}, {"POST", "/api/artifacts/3/versions"}, {"GET", "/api/runs?page=2"}} {
+		if _, _, err := h.callAPI(ctx, r[0], r[1], nil); err != nil {
+			t.Fatalf("%s %s refused: %v", r[0], r[1], err)
+		}
+	}
+}
+
+func TestMCPBearerSchemeIgnoresCase(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	code := newMCPCode(t, c)
+	req, _ := http.NewRequest("POST", c.srv.URL+"/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	req.Header.Set("Authorization", "bearer "+code.Code)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("lowercase bearer = %d", resp.StatusCode)
 	}
 }
