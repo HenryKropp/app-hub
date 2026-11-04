@@ -25,7 +25,7 @@ export function settingsOf(app: AppDetail, state?: SharedState | null, patch: Pa
   }
 }
 
-export const errText = (e: unknown, fallback = "Não foi possível completar a ação.") => (e instanceof Error && e.message ? e.message : fallback)
+export const errText = (e: unknown, fallback = "Algo deu errado. Tente de novo; se continuar, avise quem administra o Ziv.") => (e instanceof Error && e.message ? e.message : fallback)
 
 // The choices the Limits forms offer (ficha and Servidor e gastos).
 export const MEMORY_CHOICES = [256, 512, 1024, 2048]

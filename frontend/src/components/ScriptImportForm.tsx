@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentProps, type FormEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type FormEvent } from "react"
 import { AlertTriangle, FileCode2, FilePlus2, X } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
@@ -78,6 +78,7 @@ export function ScriptImportForm() {
     setEntrypoint("")
   }
 
+  const filesInput = useRef<HTMLInputElement>(null)
   const chooseFiles = (list: FileList | null, append = false) => {
     resetSecretConfirmation()
     const next = Array.from(list ?? []) as UploadFile[]
@@ -181,7 +182,7 @@ export function ScriptImportForm() {
     </div>
     <div className="mt-4 flex gap-2 rounded-lg border border-warn/30 bg-warn-soft/60 p-3 text-sm">
       <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warn" />
-      <p>Envie apenas scripts confiáveis. O Ziv prepara uma pasta de trabalho separada, mas isso <strong>não é um sandbox do sistema operacional</strong>; o script ainda pode acessar recursos disponíveis para a conta que o executa.</p>
+      <p>Envie só scripts em que você confia. O Ziv roda o script numa pasta separada, mas ele ainda consegue acessar o que a sua conta do computador acessa.</p>
     </div>
     <form onSubmit={submit} onChange={(event) => { if ((event.target as HTMLElement).id !== "script-confirm-secrets") resetSecretConfirmation() }} className="mt-5 flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -205,7 +206,9 @@ export function ScriptImportForm() {
       </div>
       <Field label="Arquivos do script" htmlFor="script-files" hint="Selecione o arquivo de entrada e os arquivos locais que ele importa. Até 10 MB no total.">
         <div className="flex flex-wrap items-center gap-2">
-          <Input id="script-files" type="file" multiple disabled={busy} className="h-auto min-h-10 max-w-lg bg-background py-2 file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-xs file:font-medium" onChange={(e) => chooseFiles(e.target.files)} />
+          <input ref={filesInput} id="script-files" type="file" multiple disabled={busy} className="sr-only" onChange={(e) => chooseFiles(e.target.files)} />
+          <Button type="button" variant="outline" disabled={busy} onClick={() => filesInput.current?.click()}>Escolher arquivos</Button>
+          <span className="text-sm text-muted-foreground">{files.length === 0 ? "Nenhum arquivo escolhido" : files.length === 1 ? sourcePath(files[0]) : `${files.length} arquivos escolhidos`}</span>
           <label htmlFor="script-folder-files" className="inline-flex h-9 items-center rounded-md border border-border px-3 text-sm font-medium hover:bg-accent">Adicionar pasta do script</label>
           <input id="script-folder-files" type="file" multiple disabled={busy} className="sr-only" {...({ webkitdirectory: "" } as ComponentProps<"input">)} onChange={(e) => chooseFiles(e.target.files, true)} />
         </div>

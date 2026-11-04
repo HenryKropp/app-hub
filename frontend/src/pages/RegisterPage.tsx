@@ -104,11 +104,11 @@ export function RegisterPage() {
       {workspaceError && <section className="mb-10 rounded-xl border border-warn/30 bg-warn-soft/50 p-5" aria-labelledby="workspace-error-title">
         <h2 id="workspace-error-title" className="font-heading">Não foi possível confirmar o espaço</h2>
         <p role="alert" className="mt-2 text-sm">{workspaceError}</p>
-        <p className="mt-2 text-sm text-muted-foreground">A análise de pastas do computador está indisponível até o Hub confirmar o isolamento do espaço. O envio de arquivos acima continua disponível.</p>
+        <p className="mt-2 text-sm text-muted-foreground">A análise de pastas do computador está indisponível até o Ziv confirmar o isolamento do espaço. O envio de arquivos acima continua disponível.</p>
         <Button type="button" variant="outline" className="mt-3" onClick={retryWorkspace}>Tentar novamente</Button>
       </section>}
       {workspace?.filesystem_registration_enabled === true && <form onSubmit={scan} className="mb-10 rounded-xl border border-border bg-card p-5 md:p-6">
-        <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Alternativa legada · somente Hub no computador</p>
+        <p className="mb-4 text-sm font-medium text-muted-foreground">Outra forma: analisar uma pasta (só quando o Ziv roda no seu computador)</p>
         <label htmlFor="scan-path" className="text-sm font-semibold">
           Onde estão os apps?
         </label>
@@ -155,7 +155,7 @@ export function RegisterPage() {
       </form>}
       {workspace && workspace.filesystem_registration_enabled !== true && <section className="mb-10 rounded-xl border border-border bg-muted/35 p-5" aria-labelledby="scan-unavailable-title">
         <h2 id="scan-unavailable-title" className="font-heading text-lg">Análise de pastas do computador indisponível</h2>
-        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Neste portal, o Hub não pode acessar pastas do servidor ou do seu computador por caminho. Use o formulário principal acima para enviar os arquivos confiáveis do script pelo navegador.</p>
+        <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Neste portal, o Ziv não pode acessar pastas do servidor ou do seu computador por caminho. Use o formulário principal acima para enviar os arquivos confiáveis do script pelo navegador.</p>
       </section>}
 
       {workspace?.filesystem_registration_enabled === true && result && items.length === 0 && <p className="text-muted-foreground">Não encontrei apps nessa pasta.</p>}
