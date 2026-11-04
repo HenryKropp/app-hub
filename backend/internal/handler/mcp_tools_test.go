@@ -112,7 +112,7 @@ func TestToolRodarSemComputador(t *testing.T) {
 	setupAdmin(t, c)
 	app := insertApp(t, filesPrepManifest())
 	s := toolSession(t, c)
-	res, text, _ := callTool(t, s, "rodar_app", map[string]any{"id": app})
+	res, text, _ := callTool(t, s, "rodar_app", map[string]any{"id": app, "pasta_saida": `C:\Users\ana\Saida`})
 	if !res.IsError || !strings.Contains(text, "computador não está conectado") {
 		t.Fatalf("%v %q", res.IsError, text)
 	}
@@ -126,7 +126,7 @@ func TestToolRodarEVerExecucao(t *testing.T) {
 	s := toolSession(t, c)
 	before := maxAuditID(t)
 
-	res, text, out := callTool(t, s, "rodar_app", map[string]any{"id": app})
+	res, text, out := callTool(t, s, "rodar_app", map[string]any{"id": app, "pasta_saida": `C:\Users\ana\Saida`})
 	if res.IsError {
 		t.Fatalf("rodar: %q", text)
 	}
@@ -161,7 +161,7 @@ func TestToolRodarEVerExecucao(t *testing.T) {
 		t.Fatalf("waited too long: %s", time.Since(start))
 	}
 	arquivos, _ := out["arquivos"].([]any)
-	if len(arquivos) != 1 || arquivos[0].(map[string]any)["caminho"] != `C:\apps\eq-research-files-prep\PETROBRAS\FRE\FRE_2025.pdf` {
+	if len(arquivos) != 1 || arquivos[0].(map[string]any)["caminho"] != `C:\Users\ana\Saida\PETROBRAS\FRE\FRE_2025.pdf` {
 		t.Fatalf("arquivos %v", out)
 	}
 
@@ -313,4 +313,29 @@ func TestToolVerApp(t *testing.T) {
 	if !res.IsError || text == "" {
 		t.Fatalf("missing app: %v %q", res.IsError, text)
 	}
+}
+
+func TestToolRodarPedePasta(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	app := insertApp(t, filesPrepManifest())
+	pairComputer(t, c, "PC")
+	s := toolSession(t, c)
+	before := countRuns(t)
+	res, text, _ := callTool(t, s, "rodar_app", map[string]any{"id": app})
+	if !res.IsError || !strings.Contains(text, "Pergunte à pessoa em qual pasta") {
+		t.Fatalf("%v %q", res.IsError, text)
+	}
+	if countRuns(t) != before {
+		t.Fatal("a run was created without a folder")
+	}
+}
+
+func countRuns(t *testing.T) int {
+	t.Helper()
+	var n int
+	if err := testPool.QueryRow(context.Background(), `SELECT count(*) FROM runs`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
 }
