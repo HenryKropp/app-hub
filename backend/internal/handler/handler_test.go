@@ -71,6 +71,11 @@ type client struct {
 
 func newClient(t *testing.T, devMode bool) *client {
 	t.Helper()
+	return newClientWithConfig(t, config.Config{DevMode: devMode, SetupCode: testSetupCode})
+}
+
+func newClientWithConfig(t *testing.T, cfg config.Config) *client {
+	t.Helper()
 	ctx := context.Background()
 	tx, err := testPool.Begin(ctx)
 	if err != nil {
@@ -81,7 +86,7 @@ func newClient(t *testing.T, devMode bool) *client {
 		t.Fatal(err)
 	}
 	mux := http.NewServeMux()
-	New(sqlc.New(tx), config.Config{DevMode: devMode}).Register(mux)
+	New(sqlc.New(tx), cfg).Register(mux)
 	srv := httptest.NewServer(mux)
 	t.Cleanup(func() {
 		srv.Close()
@@ -120,10 +125,12 @@ func (c *client) fresh() *client {
 	return &client{t: c.t, srv: c.srv, c: &http.Client{Jar: jar}}
 }
 
+const testSetupCode = "codigo-de-teste"
+
 func setupAdmin(t *testing.T, c *client) personJSON {
 	t.Helper()
 	var p personJSON
-	if code := c.do("POST", "/api/auth/setup", map[string]string{"name": "Henry", "email": "Henry@Alis.com", "password": "senha-forte-1"}, &p); code != http.StatusCreated {
+	if code := c.do("POST", "/api/auth/setup", map[string]string{"name": "Henry", "email": "Henry@Alis.com", "password": "senha-forte-1", "setup_code": testSetupCode}, &p); code != http.StatusCreated {
 		t.Fatalf("setup status %d", code)
 	}
 	return p
@@ -141,7 +148,7 @@ func newPoolClient(t *testing.T) (*client, *Handler) {
 		}
 	}
 	truncate()
-	h := New(sqlc.New(testPool), config.Config{BaseURL: "http://hub.test"})
+	h := New(sqlc.New(testPool), config.Config{BaseURL: "http://hub.test", SetupCode: testSetupCode})
 	h.waitNext, h.waitFile, h.waitFolder, h.tick = 400*time.Millisecond, 2*time.Second, 2*time.Second, 20*time.Millisecond
 	h.embedCheck = func(_ context.Context, url string, _ func(string) bool) bool { return strings.Contains(url, "/embed") }
 	mux := http.NewServeMux()

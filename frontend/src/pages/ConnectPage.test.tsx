@@ -47,7 +47,7 @@ test("no code shows what to do next", async () => {
   expect(await screen.findByText("Não encontramos esse pedido de conexão")).toBeInTheDocument()
   expect(screen.getByText(/Abra o Agente do Ziv no seu computador de novo/)).toBeInTheDocument()
   expect(screen.getByRole("link", { name: "Ir para Configurações" })).toHaveAttribute("href", "/configuracoes")
-  expect(screen.getByRole("link", { name: "Como instalar o Agente" })).toHaveAttribute("href", "/instalar-agente")
+  expect(screen.getByRole("link", { name: "Como instalar o Agente" })).toHaveAttribute("href", "/comecar#computador")
 })
 
 test("approve failure keeps its message and the two links", async () => {

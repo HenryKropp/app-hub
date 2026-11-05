@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -319,6 +320,8 @@ type credentials struct {
 	Password string `json:"password"`
 	Role     string `json:"role"`
 	RoleID   int64  `json:"role_id"`
+	// SetupCode is read only by setup.
+	SetupCode string `json:"setup_code"`
 }
 
 func (c *credentials) normalize() {
@@ -352,6 +355,16 @@ func (h *Handler) setup(w http.ResponseWriter, r *http.Request) {
 	if msg := validatePerson(c); msg != "" {
 		writeError(w, http.StatusBadRequest, msg)
 		return
+	}
+	if (h.workspace == nil || h.workspace.BasePath == "") && !h.cfg.DevMode {
+		if h.cfg.SetupCode == "" {
+			writeError(w, http.StatusForbidden, "Defina SETUP_CODE no servidor para o primeiro acesso.")
+			return
+		}
+		if subtle.ConstantTimeCompare([]byte(c.SetupCode), []byte(h.cfg.SetupCode)) != 1 {
+			writeError(w, http.StatusForbidden, "Código de instalação inválido.")
+			return
+		}
 	}
 	count, err := h.q.CountPeople(r.Context())
 	if err != nil {

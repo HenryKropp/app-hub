@@ -39,6 +39,7 @@ func (h *Handler) onboarding(w http.ResponseWriter, r *http.Request) {
 		"agent_available":    err == nil && fi.Mode().IsRegular(),
 		"computer_connected": connected, "has_apps": p.HasApps,
 		"has_successful_run": p.HasSuccessfulRun, "has_team": p.HasTeam,
+		"claude_connected": p.ClaudeConnected, "has_artifacts": p.HasArtifacts,
 	})
 }
 

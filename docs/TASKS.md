@@ -100,6 +100,20 @@ Kova saiu no mesmo dia porque, dito em voz alta, soa como "cova". O símbolo tam
 | Nome num lugar só, cores, símbolo, textos "o Kova" | Done | `lib/brand.ts`, `internal/brand`; coral só como preenchimento; `scripts/contrast-check.mjs` |
 | Nomes técnicos com convivência (manifesto, lixeira, etiquetas, banco, pasta de dados) | Done | Escreve o novo, lê o antigo; `app-hub-db` e a pasta de dados são adotados na subida |
 
+## Entrada por e-mail e Começar em 6 passos (2026-11-05, ADR 023)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Onboarding: `claude_connected` e `has_artifacts` | Done | |
+| `POST /api/entry/login`: e-mail e senha em todas as empresas, menos a principal | Done | |
+| `SETUP_CODE` no primeiro acesso da principal | Done | |
+| Tela Entrar só com e-mail e senha; cadastro leva ao Começar | Done | |
+| Começar em lista com 6 passos | Done | |
+| Configurações só com o status | Done | |
+| Cabeçalho maior na página inicial | Done | |
+| Henry testa no servidor | Pending | |
+| Entrar com Google e Microsoft | Pending | "eventualmente" |
+
 ## Servidor 24h grátis no Google Cloud (2026-11-05, ADR 022)
 
 | Tarefa | Status | Notas |
@@ -112,7 +126,7 @@ Kova saiu no mesmo dia porque, dito em voz alta, soa como "cova". O símbolo tam
 | Cópia do banco fora da máquina | Pending | Hoje fica no mesmo disco |
 | `ask` do TLS só para apps existentes | Pending | Hoje aceita qualquer subdomínio |
 | Conferir a fatura do Google nos primeiros dias | Pending | Deve dar zero |
-| Primeiro acesso da empresa principal protegido | Pending | Num servidor novo, `/entrar` deixa qualquer um virar admin da principal até alguém ocupar. Em 2026-11-05 o Henry ocupou logo após subir. Proteger com um código de instalação |
+| Primeiro acesso da empresa principal protegido | Done | `SETUP_CODE` no `ziv.env` (ADR 023) |
 
 ## News Scrapper no servidor do Ziv, sempre ligado (← próxima sessão, decidido em 2026-10-28)
 

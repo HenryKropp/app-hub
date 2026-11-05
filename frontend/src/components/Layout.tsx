@@ -1,6 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
 import { History, House, KeyRound, LayoutDashboard, LibraryBig, ListChecks, PanelsTopLeft, LogOut, Server, Settings, Users } from "lucide-react"
-import { api, type Person } from "@/lib/api"
+import { api, workspaceBasePath, type Person } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { canRegister, canSeeServer, canSeeTeam, has } from "@/lib/permissions"
 import { RunsProvider, useRuns } from "@/lib/runs-context"
@@ -26,7 +26,7 @@ const NAV = [
   { to: "/equipe", label: "Equipe", icon: Users, show: canSeeTeam },
   { to: "/admin", label: "Admin", icon: LayoutDashboard, show: (p: Person) => has(p, "manage_roles") },
   { to: "/servidor", label: "Servidor", icon: Server, show: canSeeServer },
-  { to: "/comecar", label: "Começar", icon: ListChecks, show: (_p: Person) => true },
+  { to: "/comecar", label: "Começar", icon: ListChecks, show: (_p: Person) => workspaceBasePath() !== "" },
 ]
 
 const NAV_ITEM = "flex shrink-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors"
@@ -59,7 +59,7 @@ function Shell() {
   const path = useLocation().pathname
   const inCatalog = path.startsWith("/registrar")
   // Pages that already are about connecting the computer skip the strip.
-  const agentStrip = !["/instalar-agente", "/conectar", "/configuracoes"].includes(path)
+  const agentStrip = !["/comecar", "/conectar", "/configuracoes"].includes(path)
   const openCount = useRuns().active.filter((r) => isLive(r.status)).length
   if (!person) return null
 

@@ -8,11 +8,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 
@@ -25,6 +27,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type entry struct {
@@ -148,7 +151,7 @@ func (p *Portal) attach(e *entry) {
 	}
 	h := handler.New(sqlc.New(e.pool), cfg)
 	h.SetCredentialKeys(p.credentialKeys)
-	h.SetWorkspace(handler.WorkspaceOptions{Slug: e.slug, Name: e.name, BasePath: base, Create: p.create})
+	h.SetWorkspace(handler.WorkspaceOptions{Slug: e.slug, Name: e.name, BasePath: base, Create: p.create, FindLogins: p.findLogins})
 	if e.slug == "principal" && p.principal != nil {
 		p.principal(h)
 	}
@@ -253,6 +256,80 @@ func (p *Portal) create(ctx context.Context, name, slug string, me sqlc.Person) 
 	p.mu.Unlock()
 	success = true
 	return "/w/" + slug + "/", nil
+}
+
+var (
+	dummyHashOnce sync.Once
+	dummyHash     []byte
+)
+
+// equalizeTiming spends one cost-12 bcrypt comparison so an e-mail that exists
+// nowhere answers in about the same time as one that does.
+func equalizeTiming(password string) {
+	dummyHashOnce.Do(func() {
+		dummyHash, _ = bcrypt.GenerateFromPassword([]byte("ziv-no-such-account"), 12)
+	})
+	_ = bcrypt.CompareHashAndPassword(dummyHash, []byte(password))
+}
+
+// findLogins lists the companies, other than the main one, where email and
+// password sign in, sorted by name. A company that fails to answer is logged
+// and skipped; if every company with this e-mail failed, it returns the error
+// rather than a misleading "no match".
+func (p *Portal) findLogins(ctx context.Context, email, password string) ([]handler.LoginMatch, error) {
+	// Companies created by another server process are attached first.
+	rows, err := p.root.Query(ctx, `SELECT slug FROM public.workspace_registry WHERE ready=TRUE AND slug<>'principal' ORDER BY slug`)
+	if err != nil {
+		return nil, err
+	}
+	slugs, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, err
+	}
+	var out []handler.LoginMatch
+	var failed error
+	compared := false
+	for _, slug := range slugs {
+		p.mu.RLock()
+		e := p.entries[slug]
+		p.mu.RUnlock()
+		if e == nil {
+			if e = p.load(ctx, slug); e == nil {
+				slog.Warn("find logins: company not loaded", "slug", slug)
+				failed = errors.New("company not loaded: " + slug)
+				continue
+			}
+		}
+		person, err := sqlc.New(e.pool).GetPersonByEmail(ctx, email)
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			slog.Warn("find logins: lookup failed", "slug", slug, "err", err)
+			failed = err
+			continue
+		}
+		if person.PasswordHash == "" {
+			continue
+		}
+		compared = true
+		if bcrypt.CompareHashAndPassword([]byte(person.PasswordHash), []byte(password)) == nil {
+			out = append(out, handler.LoginMatch{Slug: e.slug, Name: e.name, URL: "/w/" + e.slug + "/"})
+		}
+	}
+	if !compared {
+		equalizeTiming(password)
+	}
+	if len(out) == 0 && failed != nil {
+		return nil, failed
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Name != out[j].Name {
+			return out[i].Name < out[j].Name
+		}
+		return out[i].Slug < out[j].Slug
+	})
+	return out, nil
 }
 
 var registrySlug = regexp.MustCompile(`^[a-z][a-z0-9-]{2,39}$`)

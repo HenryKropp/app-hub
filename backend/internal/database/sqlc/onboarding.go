@@ -6,14 +6,17 @@ import "context"
 type OnboardingProgress struct {
 	CompanyName                        string
 	HasApps, HasSuccessfulRun, HasTeam bool
+	ClaudeConnected, HasArtifacts      bool
 }
 
 func (q *Queries) OnboardingProgress(ctx context.Context, personID int64) (p OnboardingProgress, err error) {
 	err = q.db.QueryRow(ctx, `SELECT company_name,
 		EXISTS(SELECT 1 FROM apps),
 		EXISTS(SELECT 1 FROM runs WHERE person_id=$1 AND status='done'),
-		(SELECT count(*) > 1 FROM people)
-		FROM hub_settings WHERE id=TRUE`, personID).Scan(&p.CompanyName, &p.HasApps, &p.HasSuccessfulRun, &p.HasTeam)
+		(SELECT count(*) > 1 FROM people),
+		EXISTS(SELECT 1 FROM mcp_connections WHERE person_id=$1 AND revoked_at IS NULL AND last_used_at IS NOT NULL),
+		EXISTS(SELECT 1 FROM artifacts)
+		FROM hub_settings WHERE id=TRUE`, personID).Scan(&p.CompanyName, &p.HasApps, &p.HasSuccessfulRun, &p.HasTeam, &p.ClaudeConnected, &p.HasArtifacts)
 	return
 }
 

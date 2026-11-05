@@ -27,7 +27,7 @@ export function AgentBanner() {
       <p className="min-w-0 flex-1 basis-64"><span className="font-medium">Seu computador não está conectado ao Ziv.</span> {NO_AGENT_TEXT}</p>
       <div className="flex items-center gap-3">
         <AgentDownloadButton size="sm" />
-        <Link to="/instalar-agente" className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Como instalar</Link>
+        <Link to="/comecar#computador" className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">Como instalar</Link>
       </div>
     </div>
   )
@@ -43,7 +43,7 @@ export function AgentNeededDialog({ open, onClose }: { open: boolean; onClose: (
           <DialogDescription>O Agente é um programa pequeno que abre os apps do catálogo no seu Windows. {NO_AGENT_TEXT}</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Link to="/instalar-agente" onClick={onClose} className={buttonVariants({ variant: "outline" })}>Como instalar</Link>
+          <Link to="/comecar#computador" onClick={onClose} className={buttonVariants({ variant: "outline" })}>Como instalar</Link>
           <Button variant="ghost" onClick={onClose}>Fechar</Button>
           <AgentDownloadButton />
         </DialogFooter>
