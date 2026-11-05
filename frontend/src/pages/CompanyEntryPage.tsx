@@ -5,37 +5,50 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field, Wordmark } from "@/components/bits"
 import { AuthLayout, authBack, authError, authLink } from "@/components/AuthLayout"
-import { api, ApiError } from "@/lib/api"
-import { slugFromEntry } from "@/lib/company-entry"
+import { api } from "@/lib/api"
+import { landingAfterLogin } from "@/lib/landing"
+
+type Company = { slug: string; name: string; url: string }
 
 export function CompanyEntryPage() {
-  const [companyInput, setCompanyInput] = useState("")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [companies, setCompanies] = useState<Company[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
 
-  const enterCompany = async (event: FormEvent) => {
-    event.preventDefault()
-    setError("")
-    const companySlug = slugFromEntry(companyInput, window.location.origin)
-    if (!companySlug) {
-      setError("Digite o endereço da empresa no Ziv. Se não souber, pergunte a quem administra o Ziv na sua empresa.")
-      return
-    }
+  const signInTo = async (company: Company) => {
     setBusy(true)
+    setError("")
     try {
-      const company = await api.entryCompanyBySlug(companySlug)
-      if (company.slug !== companySlug || (company.base_path && company.base_path !== `/w/${companySlug}`)) {
-        throw new Error("Não consegui confirmar o endereço deste espaço. Confira o endereço e tente de novo. Se não souber, pergunte a quem administra o Ziv na sua empresa.")
-      }
-      const next = `${company.base_path || ""}/entrar`.replace(/\/+/g, "/")
-      window.location.assign(next)
+      const basePath = `/w/${company.slug}`
+      const person = await api.loginAt(basePath, { email: email.trim(), password })
+      window.location.assign(await landingAfterLogin(basePath, person))
     } catch (reason) {
-      setError(reason instanceof ApiError && reason.status === 404
-        ? "Não encontrei uma empresa com esse endereço. Confira se digitou certo; se não souber, pergunte a quem administra o Ziv na sua empresa."
-        : reason instanceof Error ? reason.message : "Não foi possível confirmar essa empresa. Tente de novo; se continuar, pergunte a quem administra o Ziv na sua empresa.")
-    } finally {
+      setError(reason instanceof Error ? reason.message : "Não foi possível entrar. Tente de novo.")
       setBusy(false)
     }
+  }
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    setError("")
+    setBusy(true)
+    try {
+      const found = (await api.findLogins({ email: email.trim(), password })).companies
+      if (found.length === 1) {
+        await signInTo(found[0])
+        return
+      }
+      if (found.length === 0) {
+        setError("E-mail ou senha não conferem.")
+      } else {
+        setCompanies(found)
+      }
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Não foi possível entrar. Tente de novo.")
+    }
+    setBusy(false)
   }
 
   return (
@@ -45,17 +58,31 @@ export function CompanyEntryPage() {
       below={<p>Precisa de acesso? Peça um convite à sua empresa.</p>}
     >
       <h1 className="font-heading text-2xl leading-tight text-balance">Entre no espaço da sua equipe</h1>
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Use o endereço que a sua empresa compartilhou. Cada equipe tem um espaço próprio.</p>
-      <form onSubmit={enterCompany} className="mt-6 flex flex-col gap-4">
-        <Field label="Endereço da empresa no Ziv" htmlFor="company-address" hint="É a última parte do link da sua empresa. Ex.: em ziv.exemplo.com/w/horizonte, digite horizonte.">
-          <Input id="company-address" value={companyInput} onChange={(event) => setCompanyInput(event.target.value)} placeholder="nome-da-empresa" autoComplete="url" required className="h-9" />
-        </Field>
-        {error && <p role="alert" className={authError}>{error}</p>}
-        <Button type="submit" size="lg" className="w-full" disabled={busy}>{busy ? "Conferindo espaço…" : "Continuar"} {!busy && <ArrowRight data-icon="inline-end" />}</Button>
-      </form>
-      <div className="mt-6 space-y-2 border-t border-border pt-5 text-sm text-muted-foreground">
+      {companies ? (
+        <div className="mt-6 flex flex-col gap-3">
+          <p className="text-sm font-medium">Em qual empresa?</p>
+          {companies.map((company) => (
+            <Button key={company.slug} type="button" variant="outline" size="lg" className="w-full justify-between" disabled={busy} onClick={() => signInTo(company)}>
+              {company.name} <ArrowRight data-icon="inline-end" />
+            </Button>
+          ))}
+          {error && <p role="alert" className={authError}>{error}</p>}
+          <button type="button" className={`${authLink} self-start text-sm`} onClick={() => { setCompanies(null); setError("") }}>Usar outro e-mail</button>
+        </div>
+      ) : (
+        <form onSubmit={submit} className="mt-6 flex flex-col gap-4">
+          <Field label="E-mail" htmlFor="login-email">
+            <Input id="login-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required className="h-9" />
+          </Field>
+          <Field label="Senha" htmlFor="login-password">
+            <Input id="login-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required className="h-9" />
+          </Field>
+          {error && <p role="alert" className={authError}>{error}</p>}
+          <Button type="submit" size="lg" className="w-full" disabled={busy}>{busy ? "Entrando…" : "Entrar"} {!busy && <ArrowRight data-icon="inline-end" />}</Button>
+        </form>
+      )}
+      <div className="mt-6 border-t border-border pt-5 text-sm text-muted-foreground">
         <p>Ainda não tem um espaço? <Link to="/cadastre-se" className={authLink}>Cadastre-se</Link></p>
-        <p>Usa o espaço principal deste portal? <a href="/entrar" className={authLink}>Entrar no espaço principal</a></p>
       </div>
     </AuthLayout>
   )

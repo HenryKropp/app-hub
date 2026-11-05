@@ -12,11 +12,13 @@ beforeEach(() => {
 })
 const renderPage = () => render(<MemoryRouter><ComputerSection /></MemoryRouter>)
 
-test("no computer: shows how to install", async () => {
+test("no computer: says so and links to the Começar step, with no download", async () => {
   vi.spyOn(api, "computers").mockResolvedValue({ computers: [], expected_version: "0.1.0", agent_available: true })
   renderPage()
   expect(await screen.findByText("Nenhum computador conectado")).toBeInTheDocument()
-  expect(screen.getByRole("link", { name: /Baixar Agente/ })).toHaveAttribute("href", "/api/agent/download")
+  expect(screen.getByRole("link", { name: "Conectar no Começar" })).toHaveAttribute("href", "/comecar#computador")
+  expect(screen.queryByRole("link", { name: /Baixar/ })).not.toBeInTheDocument()
+  expect(screen.queryByText(/Abra o arquivo baixado/)).not.toBeInTheDocument()
 })
 
 test("connected computer, outdated agent, disconnect", async () => {
@@ -26,8 +28,9 @@ test("connected computer, outdated agent, disconnect", async () => {
   vi.spyOn(window, "confirm").mockReturnValue(true)
   renderPage()
   expect(await screen.findByText("NOTE-HENRY")).toBeInTheDocument()
-  expect(screen.getByText("Conectado")).toBeInTheDocument()
+  expect(screen.getByText("Agente ligado")).toBeInTheDocument()
   expect(screen.getByText(/Atualize o Agente/)).toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "Baixar no Começar" })).toHaveAttribute("href", "/comecar#computador")
   await user.click(screen.getByRole("button", { name: "Desconectar" }))
   expect(disconnect).toHaveBeenCalledWith(1)
 })
@@ -46,20 +49,7 @@ test("update states", async () => {
 
   spy.mockResolvedValue(info({ update_state: "gave_up", outdated: true, agent_version: "0.1.9" }))
   renderPage()
-  expect(await screen.findByText("Não conseguimos atualizar o Agente sozinho. Baixe e abra a versão 0.2.0 de novo.")).toBeInTheDocument()
+  expect(await screen.findByText(/Não conseguimos atualizar o Agente sozinho. Baixe a versão 0.2.0 de novo./)).toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "Baixar no Começar" })).toHaveAttribute("href", "/comecar#computador")
   expect(screen.queryByText(/Atualize o Agente/)).not.toBeInTheDocument()
-})
-
-test("agent not built on this Hub", async () => {
-  vi.spyOn(api, "computers").mockResolvedValue({ computers: [], expected_version: "0.1.0", agent_available: false })
-  renderPage()
-  expect(await screen.findByText(/O Agente ainda não foi preparado neste Ziv/)).toBeInTheDocument()
-})
-
-test("a company's Agente is one EXE to open, with nothing to extract", async () => {
-  vi.spyOn(api, "computers").mockResolvedValue({ computers: [], expected_version: "0.1.0", agent_available: true })
-  renderPage()
-  expect(await screen.findByRole("link", { name: "Baixar Agente" })).toBeInTheDocument()
-  expect(screen.queryByText(/ZIP|apphub-url\.txt/)).not.toBeInTheDocument()
-  expect(screen.getByText(/Abra o arquivo baixado/)).toBeInTheDocument()
 })

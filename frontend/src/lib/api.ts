@@ -207,6 +207,8 @@ export type Onboarding = {
   has_apps: boolean
   has_successful_run: boolean
   has_team: boolean
+  claude_connected: boolean
+  has_artifacts: boolean
 }
 export type Workspace = { slug: string; name: string; base_path: string; can_manage: boolean; local_execution_is_sandboxed: false; filesystem_registration_enabled?: boolean }
 export type WorkspaceCreated = { slug: string; name: string; url: string }
@@ -365,8 +367,8 @@ export const api = {
   approveOauth: (id: string) => request<{ redirect: string }>("POST", `/api/oauth/requests/${encodeURIComponent(id)}/approve`),
   denyOauth: (id: string) => request<{ redirect: string }>("POST", `/api/oauth/requests/${encodeURIComponent(id)}/deny`),
   entryCompany: () => request<EntryCompany>("GET", "/api/entry/company"),
-  entryCompanyBySlug: (slug: string) =>
-    requestAt<EntryCompany>("GET", `/w/${encodeURIComponent(slug)}/api/entry/company`),
+  findLogins: (b: { email: string; password: string }) =>
+    requestAt<{ companies: { slug: string; name: string; url: string }[] }>("POST", "/api/entry/login", b),
   createEntryCompany: (b: { company_name: string; name: string; email: string; password: string }) =>
     requestAt<EntryCompanyCreated>("POST", "/api/entry/companies", b),
   requestCompanyAccess: (b: { name: string; email: string }) =>
@@ -397,8 +399,9 @@ export const api = {
   purgeRuns: () => request<{ deleted_runs: number }>("POST", "/api/security/purge", { confirm: true }),
   status: () => request<{ needs_setup: boolean; person: Person | null }>("GET", "/api/auth/status"),
   onboarding: () => request<Onboarding>("GET", "/api/onboarding"),
+  onboardingAt: (basePath: string) => requestAt<Onboarding>("GET", `${basePath}/api/onboarding`),
   saveCompanyName: (company_name: string) => request<Onboarding>("PUT", "/api/onboarding", { company_name }),
-  setup: (b: { name: string; email: string; password: string }) => request<Person>("POST", "/api/auth/setup", b),
+  setup: (b: { name: string; email: string; password: string; setup_code?: string }) => request<Person>("POST", "/api/auth/setup", b),
   login: (b: { email: string; password: string }) => request<Person>("POST", "/api/auth/login", b),
   // Signs in to a company other than the current page's (e.g. right after creating it).
   loginAt: (basePath: string, b: { email: string; password: string }) =>

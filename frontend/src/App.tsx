@@ -9,7 +9,6 @@ import { ArtifactPage } from "@/pages/ArtifactPage"
 import { AppPage } from "@/pages/AppPage"
 import { HomePage } from "@/pages/HomePage"
 import { CatalogPage } from "@/pages/CatalogPage"
-import { InstallAgentPage } from "./pages/InstallAgentPage"
 import { ConnectPage } from "@/pages/ConnectPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { canRegister } from "@/lib/permissions"
@@ -86,7 +85,7 @@ function Routed() {
         <Route path="comecar" element={<SetupPage />} />
         <Route path="meu-computador" element={<Navigate to="/configuracoes" replace />} />
         <Route path="conectar" element={<ConnectPage />} />
-        <Route path="instalar-agente" element={<InstallAgentPage />} />
+        <Route path="instalar-agente" element={<Navigate to="/comecar#computador" replace />} />
         <Route path="execucoes" element={<MyRunsPage />} />
         <Route path="execucoes/:id" element={<RunPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

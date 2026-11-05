@@ -51,6 +51,7 @@ func slugFromName(name string) string {
 
 func (h *Handler) registerEntry(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/entry/companies", h.registerCompany)
+	mux.HandleFunc("POST /api/entry/login", h.findLogins)
 	mux.HandleFunc("GET /api/entry/company", h.workspaceInfo)
 	mux.HandleFunc("POST /api/entry/requests", h.requestMembership)
 	mux.HandleFunc("POST /api/entry/invitations/preview", h.previewInvitation)
@@ -131,6 +132,31 @@ func (h *Handler) registerCompany(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 201, map[string]string{"url": target, "slug": b.Slug, "name": b.CompanyName})
+}
+
+// findLogins answers the main entry's "e-mail and password" form with the
+// companies where they sign in. It opens no session: the browser then signs
+// in at the chosen company's own /w/<slug>/api/auth/login.
+func (h *Handler) findLogins(w http.ResponseWriter, r *http.Request) {
+	if h.workspace == nil || h.workspace.FindLogins == nil || h.workspace.BasePath != "" {
+		writeError(w, 403, "Entre pela entrada principal do Ziv.")
+		return
+	}
+	var c credentials
+	if !readJSON(w, r, &c) {
+		return
+	}
+	c.normalize()
+	found, err := h.workspace.FindLogins(r.Context(), c.Email, c.Password)
+	if err != nil {
+		internalError(w, "find logins", err)
+		return
+	}
+	if len(found) == 0 {
+		writeError(w, http.StatusUnauthorized, "E-mail ou senha não conferem.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string][]LoginMatch{"companies": found})
 }
 
 // The executor must be the workspace-bound pool (or a test transaction).

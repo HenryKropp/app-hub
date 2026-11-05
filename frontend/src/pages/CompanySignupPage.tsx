@@ -66,7 +66,7 @@ export function CompanySignupPage() {
       // The company exists now; signing in is a convenience and may fail on its own.
       try {
         await api.loginAt(basePath, { email: email.trim(), password })
-        window.location.assign(`${basePath}/instalar-agente`)
+        window.location.assign(`${basePath}/comecar`)
       } catch {
         window.location.assign(`${basePath}/entrar`)
       }

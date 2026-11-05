@@ -59,16 +59,16 @@ export function LandingPage() {
   return (
     <main id="top" className="min-h-svh bg-background text-foreground">
       <header className="border-b border-border">
-        <div className={cn(wrap, "flex h-16 items-center gap-8")}>
-          <Link to="/boas-vindas" aria-label="Ziv, início" className="shrink-0 rounded-md"><Wordmark className="h-8 w-auto" /></Link>
-          <nav aria-label="Navegação principal" className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
+        <div className={cn(wrap, "flex h-[84px] items-center gap-6 md:gap-10")}>
+          <Link to="/boas-vindas" aria-label="Ziv, início" className="shrink-0 rounded-md"><Wordmark className="h-12 w-auto" /></Link>
+          <nav aria-label="Navegação principal" className="hidden items-center gap-8 text-base text-muted-foreground md:flex">
             <a href="#como-funciona" className="transition-colors hover:text-foreground">Como funciona</a>
             <a href="#para-equipes" className="transition-colors hover:text-foreground">Para equipes</a>
             <a href="#privacidade" className="transition-colors hover:text-foreground">Acesso por empresa</a>
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            <Link to="/acesso" className={buttonVariants({ variant: "ghost" })}>Entrar</Link>
-            <Link to="/cadastre-se" className={buttonVariants()}>Cadastre-se</Link>
+            <Link to="/acesso" className={cn(buttonVariants({ variant: "ghost", size: "lg" }), "h-10 px-4 text-base")}>Entrar</Link>
+            <Link to="/cadastre-se" className={cn(buttonVariants({ size: "lg" }), "h-10 px-4 text-base")}>Cadastre-se</Link>
           </div>
         </div>
       </header>

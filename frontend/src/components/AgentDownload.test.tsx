@@ -6,7 +6,6 @@ import { afterEach, expect, test, vi } from "vitest"
 import { api, type ComputersInfo } from "@/lib/api"
 import { ComputerStatusProvider } from "@/lib/computer-status"
 import { RunsProvider, useRuns } from "@/lib/runs-context"
-import { InstallAgentPage } from "@/pages/InstallAgentPage"
 import { AgentBanner } from "./AgentDownload"
 
 afterEach(() => vi.restoreAllMocks())
@@ -48,14 +47,4 @@ test("Rodar without a connected computer explains instead of starting", async ()
   await userEvent.click(screen.getByRole("button", { name: "Rodar" }))
   expect(await screen.findByRole("dialog", { name: "Conecte seu computador para rodar" })).toBeInTheDocument()
   expect(start).not.toHaveBeenCalled()
-})
-
-test("the install page turns to connected by itself", async () => {
-  const get = vi.spyOn(api, "computers").mockResolvedValue(computers(false))
-  withStatus(<InstallAgentPage />)
-  expect(await screen.findByText("Esperando o seu computador conectar…")).toBeInTheDocument()
-  expect(screen.getByRole("link", { name: "Pular por agora" })).toHaveAttribute("href", "/comecar")
-  get.mockResolvedValue(computers(true))
-  expect(await screen.findByText(/Computador conectado/, {}, { timeout: 6000 })).toBeInTheDocument()
-  expect(screen.getByRole("button", { name: "Continuar" })).toBeInTheDocument()
 })

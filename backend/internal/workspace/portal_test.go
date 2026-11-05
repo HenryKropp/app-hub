@@ -26,6 +26,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const isolatedDB = "apphub_workspace_security_test"
@@ -57,7 +58,7 @@ func testPortal(t *testing.T) (*Portal, *pgxpool.Pool, *httptest.Server) {
 		t.Fatal("parse test URL")
 	}
 	u.Path = "/" + isolatedDB
-	cfg := config.Config{DatabaseURL: u.String(), BaseURL: "http://localhost"}
+	cfg := config.Config{DatabaseURL: u.String(), BaseURL: "http://localhost", SetupCode: testSetupCode}
 	cfg.AgentBinaryPath = filepath.Join(t.TempDir(), "AppHubAgente.exe")
 	if err := os.WriteFile(cfg.AgentBinaryPath, []byte("fixture binary"), 0o600); err != nil {
 		t.Fatal(err)
@@ -114,8 +115,20 @@ func browser(t *testing.T, base string) *testBrowser {
 	j, _ := cookiejar.New(nil)
 	return &testBrowser{t, &http.Client{Jar: j, Timeout: 15 * time.Second}, base}
 }
+
+const testSetupCode = "test-setup-code"
+
 func (b *testBrowser) do(method, path string, body any) (int, []byte) {
 	b.t.Helper()
+	if path == "/api/auth/setup" {
+		fields := map[string]any{}
+		raw, _ := json.Marshal(body)
+		_ = json.Unmarshal(raw, &fields)
+		if _, ok := fields["setup_code"]; !ok {
+			fields["setup_code"] = testSetupCode
+		}
+		body = fields
+	}
 	var payload bytes.Buffer
 	if body != nil {
 		if err := json.NewEncoder(&payload).Encode(body); err != nil {
@@ -427,6 +440,17 @@ func TestLoginLimitIsPerAccount(t *testing.T) {
 	b.want("POST", "/api/auth/login", credentials, 200)
 }
 
+// Guessing one person's password through the e-mail-only entry hits the same
+// per-account lock as a company's own login.
+func TestEntryLoginLimitIsPerAccount(t *testing.T) {
+	_, _, srv := testPortal(t)
+	b := browser(t, srv.URL)
+	for i := 0; i < 10; i++ {
+		b.want("POST", "/api/entry/login", map[string]string{"email": "guessed@example.test", "password": "wrong"}, 401)
+	}
+	b.want("POST", "/api/entry/login", map[string]string{"email": "Guessed@example.test", "password": "wrong"}, 429)
+}
+
 // Apps a company already used before approvals existed stay runnable; an app
 // a reviewer suspended keeps its decision.
 func TestExistingAppsApprovedOnce(t *testing.T) {
@@ -505,4 +529,55 @@ func TestNewCompanyStartsWithoutApprovalRequired(t *testing.T) {
 	if required {
 		t.Fatal("new company has require_app_approval = true, want false")
 	}
+}
+
+// One e-mail and password at the main entry finds every company where they
+// sign in, without opening a session; the main company is not listed.
+func TestPortalFindLogins(t *testing.T) {
+	p, _, srv := testPortal(t)
+	ctx := context.Background()
+	b := browser(t, srv.URL)
+	b.want("POST", "/api/auth/setup", map[string]any{"name": "Chefe", "email": "chefe@x.com", "password": "senha-chefe-123"}, 201)
+	hash := func(pw string) string {
+		h, err := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.MinCost)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(h)
+	}
+	for _, c := range []struct{ name, slug, pw string }{{"Cedro", "cedro", "senha-a-123"}, {"Bravo", "bravo", "senha-b-123"}, {"Alfa", "alfa", "senha-a-123"}} {
+		if _, err := p.create(ctx, c.name, c.slug, sqlc.Person{Name: "Ana", Email: "ana@x.com", PasswordHash: hash(c.pw)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	found := func(email, pw string) string {
+		t.Helper()
+		var out struct {
+			Companies []handler.LoginMatch `json:"companies"`
+		}
+		raw := b.want("POST", "/api/entry/login", map[string]string{"email": email, "password": pw}, 200)
+		if err := json.Unmarshal(raw, &out); err != nil {
+			t.Fatal(err)
+		}
+		var got []string
+		for _, c := range out.Companies {
+			got = append(got, c.Name+"="+c.Slug+"@"+c.URL)
+		}
+		return strings.Join(got, ",")
+	}
+	if got := found(" Ana@X.com ", "senha-a-123"); got != "Alfa=alfa@/w/alfa/,Cedro=cedro@/w/cedro/" {
+		t.Fatalf("senha-a-123 found %q", got)
+	}
+	if got := found("ana@x.com", "senha-b-123"); got != "Bravo=bravo@/w/bravo/" {
+		t.Fatalf("senha-b-123 found %q", got)
+	}
+	raw := b.want("POST", "/api/entry/login", map[string]string{"email": "ana@x.com", "password": "errada-123"}, 401)
+	if !strings.Contains(string(raw), "E-mail ou senha não conferem.") {
+		t.Fatalf("wrong password message: %s", raw)
+	}
+	b.want("POST", "/api/entry/login", map[string]string{"email": "ninguem@x.com", "password": "senha-a-123"}, 401)
+	b.want("POST", "/api/entry/login", map[string]string{"email": "chefe@x.com", "password": "senha-chefe-123"}, 401)
+	b.want("POST", "/w/alfa/api/entry/login", map[string]string{"email": "ana@x.com", "password": "senha-a-123"}, 403)
+	// The search opens no session anywhere.
+	b.want("GET", "/w/alfa/api/apps", nil, 401)
 }
