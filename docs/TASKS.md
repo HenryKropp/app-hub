@@ -111,7 +111,7 @@ Kova saiu no mesmo dia porque, dito em voz alta, soa como "cova". O símbolo tam
 | Começar em lista com 6 passos | Done | |
 | Configurações só com o status | Done | |
 | Cabeçalho maior na página inicial | Done | |
-| Henry testa no servidor | Pending | |
+| Henry testa no servidor | Done | 2026-11-05: cadastro → Começar, Entrar só com e-mail, Configurações só status |
 | Entrar com Google e Microsoft | Pending | "eventualmente" |
 
 ## Servidor 24h grátis no Google Cloud (2026-11-05, ADR 022)
