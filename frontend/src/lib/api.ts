@@ -207,6 +207,8 @@ export type Onboarding = {
   has_apps: boolean
   has_successful_run: boolean
   has_team: boolean
+  claude_connected: boolean
+  has_artifacts: boolean
 }
 export type Workspace = { slug: string; name: string; base_path: string; can_manage: boolean; local_execution_is_sandboxed: false; filesystem_registration_enabled?: boolean }
 export type WorkspaceCreated = { slug: string; name: string; url: string }

@@ -213,3 +213,36 @@ func TestScriptImportStillRequiresPermission(t *testing.T) {
 		t.Fatal(code)
 	}
 }
+
+func TestOnboardingClaudeAndArtifacts(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	var p struct {
+		ClaudeConnected bool `json:"claude_connected"`
+		HasArtifacts    bool `json:"has_artifacts"`
+	}
+	check := func(wantClaude, wantArtifacts bool) {
+		t.Helper()
+		p.ClaudeConnected, p.HasArtifacts = !wantClaude, !wantArtifacts
+		if code := c.do("GET", "/api/onboarding", nil, &p); code != 200 || p.ClaudeConnected != wantClaude || p.HasArtifacts != wantArtifacts {
+			t.Fatalf("%d %+v, want claude=%v artifacts=%v", code, p, wantClaude, wantArtifacts)
+		}
+	}
+	check(false, false)
+	var out mcpCodeOut
+	if code := c.do("POST", "/api/mcp/codes", map[string]string{"name": "Meu notebook"}, &out); code != http.StatusCreated {
+		t.Fatalf("create code = %d", code)
+	}
+	check(false, false)
+	if _, err := testPool.Exec(context.Background(), `UPDATE mcp_connections SET last_used_at=now()`); err != nil {
+		t.Fatal(err)
+	}
+	check(true, false)
+	if code := c.do("DELETE", "/api/mcp/connections/"+strconv.FormatInt(out.ID, 10), nil, nil); code != http.StatusNoContent && code != http.StatusOK {
+		t.Fatalf("revoke = %d", code)
+	}
+	check(false, false)
+	createArtifact(t, c, linkBody("Painel", "https://example.com"))
+	check(false, true)
+	_ = h
+}

@@ -17,6 +17,8 @@ const state = (over: Partial<Onboarding> = {}): Onboarding => ({
   has_apps: false,
   has_successful_run: false,
   has_team: false,
+  claude_connected: false,
+  has_artifacts: false,
   ...over,
 })
 
