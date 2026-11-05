@@ -20,6 +20,15 @@
         "value": "geist",
         "createdAt": "2026-10-05T18:21:00.000Z",
         "reason": "Claude: Geist is the product font chosen in DESIGN.md; the prototype mirrors it on purpose"
+      },
+      {
+        "rule": "cramped-padding",
+        "value": "*",
+        "files": [
+          ".superpowers/brainstorm/6713-1793888065/content/cabecalho.html"
+        ],
+        "createdAt": "2026-11-05T14:17:09.827Z",
+        "reason": "Claude: throwaway brainstorm mockup of header sizes, already decided; bars use fixed height with 16px side padding"
       }
     ]
   }
