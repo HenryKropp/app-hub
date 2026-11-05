@@ -22,6 +22,16 @@ import (
 type WorkspaceOptions struct {
 	Slug, Name, BasePath string
 	Create               func(context.Context, string, string, sqlc.Person) (string, error)
+	// FindLogins lists the companies (other than the main one) where this
+	// e-mail and password sign in. The e-mail arrives normalized.
+	FindLogins func(ctx context.Context, email, password string) ([]LoginMatch, error)
+}
+
+// LoginMatch is one company where an e-mail and password sign in.
+type LoginMatch struct {
+	Slug string `json:"slug"`
+	Name string `json:"name"`
+	URL  string `json:"url"`
 }
 
 func (h *Handler) SetWorkspace(o WorkspaceOptions) { h.workspace = &o }
