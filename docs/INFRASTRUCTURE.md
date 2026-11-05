@@ -1,6 +1,23 @@
 # INFRASTRUCTURE — Ziv
 
-## Ambiente atual — Replit (26/10/2026)
+## Produção — Google Cloud, grátis (05/11/2026, ADR 022)
+
+**Endereço:** https://zivapp.duckdns.org (apps compartilhados em `https://<app>.zivapp.duckdns.org`).
+
+| Componente | Execução | Configuração |
+|---|---|---|
+| Máquina | Google Cloud e2-micro, `us-east1`, Ubuntu 24.04, IP 34.24.21.104 | SSH `ziv@34.24.21.104` com `~/.ssh/ziv-gcp` |
+| Ziv (site + servidor) | Serviço systemd do usuário `ziv`, porta 8080 | `~/ziv/ziv.env` (fora do git) |
+| PostgreSQL | Contêiner Podman `ziv-db` (`postgres:17-alpine`), porta 5433, volume `ziv-pg` | Senha em `~/ziv/.dbpw` |
+| HTTPS | Caddy + Let's Encrypt (subdomínios sob demanda) | `/etc/caddy/Caddyfile` |
+| Endereço | DuckDNS `zivapp`; cron de 5 min atualiza o IP | `~/duckdns/duck.sh` |
+| Cópias | `pg_dumpall` diário 06:30 UTC, últimas 7 | `~/backups` |
+
+- **Publicar uma versão nova:** `bash scripts/deploy-gcp.sh` (compila aqui, envia e reinicia; as migrações rodam sozinhas).
+- **Ver o que o servidor está fazendo:** `ssh -i ~/.ssh/ziv-gcp ziv@34.24.21.104 'journalctl --user -u ziv -n 100'`.
+- **`HUB_SECRET_KEY`:** cópia em `~/.ziv-producao/HUB_SECRET_KEY` no WSL do Henry. Sem ela, o cofre e as cópias dos bancos dos apps não abrem.
+
+## Replit (26/10/2026, substituído pela produção acima)
 
 | Componente | Execução | Configuração |
 |---|---|---|
