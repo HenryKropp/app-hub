@@ -100,6 +100,19 @@ Kova saiu no mesmo dia porque, dito em voz alta, soa como "cova". O símbolo tam
 | Nome num lugar só, cores, símbolo, textos "o Kova" | Done | `lib/brand.ts`, `internal/brand`; coral só como preenchimento; `scripts/contrast-check.mjs` |
 | Nomes técnicos com convivência (manifesto, lixeira, etiquetas, banco, pasta de dados) | Done | Escreve o novo, lê o antigo; `app-hub-db` e a pasta de dados são adotados na subida |
 
+## Servidor 24h grátis no Google Cloud (2026-11-05, ADR 022)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Conta e máquina e2-micro (`us-east1`) | Done | A Oracle recusou o cadastro (antifraude) |
+| Endereço `zivapp.duckdns.org` + HTTPS (Caddy) | Done | Subdomínios dos apps com certificado sob demanda |
+| Banco `ziv-db`, serviço do Ziv, cópia diária | Done | `scripts/deploy-gcp.sh` publica versões novas |
+| Henry testa: cadastro, Agente novo, rodar um app | Pending | Agente baixado do próprio site novo |
+| Conector do claude.ai (MCP OAuth) no endereço novo | Pending | Etapa que dependia do deploy |
+| Cópia do banco fora da máquina | Pending | Hoje fica no mesmo disco |
+| `ask` do TLS só para apps existentes | Pending | Hoje aceita qualquer subdomínio |
+| Conferir a fatura do Google nos primeiros dias | Pending | Deve dar zero |
+
 ## News Scrapper no servidor do Ziv, sempre ligado (← próxima sessão, decidido em 2026-10-28)
 
 Pedido do Henry: o objetivo é as pessoas pararem de rodar apps no PC e usarem pelo Ziv. O News Scrapper (`C:\Users\HenryKroppAlisInvest\OneDrive - Alis\ALIS\5. Operacional\8. Programação\News Scrapper`) hoje é um script Python (`scraper.py`, que grava `news_data.json`, `dashboard.html` e `scraper.log` na própria pasta e lê `config.json` e `watchlist.json`) rodado a cada 5 min pela tarefa agendada "NewsScrapper", mais o `server.py`, que mostra o dashboard na porta 8080. Desenho combinado:
