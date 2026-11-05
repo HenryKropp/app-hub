@@ -16,6 +16,7 @@ type Config struct {
 	DatabaseURL string
 	BaseURL     string
 	DevMode     bool
+	SetupCode   string // SETUP_CODE: code for the principal's first access
 
 	AgentBinaryPath string
 
@@ -61,6 +62,7 @@ func Load() (Config, error) {
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		BaseURL:     os.Getenv("BASE_URL"),
 		DevMode:     os.Getenv("DEV_MODE") != "",
+		SetupCode:   os.Getenv("SETUP_CODE"),
 
 		AgentBinaryPath: os.Getenv("AGENT_BINARY_PATH"),
 	}

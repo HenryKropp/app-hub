@@ -58,7 +58,7 @@ func testPortal(t *testing.T) (*Portal, *pgxpool.Pool, *httptest.Server) {
 		t.Fatal("parse test URL")
 	}
 	u.Path = "/" + isolatedDB
-	cfg := config.Config{DatabaseURL: u.String(), BaseURL: "http://localhost"}
+	cfg := config.Config{DatabaseURL: u.String(), BaseURL: "http://localhost", SetupCode: testSetupCode}
 	cfg.AgentBinaryPath = filepath.Join(t.TempDir(), "AppHubAgente.exe")
 	if err := os.WriteFile(cfg.AgentBinaryPath, []byte("fixture binary"), 0o600); err != nil {
 		t.Fatal(err)
@@ -115,8 +115,20 @@ func browser(t *testing.T, base string) *testBrowser {
 	j, _ := cookiejar.New(nil)
 	return &testBrowser{t, &http.Client{Jar: j, Timeout: 15 * time.Second}, base}
 }
+
+const testSetupCode = "test-setup-code"
+
 func (b *testBrowser) do(method, path string, body any) (int, []byte) {
 	b.t.Helper()
+	if path == "/api/auth/setup" {
+		fields := map[string]any{}
+		raw, _ := json.Marshal(body)
+		_ = json.Unmarshal(raw, &fields)
+		if _, ok := fields["setup_code"]; !ok {
+			fields["setup_code"] = testSetupCode
+		}
+		body = fields
+	}
 	var payload bytes.Buffer
 	if body != nil {
 		if err := json.NewEncoder(&payload).Encode(body); err != nil {

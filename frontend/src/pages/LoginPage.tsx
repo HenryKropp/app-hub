@@ -23,6 +23,7 @@ export function LoginPage() {
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [setupCode, setSetupCode] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
   const [workspaceName, setWorkspaceName] = useState("")
@@ -52,7 +53,7 @@ export function LoginPage() {
     setError("")
     setBusy(true)
     try {
-      const p = needsSetup ? await api.setup({ name, email, password }) : await api.login({ email, password })
+      const p = needsSetup ? await api.setup({ name, email, password, setup_code: setupCode }) : await api.login({ email, password })
       if (toApp) {
         window.location.assign(toApp)
         return
@@ -126,6 +127,11 @@ export function LoginPage() {
                 className="h-9"
               />
             </Field>
+            {needsSetup && (
+              <Field label="Código de instalação" htmlFor="setup-code" hint="Está no arquivo de configuração do servidor (SETUP_CODE).">
+                <Input id="setup-code" type="password" value={setupCode} onChange={(e) => setSetupCode(e.target.value)} required autoComplete="off" className="h-9" />
+              </Field>
+            )}
             {error && (
               <div>
                 <p role="alert" className={authError}>{error}</p>
