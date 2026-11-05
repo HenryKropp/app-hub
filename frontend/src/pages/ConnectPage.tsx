@@ -38,7 +38,7 @@ export function ConnectPage() {
           <p role="alert" className="mt-3 text-muted-foreground">{loadFailed ? "Abra o Agente do Ziv no seu computador de novo; ele abre esta página com o código certo." : error}</p>
           <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm">
             <Link className="underline underline-offset-4" to="/configuracoes">Ir para Configurações</Link>
-            <Link className="underline underline-offset-4" to="/instalar-agente">Como instalar o Agente</Link>
+            <Link className="underline underline-offset-4" to="/comecar#computador">Como instalar o Agente</Link>
           </div>
         </div>
       ) : !pairing ? (
