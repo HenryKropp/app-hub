@@ -93,7 +93,7 @@ export function SetupPage() {
 
   useEffect(() => {
     if (fromHash && onboarding) document.getElementById(fromHash)?.scrollIntoView?.({ block: "start" })
-  }, [fromHash, onboarding])
+  }, [fromHash, onboarding !== null])
 
   if (!onboarding) {
     if (error) return <section className="rounded-xl border border-warn/30 bg-warn-soft p-6">

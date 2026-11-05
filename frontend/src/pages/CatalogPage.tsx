@@ -6,9 +6,10 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { SharedStatusDot } from "@/components/SharedStatus"
 import { Input } from "@/components/ui/input"
 import { EmptyState, KindTab, LoadError, PageHeader, Playing, SavedIn } from "@/components/bits"
-import { api, openSharedUrl, type AppSummary, type Onboarding } from "@/lib/api"
+import { api, openSharedUrl, workspaceBasePath, type AppSummary, type Onboarding } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { canRegister } from "@/lib/permissions"
+import { visibleSteps } from "@/lib/steps"
 import { useRuns } from "@/lib/runs-context"
 import { isLive } from "@/lib/runs"
 import { cn } from "@/lib/utils"
@@ -39,7 +40,7 @@ export function CatalogPage() {
   }, [apps, q])
 
   const canReg = canRegister(person)
-  const setupDone = onboarding ? Boolean(onboarding.company_name.trim() && onboarding.computer_connected && onboarding.has_apps && onboarding.has_successful_run && onboarding.has_team) : true
+  const setupDone = onboarding && person && workspaceBasePath() !== "" ? visibleSteps(onboarding, person).every((s) => s.done) : true
 
   return (
     <>

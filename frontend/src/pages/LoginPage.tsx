@@ -20,7 +20,9 @@ function sharedVolta(volta: string | null): string {
 export function LoginPage() {
   const { needsSetup, person, setPerson, statusError, refresh } = useAuth()
   const navigate = useNavigate()
-  const explicitFrom = (useLocation().state as { from?: string } | null)?.from
+  // Plain "/" is where Protected sends everyone; treat it as no destination so unfinished people reach Começar.
+  const rawFrom = (useLocation().state as { from?: string } | null)?.from
+  const explicitFrom = rawFrom && rawFrom !== "/" ? rawFrom : undefined
   const from = explicitFrom ?? "/"
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")

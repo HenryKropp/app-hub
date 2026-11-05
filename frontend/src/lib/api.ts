@@ -367,8 +367,6 @@ export const api = {
   approveOauth: (id: string) => request<{ redirect: string }>("POST", `/api/oauth/requests/${encodeURIComponent(id)}/approve`),
   denyOauth: (id: string) => request<{ redirect: string }>("POST", `/api/oauth/requests/${encodeURIComponent(id)}/deny`),
   entryCompany: () => request<EntryCompany>("GET", "/api/entry/company"),
-  entryCompanyBySlug: (slug: string) =>
-    requestAt<EntryCompany>("GET", `/w/${encodeURIComponent(slug)}/api/entry/company`),
   findLogins: (b: { email: string; password: string }) =>
     requestAt<{ companies: { slug: string; name: string; url: string }[] }>("POST", "/api/entry/login", b),
   createEntryCompany: (b: { company_name: string; name: string; email: string; password: string }) =>

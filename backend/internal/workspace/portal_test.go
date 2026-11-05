@@ -440,6 +440,17 @@ func TestLoginLimitIsPerAccount(t *testing.T) {
 	b.want("POST", "/api/auth/login", credentials, 200)
 }
 
+// Guessing one person's password through the e-mail-only entry hits the same
+// per-account lock as a company's own login.
+func TestEntryLoginLimitIsPerAccount(t *testing.T) {
+	_, _, srv := testPortal(t)
+	b := browser(t, srv.URL)
+	for i := 0; i < 10; i++ {
+		b.want("POST", "/api/entry/login", map[string]string{"email": "guessed@example.test", "password": "wrong"}, 401)
+	}
+	b.want("POST", "/api/entry/login", map[string]string{"email": "Guessed@example.test", "password": "wrong"}, 429)
+}
+
 // Apps a company already used before approvals existed stay runnable; an app
 // a reviewer suspended keeps its decision.
 func TestExistingAppsApprovedOnce(t *testing.T) {

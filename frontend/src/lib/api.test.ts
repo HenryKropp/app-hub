@@ -31,16 +31,16 @@ test("company entry creates at the root and confirms an explicit workspace path"
     window.history.replaceState({}, "", "/w/current-space/entrar")
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ url: "/w/new-space", name: "Nova", slug: "new-space" }), { status: 201 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ name: "Outra", slug: "outra", base_path: "/w/outra" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ companies: [] }), { status: 200 }))
     vi.stubGlobal("fetch", fetchMock)
     await api.createEntryCompany({ company_name: "Nova", name: "Ana", email: "ana@example.com", password: "senha-123" })
-    await api.entryCompanyBySlug("outra")
+    await api.findLogins({ email: "ana@example.com", password: "senha-123" })
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/entry/companies", expect.objectContaining({
       method: "POST",
       credentials: "same-origin",
       body: JSON.stringify({ company_name: "Nova", name: "Ana", email: "ana@example.com", password: "senha-123" }),
     }))
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "/w/outra/api/entry/company", expect.objectContaining({ method: "GET" }))
+    expect(fetchMock).toHaveBeenNthCalledWith(2, "/api/entry/login", expect.objectContaining({ method: "POST" }))
   } finally {
     window.history.replaceState({}, "", original)
   }
