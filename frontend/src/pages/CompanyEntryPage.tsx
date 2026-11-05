@@ -67,6 +67,7 @@ export function CompanyEntryPage() {
             </Button>
           ))}
           {error && <p role="alert" className={authError}>{error}</p>}
+          <button type="button" className={`${authLink} self-start text-sm`} onClick={() => { setCompanies(null); setError("") }}>Usar outro e-mail</button>
         </div>
       ) : (
         <form onSubmit={submit} className="mt-6 flex flex-col gap-4">

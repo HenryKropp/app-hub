@@ -171,7 +171,7 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 			if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/entry/invitations/preview" || r.URL.Path == "/api/agent/pair/start" || r.URL.Path == "/oauth/token" || r.URL.Path == "/oauth/authorize" {
 				limit = addressAttempts
 			}
-			if r.URL.Path == "/api/auth/login" {
+			if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/entry/login" {
 				// Wrong passwords count per account, so one person mistyping
 				// does not lock out everyone behind the same proxy.
 				accountKey = rateKey("account", loginEmail(r), r.URL.Path)
