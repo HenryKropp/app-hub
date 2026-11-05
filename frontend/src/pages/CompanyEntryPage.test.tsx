@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 import { afterEach, expect, test, vi } from "vitest"
 import { ApiError, api } from "@/lib/api"
-import { slugFromEntry, validCompanySlug } from "@/lib/company-entry"
+import * as landing from "@/lib/landing"
 import { CompanyEntryPage } from "./CompanyEntryPage"
 
 afterEach(() => {
@@ -11,56 +11,57 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
-test("company identifiers require a lowercase letter and a 3–40 character safe slug", () => {
-  expect(validCompanySlug("ziv-equipe-8")).toBe(true)
-  expect(validCompanySlug("ab")).toBe(false)
-  expect(validCompanySlug("Ziv-equipe")).toBe(false)
-  expect(validCompanySlug("ziv/equipe")).toBe(false)
-  expect(validCompanySlug(`a${"b".repeat(40)}`)).toBe(false)
-})
+const person = { id: 1 } as never
 
-test("company entry accepts a slug or an exact same-origin workspace URL only", () => {
-  const origin = "https://hub.example"
-  expect(slugFromEntry("atelier-norte", origin)).toBe("atelier-norte")
-  expect(slugFromEntry("https://hub.example/w/atelier-norte", origin)).toBe("atelier-norte")
-  expect(slugFromEntry("/w/atelier-norte/", origin)).toBe("atelier-norte")
-  expect(slugFromEntry("https://other.example/w/atelier-norte", origin)).toBeNull()
-  expect(slugFromEntry("https://hub.example/w/atelier-norte/apps", origin)).toBeNull()
-  expect(slugFromEntry("Atelier-Norte", origin)).toBeNull()
-})
-
-test("unknown companies show an error and never redirect to the principal workspace", async () => {
-  const lookup = vi.spyOn(api, "entryCompanyBySlug").mockRejectedValue(new ApiError(404, "Not found"))
+function setup() {
   const assign = vi.fn()
   vi.stubGlobal("location", { ...window.location, assign })
   render(<MemoryRouter><CompanyEntryPage /></MemoryRouter>)
-  await userEvent.type(screen.getByLabelText("Endereço da empresa no Ziv"), "inexistente")
-  await userEvent.click(screen.getByRole("button", { name: "Continuar" }))
-  expect(await screen.findByRole("alert")).toHaveTextContent("Não encontrei uma empresa")
-  expect(lookup).toHaveBeenCalledWith("inexistente")
-  expect(assign).not.toHaveBeenCalled()
-})
+  return { assign }
+}
 
-test("access page has one company form and confirms the company before full navigation", async () => {
-  const lookup = vi.spyOn(api, "entryCompanyBySlug").mockResolvedValue({ slug: "horizonte", name: "Horizonte", base_path: "/w/horizonte" })
-  const assign = vi.fn()
-  vi.stubGlobal("location", { ...window.location, assign })
-  render(<MemoryRouter><CompanyEntryPage /></MemoryRouter>)
+async function fillAndSubmit() {
+  await userEvent.type(screen.getByLabelText("E-mail"), "ana@example.com")
+  await userEvent.type(screen.getByLabelText("Senha"), "senha-forte-123")
+  await userEvent.click(screen.getByRole("button", { name: /Entrar/ }))
+}
+
+test("the form asks only for e-mail and password, with no company address or principal link", () => {
+  setup()
   expect(document.querySelectorAll("form")).toHaveLength(1)
-  await userEvent.type(screen.getByLabelText("Endereço da empresa no Ziv"), "horizonte")
-  await userEvent.click(screen.getByRole("button", { name: "Continuar" }))
-  expect(lookup).toHaveBeenCalledWith("horizonte")
-  expect(assign).toHaveBeenCalledWith("/w/horizonte/entrar")
+  expect(screen.getByRole("heading", { name: "Entre no espaço da sua equipe" })).toBeInTheDocument()
+  expect(screen.queryByLabelText(/Endereço da empresa/)).not.toBeInTheDocument()
+  expect(document.body).not.toHaveTextContent("espaço principal")
   expect(screen.getByRole("link", { name: /Cadastre-se/ })).toHaveAttribute("href", "/cadastre-se")
 })
 
-test("the principal company with an empty base path goes to the root sign-in", async () => {
-  const lookup = vi.spyOn(api, "entryCompanyBySlug").mockResolvedValue({ slug: "principal", name: "Principal", base_path: "" })
-  const assign = vi.fn()
-  vi.stubGlobal("location", { ...window.location, assign })
-  render(<MemoryRouter><CompanyEntryPage /></MemoryRouter>)
-  await userEvent.type(screen.getByLabelText("Endereço da empresa no Ziv"), "principal")
-  await userEvent.click(screen.getByRole("button", { name: "Continuar" }))
-  expect(lookup).toHaveBeenCalledWith("principal")
-  expect(assign).toHaveBeenCalledWith("/entrar")
+test("one company signs in directly and goes where landingAfterLogin says", async () => {
+  vi.spyOn(api, "findLogins").mockResolvedValue({ companies: [{ slug: "a", name: "A", url: "/w/a/" }] })
+  const login = vi.spyOn(api, "loginAt").mockResolvedValue(person)
+  vi.spyOn(landing, "landingAfterLogin").mockResolvedValue("/w/a/comecar")
+  const { assign } = setup()
+  await fillAndSubmit()
+  await vi.waitFor(() => expect(assign).toHaveBeenCalledWith("/w/a/comecar"))
+  expect(login).toHaveBeenCalledWith("/w/a", { email: "ana@example.com", password: "senha-forte-123" })
+})
+
+test("several companies ask which one, then sign in to the chosen one", async () => {
+  vi.spyOn(api, "findLogins").mockResolvedValue({ companies: [{ slug: "a", name: "Alfa", url: "/w/a/" }, { slug: "b", name: "Beta", url: "/w/b/" }] })
+  const login = vi.spyOn(api, "loginAt").mockResolvedValue(person)
+  vi.spyOn(landing, "landingAfterLogin").mockResolvedValue("/w/b/")
+  const { assign } = setup()
+  await fillAndSubmit()
+  expect(await screen.findByText("Em qual empresa?")).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: /Alfa/ })).toBeInTheDocument()
+  await userEvent.click(screen.getByRole("button", { name: /Beta/ }))
+  await vi.waitFor(() => expect(assign).toHaveBeenCalledWith("/w/b/"))
+  expect(login).toHaveBeenCalledWith("/w/b", { email: "ana@example.com", password: "senha-forte-123" })
+})
+
+test("wrong credentials show the server message and do not navigate", async () => {
+  vi.spyOn(api, "findLogins").mockRejectedValue(new ApiError(401, "E-mail ou senha não conferem."))
+  const { assign } = setup()
+  await fillAndSubmit()
+  expect(await screen.findByRole("alert")).toHaveTextContent("E-mail ou senha não conferem.")
+  expect(assign).not.toHaveBeenCalled()
 })
