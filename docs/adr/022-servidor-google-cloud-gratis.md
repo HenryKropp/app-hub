@@ -37,3 +37,4 @@ O Henry quer o Ziv no ar 24 horas, para outras pessoas usarem, sem depender do c
 - O `ask` do TLS sob demanda aceita qualquer subdomínio: o `/healthz` cai na página do site e responde 200. Alguém poderia gastar o limite do Let's Encrypt pedindo nomes aleatórios. Falta um endpoint que só aceite apps que existem.
 - O endereço fica gravado no Agente e no conector do Claude. Trocar para um domínio próprio depois exige recompilar o Agente e baixar de novo.
 - Banco novo e vazio: os dados locais e os do Replit não foram trazidos.
+- Num servidor novo, a empresa principal fica livre para o primeiro que abrir `/entrar`. Neste servidor o Henry ocupou logo após subir. Num próximo servidor, ocupar antes de divulgar o endereço.

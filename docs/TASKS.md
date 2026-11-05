@@ -112,6 +112,7 @@ Kova saiu no mesmo dia porque, dito em voz alta, soa como "cova". O símbolo tam
 | Cópia do banco fora da máquina | Pending | Hoje fica no mesmo disco |
 | `ask` do TLS só para apps existentes | Pending | Hoje aceita qualquer subdomínio |
 | Conferir a fatura do Google nos primeiros dias | Pending | Deve dar zero |
+| Primeiro acesso da empresa principal protegido | Pending | Num servidor novo, `/entrar` deixa qualquer um virar admin da principal até alguém ocupar. Em 2026-11-05 o Henry ocupou logo após subir. Proteger com um código de instalação |
 
 ## News Scrapper no servidor do Ziv, sempre ligado (← próxima sessão, decidido em 2026-10-28)
 
