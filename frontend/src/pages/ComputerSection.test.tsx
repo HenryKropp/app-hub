@@ -30,7 +30,7 @@ test("connected computer, outdated agent, disconnect", async () => {
   expect(await screen.findByText("NOTE-HENRY")).toBeInTheDocument()
   expect(screen.getByText("Agente ligado")).toBeInTheDocument()
   expect(screen.getByText(/Atualize o Agente/)).toBeInTheDocument()
-  expect(screen.queryByRole("link", { name: /Baixar/ })).not.toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "Baixar no Começar" })).toHaveAttribute("href", "/comecar#computador")
   await user.click(screen.getByRole("button", { name: "Desconectar" }))
   expect(disconnect).toHaveBeenCalledWith(1)
 })
@@ -49,6 +49,7 @@ test("update states", async () => {
 
   spy.mockResolvedValue(info({ update_state: "gave_up", outdated: true, agent_version: "0.1.9" }))
   renderPage()
-  expect(await screen.findByText("Não conseguimos atualizar o Agente sozinho. Baixe e abra a versão 0.2.0 de novo.")).toBeInTheDocument()
+  expect(await screen.findByText(/Não conseguimos atualizar o Agente sozinho. Baixe a versão 0.2.0 de novo./)).toBeInTheDocument()
+  expect(screen.getByRole("link", { name: "Baixar no Começar" })).toHaveAttribute("href", "/comecar#computador")
   expect(screen.queryByText(/Atualize o Agente/)).not.toBeInTheDocument()
 })

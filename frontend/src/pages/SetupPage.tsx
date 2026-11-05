@@ -1,97 +1,131 @@
-import { useEffect, useMemo, useState } from "react"
-import { Link } from "react-router-dom"
-import { Check, CircleAlert, CircleCheck, Laptop, Plug, RefreshCw, Users, WandSparkles } from "lucide-react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
+import { Link, useLocation } from "react-router-dom"
+import { Check, ChevronDown, CircleAlert } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { PageHeader } from "@/components/bits"
 import { AgentDownloadButton } from "@/components/AgentDownload"
+import { ClaudeConnect } from "@/components/ClaudeConnect"
 import { api, type Onboarding } from "@/lib/api"
+import { useAuth } from "@/lib/auth"
+import { visibleSteps, type StepId } from "@/lib/steps"
 import { cn } from "@/lib/utils"
 
-const steps = [
-  { id: "computer", title: "Conecte seu computador", description: "O Agente permite abrir os apps no computador de cada pessoa." },
-  { id: "apps", title: "Registre o primeiro app", description: "Traga um script ou ferramenta para o catálogo." },
-  { id: "run", title: "Faça uma execução de teste", description: "Confirme que o app abre e entrega os arquivos esperados." },
-  { id: "team", title: "Convide a equipe", description: "Cadastre as pessoas que vão usar os apps." },
-] as const
+const POLL_MS = 5000
 
-function completed(onboarding: Onboarding) {
-  return [
-    onboarding.computer_connected,
-    onboarding.has_apps,
-    onboarding.has_successful_run,
-    onboarding.has_team,
-  ]
+const COPY: Record<StepId, { title: string; summary: string }> = {
+  computador: { title: "Conectar seu computador", summary: "Agente ligado" },
+  claude: { title: "Conectar o Claude", summary: "Claude conectado" },
+  app: { title: "Subir seu primeiro app", summary: "App registrado" },
+  rodar: { title: "Rodar o app", summary: "App rodou" },
+  artifact: { title: "Publicar um artifact", summary: "Artifact publicado" },
+  equipe: { title: "Convidar a equipe", summary: "Equipe convidada" },
+}
+
+const linkButton = (variant: "default" | "outline" = "outline") => buttonVariants({ variant })
+
+function Body({ id, onboarding }: { id: StepId; onboarding: Onboarding }): ReactNode {
+  switch (id) {
+    case "computador":
+      return <>
+        <p className="text-sm text-muted-foreground">O Agente é um programa pequeno que fica no seu Windows, sem ícone. É ele que abre os apps do catálogo no seu computador quando você clica em Rodar.</p>
+        <ol className="mt-3 flex list-decimal flex-col gap-1.5 pl-5 text-sm">
+          <li>Baixe o Agente pelo botão abaixo e abra o arquivo.</li>
+          <li>Se o Windows avisar, clique em <strong>Mais informações</strong> e depois em <strong>Executar assim mesmo</strong>.</li>
+          <li>O navegador vai abrir uma página do Ziv. Aprove a conexão em <strong>Conectar</strong>.</li>
+        </ol>
+        <div className="mt-4">
+          {onboarding.agent_available
+            ? <AgentDownloadButton variant="outline" available />
+            : <p className="text-sm text-muted-foreground">O Agente ainda não foi preparado neste Ziv. Peça a quem administra o Ziv.</p>}
+        </div>
+      </>
+    case "claude":
+      return <>
+        <p className="mb-4 text-sm text-muted-foreground">Com o Claude conectado, você pede “roda o app X” ou “publica esse relatório” direto na conversa. Fica ✓ quando o Claude falar com o Ziv pela primeira vez.</p>
+        <ClaudeConnect />
+      </>
+    case "app":
+      return <>
+        <p className="text-sm text-muted-foreground">Um app pode ser um script, um app web ou um programa. Escolha a pasta e o Ziv prepara o resto.</p>
+        <div className="mt-4"><Link to="/registrar" className={linkButton()}>Registrar app</Link></div>
+      </>
+    case "rodar":
+      return <>
+        <p className="text-sm text-muted-foreground">Abra o catálogo, escolha um app e clique em Rodar.</p>
+        <div className="mt-4"><Link to="/apps" className={linkButton("default")}>Abrir o catálogo</Link></div>
+      </>
+    case "artifact":
+      return <>
+        <p className="text-sm text-muted-foreground">O caminho principal é pedir ao Claude: “publica isso no Ziv”. Também dá para publicar pelo site.</p>
+        <div className="mt-4"><Link to="/artifacts/novo" className={linkButton()}>Publicar pelo site</Link></div>
+      </>
+    case "equipe":
+      return <>
+        <p className="text-sm text-muted-foreground">Cadastre as pessoas que vão usar os apps.</p>
+        <div className="mt-4"><Link to="/equipe?aba=pessoas" className={linkButton()}>Abrir equipe</Link></div>
+      </>
+  }
 }
 
 export function SetupPage() {
+  const { person } = useAuth()
+  const { hash } = useLocation()
   const [onboarding, setOnboarding] = useState<Onboarding | null>(null)
-  const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [reload, setReload] = useState(0)
+  const [chosen, setChosen] = useState<StepId | null>(null)
 
   useEffect(() => {
     let active = true
-    setLoading(true)
-    setError("")
-    api.onboarding().then((data) => {
+    const load = () => api.onboarding().then((data) => {
       if (!active) return
       setOnboarding(data)
-    }, (e: Error) => {
-      if (active) setError(e.message)
-    }).finally(() => { if (active) setLoading(false) })
-    return () => { active = false }
+      setError("")
+    }, (e: Error) => { if (active) setError(e.message) })
+    void load()
+    const t = setInterval(() => void load(), POLL_MS)
+    return () => { active = false; clearInterval(t) }
   }, [reload])
 
-  const done = useMemo(() => onboarding ? completed(onboarding) : [], [onboarding])
-  const totalDone = done.filter(Boolean).length
+  const steps = useMemo(() => onboarding && person ? visibleSteps(onboarding, person) : [], [onboarding, person])
+  const fromHash = steps.find((s) => `#${s.id}` === hash)?.id ?? null
+  const open = chosen ?? fromHash ?? steps.find((s) => !s.done)?.id ?? null
 
-  const refresh = () => setReload((n) => n + 1)
-  if (loading && !onboarding) return <div className="space-y-4" aria-label="Carregando configuração"><div className="h-8 w-64 animate-pulse rounded bg-muted" /><div className="h-28 animate-pulse rounded-xl bg-muted" /><div className="h-48 animate-pulse rounded-xl bg-muted" /></div>
-  if (error && !onboarding) return <section className="rounded-xl border border-warn/30 bg-warn-soft p-6">
-    <CircleAlert className="size-5 text-warn" /><h1 className="mt-3 font-heading text-xl">Não consegui carregar o início</h1>
-    <p role="alert" className="mt-2 text-sm">{error}</p><Button className="mt-4" onClick={refresh}>Tentar novamente</Button>
-  </section>
-  if (!onboarding) return null
+  useEffect(() => {
+    if (fromHash && onboarding) document.getElementById(fromHash)?.scrollIntoView?.({ block: "start" })
+  }, [fromHash, onboarding])
 
-  const rows = [
-    <div key="computer-actions" className="mt-4 flex flex-wrap items-center gap-3">
-      <AgentDownloadButton variant="outline" available={onboarding.agent_available} />
-      <Link to="/instalar-agente" className="inline-flex h-9 items-center gap-2 px-2 text-sm text-muted-foreground hover:text-foreground"><Laptop className="size-4" /> Passo a passo</Link>
-    </div>,
-    <div key="apps-actions" className="mt-4 flex gap-2"><Link to="/registrar" className={cn(buttonVariants({ variant: "outline" }), "gap-2")}><WandSparkles className="size-4" /> Registrar app</Link><Link to="/apps" className="inline-flex h-9 items-center px-2 text-sm text-muted-foreground hover:text-foreground">Ver catálogo</Link></div>,
-    <div key="run-actions" className="mt-4 flex gap-2"><Link to="/apps" className={cn(buttonVariants({ variant: "default" }))}>Abrir catálogo</Link><Link to="/execucoes" className="inline-flex h-9 items-center px-2 text-sm text-muted-foreground hover:text-foreground">Ver execuções</Link></div>,
-    <div key="team-actions" className="mt-4 flex gap-2"><Link to="/equipe?aba=pessoas" className={cn(buttonVariants({ variant: "outline" }), "gap-2")}><Users className="size-4" /> Abrir equipe</Link></div>,
-  ]
+  if (!onboarding) {
+    if (error) return <section className="rounded-xl border border-warn/30 bg-warn-soft p-6">
+      <CircleAlert className="size-5 text-warn" /><h1 className="mt-3 font-heading text-xl">Não consegui carregar o Começar</h1>
+      <p role="alert" className="mt-2 text-sm">{error}</p><Button className="mt-4" onClick={() => setReload((n) => n + 1)}>Tentar novamente</Button>
+    </section>
+    return <div className="space-y-4" aria-label="Carregando"><div className="h-8 w-64 animate-pulse rounded bg-muted" /><div className="h-48 animate-pulse rounded-xl bg-muted" /></div>
+  }
+
+  const totalDone = steps.filter((s) => s.done).length
 
   return <>
-    <PageHeader title="Comece por aqui"><Button variant="outline" size="sm" onClick={refresh} disabled={loading} className="gap-2"><RefreshCw className={cn("size-3.5", loading && "animate-spin")} /> Atualizar</Button></PageHeader>
-    <div className="mb-7 rounded-xl border border-border bg-muted/40 p-5 md:flex md:items-center md:justify-between md:p-6">
-      <div><h2 className="font-heading text-2xl">Prepare o Ziv para sua equipe</h2><p className="mt-2 max-w-2xl text-sm text-muted-foreground">Faça cada etapa no seu ritmo. O progresso só muda quando o Ziv confirma que algo foi concluído.</p></div>
-      <div className="mt-4 shrink-0 md:mt-0 md:text-right"><p className="font-mono text-2xl font-semibold">{totalDone}<span className="text-muted-foreground">/{steps.length}</span></p><p className="text-xs text-muted-foreground">etapas concluídas</p></div>
-    </div>
-    {error && onboarding && <p role="alert" className="mb-4 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-    <ol className="relative flex flex-col gap-3">
+    <PageHeader title="Começar"><p className="text-sm text-muted-foreground">{totalDone} de {steps.length} feitos</p></PageHeader>
+    <p className="mb-5 max-w-2xl text-sm text-muted-foreground">Cada passo fica ✓ sozinho quando o Ziv confirma que ele foi concluído.</p>
+    {error && <p role="alert" className="mb-4 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+    <ol className="flex flex-col gap-3">
       {steps.map((step, index) => {
-        const complete = done[index]
-        const StepIcon = complete ? CircleCheck : step.id === "computer" ? Laptop : step.id === "team" ? Users : WandSparkles
-        return <li key={step.id} className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-xl border border-border bg-card p-4 sm:grid-cols-[3rem_1fr] sm:gap-4 sm:p-5">
-          <div className={cn("flex size-10 items-center justify-center rounded-full", complete ? "bg-ok-soft text-ok" : "bg-secondary text-muted-foreground")}><StepIcon className="size-5" /></div>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="font-mono text-xs text-muted-foreground">0{index + 1}</span><h2 className="font-heading text-base">{step.title}</h2>{complete && <span className="inline-flex items-center gap-1 text-xs font-medium text-ok"><Check className="size-3.5" /> Concluída</span>}</div>
-            <p className="mt-1 text-sm text-muted-foreground">{step.description}</p>
-            {rows[index]}
-          </div>
+        const isOpen = open === step.id
+        const copy = COPY[step.id]
+        return <li key={step.id} id={step.id} className="scroll-mt-6 rounded-xl border border-border bg-card">
+          <button type="button" aria-expanded={isOpen} aria-controls={`passo-${step.id}`} onClick={() => setChosen(isOpen ? "" as StepId : step.id)}
+            className="flex w-full items-center gap-3 p-4 text-left sm:p-5">
+            <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full text-sm", step.done ? "bg-foreground text-background" : "bg-secondary font-mono text-muted-foreground")}>
+              {step.done ? <><Check className="size-4" aria-hidden /><span className="sr-only">✓</span></> : index + 1}
+            </span>
+            <span className="min-w-0 flex-1"><span className="font-heading text-base">{copy.title}</span>{step.done && <span className="ml-2 text-sm text-muted-foreground">{copy.summary}</span>}</span>
+            <ChevronDown className={cn("size-4 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")} aria-hidden />
+          </button>
+          {isOpen && <div id={`passo-${step.id}`} className="border-t border-border p-4 sm:p-5"><Body id={step.id} onboarding={onboarding} /></div>}
         </li>
       })}
-      <li className="grid grid-cols-[2.5rem_1fr] gap-3 rounded-xl border border-dashed border-border p-4 sm:grid-cols-[3rem_1fr] sm:gap-4 sm:p-5">
-        <div className="flex size-10 items-center justify-center rounded-full bg-secondary text-muted-foreground"><Plug className="size-5" /></div>
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><span className="text-xs text-muted-foreground">Opcional</span><h2 className="font-heading text-base">Conectar o Claude</h2></div>
-          <p className="mt-1 text-sm text-muted-foreground">Deixe o Claude achar apps e artifacts, rodar apps e publicar artifacts com as suas permissões.</p>
-          <div className="mt-4 flex gap-2"><Link to="/configuracoes#claude" className={cn(buttonVariants({ variant: "outline" }))}>Conectar o Claude</Link></div>
-        </div>
-      </li>
     </ol>
-    {totalDone === steps.length && <p className="mt-5 rounded-xl border border-ok/25 bg-ok-soft p-4 text-sm font-medium text-ok">Tudo pronto. Sua equipe já pode encontrar e usar os apps no catálogo.</p>}
+    {steps.length > 0 && totalDone === steps.length && <p className="mt-5 rounded-xl border border-ok/25 bg-ok-soft p-4 text-sm font-medium text-ok">Tudo pronto. Sua equipe já pode encontrar e usar os apps no catálogo.</p>}
   </>
 }

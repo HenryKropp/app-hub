@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { MemoryRouter } from "react-router-dom"
+import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, expect, test, vi } from "vitest"
 import { api, ApiError } from "@/lib/api"
 import * as auth from "@/lib/auth"
@@ -132,4 +132,20 @@ test("already signed in goes straight to the shared app", async () => {
   mockAuth(false, henry)
   renderPage("/entrar?volta=%2Fapi%2Fshared%2Fauthorize%3Fapp%3Dnotas%26teste%3D1")
   await waitFor(() => expect(assign).toHaveBeenCalledWith("/api/shared/authorize?app=notas&teste=1"))
+})
+
+test("after signing in to a company with steps left, lands on Começar", async () => {
+  window.history.pushState({}, "", "/w/acme/entrar")
+  try {
+    mockAuth(false)
+    vi.spyOn(api, "login").mockResolvedValue(henry)
+    const o = { company_name: "Acme", can_manage: true, agent_available: true, computer_connected: false, has_apps: false, has_successful_run: false, has_team: false, claude_connected: false, has_artifacts: false }
+    const spy = vi.spyOn(api, "onboardingAt").mockResolvedValue(o)
+    render(<MemoryRouter initialEntries={["/entrar"]}><Routes><Route path="/entrar" element={<LoginPage />} /><Route path="/comecar" element={<p>Tela Começar</p>} /></Routes></MemoryRouter>)
+    await signIn()
+    expect(await screen.findByText("Tela Começar")).toBeInTheDocument()
+    expect(spy).toHaveBeenCalledWith("/w/acme")
+  } finally {
+    window.history.pushState({}, "", "/")
+  }
 })

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 import { afterEach, expect, test, vi } from "vitest"
@@ -25,14 +25,6 @@ test("shows the connector address with Copiar and a Copiado feedback", async () 
   expect(screen.getByText("Cole o endereço acima e salve.")).toBeInTheDocument()
   expect(screen.getByText("Clique em Conectar e entre com a sua conta do Ziv.")).toBeInTheDocument()
   expect(screen.getByText(/Se a sua empresa usa o Claude em plano de equipe/)).toBeInTheDocument()
-})
-
-test("the section has id claude so /comecar#claude reaches it, and scrolls there", async () => {
-  const scroll = vi.fn()
-  Element.prototype.scrollIntoView = scroll
-  const { container } = mount("/comecar#claude")
-  expect(container.querySelector("section#claude")).not.toBeNull()
-  await waitFor(() => expect(scroll).toHaveBeenCalled())
 })
 
 test("on localhost warns that the site way only works once the Ziv is on the internet", async () => {

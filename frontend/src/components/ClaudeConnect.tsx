@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react"
-import { useLocation } from "react-router-dom"
+import { useEffect, useState, type FormEvent } from "react"
 import { Check, Copy, TriangleAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,8 +47,6 @@ function CopyLine({ text, label }: { text: string; label: string }) {
 
 /** How to connect Claude: the connector address (claude.ai / app) and the Claude Code code. Rendered by the Começar page. */
 export function ClaudeConnect() {
-  const { hash } = useLocation()
-  const sectionRef = useRef<HTMLElement>(null)
   const [name, setName] = useState("")
   const [busy, setBusy] = useState(false)
   const [codeError, setCodeError] = useState("")
@@ -58,10 +55,6 @@ export function ClaudeConnect() {
 
   const address = `${window.location.origin}${workspaceBasePath()}/mcp`
   const local = isLocalHost(window.location.hostname)
-
-  useEffect(() => {
-    if (hash === "#claude") sectionRef.current?.scrollIntoView?.({ block: "start" })
-  }, [hash])
 
   const generate = async (e: FormEvent) => {
     e.preventDefault()
@@ -81,12 +74,7 @@ export function ClaudeConnect() {
   }
 
   return (
-    <section id="claude" ref={sectionRef} aria-labelledby="claude-titulo" className="scroll-mt-6">
-      <h2 id="claude-titulo" className="font-heading text-lg">Conectar o Claude</h2>
-      <p className="mt-1 mb-5 max-w-[68ch] text-muted-foreground">
-        Com o Ziv conectado, o Claude acha apps e artifacts, roda apps no seu computador e publica artifacts, sempre com as suas permissões.
-      </p>
-
+    <div>
       <div className="grid gap-4 lg:grid-cols-2">
         <section aria-labelledby="claude-site" className="rounded-xl border border-border bg-card p-5">
           <h3 id="claude-site" className="font-heading text-base">No site ou no app do Claude</h3>
@@ -130,6 +118,6 @@ export function ClaudeConnect() {
           )}
         </section>
       </div>
-    </section>
+    </div>
   )
 }

@@ -5,7 +5,8 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field } from "@/components/bits"
 import { AuthLayout, authError, authLink } from "@/components/AuthLayout"
-import { api, OFFLINE, workspaceUrl } from "@/lib/api"
+import { api, OFFLINE, workspaceBasePath, workspaceUrl } from "@/lib/api"
+import { landingAfterLogin } from "@/lib/landing"
 import { useAuth } from "@/lib/auth"
 
 // sharedVolta keeps only a way back to a shared app's sign-in handoff
@@ -19,7 +20,8 @@ function sharedVolta(volta: string | null): string {
 export function LoginPage() {
   const { needsSetup, person, setPerson, statusError, refresh } = useAuth()
   const navigate = useNavigate()
-  const from = (useLocation().state as { from?: string } | null)?.from ?? "/"
+  const explicitFrom = (useLocation().state as { from?: string } | null)?.from
+  const from = explicitFrom ?? "/"
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -58,8 +60,11 @@ export function LoginPage() {
         window.location.assign(toApp)
         return
       }
+      // In a company, someone with steps left lands on Começar; the principal keeps today's behavior.
+      const base = workspaceBasePath()
+      const destination = explicitFrom || base === "" ? from : await landingAfterLogin(base, p)
       setPerson(p)
-      navigate(from, { replace: true })
+      navigate(destination.startsWith(base) && base ? destination.slice(base.length) || "/" : destination, { replace: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível entrar.")
     } finally {

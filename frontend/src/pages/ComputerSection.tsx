@@ -58,11 +58,11 @@ export function ComputerSection() {
                 )}
                 {c.update_state === "gave_up" ? (
                   <p className="mt-2 flex items-center gap-2 text-sm text-warn">
-                    <TriangleAlert className="size-4" /> Não conseguimos atualizar o Agente sozinho. Baixe e abra a versão {info.expected_version} de novo.
+                    <TriangleAlert className="size-4" /> Não conseguimos atualizar o Agente sozinho. Baixe a versão {info.expected_version} de novo. <Link to="/comecar#computador" className="underline underline-offset-4">Baixar no Começar</Link>
                   </p>
                 ) : c.outdated && (
                   <p className="mt-2 flex items-center gap-2 text-sm text-warn">
-                    <TriangleAlert className="size-4" /> Atualize o Agente: baixe e abra a versão {info.expected_version}.
+                    <TriangleAlert className="size-4" /> Atualize o Agente para a versão {info.expected_version}. <Link to="/comecar#computador" className="underline underline-offset-4">Baixar no Começar</Link>
                   </p>
                 )}
               </div>
