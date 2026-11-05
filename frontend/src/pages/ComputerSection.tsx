@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react"
+import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { Laptop, RefreshCw, TriangleAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { AgentDownloadButton } from "@/components/AgentDownload"
 import { api, type ComputersInfo } from "@/lib/api"
 import { formatWhen } from "@/lib/runs"
 
@@ -26,25 +26,15 @@ export function ComputerSection() {
   if (error) return <p role="alert" className="text-destructive">{error}</p>
   if (!info) return <p className="text-muted-foreground">Carregando…</p>
 
-  const install = info.agent_available
-    ? <AgentDownloadButton />
-    : <p className="text-sm text-warn">O Agente ainda não foi preparado neste Ziv. Peça a quem administra o Ziv.</p>
   return (
     <section aria-labelledby="computador">
       <h2 id="computador" className="font-heading text-lg">Meu computador</h2>
-      <p className="mt-1 mb-5 max-w-[68ch] text-muted-foreground">
-        O Agente é um programa pequeno que fica no seu Windows, sem ícone. É ele que abre os apps quando você clica em Rodar.
-      </p>
+      <p className="mt-1 mb-5 max-w-[68ch] text-muted-foreground">Os computadores onde o Ziv abre os apps quando você clica em Rodar.</p>
 
       {info.computers.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-6">
           <h3 className="font-heading text-lg">Nenhum computador conectado</h3>
-          <ol className="mt-4 flex list-decimal flex-col gap-2 pl-5 text-sm">
-             <li>Baixe o Agente pelo botão abaixo.</li>
-             <li>Abra o arquivo baixado. Se o Windows perguntar, confirme que quer abrir.</li>
-            <li>O navegador vai abrir uma página do Ziv. Clique em <strong>Conectar</strong>.</li>
-          </ol>
-          <div className="mt-6">{install}</div>
+          <Link to="/comecar#computador" className="mt-2 inline-block text-sm underline underline-offset-4">Conectar no Começar</Link>
         </div>
       ) : (
         <ul className="flex flex-col gap-4">
@@ -54,7 +44,7 @@ export function ComputerSection() {
               <div className="min-w-0 flex-1">
                 <p className="font-heading text-base">{c.name}</p>
                 <p className="text-sm text-muted-foreground">
-                  <span className={c.connected ? "font-medium text-ok" : "font-medium text-warn"}>{c.connected ? "Conectado" : "Desligado ou sem internet"}</span>
+                  <span className={c.connected ? "font-medium text-ok" : "font-medium text-warn"}>{c.connected ? "Agente ligado" : "Agente desligado"}</span>
                   {c.last_seen_at && ` · visto pela última vez em ${formatWhen(c.last_seen_at)}`}
                   {c.agent_version && ` · Agente ${c.agent_version}`}
                 </p>
@@ -79,7 +69,6 @@ export function ComputerSection() {
               <Button variant="outline" onClick={() => disconnect(c.id, c.name)}>Desconectar</Button>
             </li>
           ))}
-          <li className="pt-2">{install}</li>
         </ul>
       )}
     </section>

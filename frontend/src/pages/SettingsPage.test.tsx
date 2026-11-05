@@ -12,14 +12,19 @@ afterEach(() => {
   localStorage.clear()
 })
 
-test("settings holds Meu computador and the theme choice", async () => {
+test("settings lists connections with status, links to Começar for what is missing, and keeps Aparência", async () => {
   const user = userEvent.setup()
   vi.spyOn(api, "computers").mockResolvedValue({ computers: [], expected_version: "0.1.0", agent_available: true })
   vi.spyOn(api, "mcpConnections").mockResolvedValue([])
   render(<ThemeProvider><MemoryRouter><SettingsPage /></MemoryRouter></ThemeProvider>)
   expect(screen.getByRole("heading", { name: "Configurações" })).toBeInTheDocument()
-  expect(await screen.findByRole("heading", { name: "Meu computador" })).toBeInTheDocument()
-  expect(screen.getByRole("heading", { name: "Conectar o Claude" })).toBeInTheDocument()
+  expect(await screen.findByText("Nenhum computador conectado")).toBeInTheDocument()
+  expect(await screen.findByText("Nenhuma conexão do Claude")).toBeInTheDocument()
+  const links = screen.getAllByRole("link", { name: "Conectar no Começar" })
+  expect(links.map((l) => l.getAttribute("href"))).toEqual(["/comecar#computador", "/comecar#claude"])
+  expect(screen.queryByRole("link", { name: /Baixar/ })).not.toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: /Gerar código/ })).not.toBeInTheDocument()
+  expect(screen.queryByText(/Endereço do conector/)).not.toBeInTheDocument()
   expect(screen.getByRole("heading", { name: "Aparência" })).toBeInTheDocument()
   await user.click(screen.getByRole("radio", { name: /Escuro/ }))
   expect(screen.getByRole("radio", { name: /Escuro/ })).toHaveAttribute("aria-checked", "true")
