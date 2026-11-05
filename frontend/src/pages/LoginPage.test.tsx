@@ -47,9 +47,17 @@ test("first access creates the administrator", async () => {
   await user.type(screen.getByLabelText("Seu nome"), "Henry")
   await user.type(screen.getByLabelText("E-mail"), "henry@alis.com")
   await user.type(screen.getByLabelText("Senha"), "senha-forte-1")
+  expect(screen.getByText("Está no arquivo de configuração do servidor (SETUP_CODE).")).toBeInTheDocument()
+  await user.type(screen.getByLabelText("Código de instalação"), "codigo-123")
   await user.click(screen.getByRole("button", { name: "Criar conta e entrar" }))
-  expect(setup).toHaveBeenCalledWith({ name: "Henry", email: "henry@alis.com", password: "senha-forte-1" })
+  expect(setup).toHaveBeenCalledWith({ name: "Henry", email: "henry@alis.com", password: "senha-forte-1", setup_code: "codigo-123" })
   expect(setPerson).toHaveBeenCalledWith(henry)
+})
+
+test("the installation code field exists only on first access", () => {
+  mockAuth(false)
+  renderPage()
+  expect(screen.queryByLabelText("Código de instalação")).not.toBeInTheDocument()
 })
 
 test("login shows the error from the server", async () => {

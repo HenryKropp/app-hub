@@ -3,6 +3,8 @@ package handler
 import (
 	"net/http"
 	"testing"
+
+	"github.com/HenryKropp/app-hub/backend/internal/config"
 )
 
 func TestSetupLoginLogout(t *testing.T) {
@@ -27,7 +29,7 @@ func TestSetupLoginLogout(t *testing.T) {
 	}
 
 	// Setup works only once.
-	if code := c.fresh().do("POST", "/api/auth/setup", map[string]string{"name": "X", "email": "x@x.com", "password": "12345678"}, nil); code != http.StatusConflict {
+	if code := c.fresh().do("POST", "/api/auth/setup", map[string]string{"name": "X", "email": "x@x.com", "password": "12345678", "setup_code": testSetupCode}, nil); code != http.StatusConflict {
 		t.Errorf("second setup = %d", code)
 	}
 
@@ -61,7 +63,7 @@ func TestSetupLoginLogout(t *testing.T) {
 
 func TestSetupValidation(t *testing.T) {
 	c := newClient(t, false)
-	if code := c.do("POST", "/api/auth/setup", map[string]string{"name": "H", "email": "h@x.com", "password": "curta"}, nil); code != http.StatusBadRequest {
+	if code := c.do("POST", "/api/auth/setup", map[string]string{"name": "H", "email": "h@x.com", "password": "curta", "setup_code": testSetupCode}, nil); code != http.StatusBadRequest {
 		t.Errorf("short password = %d", code)
 	}
 }
@@ -117,5 +119,39 @@ func TestPeopleManagement(t *testing.T) {
 	bruno.do("POST", "/api/auth/login", map[string]string{"email": "bruno@alis.com", "password": "senha-bruno"}, nil)
 	if code := bruno.do("POST", "/api/people", map[string]string{"name": "D", "email": "d@alis.com", "password": "senha-d-123", "role": "admin"}, nil); code != http.StatusForbidden {
 		t.Errorf("non-admin create = %d", code)
+	}
+}
+
+func TestSetupRequiresCode(t *testing.T) {
+	c := newClient(t, false)
+	body := func(code string) map[string]string {
+		m := map[string]string{"name": "H", "email": "h@x.com", "password": "senha-forte-1"}
+		if code != "" {
+			m["setup_code"] = code
+		}
+		return m
+	}
+	if code := c.do("POST", "/api/auth/setup", body(""), nil); code != http.StatusForbidden {
+		t.Errorf("no code = %d", code)
+	}
+	if code := c.do("POST", "/api/auth/setup", body("errado"), nil); code != http.StatusForbidden {
+		t.Errorf("wrong code = %d", code)
+	}
+	if code := c.do("POST", "/api/auth/setup", body(testSetupCode), nil); code != http.StatusCreated {
+		t.Errorf("right code = %d", code)
+	}
+}
+
+func TestSetupWithoutCodeConfiguredRefused(t *testing.T) {
+	c := newClientWithConfig(t, config.Config{})
+	if code := c.do("POST", "/api/auth/setup", map[string]string{"name": "H", "email": "h@x.com", "password": "senha-forte-1", "setup_code": ""}, nil); code != http.StatusForbidden {
+		t.Errorf("unconfigured = %d", code)
+	}
+}
+
+func TestSetupDevModeNeedsNoCode(t *testing.T) {
+	c := newClientWithConfig(t, config.Config{DevMode: true})
+	if code := c.do("POST", "/api/auth/setup", map[string]string{"name": "H", "email": "h@x.com", "password": "senha-forte-1"}, nil); code != http.StatusCreated {
+		t.Errorf("dev mode = %d", code)
 	}
 }

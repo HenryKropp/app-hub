@@ -400,7 +400,7 @@ export const api = {
   status: () => request<{ needs_setup: boolean; person: Person | null }>("GET", "/api/auth/status"),
   onboarding: () => request<Onboarding>("GET", "/api/onboarding"),
   saveCompanyName: (company_name: string) => request<Onboarding>("PUT", "/api/onboarding", { company_name }),
-  setup: (b: { name: string; email: string; password: string }) => request<Person>("POST", "/api/auth/setup", b),
+  setup: (b: { name: string; email: string; password: string; setup_code?: string }) => request<Person>("POST", "/api/auth/setup", b),
   login: (b: { email: string; password: string }) => request<Person>("POST", "/api/auth/login", b),
   // Signs in to a company other than the current page's (e.g. right after creating it).
   loginAt: (basePath: string, b: { email: string; password: string }) =>
