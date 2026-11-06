@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, test, vi } from "vitest"
 import { api, ApiError, type AppDetail, type Person } from "@/lib/api"
 import * as auth from "@/lib/auth"
 import { RunsProvider } from "@/lib/runs-context"
-import { VIEW_ONLY, activeRun, bia, detail, henry } from "@/test/fixtures"
+import { VIEW_ONLY, activeRun, bia, detail, henry, manifest } from "@/test/fixtures"
 import { toast } from "sonner"
 import { AppPage } from "./AppPage"
 
@@ -119,6 +119,21 @@ test("apps that cannot run have no Rodar button", async () => {
   renderAt()
   expect(await screen.findByText("Eq. Research Files Prep")).toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "Rodar" })).not.toBeInTheDocument()
+})
+
+test("a script that can run offers Agendar and lists its schedules; a desktop app does not", async () => {
+  const user = userEvent.setup()
+  base(detail({ manifest: manifest({ kind: "script", name: "Eq. Research Files Prep" }) }))
+  vi.spyOn(api, "appSchedules").mockResolvedValue([])
+  vi.spyOn(api, "computers").mockResolvedValue({ computers: [], expected_version: "1", agent_available: true })
+  const { unmount } = renderAt()
+  await user.click(await screen.findByRole("button", { name: "Agendar" }))
+  expect(await screen.findByRole("heading", { name: "Agendar Eq. Research Files Prep" })).toBeInTheDocument()
+  unmount()
+  base(detail())
+  renderAt()
+  expect(await screen.findByRole("button", { name: "Rodar" })).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Agendar" })).not.toBeInTheDocument()
 })
 
 test("shows the history timeline", async () => {

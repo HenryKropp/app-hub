@@ -175,7 +175,7 @@ export type Computer = {
 }
 export type ComputersInfo = { computers: Computer[]; expected_version: string; agent_available: boolean }
 export type Pairing = { code: string; computer_name: string; expired: boolean; approved: boolean }
-export type RunStatus = "waiting" | "running" | "done" | "no_files" | "error" | "interrupted" | "stopped"
+export type RunStatus = "waiting" | "running" | "done" | "no_files" | "error" | "interrupted" | "stopped" | "missed"
 export type RunFile = { id: number; path: string; size: number; modified: string; change: "new" | "changed" }
 export type RunGroup = { index: number; label: string; files: RunFile[] }
 export type Run = {
@@ -184,8 +184,8 @@ export type Run = {
   created_at: string; started_at: string | null; finished_at: string | null; groups: RunGroup[]
   // Only for the person who ran it, while it is open and their Agente can stop it.
   can_stop: boolean
-  /** "mcp" when Claude started it through the Ziv connector. */
-  origin?: "manual" | "mcp"
+  /** "mcp" when Claude started it through the Ziv connector; "schedule" when a schedule did. */
+  origin?: "manual" | "mcp" | "schedule"
 }
 export type ActiveRun = {
   id: number; app_id: number; app_name: string; app_folder_display: string; status: RunStatus; error_message: string
@@ -196,6 +196,21 @@ export type ActiveRun = {
 export type RunListItem = {
   id: number; app_id: number; app_name: string; status: RunStatus; output_folder: string; person_id: number; person_name: string
   created_at: string; started_at: string | null; finished_at: string | null; file_count: number
+}
+/** How often a schedule runs (ADR 024). days: 0 = domingo .. 6 = sábado. */
+export type Frequency = { kind: "minutes" | "hours" | "daily" | "weekdays" | "monthly"; every?: number; at?: string; days?: number[]; day?: number }
+export type Schedule = {
+  id: number; app_id: number; app_name: string; person_id: number; person_name: string
+  /** Only the person who made it edits it and sees its values. */
+  mine: boolean; name: string; frequency: Frequency; describe: string
+  computer_id: number; computer_name: string; active: boolean; paused_reason: string; situation: string
+  next_run_at: string | null; last_run_at: string | null; last_run_id: number | null; last_run_status: RunStatus | ""
+  upcoming: string[]
+  output_folder?: string; inputs?: Record<string, string[]>; files?: Record<string, { name: string }>
+}
+export type ScheduleForm = {
+  name: string; frequency: Frequency; computer_id: number; output_folder: string
+  inputs: Record<string, string | string[]>; files: Record<string, { name: string; content_base64: string }>
 }
 export type RunList = { items: RunListItem[]; more: boolean }
 export type AppCheck = { folder_readable: boolean; version: { number: number; created_at: string } | null }
@@ -262,10 +277,11 @@ export type ArtifactSummary = {
 }
 export type HomeItem = { kind: "app" | "artifact"; id: number; name: string; summary: string; area: string; used_at?: string }
 export type HomeWarning = {
-  kind: "run_error" | "run_waiting" | "run_interrupted" | "computer_offline" | "agent_outdated" | "shared_crashed" | "app_errors" | "approval_pending"
+  kind: "run_error" | "run_waiting" | "run_interrupted" | "computer_offline" | "agent_outdated" | "shared_crashed" | "app_errors" | "approval_pending" | "schedule_paused"
   at?: string // when it happened (run created, last seen, last error); absent when unknown
   app_id?: number; app_name?: string; run_id?: number
   computer_name?: string; count?: number
+  reason?: string // schedule_paused: why the schedule stopped
 }
 export type Home = { attention: HomeWarning[]; favorites: HomeItem[]; recent: HomeItem[]; runs: RunListItem[] }
 export type TeamHome = {
@@ -479,6 +495,13 @@ export const api = {
   runs: (scope: "mine" | "all", before?: number) =>
     request<RunList>("GET", `/api/runs?scope=${scope}${before ? `&before=${before}` : ""}`),
   appRuns: (appId: number | string) => request<RunSummary[]>("GET", `/api/apps/${appId}/runs`),
+  appSchedules: (appId: number | string) => request<Schedule[]>("GET", `/api/apps/${appId}/schedules`),
+  mySchedules: () => request<Schedule[]>("GET", "/api/me/schedules"),
+  createSchedule: (appId: number | string, form: ScheduleForm) => request<Schedule>("POST", `/api/apps/${appId}/schedules`, form),
+  updateSchedule: (id: number, form: ScheduleForm) => request<Schedule>("PUT", `/api/schedules/${id}`, form),
+  pauseSchedule: (id: number) => request<Schedule>("POST", `/api/schedules/${id}/pause`),
+  resumeSchedule: (id: number) => request<Schedule>("POST", `/api/schedules/${id}/resume`),
+  deleteSchedule: (id: number) => request<void>("DELETE", `/api/schedules/${id}`),
   history: (appId: number | string, filter: HistoryFilter, before?: string) =>
     request<History>("GET", `/api/apps/${appId}/history?type=${filter}${before ? `&before=${encodeURIComponent(before)}` : ""}`),
   version: (appId: number | string, n: number | string) => request<VersionInfo>("GET", `/api/apps/${appId}/versions/${n}`),

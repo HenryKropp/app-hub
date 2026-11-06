@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, ExternalLink, FolderOpen, KeyRound, Play, TriangleAlert } from "lucide-react"
+import { ArrowLeft, CalendarClock, ExternalLink, FolderOpen, KeyRound, Play, TriangleAlert } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { HistoryTimeline } from "@/components/HistoryTimeline"
 import { KindTab, LoadError, SavedIn } from "@/components/bits"
@@ -12,6 +12,8 @@ import { MakeShared, SharedSection } from "@/components/ficha/shared/SharedSecti
 import { AppControlBar } from "@/components/ficha/AppControl"
 import { Tech } from "@/components/ficha/shared/Tech"
 import { FavoriteStar } from "@/components/FavoriteStar"
+import { ScheduleDialog } from "@/components/ScheduleDialog"
+import { SchedulesSection } from "@/components/SchedulesSection"
 import { api, openSharedUrl, type AppDetail, type AppSummary, type Area, type Manifest, type PersonRow, type RunSummary } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
@@ -45,6 +47,8 @@ export function AppPage() {
   const [historyKey, setHistoryKey] = useState(0)
   const [tries, setTries] = useState(0)
   const [runs, setRuns] = useState<RunSummary[] | null>(null)
+  const [scheduling, setScheduling] = useState(false)
+  const [schedulesKey, setSchedulesKey] = useState(0)
   const [open, setOpen] = useState<PartKey | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [lists, setLists] = useState<Lists>({ areas: [], people: [], apps: [] })
@@ -253,6 +257,11 @@ export function AppPage() {
             <Button variant="run" onClick={() => run(target)} disabled={busy.has(app.id)} className="h-11 gap-2 pr-6 pl-5 text-[0.95rem]">
               <Play className="size-4" /> Rodar
             </Button>
+            {m.kind === "script" && (
+              <Button variant="outline" onClick={() => setScheduling(true)} className="gap-2">
+                <CalendarClock className="size-4" /> Agendar
+              </Button>
+            )}
             {saved && <SavedIn folder={saved} full onChange={() => run(target, { ask: true })} className="max-w-sm text-sm lg:text-right" />}
           </div>
         )}
@@ -277,6 +286,11 @@ export function AppPage() {
           <Section title={can.runs ? "Execuções" : "Suas execuções"}>
             <RunList runs={runs} everyone={can.runs} />
           </Section>
+        )}
+        {m.kind === "script" && <SchedulesSection appId={app.id} appName={m.name} manifest={m} reloadKey={schedulesKey} />}
+        {scheduling && (
+          <ScheduleDialog appId={app.id} appName={m.name} manifest={m} onClose={() => setScheduling(false)}
+            onSaved={() => { setScheduling(false); setSchedulesKey((k) => k + 1); toast.success("Agendamento salvo.") }} />
         )}
         {app.shared ? (
           <SharedSection app={app} can={can} onChanged={sharedChanged} />

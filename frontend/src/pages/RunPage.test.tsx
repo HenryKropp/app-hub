@@ -147,6 +147,12 @@ test("stopped run explains and lists its files", async () => {
   expect(screen.getByRole("heading", { name: /Data Pack/ })).toBeInTheDocument()
 })
 
+test("a run started by a schedule says agendada", async () => {
+  vi.spyOn(api, "run").mockResolvedValueOnce(run({ origin: "schedule" }))
+  renderAt()
+  expect(await screen.findByText("agendada")).toBeInTheDocument()
+})
+
 test("a run started by Claude says pelo Claude; a manual one does not", async () => {
   vi.spyOn(api, "run").mockResolvedValueOnce(run({ origin: "mcp" })).mockResolvedValueOnce(run({ origin: "manual" }))
   const { unmount } = renderAt()

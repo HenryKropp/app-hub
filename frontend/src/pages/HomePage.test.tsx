@@ -57,6 +57,13 @@ test("warnings without a time show none", async () => {
   expect(screen.queryByText("agora")).not.toBeInTheDocument()
 })
 
+test("a paused schedule says which app and why", async () => {
+  vi.spyOn(api, "home").mockResolvedValue({ ...empty, attention: [{ kind: "schedule_paused", app_id: 4, app_name: "Rentabilidade", reason: "Falhou 5 vezes seguidas" }] })
+  mount()
+  const link = await screen.findByRole("link", { name: "Rentabilidade: agendamento pausado — Falhou 5 vezes seguidas" })
+  expect(link).toHaveAttribute("href", "/apps/4")
+})
+
 test("hides empty parts", async () => {
   vi.spyOn(api, "home").mockResolvedValue(empty)
   mount()
