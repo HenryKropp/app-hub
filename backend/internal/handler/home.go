@@ -35,6 +35,7 @@ type homeWarningJSON struct {
 	RunID        int64      `json:"run_id,omitempty"`
 	ComputerName string     `json:"computer_name,omitempty"`
 	Count        int        `json:"count,omitempty"`
+	Reason       string     `json:"reason,omitempty"`
 }
 
 type homeJSON struct {
@@ -157,6 +158,19 @@ func (h *Handler) homeAttention(r *http.Request, me sqlc.Person, acc *access.Per
 			kind = "run_interrupted"
 		}
 		out = append(out, homeWarningJSON{Kind: kind, At: &x.CreatedAt.Time, AppID: x.AppID, AppName: x.AppName, RunID: x.ID})
+	}
+
+	// Scheduled runs do not warn one by one: a schedule that keeps failing
+	// pauses itself and warns once (ADR 024).
+	paused, err := h.q.ListMyPausedSchedules(ctx, me.ID)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range paused {
+		if _, ok := c.apps[p.AppID]; !ok {
+			continue
+		}
+		out = append(out, homeWarningJSON{Kind: "schedule_paused", At: &p.UpdatedAt.Time, AppID: p.AppID, AppName: p.AppName, Reason: p.PausedReason})
 	}
 
 	comps, err := h.q.ListPersonComputers(ctx, me.ID)

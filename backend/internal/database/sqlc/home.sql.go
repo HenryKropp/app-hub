@@ -108,7 +108,7 @@ const listMyAttentionRuns = `-- name: ListMyAttentionRuns :many
 SELECT r.id, r.app_id, a.name AS app_name, r.status, r.created_at, r.error_message
 FROM runs r
 JOIN apps a ON a.id = r.app_id
-WHERE r.person_id = $1 AND r.dismissed_at IS NULL
+WHERE r.person_id = $1 AND r.dismissed_at IS NULL AND r.origin <> 'schedule'
   AND r.created_at > now() - interval '7 days'
   AND (r.status IN ('error', 'interrupted') OR (r.status = 'waiting' AND r.created_at < now() - interval '5 minutes'))
 ORDER BY r.created_at DESC

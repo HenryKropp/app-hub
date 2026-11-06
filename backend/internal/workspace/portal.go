@@ -43,6 +43,9 @@ type Portal struct {
 	createMu       sync.Mutex
 	credentialKeys *vault.Keyring
 	principal      func(*handler.Handler)
+	// clock stops every company's schedule clock on Close.
+	clock     context.Context
+	stopClock context.CancelFunc
 }
 
 // Option adjusts a Portal before its companies are attached.
@@ -57,6 +60,7 @@ func WithPrincipal(fn func(*handler.Handler)) Option {
 
 func New(ctx context.Context, root *pgxpool.Pool, cfg config.Config, opts ...Option) (*Portal, error) {
 	p := &Portal{cfg: cfg, root: root, entries: map[string]*entry{}}
+	p.clock, p.stopClock = context.WithCancel(context.Background())
 	for _, o := range opts {
 		o(p)
 	}
@@ -158,6 +162,7 @@ func (p *Portal) attach(e *entry) {
 	mux := http.NewServeMux()
 	h.Register(mux)
 	e.http = h.Secure(mux)
+	h.StartScheduler(p.clock)
 }
 
 func (p *Portal) create(ctx context.Context, name, slug string, me sqlc.Person) (result string, err error) {
@@ -368,6 +373,7 @@ func (p *Portal) load(ctx context.Context, slug string) *entry {
 }
 
 func (p *Portal) Close() {
+	p.stopClock()
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	for _, e := range p.entries {
