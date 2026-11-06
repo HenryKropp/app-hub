@@ -404,6 +404,10 @@ func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if h.serverPath(a.FolderPath, a.ID) != nil {
+		writeNotOnServer(w)
+		return
+	}
 	if info, err := os.Stat(a.FolderPath); err != nil || !info.IsDir() {
 		writeError(w, http.StatusConflict, "Não consegui ler a pasta do app agora. Nada foi salvo. Confira se o OneDrive está sincronizado e tente de novo.")
 		return
