@@ -174,7 +174,8 @@ func (p *Podman) exists(ctx context.Context, args ...string) (bool, error) {
 
 // ensureNetwork creates the app's own network (labelled, and isolated from
 // the other apps' networks) if it does not exist yet.
-func (p *Podman) ensureNetwork(ctx context.Context, name, appLabel string) error {
+func (p *Podman) ensureNetwork(ctx context.Context, name string, labels map[string]string) error {
+	appLabel := labels[Label]
 	if !HubNetwork(name) || !hubOwned(appLabel) {
 		return fmt.Errorf("rede %q não é de um app do Ziv", name)
 	}
@@ -182,7 +183,11 @@ func (p *Podman) ensureNetwork(ctx context.Context, name, appLabel string) error
 	if err != nil || ok {
 		return err
 	}
-	_, err = p.run(ctx, shortTimeout, nil, "network", "create", "--label", Label+"="+appLabel, "-o", "isolate=true", "--", name)
+	args := []string{"network", "create", "--label", Label + "=" + appLabel}
+	if key := WorkspaceOf(labels); key != "" {
+		args = append(args, "--label", WorkspaceLabel+"="+key)
+	}
+	_, err = p.run(ctx, shortTimeout, nil, append(args, "-o", "isolate=true", "--", name)...)
 	if err != nil {
 		if again, xerr := p.exists(ctx, "network", "exists", name); xerr == nil && again {
 			return nil // created at the same time by the app's other box
@@ -252,7 +257,7 @@ func (p *Podman) Build(ctx context.Context, b BuildSpec) (string, string, error)
 }
 
 func (p *Podman) Start(ctx context.Context, s StartSpec) (string, error) {
-	if err := p.ensureNetwork(ctx, s.Network, s.Labels[Label]); err != nil {
+	if err := p.ensureNetwork(ctx, s.Network, s.Labels); err != nil {
 		return "", err
 	}
 	if taken, err := p.exists(ctx, "container", "exists", "--", s.Name); err != nil {
