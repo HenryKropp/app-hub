@@ -160,7 +160,7 @@ export function ScheduleDialog({ appId, appName, manifest, schedule, onClose, on
 
         <fieldset className="flex min-w-0 flex-col gap-3">
           <legend className="mb-1.5 text-sm font-medium">Quando rodar</legend>
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-wrap items-start gap-3">
             <Field label="Frequência" htmlFor="schedule-kind" className="min-w-44 flex-1">
               <NativeSelect id="schedule-kind" className="h-10" value={kind} disabled={saving} onChange={(e) => {
                 const k = e.target.value as Kind
@@ -177,7 +177,7 @@ export function ScheduleDialog({ appId, appName, manifest, schedule, onClose, on
             </Field>
             {(kind === "minutes" || kind === "hours") && (
               <Field label={kind === "minutes" ? "A cada quantos minutos" : "A cada quantas horas"} htmlFor="schedule-every" className="w-44">
-                <Input id="schedule-every" type="number" inputMode="numeric" min={kind === "minutes" ? 5 : 1} max={kind === "minutes" ? 1440 : 24} value={every} onChange={(e) => setEvery(e.target.value)} disabled={saving} />
+                <Input id="schedule-every" className="h-10" type="number" inputMode="numeric" min={kind === "minutes" ? 5 : 1} max={kind === "minutes" ? 1440 : 24} value={every} onChange={(e) => setEvery(e.target.value)} disabled={saving} />
               </Field>
             )}
             {kind === "monthly" && (
@@ -189,7 +189,7 @@ export function ScheduleDialog({ appId, appName, manifest, schedule, onClose, on
             )}
             {kind !== "minutes" && kind !== "hours" && (
               <Field label="Às" htmlFor="schedule-at" className="w-32">
-                <Input id="schedule-at" type="time" value={at} onChange={(e) => setAt(e.target.value)} disabled={saving} />
+                <Input id="schedule-at" className="h-10" type="time" value={at} onChange={(e) => setAt(e.target.value)} disabled={saving} />
               </Field>
             )}
           </div>
