@@ -252,7 +252,7 @@ func (s *Service) Unshare(ctx context.Context, appID, by int64) error {
 			logErr(s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: d.ID, Status: "retired"}), "retire", "deployment", d.ID)
 		}
 	}
-	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork(appID)), "remove network", "app", appID)
+	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork("", appID)), "remove network", "app", appID)
 	for _, n := range engine.LegacyAppNetworks(appID) {
 		logErr(s.eng.RemoveNetwork(ctx, n), "remove network", "app", appID)
 	}
@@ -282,7 +282,7 @@ func (s *Service) Purge(ctx context.Context, appID int64) error {
 			return fmt.Errorf("drop %s: %w", sa.DbName, err)
 		}
 	}
-	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork(appID)), "remove network", "app", appID) // if Unshare could not
+	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork("", appID)), "remove network", "app", appID) // if Unshare could not
 	for _, n := range engine.LegacyAppNetworks(appID) {
 		logErr(s.eng.RemoveNetwork(ctx, n), "remove network", "app", appID)
 	}

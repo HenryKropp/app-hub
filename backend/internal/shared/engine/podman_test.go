@@ -28,7 +28,7 @@ func TestPodmanRoundTrip(t *testing.T) {
 		t.Fatalf("%v\n%s", err, log)
 	}
 	t.Cleanup(func() { p.RemoveImage(ctx, img) })
-	net := AppNetwork(999999)
+	net := AppNetwork("", 999999)
 	id, err := p.Start(ctx, StartSpec{Name: "apphub-probe-1", Image: img, Labels: labels, Port: 9090, MemoryMB: 128, CPUs: 0.5,
 		Env: map[string]string{"PORT": "9090"}, DataDir: filepath.Join(dir, "data"), Network: net})
 	if err != nil {
