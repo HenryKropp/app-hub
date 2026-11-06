@@ -151,3 +151,17 @@ func TestRestoreIsAllOrNothing(t *testing.T) {
 		t.Fatalf("%v", calls)
 	}
 }
+
+func TestPrefixedNames(t *testing.T) {
+	a := New(nil, "h", nil, "c", "u")
+	a.Prefix = "app_w0123456789a_"
+	if a.Name(5) != "app_w0123456789a_5" || a.TestName(5, 9) != "app_w0123456789a_5_test_9" ||
+		!safeName.MatchString(a.Name(5)) || !safeName.MatchString(a.TestName(5, 9)) {
+		t.Fatal(a.Name(5), a.TestName(5, 9))
+	}
+	f := NewFake()
+	f.Prefix = "app_wX_"
+	if f.Name(5) != "app_wX_5" || f.TestName(5, 9) != "app_wX_5_test_9" {
+		t.Fatal(f.Name(5))
+	}
+}
