@@ -154,7 +154,7 @@ func (h *Handler) restoreVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := h.insertVersion(ctx, a, snap, after, contents, "restore",
-		pgtype.Int4{Int32: target.Number, Valid: true}, pgtype.Int8{Int64: me.ID, Valid: true}, false)
+		pgtype.Int4{Int32: target.Number, Valid: true}, pgtype.Int8{Int64: me.ID, Valid: true}, false, "manual", "")
 	if err != nil {
 		internalError(w, "insert restore version", err)
 		return
