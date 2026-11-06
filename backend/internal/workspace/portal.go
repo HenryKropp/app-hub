@@ -22,6 +22,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/database"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/handler"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/tenant"
 	"github.com/HenryKropp/app-hub/backend/internal/vault"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -32,6 +33,7 @@ import (
 
 type entry struct {
 	name, slug, schema string
+	key                string // tenant.KeyOf(schema): names the company's containers, databases and folders
 	pool               *pgxpool.Pool
 	http               http.Handler
 }
@@ -42,10 +44,9 @@ type Portal struct {
 	entries        map[string]*entry
 	createMu       sync.Mutex
 	credentialKeys *vault.Keyring
-	principal      func(*handler.Handler)
-	// company runs on every company's handler (principal included) before
+	// shared runs on every company's handler (principal included) before
 	// its routes are registered: the shared-app parts are plugged in here.
-	company func(slug, schema string, pool *pgxpool.Pool, h *handler.Handler)
+	shared func(Company, *handler.Handler)
 	// clock stops every company's schedule clock on Close.
 	clock     context.Context
 	stopClock context.CancelFunc
@@ -54,11 +55,19 @@ type Portal struct {
 // Option adjusts a Portal before its companies are attached.
 type Option func(*Portal)
 
-// WithPrincipal runs fn on the main company's handler only. Shared apps
-// (containers, gateway, app addresses) use global resource names, so they
-// are plugged into the main company and stay off for every other company.
-func WithPrincipal(fn func(*handler.Handler)) Option {
-	return func(p *Portal) { p.principal = fn }
+// Company is what the shared-app parts need to know about one company.
+type Company struct {
+	Tenant  tenant.Tenant
+	Name    string
+	Pool    *pgxpool.Pool
+	BaseURL string // the company's own Hub address (BASE_URL plus /w/<slug>)
+}
+
+// WithShared runs fn on every company's handler, the principal included,
+// before its routes are registered. Each company gets its own containers,
+// databases, folders and app addresses, named by its key (ADR 025).
+func WithShared(fn func(Company, *handler.Handler)) Option {
+	return func(p *Portal) { p.shared = fn }
 }
 
 func New(ctx context.Context, root *pgxpool.Pool, cfg config.Config, opts ...Option) (*Portal, error) {
@@ -168,11 +177,16 @@ func (p *Portal) attach(e *entry) {
 		opts.Companies, opts.SetCompanyShared = p.Companies, p.SetCompanyShared
 	}
 	h.SetWorkspace(opts)
-	if e.slug == "principal" && p.principal != nil {
-		p.principal(h)
-	}
-	if p.company != nil {
-		p.company(e.slug, e.schema, e.pool, h)
+	key, keyErr := tenant.KeyOf(e.schema)
+	e.key = key
+	if p.shared != nil {
+		if keyErr != nil {
+			slog.Error("shared apps off: company has no key", "slug", e.slug, "err", keyErr)
+		} else if p.keyTaken(e) {
+			slog.Error("shared apps off: company key collides", "slug", e.slug, "key", e.key)
+		} else {
+			p.shared(Company{Tenant: tenant.Tenant{Slug: e.slug, Key: e.key}, Name: e.name, Pool: e.pool, BaseURL: cfg.BaseURL}, h)
+		}
 	}
 	mux := http.NewServeMux()
 	h.Register(mux)
@@ -231,6 +245,25 @@ func (p *Portal) SetCompanyShared(ctx context.Context, slug string, on bool) err
 	return nil
 }
 
+// keyTaken reports whether another attached company already has e's key
+// (the key is the first 11 hex digits of the schema; a clash would mix two
+// companies' containers, so the second one gets no shared apps).
+func (p *Portal) keyTaken(e *entry) bool {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	for slug, other := range p.entries {
+		if slug != e.slug && other.key == e.key {
+			return true
+		}
+	}
+	return false
+}
+
+// Load attaches a company created by another process (the app-address
+// router calls it for a company it does not know yet). Unknown or invalid
+// slugs answer false.
+func (p *Portal) Load(ctx context.Context, slug string) bool { return p.load(ctx, slug) != nil }
+
 func (p *Portal) create(ctx context.Context, name, slug string, me sqlc.Person) (result string, err error) {
 	p.createMu.Lock()
 	defer p.createMu.Unlock()
@@ -268,11 +301,27 @@ func (p *Portal) create(ctx context.Context, name, slug string, me sqlc.Person) 
 	if today >= perDay {
 		return "", handler.ErrWorkspaceCapacity
 	}
-	buf := make([]byte, 12)
-	if _, err = rand.Read(buf); err != nil {
-		return "", err
+	// The company key is the schema's first 11 hex digits: draw again (at
+	// most 5 times) while another company already starts the same way.
+	var schema string
+	for try := 0; ; try++ {
+		buf := make([]byte, 12)
+		if _, err = rand.Read(buf); err != nil {
+			return "", err
+		}
+		schema = "tenant_" + hex.EncodeToString(buf)
+		var taken bool
+		if err = conn.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM public.workspace_registry WHERE left(schema_name,18)=left($1,18))`, schema).Scan(&taken); err != nil {
+			return "", err
+		}
+		if !taken {
+			break
+		}
+		if try == 4 {
+			return "", errors.New("could not draw a unique company key")
+		}
 	}
-	e := &entry{slug: slug, name: name, schema: "tenant_" + hex.EncodeToString(buf)}
+	e := &entry{slug: slug, name: name, schema: schema}
 	_, err = conn.Exec(ctx, `INSERT INTO public.workspace_registry(slug,name,schema_name) VALUES($1,$2,$3)`, slug, name, e.schema)
 	if err != nil {
 		var pe *pgconn.PgError

@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
-
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/handler"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/appdb"
@@ -21,16 +19,11 @@ import (
 
 var testCredentials = map[string]any{"name": "Test admin", "email": "admin@example.test", "password": "test-password-not-a-real-secret"}
 
-// withCompany runs fn on every company's handler (the hook Task 10's
-// WithShared is built on).
-func withCompany(fn func(slug, schema string, pool *pgxpool.Pool, h *handler.Handler)) Option {
-	return func(p *Portal) { p.company = fn }
-}
-
 // fakeShared plugs fake shared-app parts into every company.
 func fakeShared(t *testing.T, p *Portal) Option {
 	v, _ := vault.New(vault.NewKey())
-	return withCompany(func(slug, _ string, pool *pgxpool.Pool, h *handler.Handler) {
+	return WithShared(func(c Company, h *handler.Handler) {
+		slug, pool := c.Tenant.Slug, c.Pool
 		eng := engine.NewFake()
 		t.Cleanup(eng.Close)
 		dbs := appdb.NewFake()
