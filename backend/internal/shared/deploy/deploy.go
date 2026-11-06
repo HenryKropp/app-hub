@@ -60,6 +60,17 @@ type Options struct {
 	MaxApps     int           // published apps in the company; 0 = no limit
 	MaxMemoryMB int           // memory per app; 0 = no limit
 	Slots       *Slots        // server-wide running limit, shared by every company; nil = none
+	// Enabled says whether the company's screen apps are on (the Ziv owner
+	// turns them on per company). nil = on. Off blocks building and starting;
+	// stopping, unsharing, copies and sleep keep working.
+	Enabled func(context.Context) bool
+}
+
+// ErrSharedOff: the company's screen apps are turned off.
+var ErrSharedOff = errors.New("Os apps com tela não estão ligados para esta empresa. Peça ao administrador do Ziv para ligá-los.")
+
+func (s *Service) enabled(ctx context.Context) bool {
+	return s.opt.Enabled == nil || s.opt.Enabled(ctx)
 }
 
 var slugRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
@@ -244,6 +255,9 @@ func (s *Service) Test(ctx context.Context, app sqlc.App, m manifest.Manifest, b
 func (s *Service) begin(ctx context.Context, app sqlc.App, m manifest.Manifest, by int64, test bool) (sqlc.SharedDeployment, error) {
 	if s.vault == nil {
 		return sqlc.SharedDeployment{}, ErrNoVault
+	}
+	if !s.enabled(ctx) {
+		return sqlc.SharedDeployment{}, ErrSharedOff
 	}
 	if err := s.eng.Available(ctx); err != nil {
 		return sqlc.SharedDeployment{}, err
@@ -646,6 +660,9 @@ func (s *Service) EndTest(ctx context.Context, depID int64) error {
 // data from before the current version was published). If anything fails,
 // the current version is put back as it was.
 func (s *Service) Rollback(ctx context.Context, appID int64, withData bool, by int64) error {
+	if !s.enabled(ctx) {
+		return ErrSharedOff
+	}
 	unlock, err := s.lock(appID)
 	if err != nil {
 		return err

@@ -91,6 +91,22 @@ func (e *Env) NewService() *deploy.Service {
 	return deploy.New(e.Q, e.Eng, e.DBs, v, deploy.Options{DataDir: e.dataDir, Domain: "localhost:8080", Scheme: "http", HealthTimeout: time.Second})
 }
 
+// NewServiceOpts is NewService with extra options; the data folder, domain,
+// scheme and health wait are filled in when left empty.
+func (e *Env) NewServiceOpts(opt deploy.Options) *deploy.Service {
+	v, _ := vault.New(e.key)
+	if opt.DataDir == "" {
+		opt.DataDir = e.dataDir
+	}
+	if opt.Domain == "" {
+		opt.Domain, opt.Scheme = "localhost:8080", "http"
+	}
+	if opt.HealthTimeout == 0 {
+		opt.HealthTimeout = time.Second
+	}
+	return deploy.New(e.Q, e.Eng, e.DBs, v, opt)
+}
+
 // NewTenantService is a service for a company: its engine view is scoped to
 // the company's key, its databases carry the company prefix, and its data
 // folder is the company's.

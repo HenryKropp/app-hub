@@ -93,6 +93,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	h.registerEntry(mux)
 	mux.HandleFunc("GET /api/security", h.securityOverview)
 	mux.HandleFunc("GET /api/admin/overview", h.adminOverview)
+	mux.HandleFunc("GET /api/admin/companies", h.adminCompanies)
+	mux.HandleFunc("PUT /api/admin/companies/{slug}/shared", h.setCompanyShared)
 	mux.HandleFunc("PUT /api/apps/{id}/control", h.setAppControl)
 	mux.HandleFunc("PUT /api/security/settings", h.updateSecuritySettings)
 	mux.HandleFunc("PUT /api/security/apps/{id}", h.updateSecurityApp)

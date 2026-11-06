@@ -89,9 +89,9 @@ func TestGroupReconcileDoesNotTouchOtherCompany(t *testing.T) {
 	e, sA := companyLive(t)
 	before := e.Eng.Running()
 	g := NewGroup(e.Eng)
-	g.Add(sA, &fakeHolder{})
-	g.Add(emptyCompany(t, e, companyB), &fakeHolder{})
-	g.Add(emptyCompany(t, e, tenant.Principal), &fakeHolder{})
+	g.Add(sA, &fakeHolder{}, nil)
+	g.Add(emptyCompany(t, e, companyB), &fakeHolder{}, nil)
+	g.Add(emptyCompany(t, e, tenant.Principal), &fakeHolder{}, nil)
 	g.reconcileQueued(ctx)
 	g.tick(ctx)
 	if got := e.Eng.Running(); len(got) != 1 || len(before) != 1 || got[0] != before[0] {
@@ -104,7 +104,7 @@ func TestGroupHoldsUntilReconciled(t *testing.T) {
 	e, sA := companyLive(t)
 	g := NewGroup(e.Eng)
 	h := &fakeHolder{}
-	g.Add(sA, h)
+	g.Add(sA, h, nil)
 	if !sameCalls(h.got(), "hold") {
 		t.Fatal(h.got())
 	}
@@ -115,7 +115,7 @@ func TestGroupHoldsUntilReconciled(t *testing.T) {
 
 	e.Eng.SetDown(true)
 	down := &fakeHolder{}
-	g.Add(New(e.Q, engine.Scoped(e.Eng, companyA.Key), e.S), down)
+	g.Add(New(e.Q, engine.Scoped(e.Eng, companyA.Key), e.S), down, nil)
 	g.reconcileQueued(ctx)
 	if !sameCalls(down.got(), "hold", "release") {
 		t.Fatal("engine down:", down.got())
@@ -130,8 +130,8 @@ func TestGroupSkipsCompaniesWithoutApps(t *testing.T) {
 	sA.beforeStep = func() { stepsA++ }
 	sB.beforeStep = func() { stepsB++ }
 	g := NewGroup(e.Eng)
-	g.Add(sA, &fakeHolder{})
-	g.Add(sB, &fakeHolder{})
+	g.Add(sA, &fakeHolder{}, nil)
+	g.Add(sB, &fakeHolder{}, nil)
 	g.reconcileQueued(ctx)
 	g.tick(ctx)
 	if stepsA != 1 || stepsB != 0 {
@@ -149,7 +149,7 @@ func TestGroupAddAfterStart(t *testing.T) {
 	defer func() { cancel(); <-done }()
 	time.Sleep(20 * time.Millisecond)
 	h := &fakeHolder{}
-	g.Add(sA, h)
+	g.Add(sA, h, nil)
 	for i := 0; i < 200; i++ {
 		if sameCalls(h.got(), "hold", "release") {
 			return
@@ -157,4 +157,27 @@ func TestGroupAddAfterStart(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal(h.got())
+}
+
+func TestGroupSleepsOffCompany(t *testing.T) {
+	ctx := context.Background()
+	e, sA := companyLive(t)
+	if d := e.StartTest(t); d.Status != "ready" {
+		t.Fatalf("test box: %s %s", d.Status, d.ErrorMessage)
+	}
+	steps := 0
+	sA.beforeStep = func() { steps++ }
+	g := NewGroup(e.Eng)
+	g.Add(sA, &fakeHolder{}, func(context.Context) bool { return false })
+	g.reconcileQueued(ctx)
+	g.tick(ctx)
+	if st := e.Shared(t).Status; st != "sleeping" {
+		t.Fatal(st)
+	}
+	if steps != 0 {
+		t.Fatal("Step ran for a company that is off")
+	}
+	if got := e.Eng.Running(); len(got) != 0 {
+		t.Fatal(got)
+	}
 }

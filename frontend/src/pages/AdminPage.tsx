@@ -5,7 +5,7 @@ import { CircleCheck, CirclePause, Clock, Monitor, TriangleAlert } from "lucide-
 import { LoadError, PageHeader } from "@/components/bits"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { api, ApiError, type AdminApp, type AdminEvent, type AdminOverview, type SecuritySettings } from "@/lib/api"
+import { api, ApiError, type AdminApp, type AdminEvent, type AdminOverview, type CompanyShared, type SecuritySettings } from "@/lib/api"
 import { formatWhen } from "@/lib/runs"
 import { cn } from "@/lib/utils"
 
@@ -134,6 +134,7 @@ export function AdminPage() {
       </div>
 
       <CompanyControls settings={settings} onSaved={(s) => setData({ ...data, settings: s })} />
+      <Companies />
     </>
   )
 }
@@ -235,6 +236,55 @@ function CompanyControls({ settings, onSaved }: { settings: SecuritySettings; on
           </div>
         </Control>
       </div>
+    </section>
+  )
+}
+
+/** Only in the principal company: turns screen apps (shared apps that run on
+ * the Ziv's server) on or off for each other company. Hidden elsewhere. */
+function Companies() {
+  const [list, setList] = useState<CompanyShared[] | null>(null)
+  const [busy, setBusy] = useState("")
+  useEffect(() => {
+    let live = true
+    api.adminCompanies().then((l) => { if (live) setList(l) }, () => { if (live) setList(null) })
+    return () => { live = false }
+  }, [])
+  if (!list) return null
+
+  const toggle = async (c: CompanyShared) => {
+    const on = !c.shared_apps
+    if (on && !window.confirm(`Ligar apps com tela para ${c.name}? Pessoas dessa empresa poderão rodar programas no servidor do Ziv.`)) return
+    setBusy(c.slug)
+    try {
+      const saved = await api.setCompanyShared(c.slug, on)
+      setList((l) => l && l.map((x) => (x.slug === saved.slug ? saved : x)))
+      toast.success(on ? `Apps com tela ligados para ${c.name}.` : `Apps com tela desligados para ${c.name}. Os que estavam abertos vão dormir em até 1 minuto.`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível salvar.")
+    } finally {
+      setBusy("")
+    }
+  }
+
+  return (
+    <section aria-labelledby="empresas" className="mt-10 border-t border-border pt-8">
+      <h2 id="empresas" className="font-heading text-xl">Empresas</h2>
+      <p className="mt-1 mb-4 text-sm text-muted-foreground">Apps com tela rodam no servidor do Ziv. Cada empresa só usa depois que você ligar.</p>
+      {list.length === 0 ? <Empty>Nenhuma outra empresa ainda.</Empty> : (
+        <ul className="divide-y divide-border rounded-xl border border-border bg-card">
+          {list.map((c) => (
+            <li key={c.slug} className="flex items-center justify-between gap-3 p-4">
+              <span className="min-w-0"><span className="block truncate text-sm font-medium">{c.name}</span><span className="block text-xs text-muted-foreground">/w/{c.slug}</span></span>
+              <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 text-sm">
+                <input type="checkbox" role="switch" aria-label={`Apps com tela de ${c.name}`} className="size-4 accent-foreground"
+                  checked={c.shared_apps} disabled={busy !== ""} onChange={() => void toggle(c)} />
+                {c.shared_apps ? "Apps com tela ligados" : "Apps com tela desligados"}
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   )
 }
