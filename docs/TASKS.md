@@ -370,3 +370,13 @@ Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mc
 | Nomes duplicados no catálogo | Pending | |
 | Tela Admin muito longa | Pending | |
 | Botão de voltar versão | Pending | Hoje a volta de versão está escondida |
+
+## Texto da landing page (2026-11-06)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Abertura falando do risco: "As ferramentas que sua equipe cria com IA viram ferramentas da empresa." | Done | Público principal: dono/sócio |
+| Parte de baixo em 4 passos com telas de exemplo (ficha, Rodar, versões, documentos) | Done | Substitui os 5 blocos de texto; exemplos marcados como ilustrativos |
+| Botões "Criar o espaço da empresa" e aviso para convidados usarem Entrar | Done | Evita que um convidado crie uma segunda empresa |
+| Fontes menores, avisos em 12 px, margem de 16 px no celular | Done | Crítica impeccable + ux-copy: 23/32 |
+| Passo próprio para o sócio ("Você sabe o que existe e quem cuida") | Pending | Sugerido na crítica; Henry não escolheu nesta rodada |
