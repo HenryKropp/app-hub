@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"github.com/HenryKropp/app-hub/backend/internal/bundle"
 	"io"
 	"log/slog"
 	"net/http"
@@ -16,7 +15,6 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/access"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
-	"github.com/HenryKropp/app-hub/backend/internal/scanner"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -51,71 +49,8 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, strings.Join(issues, " "))
 		return
 	}
-	if len(b.Files) == 0 || len(b.Files) > 100 {
-		writeError(w, http.StatusBadRequest, "Envie de 1 a 100 arquivos do script.")
-		return
-	}
-	if _, ok := b.Files[m.Entrypoint]; !ok {
-		writeError(w, http.StatusBadRequest, "Inclua o arquivo que inicia o script.")
-		return
-	}
-	if m.Runtime.DependenciesFile != "" {
-		if _, ok := b.Files[m.Runtime.DependenciesFile]; !ok {
-			writeError(w, http.StatusBadRequest, "Inclua o arquivo de dependências escolhido.")
-			return
-		}
-	}
-	total := 0
-	seen := map[string]bool{}
-	decoded := map[string][]byte{}
-	for name, f := range b.Files {
-		key := strings.ToLower(strings.ReplaceAll(name, `\`, "/"))
-		base := strings.ToLower(filepath.Base(name))
-		if bundle.IsSecretFile(base) {
-			writeError(w, http.StatusBadRequest, "Não envie arquivos de credenciais (.env, .pem, .key). Retire as senhas do pacote antes de importar.")
-			return
-		}
-		if !manifest.SafeRelative(name) || manifest.IsManifestName(base) || name == manifest.FichaName || strings.HasPrefix(base, ".apphub-") || seen[key] || strings.Contains(name, `\`) {
-			writeError(w, http.StatusBadRequest, "Use nomes de arquivos relativos, sem repetições ou caminhos externos.")
-			return
-		}
-		seen[key] = true
-		data, err := base64.StdEncoding.DecodeString(f.ContentBase64)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "Um arquivo enviado está inválido.")
-			return
-		}
-		total += len(data)
-		if total > manifest.MaxInputBytes {
-			writeError(w, http.StatusBadRequest, "Os arquivos podem somar no máximo 10 MB.")
-			return
-		}
-		decoded[name] = data
-	}
-	// Scan every file before any filesystem or database persistence. Only a count
-	// leaves this handler: filenames, variable names and source excerpts can also
-	// contain sensitive values. Confirmation never changes the executable sources.
-	secretCount := 0
-	for name, data := range decoded {
-		secretCount += len(scanner.FindSecrets(name, string(data)))
-	}
-	if secretCount > 0 && h.workspace != nil {
-		settings, err := h.securityConfig(r.Context())
-		if err != nil {
-			internalError(w, "script security policy", err)
-			return
-		}
-		if settings.BlockSecrets {
-			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"code": "script_secrets_blocked", "error": "Possíveis senhas ou chaves no código. Retire as credenciais antes de importar; a política da empresa não permite ignorar este bloqueio.", "secret_count": secretCount})
-			return
-		}
-	}
-	if secretCount > 0 && !b.ConfirmSecrets {
-		writeJSON(w, http.StatusConflict, map[string]any{
-			"code":         "script_secrets_confirmation_required",
-			"error":        "Possíveis senhas ou chaves no código. Revise os arquivos ou confirme o envio sem alterações.",
-			"secret_count": secretCount,
-		})
+	decoded, ok := h.checkSentFiles(w, r, m, b.Files, b.ConfirmSecrets)
+	if !ok {
 		return
 	}
 	area, err := h.q.GetAreaByName(r.Context(), m.Area)
@@ -162,18 +97,27 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 	id, err := h.q.ImportScript(r.Context(), sqlc.UpsertAppParams{
 		Slug: m.ID, Name: m.Name, Summary: m.Summary, Language: m.Language, Area: m.Area, AreaID: area.ID,
 		FolderPath: folder, OwnerID: me.ID, Manifest: raw,
-	}, files)
+	}, m.Kind, files)
 	if err != nil {
 		internalError(w, "import script", err)
 		return
 	}
 	success = true
+	var number int32
 	if a, err := h.q.GetApp(r.Context(), id); err == nil {
-		if _, _, err := h.checkVersion(r.Context(), a); err != nil {
+		unlock := h.lockApp(id)
+		v, _, err := h.recordSentVersion(r.Context(), a, me.ID, "")
+		unlock()
+		if err != nil {
 			slog.Error("import script version", "app", id, "err", err)
 		}
+		number = v.Number
 	}
-	writeJSON(w, http.StatusCreated, map[string]int64{"id": id})
+	blocked, err := h.executionBlock(r.Context(), id)
+	if err != nil {
+		slog.Error("import script approval", "app", id, "err", err)
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"id": id, "version": number, "blocked_reason": blocked})
 }
 
 func (h *Handler) importedSources(ctx context.Context, id int64) (map[string]manifest.InputFile, error) {

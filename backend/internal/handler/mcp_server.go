@@ -92,6 +92,7 @@ var mcpRoutes = []string{
 	"POST /api/artifacts",
 	"POST /api/artifacts/{id}/versions",
 	"GET /api/areas",
+	"POST /api/scripts/import",
 }
 
 var errMCPRoute = errors.New("mcp: rota não liberada para o Claude")
