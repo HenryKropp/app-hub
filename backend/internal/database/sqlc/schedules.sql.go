@@ -168,6 +168,74 @@ func (q *Queries) GetSchedule(ctx context.Context, id int64) (Schedule, error) {
 	return i, err
 }
 
+const getScheduleRow = `-- name: GetScheduleRow :one
+SELECT s.id, s.app_id, s.person_id, s.computer_id, s.name, s.frequency, s.inputs, s.files, s.output_folder, s.active, s.paused_reason, s.situation, s.failures, s.email, s.next_run_at, s.last_run_at, s.last_run_id, s.created_at, s.updated_at, p.name AS person_name, c.name AS computer_name, a.name AS app_name,
+       COALESCE(r.status, '') AS last_run_status
+FROM schedules s
+JOIN people p ON p.id = s.person_id
+JOIN computers c ON c.id = s.computer_id
+JOIN apps a ON a.id = s.app_id
+LEFT JOIN runs r ON r.id = s.last_run_id
+WHERE s.id = $1
+`
+
+type GetScheduleRowRow struct {
+	ID            int64              `json:"id"`
+	AppID         int64              `json:"app_id"`
+	PersonID      int64              `json:"person_id"`
+	ComputerID    int64              `json:"computer_id"`
+	Name          string             `json:"name"`
+	Frequency     []byte             `json:"frequency"`
+	Inputs        []byte             `json:"inputs"`
+	Files         []byte             `json:"files"`
+	OutputFolder  string             `json:"output_folder"`
+	Active        bool               `json:"active"`
+	PausedReason  string             `json:"paused_reason"`
+	Situation     string             `json:"situation"`
+	Failures      int32              `json:"failures"`
+	Email         []byte             `json:"email"`
+	NextRunAt     pgtype.Timestamptz `json:"next_run_at"`
+	LastRunAt     pgtype.Timestamptz `json:"last_run_at"`
+	LastRunID     pgtype.Int8        `json:"last_run_id"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	PersonName    string             `json:"person_name"`
+	ComputerName  string             `json:"computer_name"`
+	AppName       string             `json:"app_name"`
+	LastRunStatus string             `json:"last_run_status"`
+}
+
+func (q *Queries) GetScheduleRow(ctx context.Context, id int64) (GetScheduleRowRow, error) {
+	row := q.db.QueryRow(ctx, getScheduleRow, id)
+	var i GetScheduleRowRow
+	err := row.Scan(
+		&i.ID,
+		&i.AppID,
+		&i.PersonID,
+		&i.ComputerID,
+		&i.Name,
+		&i.Frequency,
+		&i.Inputs,
+		&i.Files,
+		&i.OutputFolder,
+		&i.Active,
+		&i.PausedReason,
+		&i.Situation,
+		&i.Failures,
+		&i.Email,
+		&i.NextRunAt,
+		&i.LastRunAt,
+		&i.LastRunID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PersonName,
+		&i.ComputerName,
+		&i.AppName,
+		&i.LastRunStatus,
+	)
+	return i, err
+}
+
 const listAppSchedules = `-- name: ListAppSchedules :many
 SELECT s.id, s.app_id, s.person_id, s.computer_id, s.name, s.frequency, s.inputs, s.files, s.output_folder, s.active, s.paused_reason, s.situation, s.failures, s.email, s.next_run_at, s.last_run_at, s.last_run_id, s.created_at, s.updated_at, p.name AS person_name, c.name AS computer_name, a.name AS app_name,
        COALESCE(r.status, '') AS last_run_status
