@@ -92,6 +92,17 @@ func (g *Gateway) Match(host string) (string, bool, bool) {
 	return sub, false, true
 }
 
+// Known says whether host is the address of an app this gateway serves
+// (the TLS ask: only those get a certificate).
+func (g *Gateway) Known(ctx context.Context, host string) bool {
+	slug, test, ok := g.Match(host)
+	if !ok {
+		return false
+	}
+	_, found, err := g.b.Lookup(ctx, slug, test)
+	return err == nil && found
+}
+
 // SafeVolta only lets same-site paths through: browsers drop tabs/newlines
 // inside URLs, so "/\t/evil.com" would otherwise become "//evil.com".
 func SafeVolta(v string) string {

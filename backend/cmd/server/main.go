@@ -85,8 +85,10 @@ func main() {
 		sup.Loop(ctx)
 	}()
 
-	// Hosts under SHARED_APPS_DOMAIN go to the gateway; the rest is the portal.
-	srv := &http.Server{Addr: ":" + cfg.Port, Handler: gw.Root(portal), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 90 * time.Second, MaxHeaderBytes: 1 << 20}
+	// Hosts under SHARED_APPS_DOMAIN go to their company's gateway; the rest is the portal.
+	router := gateway.NewRouter(cfg.SharedDomain)
+	router.Set("principal", gw)
+	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router.Root(portal), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 90 * time.Second, MaxHeaderBytes: 1 << 20}
 	stopped := make(chan struct{})
 	go func() {
 		defer close(stopped)
