@@ -7,11 +7,11 @@ FROM app_versions v LEFT JOIN people p ON p.id = v.author_id
 WHERE v.app_id = $1 AND v.number = $2;
 
 -- name: InsertAppVersion :one
-INSERT INTO app_versions (app_id, number, origin, restored_from, author_id, author_probable, files, summary, files_changed_at)
+INSERT INTO app_versions (app_id, number, origin, restored_from, author_id, author_probable, files, summary, files_changed_at, channel, description)
 VALUES (sqlc.arg(app_id),
         (SELECT COALESCE(MAX(number), 0) + 1 FROM app_versions WHERE app_id = sqlc.arg(app_id)),
         sqlc.arg(origin), sqlc.narg(restored_from), sqlc.narg(author_id), sqlc.arg(author_probable),
-        sqlc.arg(files), sqlc.arg(summary), sqlc.narg(files_changed_at))
+        sqlc.arg(files), sqlc.arg(summary), sqlc.narg(files_changed_at), sqlc.arg(channel), sqlc.arg(description))
 RETURNING *;
 
 -- name: PutCodeBlob :exec
@@ -28,7 +28,7 @@ WHERE app_id = sqlc.arg(app_id) AND number = sqlc.arg(number);
 
 -- name: ListVersionsBefore :many
 SELECT v.number, v.origin, v.restored_from, v.author_probable, v.description, v.summary,
-       v.files_changed_at, v.created_at, p.name AS author_name
+       v.files_changed_at, v.created_at, v.channel, p.name AS author_name
 FROM app_versions v LEFT JOIN people p ON p.id = v.author_id
 WHERE v.app_id = sqlc.arg(app_id) AND v.created_at < sqlc.arg(before)
 ORDER BY v.created_at DESC

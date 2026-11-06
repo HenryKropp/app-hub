@@ -69,6 +69,17 @@ func (q *Queries) ConsumeMCPAuthCode(ctx context.Context, codeHash pgtype.Text) 
 	return i, err
 }
 
+const countOpenMCPUploads = `-- name: CountOpenMCPUploads :one
+SELECT count(*) FROM mcp_uploads WHERE person_id = $1 AND expires_at > now() AND used_at IS NULL
+`
+
+func (q *Queries) CountOpenMCPUploads(ctx context.Context, personID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countOpenMCPUploads, personID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createMCPAuthRequest = `-- name: CreateMCPAuthRequest :exec
 INSERT INTO mcp_auth_requests (id, client_id, redirect_uri, code_challenge, state, expires_at)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -162,6 +173,33 @@ func (q *Queries) CreateMCPConnection(ctx context.Context, arg CreateMCPConnecti
 		&i.RevokedAt,
 	)
 	return i, err
+}
+
+const createMCPUpload = `-- name: CreateMCPUpload :one
+INSERT INTO mcp_uploads (token_hash, person_id, expires_at) VALUES ($1, $2, $3)
+RETURNING id
+`
+
+type CreateMCPUploadParams struct {
+	TokenHash string             `json:"token_hash"`
+	PersonID  int64              `json:"person_id"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) CreateMCPUpload(ctx context.Context, arg CreateMCPUploadParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createMCPUpload, arg.TokenHash, arg.PersonID, arg.ExpiresAt)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const deleteExpiredMCPUploads = `-- name: DeleteExpiredMCPUploads :exec
+DELETE FROM mcp_uploads WHERE expires_at < now() - interval '1 day' OR used_at < now() - interval '1 day'
+`
+
+func (q *Queries) DeleteExpiredMCPUploads(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredMCPUploads)
+	return err
 }
 
 const deleteStaleMCPAuthRequests = `-- name: DeleteStaleMCPAuthRequests :exec
@@ -261,6 +299,32 @@ func (q *Queries) GetMCPConnectionByTokenHash(ctx context.Context, tokenHash str
 	return i, err
 }
 
+const getMCPUpload = `-- name: GetMCPUpload :one
+SELECT id, token_hash, person_id, created_at, expires_at, received_at, used_at, size, content FROM mcp_uploads WHERE id = $1 AND person_id = $2
+`
+
+type GetMCPUploadParams struct {
+	ID       int64 `json:"id"`
+	PersonID int64 `json:"person_id"`
+}
+
+func (q *Queries) GetMCPUpload(ctx context.Context, arg GetMCPUploadParams) (McpUpload, error) {
+	row := q.db.QueryRow(ctx, getMCPUpload, arg.ID, arg.PersonID)
+	var i McpUpload
+	err := row.Scan(
+		&i.ID,
+		&i.TokenHash,
+		&i.PersonID,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.ReceivedAt,
+		&i.UsedAt,
+		&i.Size,
+		&i.Content,
+	)
+	return i, err
+}
+
 const getPendingMCPAuthRequest = `-- name: GetPendingMCPAuthRequest :one
 SELECT r.id, r.client_id, r.redirect_uri, r.code_challenge, r.state, r.person_id, r.code_hash, r.code_expires_at, r.expires_at, c.name AS client_name
 FROM mcp_auth_requests r JOIN mcp_clients c ON c.id = r.client_id
@@ -336,6 +400,25 @@ func (q *Queries) ListMCPConnections(ctx context.Context, personID int64) ([]Mcp
 	return items, nil
 }
 
+const receiveMCPUpload = `-- name: ReceiveMCPUpload :one
+UPDATE mcp_uploads SET content = $1, size = $2, received_at = now()
+WHERE token_hash = $3 AND received_at IS NULL AND expires_at > now()
+RETURNING id
+`
+
+type ReceiveMCPUploadParams struct {
+	Content   []byte `json:"content"`
+	Size      int32  `json:"size"`
+	TokenHash string `json:"token_hash"`
+}
+
+func (q *Queries) ReceiveMCPUpload(ctx context.Context, arg ReceiveMCPUploadParams) (int64, error) {
+	row := q.db.QueryRow(ctx, receiveMCPUpload, arg.Content, arg.Size, arg.TokenHash)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const revokeMCPConnection = `-- name: RevokeMCPConnection :execrows
 UPDATE mcp_connections SET revoked_at = now()
 WHERE id = $1 AND person_id = $2 AND revoked_at IS NULL
@@ -391,5 +474,14 @@ WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - interval '1 mi
 
 func (q *Queries) TouchMCPConnection(ctx context.Context, id int64) error {
 	_, err := q.db.Exec(ctx, touchMCPConnection, id)
+	return err
+}
+
+const useMCPUpload = `-- name: UseMCPUpload :exec
+UPDATE mcp_uploads SET used_at = now(), content = NULL WHERE id = $1
+`
+
+func (q *Queries) UseMCPUpload(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, useMCPUpload, id)
 	return err
 }

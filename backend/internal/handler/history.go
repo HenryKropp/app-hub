@@ -27,6 +27,7 @@ type versionItem struct {
 	FilesChangedAt *time.Time       `json:"files_changed_at"`
 	CreatedAt      time.Time        `json:"created_at"`
 	Current        bool             `json:"current"`
+	Channel        string           `json:"channel"` // "mcp" when the code came through Claude
 }
 
 type runItem struct {
@@ -63,10 +64,10 @@ func int4Ptr(v pgtype.Int4) *int32 {
 }
 
 func newVersionItem(number int32, origin string, restoredFrom pgtype.Int4, author pgtype.Text, probable bool,
-	description string, summary []byte, changedAt, createdAt pgtype.Timestamptz, current int32) versionItem {
+	description string, summary []byte, changedAt, createdAt pgtype.Timestamptz, channel string, current int32) versionItem {
 	it := versionItem{Number: number, Origin: origin, RestoredFrom: int4Ptr(restoredFrom), AuthorName: author.String,
 		AuthorProbable: probable, Description: description, FilesChangedAt: tsPtr(changedAt), CreatedAt: createdAt.Time,
-		Current: number == current, Summary: versions.Summary{Binaries: []string{}}}
+		Current: number == current, Channel: channel, Summary: versions.Summary{Binaries: []string{}}}
 	_ = json.Unmarshal(summary, &it.Summary)
 	return it
 }
@@ -133,7 +134,7 @@ func (h *Handler) appHistory(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, v := range rows {
-			it := newVersionItem(v.Number, v.Origin, v.RestoredFrom, v.AuthorName, v.AuthorProbable, v.Description, v.Summary, v.FilesChangedAt, v.CreatedAt, current)
+			it := newVersionItem(v.Number, v.Origin, v.RestoredFrom, v.AuthorName, v.AuthorProbable, v.Description, v.Summary, v.FilesChangedAt, v.CreatedAt, v.Channel, current)
 			items = append(items, historyItem{Type: "version", At: v.CreatedAt.Time, Version: &it})
 		}
 	}
