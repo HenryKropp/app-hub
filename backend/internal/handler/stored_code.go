@@ -304,3 +304,31 @@ func (h *Handler) sendSources(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"id": a.ID, "version": v.Number, "changed": changed, "blocked_reason": blocked, "updated_at": a.UpdatedAt.Time})
 }
+
+// syncSourcesFromFolder makes the stored code match the app folder after a
+// restore rewrote it (snap is the folder as scanned after the restore). It
+// does nothing for apps whose code the Ziv does not keep.
+func (h *Handler) syncSourcesFromFolder(ctx context.Context, a sqlc.App, snap versions.Snapshot) error {
+	if _, err := h.q.ScriptSources(ctx, a.ID); errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	files := map[string]manifest.InputFile{}
+	for _, f := range snap {
+		base := filepath.Base(f.Path)
+		if manifest.IsManifestName(base) || strings.EqualFold(base, manifest.FichaName) || strings.HasPrefix(strings.ToLower(base), ".apphub-") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(a.FolderPath, filepath.FromSlash(f.Path)))
+		if err != nil {
+			return err
+		}
+		files[f.Path] = manifest.InputFile{Name: base, ContentBase64: base64.StdEncoding.EncodeToString(data)}
+	}
+	raw, err := json.Marshal(files)
+	if err != nil {
+		return err
+	}
+	return h.q.ReplaceScriptSources(ctx, a.ID, raw)
+}
