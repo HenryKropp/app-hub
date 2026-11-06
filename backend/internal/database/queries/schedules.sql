@@ -71,3 +71,13 @@ LIMIT 10;
 
 -- name: ScheduleIDForRun :one
 SELECT schedule_id FROM runs WHERE id = $1;
+
+-- name: GetScheduleRow :one
+SELECT s.*, p.name AS person_name, c.name AS computer_name, a.name AS app_name,
+       COALESCE(r.status, '') AS last_run_status
+FROM schedules s
+JOIN people p ON p.id = s.person_id
+JOIN computers c ON c.id = s.computer_id
+JOIN apps a ON a.id = s.app_id
+LEFT JOIN runs r ON r.id = s.last_run_id
+WHERE s.id = $1;
