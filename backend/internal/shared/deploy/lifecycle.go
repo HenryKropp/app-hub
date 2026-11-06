@@ -88,6 +88,9 @@ func (s *Service) runApp(ctx context.Context, appID int64, explicit bool) error 
 	if err != nil {
 		return err
 	}
+	if err := s.CheckFolder(app.FolderPath); err != nil {
+		return err
+	}
 	s.setTarget(appID, false, 0)
 	if dep.ContainerID != "" {
 		logErr(s.eng.Remove(ctx, dep.ContainerID), "remove container", "container", dep.ContainerID)
@@ -252,10 +255,8 @@ func (s *Service) Unshare(ctx context.Context, appID, by int64) error {
 			logErr(s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: d.ID, Status: "retired"}), "retire", "deployment", d.ID)
 		}
 	}
-	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork("", appID)), "remove network", "app", appID)
-	for _, n := range engine.LegacyAppNetworks(appID) {
-		logErr(s.eng.RemoveNetwork(ctx, n), "remove network", "app", appID)
-	}
+	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork(s.opt.Tenant.Key, appID)), "remove network", "app", appID)
+	s.removeLegacyNetworks(ctx, appID)
 	if err := s.q.MarkUnshared(ctx, appID); err != nil {
 		return err
 	}
@@ -282,10 +283,8 @@ func (s *Service) Purge(ctx context.Context, appID int64) error {
 			return fmt.Errorf("drop %s: %w", sa.DbName, err)
 		}
 	}
-	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork("", appID)), "remove network", "app", appID) // if Unshare could not
-	for _, n := range engine.LegacyAppNetworks(appID) {
-		logErr(s.eng.RemoveNetwork(ctx, n), "remove network", "app", appID)
-	}
+	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork(s.opt.Tenant.Key, appID)), "remove network", "app", appID) // if Unshare could not
+	s.removeLegacyNetworks(ctx, appID)
 	logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "backups", strconv.FormatInt(appID, 10))), "remove backups", "app", appID)
 	logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(appID, 10))), "remove app data", "app", appID)
 	if err := s.q.DeleteBackupsOfApp(ctx, appID); err != nil {

@@ -197,3 +197,6 @@ INSERT INTO app_changes (app_id, person_id, changes) VALUES ($1, NULL, $2);
 -- name: ListBuildingDeployments :many
 -- Deployments still marked "building": after a Hub restart those are leftovers.
 SELECT * FROM shared_deployments WHERE status = 'building';
+
+-- name: CountPublishedSharedApps :one
+SELECT count(*) FROM shared_apps WHERE unshared_at IS NULL AND current_deployment_id IS NOT NULL;

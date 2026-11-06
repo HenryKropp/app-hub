@@ -11,6 +11,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countPublishedSharedApps = `-- name: CountPublishedSharedApps :one
+SELECT count(*) FROM shared_apps WHERE unshared_at IS NULL AND current_deployment_id IS NOT NULL
+`
+
+func (q *Queries) CountPublishedSharedApps(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countPublishedSharedApps)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteAppConfig = `-- name: DeleteAppConfig :exec
 DELETE FROM app_config WHERE app_id = $1 AND name = $2
 `

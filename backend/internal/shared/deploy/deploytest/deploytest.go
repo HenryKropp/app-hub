@@ -20,6 +20,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/engine"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/sharedtest"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/tenant"
 	"github.com/HenryKropp/app-hub/backend/internal/vault"
 )
 
@@ -33,6 +34,7 @@ type Env struct {
 
 	key     string
 	dataDir string
+	pool    *pgxpool.Pool
 }
 
 // Pool opens the test database called name (each test package uses its own:
@@ -40,6 +42,9 @@ type Env struct {
 func Pool(ctx context.Context, name string) (*pgxpool.Pool, error) {
 	return sharedtest.Pool(ctx, name)
 }
+
+// Testdata finds backend/testdata/shared/<name> from this file, wherever the test runs.
+func Testdata(name string) string { return testdata(name) }
 
 // testdata finds backend/testdata/shared from this file, wherever the test runs.
 func testdata(name string) string {
@@ -70,7 +75,7 @@ func Setup(t *testing.T, pool *pgxpool.Pool) *Env {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := &Env{Q: q, Eng: engine.NewFake(), DBs: appdb.NewFake(), App: app, M: m, key: vault.NewKey(), dataDir: t.TempDir()}
+	e := &Env{Q: q, Eng: engine.NewFake(), DBs: appdb.NewFake(), App: app, M: m, key: vault.NewKey(), dataDir: t.TempDir(), pool: pool}
 	t.Cleanup(e.Eng.Close)
 	e.S = e.NewService()
 	if _, err := e.S.Configure(ctx, app, m); err != nil {
@@ -84,6 +89,37 @@ func Setup(t *testing.T, pool *pgxpool.Pool) *Env {
 func (e *Env) NewService() *deploy.Service {
 	v, _ := vault.New(e.key)
 	return deploy.New(e.Q, e.Eng, e.DBs, v, deploy.Options{DataDir: e.dataDir, Domain: "localhost:8080", Scheme: "http", HealthTimeout: time.Second})
+}
+
+// NewTenantService is a service for a company: its engine view is scoped to
+// the company's key, its databases carry the company prefix, and its data
+// folder is the company's.
+func (e *Env) NewTenantService(t tenant.Tenant, folderRoot string, maxApps, maxMemMB int) *deploy.Service {
+	v, _ := vault.New(e.key)
+	dbs := appdb.NewFake()
+	dbs.Prefix = t.DBPrefix()
+	return deploy.New(e.Q, engine.Scoped(e.Eng, t.Key), dbs, v, deploy.Options{DataDir: t.DataDir(e.dataDir),
+		Domain: t.AppsDomain("localhost:8080"), Scheme: "http", HealthTimeout: time.Second,
+		Tenant: t, FolderRoot: folderRoot, MaxApps: maxApps, MaxMemoryMB: maxMemMB})
+}
+
+// AddApp registers another Streamlit app (a copy of the testdata) with this slug.
+func (e *Env) AddApp(t *testing.T, slug string) sqlc.App {
+	t.Helper()
+	ctx := context.Background()
+	dir := t.TempDir()
+	CopyDir(t, testdata("streamlit"), dir)
+	raw, _ := json.Marshal(e.M)
+	var id int64
+	if err := e.pool.QueryRow(ctx, `INSERT INTO apps (slug, name, kind, area, area_id, folder_path, owner_id, manifest, created_by)
+		VALUES ($1, $1, 'web', 'Research', 1, $2, 1, $3, 1) RETURNING id`, slug, dir, raw).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	app, err := e.Q.GetApp(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return app
 }
 
 // NewServiceWithoutVault is the Hub started without HUB_SECRET_KEY.
