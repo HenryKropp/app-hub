@@ -210,6 +210,21 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 			"(sem .env, .git, venv, node_modules) numa pasta temporária e mandar com curl. Use só depois que a pessoa disse \"pode registrar\".",
 		Annotations: changes,
 	}, h.toolPrepararEnvio)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "formato_do_app",
+		Description: "Devolve o protocolo para registrar ou atualizar um app no Ziv a partir de uma pasta do computador: como ler a pasta, " +
+			"o formato do manifesto, as áreas da empresa e os limites. Leia antes de registrar_app.",
+		Annotations: readOnly,
+	}, h.toolFormatoDoApp)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "registrar_app",
+		Description: "Registra no Ziv um app novo (script) com o código que chegou por preparar_envio, ou manda uma versão nova de um app " +
+			"que já existe (app_id). Siga o protocolo de formato_do_app e use só depois que a pessoa disse \"pode registrar\" (ou \"pode mandar\"). " +
+			"Se o Ziv avisar que o código parece ter senhas ou chaves, pergunte à pessoa antes de mandar de novo com confirmar_segredos true.",
+		Annotations: changes,
+	}, h.toolRegistrarApp)
 }
 
 // ---- buscar ----
@@ -377,6 +392,19 @@ func (h *Handler) toolVerApp(ctx context.Context, _ *mcp.CallToolRequest, in idI
 	if d.RememberedFolder != "" {
 		out["pasta_de_sempre"] = d.RememberedFolder
 	}
+	out["codigo_guardado"] = d.StoredCode
+	if d.StoredCode && d.Can.Edit {
+		inputs := m.Inputs
+		if inputs == nil {
+			inputs = []manifest.Input{}
+		}
+		outputs := m.Outputs
+		if outputs == nil {
+			outputs = []manifest.Output{}
+		}
+		out["ficha_editavel"] = map[string]any{"summary": m.Summary, "inputs": inputs, "outputs": outputs,
+			"entrypoint": m.Entrypoint, "runtime": m.Runtime, "updated_at": d.UpdatedAt.Time}
+	}
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s (app %d)\n", nome, d.ID)
@@ -409,6 +437,14 @@ func (h *Handler) toolVerApp(ctx context.Context, _ *mcp.CallToolRequest, in idI
 		}
 	default:
 		b.WriteString("Este app não roda pelo Ziv.\n")
+	}
+	switch {
+	case d.StoredCode && d.Can.Edit:
+		b.WriteString("Pode receber versão nova pelo Claude (registrar_app com app_id).\n")
+	case d.StoredCode:
+		b.WriteString("Só quem pode mudar este app manda versões novas.\n")
+	default:
+		b.WriteString(noStoredCodeMsg + "\n")
 	}
 	if len(entradas) > 0 {
 		b.WriteString("Entradas:\n")
