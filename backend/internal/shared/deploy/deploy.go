@@ -196,6 +196,10 @@ func (s *Service) Busy(appID int64) bool {
 	return s.busy[appID]
 }
 
+// Hold marks the app busy while its code is rewritten, so no test or
+// publish reads a half-written folder. The caller must call the returned func.
+func (s *Service) Hold(appID int64) (func(), error) { return s.lock(appID) }
+
 // lock marks the app busy; the caller must call the returned func when done.
 func (s *Service) lock(appID int64) (func(), error) {
 	s.mu.Lock()
@@ -218,7 +222,11 @@ func (s *Service) Configure(ctx context.Context, app sqlc.App, m manifest.Manife
 	if m.Shared != nil {
 		sh = *m.Shared
 	}
+	unset := sh.MemoryMB == 0
 	sh = sh.WithDefaults()
+	if unset && s.opt.MaxMemoryMB > 0 && sh.MemoryMB > s.opt.MaxMemoryMB { // the default fits the company's cap
+		sh.MemoryMB = s.opt.MaxMemoryMB
+	}
 	if s.opt.MaxMemoryMB > 0 && sh.MemoryMB > s.opt.MaxMemoryMB {
 		return sqlc.SharedApp{}, &LimitError{Msg: fmt.Sprintf("Nesta empresa cada app com tela pode usar até %d MB de memória. Diminua a memória do app e tente de novo.", s.opt.MaxMemoryMB)}
 	}
@@ -355,8 +363,8 @@ func (s *Service) prepare(ctx context.Context, app sqlc.App, m manifest.Manifest
 // failure is what went wrong, in Portuguese, plus the log for "Ver detalhes".
 type failure struct {
 	limit *LimitError // the server was full: nothing is wrong with the app
-	msg string
-	log string
+	msg   string
+	log   string
 }
 
 func (s *Service) runJob(ctx context.Context, j job) {

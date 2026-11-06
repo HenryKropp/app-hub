@@ -208,9 +208,13 @@ func (h *Handler) sendSources(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	if h.shared.Svc != nil && h.shared.Svc.Busy(a.ID) { // a publish reads the folder
-		writeError(w, http.StatusConflict, busyMsg)
-		return
+	if h.shared.Svc != nil { // a test or publish reads the folder: none starts while it is rewritten
+		release, err := h.shared.Svc.Hold(a.ID)
+		if err != nil {
+			writeError(w, http.StatusConflict, busyMsg)
+			return
+		}
+		defer release()
 	}
 	if _, err := h.q.ScriptSources(ctx, a.ID); errors.Is(err, pgx.ErrNoRows) {
 		writeJSON(w, http.StatusConflict, map[string]string{"code": "no_stored_code", "error": noStoredCodeMsg})

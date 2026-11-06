@@ -1038,3 +1038,22 @@ func TestPublishRemovesLegacyNetwork(t *testing.T) {
 	}
 	t.Fatalf("no %q in %v", want, e.Eng.CallsCopy())
 }
+
+// Hold keeps a test or publish out while the app's code is being rewritten.
+func TestHoldBlocksPublish(t *testing.T) {
+	e := setup(t)
+	release, err := e.S.Hold(e.App.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.S.Publish(context.Background(), e.App, e.M, 1); !errors.Is(err, deploy.ErrBusy) {
+		t.Fatalf("publish while held: %v", err)
+	}
+	if _, err := e.S.Hold(e.App.ID); !errors.Is(err, deploy.ErrBusy) {
+		t.Fatalf("second hold: %v", err)
+	}
+	release()
+	if e.S.Busy(e.App.ID) {
+		t.Fatal("still busy")
+	}
+}

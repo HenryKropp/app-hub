@@ -164,3 +164,28 @@ func TestEnvioCommandsUseTemp(t *testing.T) {
 		t.Fatalf("vale_ate %v", out["vale_ate"])
 	}
 }
+
+// A made-up address is refused before the body is read or unpacked.
+func TestEnvioUnknownTokenNotRead(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	if code, out := putEnvio(t, securedServer(t, h), "http://hub.test/api/mcp/envios/inventado", []byte("isto não é um zip")); code != http.StatusNotFound || out["error"] != msgEnvioGone {
+		t.Fatalf("%d %+v", code, out)
+	}
+}
+
+// Only the kept files are stored: a .env inside the zip never reaches the database.
+func TestEnvioStoresOnlyKept(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	id, endereco, _ := prepararEnvio(t, c)
+	body := zipOf(t, map[string]string{"main.py": "print(1)\n", ".env": "SENHA=valor-zivteste-987\n"})
+	if code, out := putEnvio(t, securedServer(t, h), endereco, body); code != http.StatusOK {
+		t.Fatalf("%d %+v", code, out)
+	}
+	var content []byte
+	testPool.QueryRow(context.Background(), `SELECT content FROM mcp_uploads WHERE id = $1`, id).Scan(&content)
+	if len(content) == 0 || bytes.Contains(content, []byte("valor-zivteste-987")) {
+		t.Fatalf("stored %d bytes, secret kept", len(content))
+	}
+}
