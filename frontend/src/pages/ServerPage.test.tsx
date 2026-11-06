@@ -131,3 +131,18 @@ it("the minute reload does not overwrite the cost being typed, and refills it ot
     vi.useRealTimers()
   }
 })
+
+it("shows only this company's apps when the server is shared (company_only)", async () => {
+  const company: ServerInfo = {
+    company_only: true, engine_ok: true, monthly_cost_cents: 0, hub_cents: 0, period_start: "2026-10-01T00:00:00-03:00",
+    apps: [{ ...info.apps[0], cost_cents: 0 }],
+  }
+  vi.spyOn(api.server, "get").mockResolvedValue(company)
+  renderPage()
+  expect(await screen.findByText("Sistema Alis")).toBeInTheDocument()
+  expect(screen.getByText("O servidor é dividido com outras empresas. Aqui aparecem só os apps desta empresa.")).toBeInTheDocument()
+  expect(screen.queryByRole("region", { name: "Uso do servidor" })).not.toBeInTheDocument()
+  expect(screen.queryByLabelText("Quanto o servidor custa por mês")).not.toBeInTheDocument()
+  expect(screen.queryByText("Gasto")).not.toBeInTheDocument()
+  expect(screen.queryByText("Ziv e espaço livre")).not.toBeInTheDocument()
+})

@@ -63,6 +63,7 @@ func (h *Handler) getServer(w http.ResponseWriter, r *http.Request) {
 	for _, a := range apps {
 		uses = append(uses, costs.AppUse{AppID: a.AppID, MemoryMB: int(a.MemoryMb), Minutes: byApp[a.AppID].Minutes})
 	}
+	companyOnly := h.workspace != nil && h.workspace.Slug != "principal"
 	per, hub := costs.Estimate(settings.MonthlyCostCents, int(info.MemTotal>>20), now.Sub(start), monthLen, uses)
 	type row struct {
 		AppID       int64   `json:"app_id"`
@@ -95,9 +96,19 @@ func (h *Handler) getServer(w http.ResponseWriter, r *http.Request) {
 			MemoryMB: a.MemoryMb, CPUs: numericFloat(a.Cpus), IdleMinutes: a.IdleMinutes,
 			HoursOn: math.Round(float64(u.Minutes)/60*10) / 10, AvgMemMB: u.AvgMem >> 20, MaxMemMB: u.MaxMem >> 20, AvgCPU: u.AvgCpu,
 			DBBytes: dbBytes, BackupBytes: backupBytes[a.AppID], CostCents: per[a.AppID]})
+		if companyOnly { // the server's cost is the principal company's business
+			out[len(out)-1].CostCents = 0
+		}
 	}
 	engineOK := h.shared.Eng != nil && h.shared.Eng.Available(ctx) == nil
+	if companyOnly {
+		// A company sees only its own apps: no server memory, disk or cost.
+		writeJSON(w, http.StatusOK, map[string]any{"company_only": true, "engine_ok": engineOK,
+			"monthly_cost_cents": 0, "hub_cents": 0, "period_start": start, "apps": out})
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
+		"company_only": false,
 		"memory_total": info.MemTotal, "memory_used": info.MemUsed, "disk_total": info.DiskTotal, "disk_used": info.DiskUsed,
 		"disk_warning":       info.DiskTotal > 0 && float64(info.DiskUsed)/float64(info.DiskTotal) > 0.9,
 		"engine_ok":          engineOK,
@@ -108,6 +119,10 @@ func (h *Handler) getServer(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) putServerCost(w http.ResponseWriter, r *http.Request) {
 	me, _, ok := h.requirePerm(w, r, access.ManageServer)
 	if !ok {
+		return
+	}
+	if h.workspace != nil && h.workspace.Slug != "principal" {
+		writeError(w, http.StatusForbidden, "O custo do servidor é definido pela empresa principal.")
 		return
 	}
 	var body struct {

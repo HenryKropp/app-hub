@@ -113,8 +113,11 @@ export type ServerApp = {
   app_id: number; name: string; slug: string; status: SharedStatus; always_on: boolean; memory_mb: number; cpus: number; idle_minutes: number
   hours_on: number; avg_mem_mb: number; max_mem_mb: number; avg_cpu: number; db_bytes: number; backup_bytes: number; cost_cents: number
 }
+/** company_only: a company other than the principal sees only its own apps
+ * (no server memory, disk or cost: the server is shared). */
 export type ServerInfo = {
-  memory_total: number; memory_used: number; disk_total: number; disk_used: number; disk_warning: boolean; engine_ok: boolean
+  company_only?: boolean
+  memory_total?: number; memory_used?: number; disk_total?: number; disk_used?: number; disk_warning?: boolean; engine_ok: boolean
   monthly_cost_cents: number; hub_cents: number; period_start: string; apps: ServerApp[]
 }
 

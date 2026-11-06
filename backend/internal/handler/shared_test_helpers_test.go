@@ -27,11 +27,19 @@ type sharedDeps struct {
 // the deploy service works in the background).
 func withShared(t *testing.T, h *Handler) sharedDeps {
 	t.Helper()
+	return withSharedOpts(t, h, deploy.Options{})
+}
+
+// withSharedOpts is withShared with extra service options (folder root,
+// limits); the data folder, domain and health wait are filled in.
+func withSharedOpts(t *testing.T, h *Handler, opt deploy.Options) sharedDeps {
+	t.Helper()
 	v, _ := vault.New(vault.NewKey())
 	d := sharedDeps{eng: engine.NewFake(), dbs: appdb.NewFake(), codes: gateway.NewCodes()}
 	t.Cleanup(d.eng.Close)
 	dataDir := t.TempDir() // the same folder for the service and the handler (copies live there)
-	d.svc = deploy.New(h.q, d.eng, d.dbs, v, deploy.Options{DataDir: dataDir, Domain: "localhost:8080", Scheme: "http", HealthTimeout: time.Second})
+	opt.DataDir, opt.Domain, opt.Scheme, opt.HealthTimeout = dataDir, "localhost:8080", "http", time.Second
+	d.svc = deploy.New(h.q, d.eng, d.dbs, v, opt)
 	h.SetShared(Shared{Svc: d.svc, Vault: v, DBs: d.dbs, Eng: d.eng, Codes: d.codes, DataDir: dataDir})
 	return d
 }
