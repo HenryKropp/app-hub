@@ -1,6 +1,8 @@
 # Protocolo de registro de apps pelo Claude
 
-**Versão:** 0.2 (rascunho para teste local) · **Data:** 2026-09-30 · Mudanças da v0.1 para a v0.2: marcadas com **(v0.2)**, vindas da rodada 1 (seção 8)
+**Versão:** 0.3 · **Data:** 2026-11-06 · Mudanças da v0.1 para a v0.2: marcadas com **(v0.2)**, vindas da rodada 1 (seção 8)
+
+> **(v0.3) Agora é pelo MCP.** O roteiro que o Claude segue hoje é o texto que a ferramenta `formato_do_app` devolve (`backend/internal/handler/mcp_protocolo.md`), com o envio do código por `preparar_envio`, o registro por `registrar_app` e, para apps com tela, `publicar_app_com_tela` (ADR 026). O Passo 0 ("já existe?") é feito com `buscar` e `ver_app`, que mostra se o Ziv guarda o código do app (`codigo_guardado`). Este documento fica como a referência longa e o histórico das rodadas de teste.
 
 Roteiro que o Claude segue para ler a pasta de um app e montar o manifesto dele (`ziv.yaml`; nos apps antigos, `kova.yaml` ou `app-hub.yaml`), sem ninguém preencher nada à mão. Primeiro é testado localmente, com o Claude lendo as pastas direto. Depois vira a base do MCP (Fase 2b): as ferramentas do MCP entregam ao Claude exatamente o que este protocolo pede, e as instruções do MCP são este texto.
 

@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy"
 )
 
 // zipOf builds a zip from name → content.
@@ -340,5 +342,185 @@ func TestRegistrarWebApp(t *testing.T) {
 	id := int64(out["app_id"].(float64))
 	if slug, kind, folder, _ := appRow(t, id); slug != "painel" || kind != "web" || folder != h.shared.Svc.CodeDir(id) {
 		t.Fatalf("%s %s %s", slug, kind, folder)
+	}
+}
+
+// ---- publicar_app_com_tela ----
+
+func publicar(t *testing.T, s *mcp.ClientSession, args map[string]any) (*mcp.CallToolResult, string, map[string]any) {
+	t.Helper()
+	return callTool(t, s, "publicar_app_com_tela", args)
+}
+
+// registrarTela registers the screen app "Painel" by Claude with app.py = base + extra.
+func registrarTela(t *testing.T, h *Handler, s *mcp.ClientSession, extra string) int64 {
+	t.Helper()
+	m := scriptManifesto()
+	m["kind"], m["entrypoint"], m["name"] = "web", "app.py", "Painel"
+	envio := sendEnvio(t, h, s, map[string]string{"app.py": "import streamlit as st\nst.title('Painel')\n" + extra, "requirements.txt": "streamlit\n"})
+	res, text, out := registrar(t, s, map[string]any{"envio": envio, "manifesto": m})
+	if res.IsError {
+		t.Fatalf("registrar: %s", text)
+	}
+	id := int64(out["app_id"].(float64))
+	if !strings.HasSuffix(text, fmt.Sprintf("Agora chame publicar_app_com_tela com app_id %d.", id)) {
+		t.Fatalf("registrar text %q", text)
+	}
+	return id
+}
+
+func deploymentCount(t *testing.T, id int64) int {
+	t.Helper()
+	var n int
+	testPool.QueryRow(context.Background(), "SELECT count(*) FROM shared_deployments WHERE app_id = $1", id).Scan(&n)
+	return n
+}
+
+func TestPublicarTelaNoAr(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withShared(t, h)
+	s := toolSession(t, c)
+	id := registrarTela(t, h, s, "")
+	res, text, out := publicar(t, s, map[string]any{"app_id": id})
+	url := h.shared.Svc.AppURL("painel")
+	if res.IsError || out["situacao"] != "no_ar" || out["endereco"] != url || !strings.Contains(text, "No ar: "+url+" (versão 1).") {
+		t.Fatalf("%v %q %+v", res.IsError, text, out)
+	}
+	var kind, status string
+	testPool.QueryRow(context.Background(), "SELECT kind, status FROM shared_deployments WHERE app_id = $1 ORDER BY id DESC LIMIT 1", id).Scan(&kind, &status)
+	if kind != "live" || status != "live" {
+		t.Fatalf("deployment %s %s", kind, status)
+	}
+}
+
+func TestPublicarTelaAvisoPedeCiente(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withShared(t, h)
+	s := toolSession(t, c)
+	id := registrarTela(t, h, s, "import sqlite3\nsqlite3.connect('notas.db')\n")
+	res, text, out := publicar(t, s, map[string]any{"app_id": id})
+	if !res.IsError || out["situacao"] != "pendencias" || !strings.Contains(text, "file_data") || !strings.Contains(text, "Pergunte à pessoa se está ciente") {
+		t.Fatalf("%v %q %+v", res.IsError, text, out)
+	}
+	if n := deploymentCount(t, id); n != 0 {
+		t.Fatalf("published anyway: %d", n)
+	}
+	res, text, out = publicar(t, s, map[string]any{"app_id": id, "ciente": []string{"file_data", "inventado"}})
+	if res.IsError || out["situacao"] != "no_ar" {
+		t.Fatalf("ciente: %q %+v", text, out)
+	}
+	var acks []string
+	testPool.QueryRow(context.Background(), "SELECT acks FROM shared_apps WHERE app_id = $1", id).Scan(&acks)
+	if !slices.Equal(acks, []string{"file_data"}) {
+		t.Fatalf("acks %v", acks)
+	}
+}
+
+func TestPublicarTelaFaltamChaves(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withShared(t, h)
+	s := toolSession(t, c)
+	id := registrarTela(t, h, s, "import os\nkey = os.getenv('API_KEY')\n")
+	var texts []string
+	res, text, out := publicar(t, s, map[string]any{"app_id": id})
+	texts = append(texts, text)
+	link := fmt.Sprintf("http://hub.test/apps/%d", id)
+	if res.IsError || out["situacao"] != "faltam_chaves" || !strings.Contains(text, "API_KEY") || !strings.Contains(text, link) || !strings.Contains(text, "nunca pela conversa") {
+		t.Fatalf("%v %q %+v", res.IsError, text, out)
+	}
+	if n := deploymentCount(t, id); n != 0 {
+		t.Fatalf("published anyway: %d", n)
+	}
+	if code := c.do("PUT", appPath(id, "/shared/config"), map[string]string{"name": "API_KEY", "value": "s3cr3t"}, nil); code != http.StatusOK {
+		t.Fatalf("config %d", code)
+	}
+	res, text, out = publicar(t, s, map[string]any{"app_id": id})
+	texts = append(texts, text)
+	if res.IsError || out["situacao"] != "no_ar" {
+		t.Fatalf("depois: %q %+v", text, out)
+	}
+	_, text, _ = callTool(t, s, "ver_app", map[string]any{"id": id})
+	texts = append(texts, text)
+	for _, x := range texts {
+		if strings.Contains(x, "s3cr3t") {
+			t.Fatalf("value leaked: %q", x)
+		}
+	}
+}
+
+func TestPublicarTelaErroMantemAnterior(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	sd := withShared(t, h)
+	s := toolSession(t, c)
+	id := registrarTela(t, h, s, "")
+	if _, text, out := publicar(t, s, map[string]any{"app_id": id}); out["situacao"] != "no_ar" {
+		t.Fatalf("v1 %q", text)
+	}
+	var before int64
+	testPool.QueryRow(context.Background(), "SELECT current_deployment_id FROM shared_apps WHERE app_id = $1", id).Scan(&before)
+	envio := sendEnvio(t, h, s, map[string]string{"app.py": "import streamlit as st\nst.title('Painel 2')\n", "requirements.txt": "streamlit\n"})
+	if res, text, _ := registrar(t, s, map[string]any{"envio": envio, "app_id": id, "nota": "Título novo"}); res.IsError ||
+		!strings.HasSuffix(text, fmt.Sprintf("Agora chame publicar_app_com_tela com app_id %d.", id)) {
+		t.Fatalf("v2 %q", text)
+	}
+	waitNotBusy(t, h, id)
+	sd.eng.BuildErr = errors.New("a montagem falhou")
+	res, text, out := publicar(t, s, map[string]any{"app_id": id})
+	if !res.IsError || out["situacao"] != "erro" || !strings.Contains(text, "a anterior continua no ar") || !strings.Contains(text, "Não foi possível montar o app") {
+		t.Fatalf("%v %q %+v", res.IsError, text, out)
+	}
+	var after int64
+	testPool.QueryRow(context.Background(), "SELECT current_deployment_id FROM shared_apps WHERE app_id = $1", id).Scan(&after)
+	if after != before {
+		t.Fatalf("current %d → %d", before, after)
+	}
+}
+
+func TestPublicarTelaPrecisaRestore(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withShared(t, h)
+	id := registrarTela(t, h, toolSession(t, c), "")
+	createPersonAs(t, c, "Bia", "bia@alis.com", "usuario")
+	bia := c.fresh()
+	loginAs(t, bia, "bia@alis.com")
+	res, text, _ := publicar(t, toolSession(t, bia), map[string]any{"app_id": id})
+	if !res.IsError || !strings.Contains(text, "permissão") {
+		t.Fatalf("%q", text)
+	}
+	if n := deploymentCount(t, id); n != 0 {
+		t.Fatalf("published: %d", n)
+	}
+}
+
+func TestPublicarTelaLinkFromService(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withSharedOpts(t, h, deploy.Options{Domain: "teste.localhost:8080"})
+	s := toolSession(t, c)
+	id := registrarTela(t, h, s, "")
+	_, text, out := publicar(t, s, map[string]any{"app_id": id})
+	if want := h.shared.Svc.AppURL("painel"); out["endereco"] != want || !strings.Contains(want, "teste.localhost:8080") {
+		t.Fatalf("%q %+v", text, out)
+	}
+}
+
+func TestPublicarTelaSharedOff(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	s := toolSession(t, c)
+	id := insertApp(t, manifest.Manifest{ManifestVersion: 1, ID: "painel", Name: "Painel", Kind: manifest.KindWeb, Entrypoint: "app.py", Area: "Research"})
+	res, text, _ := publicar(t, s, map[string]any{"app_id": id})
+	if !res.IsError || text != msgWebOff {
+		t.Fatalf("%q", text)
+	}
+	var n int
+	testPool.QueryRow(context.Background(), "SELECT count(*) FROM shared_apps WHERE app_id = $1", id).Scan(&n)
+	if n != 0 || deploymentCount(t, id) != 0 {
+		t.Fatal("wrote something")
 	}
 }

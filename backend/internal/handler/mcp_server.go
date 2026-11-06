@@ -95,6 +95,13 @@ var mcpRoutes = []string{
 	"GET /api/areas",
 	"POST /api/scripts/import",
 	"POST /api/apps/{id}/sources",
+	// publicar_app_com_tela: the settings values (PUT …/shared/config) stay site-only
+	"GET /api/apps/{id}/shared",
+	"PUT /api/apps/{id}/shared",
+	"GET /api/apps/{id}/shared/check",
+	"GET /api/apps/{id}/shared/config",
+	"POST /api/apps/{id}/shared/publish",
+	"GET /api/apps/{id}/shared/deployments/{id}",
 }
 
 var errMCPRoute = errors.New("mcp: rota não liberada para o Claude")
