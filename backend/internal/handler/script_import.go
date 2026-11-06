@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/HenryKropp/app-hub/backend/internal/bundle"
 	"io"
 	"log/slog"
 	"net/http"
@@ -70,8 +71,7 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 	for name, f := range b.Files {
 		key := strings.ToLower(strings.ReplaceAll(name, `\`, "/"))
 		base := strings.ToLower(filepath.Base(name))
-		secretFile := base == ".env" || strings.HasPrefix(base, ".env.") || strings.HasSuffix(base, ".pem") || strings.HasSuffix(base, ".key") || base == "id_rsa"
-		if secretFile {
+		if bundle.IsSecretFile(base) {
 			writeError(w, http.StatusBadRequest, "Não envie arquivos de credenciais (.env, .pem, .key). Retire as senhas do pacote antes de importar.")
 			return
 		}
