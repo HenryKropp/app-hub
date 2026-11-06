@@ -233,6 +233,15 @@ A primeira tela depois do login (`/`): o resumo do dia da pessoa. O catálogo de
 - Nada disso guarda um "feed" próprio: a Home lê o que já existe, e tudo o que mostra passa pela mesma checagem de acesso do item.
 - **Depois:** "apps e artifacts sem responsável ativo" volta quando for possível desativar uma pessoa.
 
+### 3.16 Agendar (entrega 1 construída em 2026-11, ADR 024)
+Quem pode rodar um script pode agendá-lo para rodar sozinho no próprio computador, com o Agente ligado.
+- **Quando:** a cada N minutos (mínimo 5) ou N horas, todo dia, em dias da semana ou todo mês (dia 1 a 28), sempre em horário de Brasília. A tela mostra as próximas 3 execuções antes de salvar.
+- **Onde:** um computador fixo da pessoa. Desligado na hora, a execução aparece como **Perdida**.
+- **Histórico:** toda execução agendada aparece no histórico com o selo "agendada". Quando não dá para rodar sem ser falha (a anterior ainda rodando, aprovação pendente), o agendamento mostra a situação.
+- **Pausa automática:** depois de 5 falhas seguidas, quando a pessoa perde o acesso, quando o app é suspenso ou quando o app muda e os campos guardados não servem mais. O motivo aparece no agendamento e na Home do dono, que reativa com um clique.
+- **Quem vê:** cada pessoa vê os seus agendamentos. Quem cuida do app vê todos e pode pausar ou apagar, sem ver os dados dos outros.
+- **Depois:** rodar no servidor (para apps que não precisam do PC) e e-mail opcional com o resultado.
+
 ---
 
 ## 4. Fluxos principais
@@ -289,7 +298,7 @@ A primeira tela depois do login (`/`): o resumo do dia da pessoa. O catálogo de
 - **Funções de IA com chave própria do Hub:** diagnóstico por IA dentro do Hub, ficha escrita por IA dentro do Hub, explicação de erros, "pergunte ao app", busca em linguagem natural e resumo das mudanças. Ficam para quando a chave da API estiver configurada.
 - **Correção automática de apps (1.8):** V2.
 - Login com Google ou Microsoft, grupos de acesso, chaves pessoais por usuário.
-- Encadeamento de apps, presets salvos e agendamento pelo Hub.
+- Encadeamento de apps e presets salvos. (O agendamento saiu daqui: ver 3.16.)
 - Desenvolvimento compartilhado com resolução de conflitos.
 - Trilha de auditoria exportável, resumo semanal por e-mail, tempo economizado.
 - Execução de planilhas com macro e de sistemas complexos (só registro e ficha).

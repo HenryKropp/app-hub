@@ -46,7 +46,7 @@ export function SchedulesSection({ appId, appName, manifest, reloadKey }: { appI
             <div className="min-w-0 space-y-1">
               <p className="flex flex-wrap items-center gap-x-2 text-sm font-medium">
                 <CalendarClock className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                {s.name && <span>{s.name} ·</span>}
+                {s.name && <><span>{s.name}</span><span aria-hidden className="text-muted-foreground">·</span></>}
                 <span>{s.describe}</span>
                 {!s.active && <span className="rounded-full bg-secondary px-2 text-xs font-medium text-muted-foreground">Pausado</span>}
               </p>

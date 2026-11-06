@@ -172,7 +172,8 @@ Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mc
 | Tarefa | Status | Notas |
 |---|---|---|
 | Criar apps com `ziv.yaml` pronto | Pending | Depois da Etapa 2 |
-| Agendamento no Ziv e ferramentas de agendar | Pending | Primeiro o Ziv aprende a agendar |
+| Agendamento no Ziv | Done | Entrega 1 em 2026-11-06 (ADR 024); ver "Agendar apps" |
+| Ferramentas de agendar pelo Claude | Pending | Depois do agendamento no Ziv |
 
 ## Fase 3 — Catálogo e ficha (1.2, 1.4)
 
@@ -380,3 +381,18 @@ Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mc
 | Botões "Criar o espaço da empresa" e aviso para convidados usarem Entrar | Done | Evita que um convidado crie uma segunda empresa |
 | Fontes menores, avisos em 12 px, margem de 16 px no celular | Done | Crítica impeccable + ux-copy: 23/32 |
 | Passo próprio para o sócio ("Você sabe o que existe e quem cuida") | Pending | Sugerido na crítica; Henry não escolheu nesta rodada |
+
+## Agendar apps (2026-11-06, ADR 024)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Tabela de agendamentos, status Perdida e origem "agendada" | Done | Migração 020 |
+| Cálculo de horários em Brasília (minutos, horas, dia, dias da semana, mês) | Done | `internal/schedule` e `lib/schedules.ts` |
+| Rodar e agendamento pelo mesmo caminho de checagens | Done | `launchRun` |
+| API de agendamentos e quem vê o quê | Done | Dados de outra pessoa ficam escondidos |
+| Relógio que dispara, Perdida, Pulada, espera e pausas automáticas | Done | 5 falhas seguidas pausam; atraso de até 1 h |
+| Telas: Agendar, seção Agendamentos, selo "agendada", aviso na Home | Done | `e2e/agendar.mjs` (1366 e 390 px) |
+| Teste do Henry com o Agente ligado | Pending | Agendar a cada 5 min e ver as execuções; desligar o PC e ver Perdida |
+| Peça 2: rodar no servidor | Pending | Para apps que não precisam do PC (ex.: News Scrapper) |
+| Peça 3: e-mail opcional por agendamento | Pending | Precisa escolher um serviço de envio |
+| Selo "agendada" na faixa de execuções abertas | Pending | `ActiveRun` não traz a origem |
