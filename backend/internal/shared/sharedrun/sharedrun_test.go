@@ -203,6 +203,10 @@ func TestTwoCompaniesSameAppID(t *testing.T) {
 		}
 	}
 	b.want("PUT", "/api/admin/companies/teste/shared", map[string]bool{"on": true}, 200) // a new company starts off
+	// Publishing needs the app approved, like running it.
+	approve := map[string]any{"classification": "internal", "purpose": "Notas do time", "approved": true}
+	b.want("PUT", "/api/security/apps/1", approve, 200)
+	b.want("PUT", "/w/teste/api/security/apps/1", approve, 200)
 	b.want("POST", "/api/apps/1/shared/publish", nil, 202)
 	b.want("POST", "/w/teste/api/apps/1/shared/publish", nil, 202)
 	d1 := waitLive(t, pool)
