@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -35,6 +36,14 @@ const (
 // stored when the zip is refused, so the same address can be used again.
 func (h *Handler) receiveUpload(w http.ResponseWriter, r *http.Request) {
 	token := r.PathValue("token")
+	// The address first: a made-up one is refused before 12 MB are read.
+	if _, err := h.q.MCPUploadOpen(r.Context(), hashToken(token)); errors.Is(err, pgx.ErrNoRows) {
+		writeError(w, http.StatusNotFound, msgEnvioGone)
+		return
+	} else if err != nil {
+		internalError(w, "mcp upload open", err)
+		return
+	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, int64(bundle.SiteLimits.MaxZipBytes)))
 	var tooBig *http.MaxBytesError
 	if errors.As(err, &tooBig) {
@@ -50,7 +59,13 @@ func (h *Handler) receiveUpload(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	_, err = h.q.ReceiveMCPUpload(r.Context(), sqlc.ReceiveMCPUploadParams{Content: body, Size: int32(len(body)), TokenHash: hashToken(token)})
+	// Only what is kept is stored: a .env or key inside the zip never reaches the database.
+	stored, err := json.Marshal(storedEnvio{Files: res.Files, Dropped: res.Dropped})
+	if err != nil {
+		internalError(w, "mcp upload encode", err)
+		return
+	}
+	_, err = h.q.ReceiveMCPUpload(r.Context(), sqlc.ReceiveMCPUploadParams{Content: stored, Size: int32(len(stored)), TokenHash: hashToken(token)})
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeError(w, http.StatusNotFound, msgEnvioGone)
 		return
@@ -60,6 +75,13 @@ func (h *Handler) receiveUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"recebido": true, "arquivos": len(res.Files)})
+}
+
+// storedEnvio is what mcp_uploads.content holds: the files the Ziv kept and
+// the names it left out, never the zip as sent.
+type storedEnvio struct {
+	Files   map[string][]byte `json:"files"`
+	Dropped []string          `json:"dropped"`
 }
 
 // envioExcludes are left out on the person's computer, before the zip leaves it.

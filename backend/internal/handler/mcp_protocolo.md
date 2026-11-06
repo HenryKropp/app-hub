@@ -68,7 +68,7 @@ Pelo Claude sobem só `script` e `web`. Apps de janela (`desktop`) e `.exe` não
 Cada arquivo que o app grava. O `pattern` usa `*` onde o nome muda (`rentabilidade_*.xlsx`); o `label` diz o que a pessoa recebe.
 
 ### Passo 7 — Chaves e senhas (`secrets`)
-Liste chaves de API, tokens, senhas e strings de conexão só com `name` (o que é), `file`, `line` e `hint` ("mover para o cofre"). Chave escrita direto no código é sempre ponto de atenção. Um placeholder (`SUA_CHAVE_AQUI`) não é segredo. Se o app precisa de chaves, diga quais faltam: a pessoa preenche no Ziv depois, nunca pela conversa.
+Liste chaves de API, tokens, senhas e strings de conexão só com `name` (o que é), `file`, `line` e `hint` ("mover para o cofre"). Chave escrita direto no código é sempre ponto de atenção. Um placeholder (`SUA_CHAVE_AQUI`) não é segredo. Se um app com tela precisa de chaves, diga quais faltam: a pessoa preenche no Ziv depois, nunca pela conversa. O Ziv ainda não guarda chaves de scripts: avise a pessoa que um script que precisa delas pode falhar ao rodar.
 
 ### Passo 8 — Agenda
 Só com evidência (`schtasks`, cron, README dizendo "roda todo dia às 8h"). Vai nos pontos de atenção; o agendamento é feito no Ziv.

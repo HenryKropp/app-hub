@@ -106,11 +106,11 @@ func (h *Handler) envioFiles(ctx context.Context, envio int64) (sqlc.McpUpload, 
 	if !up.ReceivedAt.Valid {
 		return up, bundle.Result{}, msgEnvioWaiting
 	}
-	res, err := bundle.Extract(up.Content, bundle.SiteLimits)
-	if err != nil {
-		return up, bundle.Result{}, err.Error() + " Prepare um envio novo."
+	var st storedEnvio
+	if err := json.Unmarshal(up.Content, &st); err != nil {
+		return up, bundle.Result{}, "Não consegui ler este envio. Prepare um envio novo."
 	}
-	return up, res, ""
+	return up, bundle.Result{Files: st.Files, Dropped: st.Dropped}, ""
 }
 
 func inputFiles(res bundle.Result) map[string]manifest.InputFile {
@@ -348,7 +348,11 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 		b.WriteString("\nDeixei de fora: " + strings.Join(dropped, ", ") + " (senhas e pastas que não sobem).")
 		for _, d := range dropped {
 			if !strings.HasSuffix(d, "/") {
-				b.WriteString(" Se o app precisa dessas chaves, a pessoa preenche no Ziv; nunca mande os valores pela conversa.")
+				if web {
+					b.WriteString(" Se o app precisa dessas chaves, a pessoa preenche no Ziv; nunca mande os valores pela conversa.")
+				} else {
+					b.WriteString(" O Ziv ainda não guarda chaves de scripts: avise a pessoa que o script pode falhar ao rodar se precisar delas; nunca mande os valores pela conversa.")
+				}
 				break
 			}
 		}

@@ -524,3 +524,33 @@ func TestPublicarTelaSharedOff(t *testing.T) {
 		t.Fatal("wrote something")
 	}
 }
+
+// A script has nowhere to keep keys in the Ziv: the text must not send the person there.
+func TestRegistrarScriptKeysHonest(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	s := toolSession(t, c)
+	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print(1)\n", ".env": "SENHA=x\n"})
+	res, text, out := registrar(t, s, map[string]any{"envio": envio, "manifesto": scriptManifesto()})
+	if res.IsError || strings.Contains(text, "a pessoa preenche no Ziv") || !strings.Contains(text, "ainda não guarda chaves de scripts") {
+		t.Fatalf("%q", text)
+	}
+	t.Cleanup(func() { cleanupAppFolder(t, int64(out["app_id"].(float64))) })
+}
+
+// A screen app sent by Claude publishes in a company with a memory cap.
+func TestPublicarTelaEmpresaComLimite(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withSharedOpts(t, h, deploy.Options{MaxMemoryMB: 256})
+	s := toolSession(t, c)
+	id := registrarTela(t, h, s, "")
+	if _, text, out := publicar(t, s, map[string]any{"app_id": id}); out["situacao"] != "no_ar" {
+		t.Fatalf("%q %+v", text, out)
+	}
+	var mb int
+	testPool.QueryRow(context.Background(), "SELECT memory_mb FROM shared_apps WHERE app_id = $1", id).Scan(&mb)
+	if mb != 256 {
+		t.Fatalf("memory %d", mb)
+	}
+}

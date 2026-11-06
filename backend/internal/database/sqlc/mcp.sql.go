@@ -400,6 +400,17 @@ func (q *Queries) ListMCPConnections(ctx context.Context, personID int64) ([]Mcp
 	return items, nil
 }
 
+const mCPUploadOpen = `-- name: MCPUploadOpen :one
+SELECT id FROM mcp_uploads WHERE token_hash = $1 AND received_at IS NULL AND expires_at > now()
+`
+
+func (q *Queries) MCPUploadOpen(ctx context.Context, tokenHash string) (int64, error) {
+	row := q.db.QueryRow(ctx, mCPUploadOpen, tokenHash)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const receiveMCPUpload = `-- name: ReceiveMCPUpload :one
 UPDATE mcp_uploads SET content = $1, size = $2, received_at = now()
 WHERE token_hash = $3 AND received_at IS NULL AND expires_at > now()

@@ -105,7 +105,9 @@ func (s *scoped) Logs(ctx context.Context, id string, lines int) (string, error)
 	return s.base.Logs(ctx, id, lines)
 }
 
-func (s *scoped) RemoveImage(ctx context.Context, id string) error { return s.base.RemoveImage(ctx, id) }
+func (s *scoped) RemoveImage(ctx context.Context, id string) error {
+	return s.base.RemoveImage(ctx, id)
+}
 func (s *scoped) Inspect(ctx context.Context, id string) (State, error) {
 	return s.base.Inspect(ctx, id)
 }
