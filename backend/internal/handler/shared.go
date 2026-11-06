@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -267,6 +268,9 @@ func (h *Handler) checkShared(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if err := h.hydrateForShared(r.Context(), a); err != nil {
+		slog.Warn("shared hydrate", "app", a.ID, "err", err)
+	}
 	rep, err := h.readiness(a, sa)
 	if errors.Is(err, deploy.ErrFolderOutside) {
 		sharedError(w, err)
@@ -301,6 +305,18 @@ func (h *Handler) startShared(w http.ResponseWriter, r *http.Request, test bool)
 	a, me, can, sa, ok := h.sharedFor(w, r, canRestore)
 	if !ok {
 		return
+	}
+	if !test { // publishing an unapproved version is refused, as running it is
+		if reason, err := h.executionBlock(r.Context(), a.ID); err != nil {
+			internalError(w, "approval", err)
+			return
+		} else if reason != "" {
+			writeError(w, http.StatusForbidden, reason)
+			return
+		}
+	}
+	if err := h.hydrateForShared(r.Context(), a); err != nil {
+		slog.Warn("shared hydrate", "app", a.ID, "err", err)
 	}
 	// The engine first, so "Podman desligado" shows as such.
 	if err := h.shared.Eng.Available(r.Context()); err != nil {
@@ -358,6 +374,9 @@ func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
 	a, me, _, sa, ok := h.sharedFor(w, r, canRestore)
 	if !ok {
 		return
+	}
+	if err := h.hydrateForShared(r.Context(), a); err != nil {
+		slog.Warn("shared hydrate", "app", a.ID, "err", err)
 	}
 	var body SharedSettings
 	if !readJSON(w, r, &body) {
@@ -652,4 +671,14 @@ func (h *Handler) sharedBriefOf(r *http.Request, appID int64) (*sharedBrief, err
 		return nil, nil
 	}
 	return &sharedBrief{Status: sa.Status, URL: h.shared.Svc.AppURL(sa.Slug), Slug: sa.Slug}, nil
+}
+
+// hydrateForShared rebuilds a stored-code app's folder (lost on a server
+// restart) before the shared-app screens read it. Apps whose code the Ziv
+// does not keep are left alone.
+func (h *Handler) hydrateForShared(ctx context.Context, a sqlc.App) error {
+	if h.serverPath(a.FolderPath, a.ID) != nil {
+		return nil
+	}
+	return h.hydrateImportedScript(ctx, a, manifestOf(a))
 }

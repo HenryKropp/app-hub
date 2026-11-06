@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/HenryKropp/app-hub/backend/internal/access"
@@ -35,7 +36,37 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m := b.Manifest
-	m.ManifestVersion, m.Kind = manifest.Version, manifest.KindScript
+	switch m.Kind {
+	case "":
+		m.Kind = manifest.KindScript
+	case manifest.KindScript, manifest.KindWeb:
+	default:
+		writeError(w, http.StatusBadRequest, "Escolha script ou app com tela.")
+		return
+	}
+	web := m.Kind == manifest.KindWeb
+	if web && !h.sharedOn(r.Context()) { // before any write
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"code": "shared_runtime_unavailable", "error": msgWebOff})
+		return
+	}
+	m.ManifestVersion = manifest.Version
+	if web {
+		// Only the variable names come from the sender; secret defaults are
+		// dropped, and the command and resources are confirmed on the
+		// Compartilhar screen (PUT /shared, can.Restore).
+		env := []manifest.EnvVar{}
+		if m.Shared != nil {
+			for _, e := range m.Shared.Env {
+				if e.Secret {
+					e.Default = ""
+				}
+				env = append(env, e)
+			}
+		}
+		m.Shared = &manifest.Shared{Enabled: true, Env: env}
+	} else {
+		m.Shared = nil
+	}
 	m.Name, m.Summary = strings.TrimSpace(m.Name), strings.TrimSpace(m.Summary)
 	m.ID = manifest.Slugify(m.Name)
 	m.Owner = &manifest.PersonRef{Name: me.Name, Email: me.Email}
@@ -87,7 +118,16 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	m.Language = manifest.ScriptRuntime(m.Entrypoint)
-	m.ID += "-" + token[:8]
+	if web {
+		slug, err := h.freeSlug(r.Context(), m.ID)
+		if err != nil {
+			internalError(w, "web slug", err)
+			return
+		}
+		m.ID = slug
+	} else {
+		m.ID += "-" + token[:8]
+	}
 	if err := manifest.WriteToFolder(folder, m); err != nil {
 		internalError(w, "script manifest", err)
 		return
@@ -103,6 +143,15 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	success = true
+	if web {
+		// Screen apps keep their code in the shared-app code folder, which
+		// the deploy service accepts in every company.
+		if err := h.moveToCodeDir(r.Context(), id, folder, m); err != nil {
+			_, _ = h.q.DeleteApp(r.Context(), id)
+			internalError(w, "web code folder", err)
+			return
+		}
+	}
 	var number int32
 	if a, err := h.q.GetApp(r.Context(), id); err == nil {
 		unlock := h.lockApp(id)
@@ -167,4 +216,56 @@ func (h *Handler) hydrateImportedScript(ctx context.Context, a sqlc.App, m manif
 		}
 	}
 	return manifest.WriteToFolder(a.FolderPath, m)
+}
+
+const msgWebOff = "Os apps com tela ainda não estão ligados nesta empresa. Peça ao responsável pelo Ziv para ligar. Scripts sobem normalmente."
+
+// sharedOn says whether this company can run screen apps now.
+func (h *Handler) sharedOn(ctx context.Context) bool {
+	if h.workspace != nil && h.workspace.SharedEnabled != nil && !h.workspace.SharedEnabled(ctx) {
+		return false
+	}
+	return h.shared.Svc != nil
+}
+
+// freeSlug is base cut to 40 characters (an app address), with -2, -3… when taken.
+func (h *Handler) freeSlug(ctx context.Context, base string) (string, error) {
+	cut := func(s string, n int) string {
+		if len(s) > n {
+			s = s[:n]
+		}
+		return strings.TrimRight(s, "-")
+	}
+	for i := 1; ; i++ {
+		slug := cut(base, 40)
+		if i > 1 {
+			suffix := "-" + strconv.Itoa(i)
+			slug = cut(base, 40-len(suffix)) + suffix
+		}
+		taken, err := h.q.SlugExists(ctx, sqlc.SlugExistsParams{Slug: slug})
+		if err != nil {
+			return "", err
+		}
+		if !taken {
+			return slug, nil
+		}
+	}
+}
+
+// moveToCodeDir points a just-imported screen app at its code folder and
+// rebuilds the files there from the stored code.
+func (h *Handler) moveToCodeDir(ctx context.Context, id int64, temp string, m manifest.Manifest) error {
+	dir := h.shared.Svc.CodeDir(id)
+	if err := h.q.SetAppFolder(ctx, id, dir); err != nil {
+		return err
+	}
+	_ = os.RemoveAll(temp)
+	a, err := h.q.GetApp(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dir), 0o700); err != nil {
+		return err
+	}
+	return h.hydrateImportedScript(ctx, a, m)
 }

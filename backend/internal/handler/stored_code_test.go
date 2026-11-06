@@ -14,6 +14,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
 
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy"
 )
 
 func importBody(name string) map[string]any {
@@ -393,4 +394,200 @@ func TestSourcesBodyHasNoNameOrArea(t *testing.T) {
 	if m := detail(t, c, id).Manifest; m.Name != "Soma" || m.Area != "Research" || versionCount(t, id) != 1 {
 		t.Fatalf("%+v", m)
 	}
+}
+
+// webImportBody imports testdata/shared/streamlit as a screen app.
+func webImportBody(t *testing.T, name string, sh *manifest.Shared) map[string]any {
+	t.Helper()
+	files := map[string]string{}
+	for _, f := range []string{"app.py", "requirements.txt"} {
+		b, err := os.ReadFile(filepath.Join("../../testdata/shared/streamlit", f))
+		if err != nil {
+			t.Fatal(err)
+		}
+		files[f] = string(b)
+	}
+	m := manifest.Manifest{Name: name, Summary: "Notas do time", Kind: manifest.KindWeb, Entrypoint: "app.py", Area: "Research", Shared: sh}
+	return map[string]any{"manifest": m, "files": b64files(files)}
+}
+
+func importWeb(t *testing.T, c *client, name string, sh *manifest.Shared) int64 {
+	t.Helper()
+	var out struct {
+		ID int64 `json:"id"`
+	}
+	var e map[string]any
+	if code := c.do("POST", "/api/scripts/import", webImportBody(t, name, sh), &e); code != http.StatusCreated {
+		t.Fatalf("import web %d %+v", code, e)
+	}
+	b, _ := json.Marshal(e)
+	json.Unmarshal(b, &out)
+	return out.ID
+}
+
+func appRow(t *testing.T, id int64) (slug, kind, folder string, m manifest.Manifest) {
+	t.Helper()
+	var raw []byte
+	if err := testPool.QueryRow(context.Background(), `SELECT slug, kind, folder_path, manifest FROM apps WHERE id=$1`, id).Scan(&slug, &kind, &folder, &raw); err != nil {
+		t.Fatal(err)
+	}
+	json.Unmarshal(raw, &m)
+	return
+}
+
+func TestImportWebApp(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withShared(t, h)
+	id := importWeb(t, c, "Notas", &manifest.Shared{Env: []manifest.EnvVar{{Name: "API_KEY", Secret: true, Default: "x"}}})
+	slug, kind, _, m := appRow(t, id)
+	if slug != "notas" || kind != "web" || m.Shared == nil || !m.Shared.Enabled || len(m.Shared.Env) != 1 || m.Shared.Env[0].Default != "" {
+		t.Fatalf("%s %s %+v", slug, kind, m.Shared)
+	}
+	if slug2, _, _, _ := appRow(t, importWeb(t, c, "Notas", nil)); slug2 != "notas-2" {
+		t.Fatal(slug2)
+	}
+	var bad map[string]any
+	body := webImportBody(t, "Janela", nil)
+	mm := body["manifest"].(manifest.Manifest)
+	mm.Kind = manifest.KindDesktop
+	body["manifest"] = mm
+	if code := c.do("POST", "/api/scripts/import", body, &bad); code != http.StatusBadRequest || bad["error"] != "Escolha script ou app com tela." {
+		t.Fatalf("desktop %d %+v", code, bad)
+	}
+}
+
+func TestImportWebCodeDir(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	// withSharedOpts picks its own data folder; FolderRoot points at its code folder, as in a company.
+	d := withSharedOpts(t, h, deploy.Options{})
+	h.shared.Svc = deploy.New(h.q, d.eng, d.dbs, h.shared.Vault, deploy.Options{DataDir: h.shared.DataDir, FolderRoot: filepath.Join(h.shared.DataDir, "code"), Domain: "localhost:8080", Scheme: "http", HealthTimeout: time.Second})
+	id := importWeb(t, c, "Notas", nil)
+	_, _, folder, _ := appRow(t, id)
+	if folder != h.shared.Svc.CodeDir(id) {
+		t.Fatalf("folder %s, want %s", folder, h.shared.Svc.CodeDir(id))
+	}
+	if _, err := os.Stat(filepath.Join(folder, "app.py")); err != nil {
+		t.Fatal(err)
+	}
+	var e map[string]any
+	if code := c.do("GET", appPath(id, "/shared/check"), nil, &e); code != http.StatusOK {
+		t.Fatalf("check %d %+v", code, e)
+	}
+}
+
+func TestImportWebSharedOff(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	var e map[string]any
+	if code := c.do("POST", "/api/scripts/import", webImportBody(t, "Notas", nil), &e); code != http.StatusServiceUnavailable || e["code"] != "shared_runtime_unavailable" ||
+		e["error"] != "Os apps com tela ainda não estão ligados nesta empresa. Peça ao responsável pelo Ziv para ligar. Scripts sobem normalmente." {
+		t.Fatalf("%d %+v", code, e)
+	}
+	var n int
+	testPool.QueryRow(context.Background(), `SELECT count(*) FROM apps`).Scan(&n)
+	if n != 0 {
+		t.Fatalf("apps = %d", n)
+	}
+}
+
+func TestImportWebCompanyOff(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withShared(t, h)
+	h.SetWorkspace(WorkspaceOptions{Slug: "teste", Name: "Teste", SharedEnabled: func(context.Context) bool { return false }})
+	var e map[string]any
+	if code := c.do("POST", "/api/scripts/import", webImportBody(t, "Notas", nil), &e); code != http.StatusServiceUnavailable || e["code"] != "shared_runtime_unavailable" ||
+		!strings.Contains(e["error"].(string), "Scripts sobem normalmente") {
+		t.Fatalf("%d %+v", code, e)
+	}
+}
+
+func TestImportWebCommandCleared(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withShared(t, h)
+	id := importWeb(t, c, "Notas", &manifest.Shared{Command: "rm -rf /", Port: 9999})
+	if _, _, _, m := appRow(t, id); m.Shared.Command != "" || m.Shared.Port != 0 || m.Run.Command != "" {
+		t.Fatalf("%+v %+v", m.Shared, m.Run)
+	}
+}
+
+func TestPublishAfterFolderLost(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withShared(t, h)
+	id := importWeb(t, c, "Notas", nil)
+	d := detail(t, c, id)
+	if code := c.do("PUT", appPath(id, "/shared"), map[string]any{"enabled": true, "updated_at": d.UpdatedAt.Time}, nil); code != http.StatusOK {
+		t.Fatalf("put shared %d", code)
+	}
+	_, _, folder, _ := appRow(t, id)
+	if err := os.RemoveAll(folder); err != nil {
+		t.Fatal(err)
+	}
+	var e map[string]any
+	if code := c.do("POST", appPath(id, "/shared/publish"), nil, &e); code != http.StatusAccepted {
+		t.Fatalf("publish %d %+v", code, e)
+	}
+	waitNotBusy(t, h, id)
+}
+
+func waitNotBusy(t *testing.T, h *Handler, id int64) {
+	t.Helper()
+	for i := 0; i < 200; i++ {
+		if !h.shared.Svc.Busy(id) {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Error("deploy never finished")
+}
+
+func TestSourcesRefusedWhileDeployBusy(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	sd := withShared(t, h)
+	id := importWeb(t, c, "Notas", nil)
+	d := detail(t, c, id)
+	if code := c.do("PUT", appPath(id, "/shared"), map[string]any{"enabled": true, "updated_at": d.UpdatedAt.Time}, nil); code != http.StatusOK {
+		t.Fatalf("put shared %d", code)
+	}
+	release := make(chan struct{})
+	sd.svc.SetSpawn(func(f func()) { go func() { <-release; f() }() })
+	if code := c.do("POST", appPath(id, "/shared/publish"), nil, nil); code != http.StatusAccepted {
+		t.Fatalf("publish %d", code)
+	}
+	defer func() { close(release); waitNotBusy(t, h, id) }()
+	code, out := send(t, c, id, map[string]string{"app.py": "print(2)", "requirements.txt": "streamlit\n"}, nil)
+	if code != http.StatusConflict || out.Error != busyMsg {
+		t.Fatalf("%d %+v", code, out)
+	}
+}
+
+func TestPublishWaitsApproval(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withShared(t, h)
+	h.SetWorkspace(WorkspaceOptions{Slug: "teste", Name: "Teste"})
+	var before bool
+	_ = testPool.QueryRow(context.Background(), `SELECT require_app_approval FROM security_settings WHERE id = TRUE`).Scan(&before)
+	exec(t, `UPDATE security_settings SET require_app_approval = true WHERE id = TRUE`)
+	t.Cleanup(func() {
+		_, _ = testPool.Exec(context.Background(), `UPDATE security_settings SET require_app_approval = $1 WHERE id = TRUE`, before)
+	})
+	id := importWeb(t, c, "Notas", nil)
+	d := detail(t, c, id)
+	if code := c.do("PUT", appPath(id, "/shared"), map[string]any{"enabled": true, "updated_at": d.UpdatedAt.Time}, nil); code != http.StatusOK {
+		t.Fatalf("put shared %d", code)
+	}
+	var e map[string]any
+	if code := c.do("POST", appPath(id, "/shared/publish"), nil, &e); code != http.StatusForbidden || e["error"] != "Este app está esperando a aprovação de um administrador." {
+		t.Fatalf("publish %d %+v", code, e)
+	}
+	if code := c.do("POST", appPath(id, "/shared/test"), nil, &e); code != http.StatusAccepted {
+		t.Fatalf("test %d %+v", code, e)
+	}
+	waitNotBusy(t, h, id)
 }
