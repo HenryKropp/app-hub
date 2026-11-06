@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
 import { ArrowLeft, Download, Play, Square, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
-import { ByClaude, LoadError, RunState } from "@/components/bits"
+import { ByClaude, LoadError, RunState, Scheduled } from "@/components/bits"
 import { api, fileUrl, groupZipUrl, selectedUrl, type Run, type RunGroup } from "@/lib/api"
 import { useRuns } from "@/lib/runs-context"
 import { formatDuration, formatSize, formatWhen, isLive } from "@/lib/runs"
@@ -133,6 +133,7 @@ export function RunPage() {
             <span>· <span className="font-mono text-[0.8rem]">{formatWhen(run.created_at)}</span> · <span className="font-mono text-[0.8rem]">{formatDuration(run.started_at, run.finished_at)}</span></span>
             <span className="whitespace-nowrap">· {run.person_name}</span>
             {run.origin === "mcp" && <ByClaude />}
+            {run.origin === "schedule" && <Scheduled />}
           </p>
         </div>
         {isLive(run.status) && (stopping.has(run.id) ? (

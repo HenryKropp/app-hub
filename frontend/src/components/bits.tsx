@@ -183,6 +183,11 @@ export function ByClaude({ className }: { className?: string }) {
   return <span className={cn("inline-flex h-5 items-center rounded-full bg-secondary px-2 text-xs font-medium whitespace-nowrap text-muted-foreground", className)}>pelo Claude</span>
 }
 
+/** Marks a run a schedule started (ADR 024). Neutral, like ByClaude. */
+export function Scheduled({ className }: { className?: string }) {
+  return <span className={cn("inline-flex h-5 items-center rounded-full bg-secondary px-2 text-xs font-medium whitespace-nowrap text-muted-foreground", className)}>agendada</span>
+}
+
 /** A run's state as icon plus words. Only a live run is coral; the rest stay quiet. */
 export function RunState({ status, className }: { status: RunStatus; className?: string }) {
   const st = STATUS[status]

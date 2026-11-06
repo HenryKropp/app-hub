@@ -66,6 +66,7 @@ function warningLine(w: HomeWarning, admin: boolean): { text: string; to: string
     case "agent_outdated": return { text: `O Agente do computador ${w.computer_name} está desatualizado`, to: "/configuracoes" }
     case "shared_crashed": return { text: `${app} caiu e não voltou sozinho`, to: `/apps/${w.app_id}` }
     case "app_errors": return { text: `${app} teve ${w.count} ${w.count === 1 ? "execução com erro" : "execuções com erro"} nesta semana`, to: `/apps/${w.app_id}` }
+    case "schedule_paused": return { text: `${app}: agendamento pausado — ${w.reason}`, to: `/apps/${w.app_id}` }
     case "approval_pending": return { text: `${app} tem versão nova esperando aprovação`, to: admin ? "/admin" : `/apps/${w.app_id}` }
   }
 }
