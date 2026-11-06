@@ -60,6 +60,10 @@ var LegacyNetworkPrefixes = []string{"kova-apps-", "app-hub-apps-"}
 // company other than principal. Principal's boxes have no such label.
 const WorkspaceLabel = "ziv.workspace"
 
+// MemoryLabel records the memory (MB) a box reserved, so the server-wide
+// limit can add up every company's boxes.
+const MemoryLabel = "ziv.memory_mb"
+
 // WorkspaceOf is the company key a box carries ("" for principal).
 func WorkspaceOf(labels map[string]string) string { return labels[WorkspaceLabel] }
 

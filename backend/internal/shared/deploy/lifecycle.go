@@ -108,6 +108,12 @@ func (s *Service) runApp(ctx context.Context, appID int64, explicit bool) error 
 	}
 	j := job{app: app, sa: sa, m: m, dep: dep, rec: recipes.Recipe{Port: port}}
 	cid, hostPort, f := s.start(ctx, j, dep.ImageID, sa.DbName)
+	if f != nil && f.limit != nil {
+		// Nothing wrong with the app: it sleeps until a slot frees up, and its
+		// address keeps retrying.
+		logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "sleeping", StatusMessage: f.msg}), "set status", "app", appID)
+		return f.limit
+	}
 	if f != nil {
 		logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "crashed", StatusMessage: f.msg}), "set status", "app", appID)
 		return errors.New(f.msg)

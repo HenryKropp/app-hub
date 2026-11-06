@@ -34,7 +34,8 @@ type Target struct {
 	Owner     string // nome de quem cuida
 	Status    string // draft, starting, running, sleeping, crashed, stopped
 	StoppedBy string
-	Port      int // 0 = não há caixa para onde mandar
+	Port      int    // 0 = não há caixa para onde mandar
+	Message   string // why a sleeping app could not wake (the server was full)
 }
 
 // Backend is what the Hub gives the gateway (implemented by the handler).
@@ -181,6 +182,9 @@ func (g *Gateway) notRunning(w http.ResponseWriter, r *http.Request, t Target, t
 		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "App parado", Message: "Parado por " + t.StoppedBy + ". Peça para " + owner(t) + " ligá-lo de novo.", HubURL: g.hubURL})
 	case t.Status == "crashed":
 		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "App com problema", Message: "O app parou de responder e o Ziv não conseguiu religá-lo. " + owner(t) + " já vê o aviso na ficha do app.", HubURL: g.hubURL})
+	case t.Status == "sleeping" && t.Message != "":
+		g.b.Wake(t.AppID) // tries again: a slot may have freed up
+		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "Servidor no limite", Message: t.Message, Refresh: true})
 	case t.Status == "draft":
 		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "Ainda não publicado", Message: "Este app ainda não foi publicado. Fale com " + owner(t) + ".", HubURL: g.hubURL})
 	default: // sleeping, starting, running sem porta (Hub acabou de ligar)

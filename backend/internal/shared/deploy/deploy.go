@@ -59,6 +59,7 @@ type Options struct {
 	FolderRoot  string        // "" = any folder (principal); else apps build only from inside it
 	MaxApps     int           // published apps in the company; 0 = no limit
 	MaxMemoryMB int           // memory per app; 0 = no limit
+	Slots       *Slots        // server-wide running limit, shared by every company; nil = none
 }
 
 var slugRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
@@ -224,6 +225,9 @@ type job struct {
 	rec  recipes.Recipe
 	by   int64
 	test bool
+	// replacing: the box replaces the app's own running one (update publish,
+	// rollback), so it never waits for a free slot.
+	replacing bool
 }
 
 func (s *Service) Publish(ctx context.Context, app sqlc.App, m manifest.Manifest, by int64) (sqlc.SharedDeployment, error) {
@@ -336,6 +340,7 @@ func (s *Service) prepare(ctx context.Context, app sqlc.App, m manifest.Manifest
 
 // failure is what went wrong, in Portuguese, plus the log for "Ver detalhes".
 type failure struct {
+	limit *LimitError // the server was full: nothing is wrong with the app
 	msg string
 	log string
 }
@@ -422,9 +427,17 @@ func (s *Service) start(ctx context.Context, j job, img, dbName string) (string,
 	if err := os.MkdirAll(data, 0o755); err != nil {
 		return "", 0, &failure{msg: "Não foi possível criar a pasta de dados do app no servidor.", log: err.Error()}
 	}
+	release, err := s.opt.Slots.Acquire(ctx, int(j.sa.MemoryMb), j.replacing)
+	if le := (*LimitError)(nil); errors.As(err, &le) {
+		return "", 0, &failure{msg: le.Msg, limit: le}
+	} else if err != nil {
+		return "", 0, &failure{msg: "Não foi possível ligar o app no servidor.", log: err.Error()}
+	}
+	defer release()
 	cid, err := s.eng.Start(ctx, engine.StartSpec{Name: name, Image: img, Env: env, Port: j.rec.Port,
 		MemoryMB: int(j.sa.MemoryMb), CPUs: toFloat(j.sa.Cpus), DataDir: data, Network: engine.AppNetwork(s.opt.Tenant.Key, j.app.ID),
-		Labels: map[string]string{engine.Label: strconv.FormatInt(j.app.ID, 10), engine.DeploymentLabel: strconv.FormatInt(j.dep.ID, 10)}})
+		Labels: map[string]string{engine.Label: strconv.FormatInt(j.app.ID, 10), engine.DeploymentLabel: strconv.FormatInt(j.dep.ID, 10),
+			engine.MemoryLabel: strconv.Itoa(int(j.sa.MemoryMb))}})
 	if err != nil {
 		return "", 0, &failure{msg: "Não foi possível ligar o app no servidor.", log: err.Error()}
 	}
@@ -452,6 +465,7 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 		}
 	}
 	live := j.sa.CurrentDeploymentID.Valid
+	j.replacing = live
 	if live && j.sa.WantsDb && j.sa.DbName != "" {
 		depID := j.dep.ID
 		if _, err := s.Backup(ctx, j.app.ID, "pre_deploy", &depID, &j.by); err != nil {
@@ -699,7 +713,7 @@ func (s *Service) Rollback(ctx context.Context, appID int64, withData bool, by i
 			port = int(sa.Port)
 		}
 	}
-	j := job{app: app, sa: sa, m: m, dep: prev, rec: recipes.Recipe{Port: port}, by: by}
+	j := job{app: app, sa: sa, m: m, dep: prev, rec: recipes.Recipe{Port: port}, by: by, replacing: true}
 	cid, hostPort, f := s.start(ctx, j, prev.ImageID, sa.DbName)
 	if f != nil {
 		slog.Warn("shared rollback failed", "app", appID, "deployment", prev.ID, "msg", f.msg, "log", lastLines(f.log, 10))
