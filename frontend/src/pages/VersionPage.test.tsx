@@ -16,7 +16,7 @@ const detail: AppDetail = {
 beforeEach(() => { vi.spyOn(api, "app").mockResolvedValue(detail) })
 
 const info: VersionInfo = {
-  number: 2, origin: "folder", restored_from: null, author_name: "Henry Kropp", author_probable: true, description: "Troca do título",
+  number: 2, origin: "folder", channel: "manual", restored_from: null, author_name: "Henry Kropp", author_probable: true, description: "Troca do título",
   summary: { added: 0, removed: 0, modified: 1, binaries: ["Ferramenta CVM.exe"] }, files_changed_at: null, created_at: "2026-10-01T12:00:00Z", current: false,
 }
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { FileCode2, PencilLine, Play, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ByClaude } from "@/components/bits"
 import { DescribeDialog } from "@/components/DescribeDialog"
 import { RestoreDialog } from "@/components/RestoreDialog"
 import { api, type HistoryFilter, type HistoryItem, type VersionInfo } from "@/lib/api"
@@ -38,6 +39,7 @@ export function versionLine(v: VersionInfo): string {
 export function versionOrigin(v: VersionInfo): string {
   if (v.origin === "original") return "Estado original"
   if (v.origin === "restore") return `Restaurada da versão ${v.restored_from}`
+  if (v.origin === "upload") return "Código enviado"
   return "Mudança na pasta"
 }
 
@@ -52,6 +54,7 @@ function VersionRow({ appId, v, canEdit, canRestore, onChanged }: { appId: numbe
       <div className="min-w-0 flex-1">
         <p className="font-medium">
           Versão {v.number} <span className="font-normal text-muted-foreground">· {versionOrigin(v)}{v.current && " · atual"}</span>
+          {v.channel === "mcp" && <ByClaude className="ml-2 align-middle" />}
         </p>
         <p className="text-muted-foreground">
           {formatWhen(v.created_at)} · {v.author_probable ? `provável: ${v.author_name}` : v.author_name || "autor não informado"} · {versionLine(v)}
