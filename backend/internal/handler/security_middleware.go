@@ -134,6 +134,9 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 		// MCP and the OAuth token/registration endpoints are called by Claude,
 		// not a browser session: a bearer token or PKCE protects them, no cookie.
 		isClaude := r.URL.Path == "/mcp" || r.URL.Path == "/oauth/token" || r.URL.Path == "/oauth/register"
+		// A preparar_envio address is sent to by curl from Claude's shell: the
+		// one-time token in the path protects it, and the body is a zip.
+		isClaude = isClaude || (r.Method == "PUT" && strings.HasPrefix(r.URL.Path, envioRoute))
 		if unsafe && !isAgent && !isClaude {
 			origin := r.Header.Get("Origin")
 			if origin != "" {

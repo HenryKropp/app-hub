@@ -203,6 +203,13 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 		Description: "Devolve o guia visual do Ziv (cores, fonte Geist, bordas) e as regras para o HTML de um artifact funcionar dentro do Ziv. Leia antes de fazer um artifact.",
 		Annotations: readOnly,
 	}, h.toolGuiaVisual)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "preparar_envio",
+		Description: "Prepara o envio do código de um app para o Ziv. Devolve um endereço de uso único (vale 30 minutos) e os comandos para zipar a pasta " +
+			"(sem .env, .git, venv, node_modules) numa pasta temporária e mandar com curl. Use só depois que a pessoa disse \"pode registrar\".",
+		Annotations: changes,
+	}, h.toolPrepararEnvio)
 }
 
 // ---- buscar ----

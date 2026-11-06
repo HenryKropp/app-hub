@@ -253,7 +253,7 @@ func TestToolGuiaVisual(t *testing.T) {
 	}
 }
 
-// Only rodar_app and publicar_artifact change something.
+// Only rodar_app, publicar_artifact and preparar_envio change something.
 func TestToolAnnotations(t *testing.T) {
 	c, _ := newPoolClient(t)
 	setupAdmin(t, c)
@@ -263,7 +263,7 @@ func TestToolAnnotations(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]bool{"buscar": true, "ver_app": true, "ver_artifact": true, "rodar_app": false, "ver_execucao": true,
-		"minhas_execucoes": true, "publicar_artifact": false, "guia_visual": true}
+		"minhas_execucoes": true, "publicar_artifact": false, "guia_visual": true, "preparar_envio": false}
 	if len(list.Tools) != len(want) {
 		t.Fatalf("tools = %d", len(list.Tools))
 	}
