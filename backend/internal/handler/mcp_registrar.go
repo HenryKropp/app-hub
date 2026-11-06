@@ -276,6 +276,7 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 		name    string
 		changed []string
 		ignored []string
+		web     bool
 	)
 	if in.AppID == 0 {
 		if msg := missingEntrypoint(sent.Entrypoint, res); msg != "" {
@@ -287,6 +288,7 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 			return toolFail(sentFailure(status, raw, msg))
 		}
 		name = strings.TrimSpace(sent.Name)
+		web = sent.Kind == manifest.KindWeb
 	} else {
 		var d appDetail
 		if _, _, msg := h.toolAPI(ctx, "GET", fmt.Sprintf("/api/apps/%d", in.AppID), nil, &d); msg != "" {
@@ -315,6 +317,7 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 			return toolFail(sentFailure(status, raw, msg))
 		}
 		name = cur.Name
+		web = cur.Kind == manifest.KindWeb
 	}
 	if err := h.q.UseMCPUpload(ctx, up.ID); err != nil {
 		slog.Error("mcp use upload", "err", err)
@@ -357,6 +360,9 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 		} else {
 			b.WriteString("\n" + ans.BlockedReason)
 		}
+	}
+	if web && (in.AppID == 0 || mudou) {
+		fmt.Fprintf(&b, "\nAgora chame publicar_app_com_tela com app_id %d.", ans.ID)
 	}
 	return toolOK(b.String(), map[string]any{
 		"app_id": ans.ID, "versao": ans.Version, "mudou": mudou, "link": link,

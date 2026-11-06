@@ -96,7 +96,7 @@ O Ziv valida a ficha quando você chama `registrar_app` e devolve os problemas e
 2. Espere "pode registrar". Sem isso, não prepare envio.
 3. Chame `preparar_envio`, troque `<PASTA>` pela pasta do app e rode os comandos do sistema da pessoa.
 4. Quando o curl responder `"recebido": true`, chame `registrar_app` com o `envio` e o `manifesto`. Depois apague o .zip temporário.
-5. Diga o resultado com o link. Se o app ficou esperando aprovação, diga isso também.
+5. Diga o resultado com o link. Se o app ficou esperando aprovação, diga isso também. Num app com tela, siga a seção 5.
 
 **Vários de uma vez:** um resumo e uma confirmação por app, e um `preparar_envio` por app.
 
@@ -112,7 +112,18 @@ O Ziv valida a ficha quando você chama `registrar_app` e devolve os problemas e
 4. Numa versão nova só mudam resumo, entradas, saídas e (nos scripts) arquivo de início e dependências. Nome, área, responsável, reserva e acesso só mudam pelo site do Ziv: se a pessoa pedir, diga isso.
 5. Uma versão nova pode precisar de aprovação de novo antes de rodar.
 
-## 5. Formato do manifesto
+## 5. App com tela: pôr no ar
+
+Um app `web` não roda no computador da pessoa: ele fica no ar num endereço próprio, para quem tem acesso. Depois de `registrar_app` (app novo ou versão nova), chame `publicar_app_com_tela` com o `app_id`.
+
+1. **Avisos.** Se a checagem do Ziv trouxer avisos (dados gravados em arquivo, pastas do Windows, senha no código, recurso que não vem na receita), mostre cada um à pessoa com o que significa. Só depois que ela disser que está ciente, chame de novo com `ciente` (as chaves dos avisos: `file_data`, `windows_paths`, `secrets`, `container_limits`). Pendências que bloqueiam vêm com o que mudar no código: proponha a mudança e, se a pessoa aceitar, mande uma versão nova.
+2. **Comando de início.** Se a checagem pedir o comando de início, sugira um a partir do código, confirme com a pessoa e mande em `comando`.
+3. **Chaves que faltam.** Se faltar preencher chaves, diga quais e mande o link: a pessoa preenche no Ziv (parte Compartilhar › Configurações), nunca pela conversa. Quando ela avisar, chame de novo.
+4. **Esperar.** Enquanto estiver publicando, chame de novo com `esperar` 30. No fim, diga o endereço. Se a versão nova não abrir, a anterior continua no ar: diga o erro.
+5. **Aprovação.** Se a empresa exigir aprovação, o app só vai ao ar depois que um administrador aprovar: diga isso à pessoa.
+6. O endereço vem sempre do Ziv; nunca monte um endereço sozinho.
+
+## 6. Formato do manifesto
 
 Mande o manifesto como objeto JSON em `manifesto`:
 
@@ -137,7 +148,7 @@ Mande o manifesto como objeto JSON em `manifesto`:
 
 O Ziv recusa sem: nome; tipo válido; arquivo de início; entradas com id, nome, tipo e origem válidos e sem id repetido; `multiple` só em `choice`; `accept` só em entrada de arquivo, no formato `.txt` (até 20 tipos); o app não depende dele mesmo.
 
-## 6. Limites de leitura
+## 7. Limites de leitura
 
 - No máximo 40 arquivos e uns 400 KB de texto lidos por app. Acima disso, priorize o principal, os atalhos e o que o principal importa.
 - Arquivo acima de 200 KB: só o começo e as partes que interessam.

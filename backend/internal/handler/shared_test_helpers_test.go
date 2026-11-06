@@ -38,7 +38,10 @@ func withSharedOpts(t *testing.T, h *Handler, opt deploy.Options) sharedDeps {
 	d := sharedDeps{eng: engine.NewFake(), dbs: appdb.NewFake(), codes: gateway.NewCodes()}
 	t.Cleanup(d.eng.Close)
 	dataDir := t.TempDir() // the same folder for the service and the handler (copies live there)
-	opt.DataDir, opt.Domain, opt.Scheme, opt.HealthTimeout = dataDir, "localhost:8080", "http", time.Second
+	if opt.Domain == "" {
+		opt.Domain = "localhost:8080"
+	}
+	opt.DataDir, opt.Scheme, opt.HealthTimeout = dataDir, "http", time.Second
 	d.svc = deploy.New(h.q, d.eng, d.dbs, v, opt)
 	h.SetShared(Shared{Svc: d.svc, Vault: v, DBs: d.dbs, Eng: d.eng, Codes: d.codes, DataDir: dataDir})
 	return d

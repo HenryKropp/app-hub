@@ -220,11 +220,19 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "registrar_app",
-		Description: "Registra no Ziv um app novo (script) com o código que chegou por preparar_envio, ou manda uma versão nova de um app " +
+		Description: "Registra no Ziv um app novo (script ou app com tela) com o código que chegou por preparar_envio, ou manda uma versão nova de um app " +
 			"que já existe (app_id). Siga o protocolo de formato_do_app e use só depois que a pessoa disse \"pode registrar\" (ou \"pode mandar\"). " +
 			"Se o Ziv avisar que o código parece ter senhas ou chaves, pergunte à pessoa antes de mandar de novo com confirmar_segredos true.",
 		Annotations: changes,
 	}, h.toolRegistrarApp)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "publicar_app_com_tela",
+		Description: "Põe no ar (ou atualiza) um app com tela do Ziv, no endereço próprio dele, como o botão Publicar do site. Chame depois de registrar_app de um app com tela. " +
+			"Se a checagem do Ziv trouxer avisos, mostre cada um à pessoa e só chame de novo com ciente depois que ela disser que está ciente. " +
+			"Se faltar preencher chaves, a pessoa preenche no Ziv, nunca pela conversa. Enquanto estiver publicando, chame de novo com esperar 30.",
+		Annotations: changes,
+	}, h.toolPublicarTela)
 }
 
 // ---- buscar ----
