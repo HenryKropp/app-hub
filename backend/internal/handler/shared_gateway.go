@@ -35,10 +35,7 @@ func (h *Handler) SetShared(s Shared) { h.shared = s }
 func (h *Handler) sharedReady(w http.ResponseWriter, r *http.Request) bool {
 	if h.shared.Svc == nil || h.shared.Codes == nil {
 		if h.workspace != nil {
-			message := "A execução de apps compartilhados está desativada para esta empresa. Ela exige isolamento dos containers, bancos e endereços por empresa."
-			if h.workspace.Slug == "principal" {
-				message = "O servidor de apps não está ligado. Tente de novo em alguns minutos ou fale com o administrador."
-			}
+			message := "O servidor de apps não está ligado. Tente de novo em alguns minutos ou fale com o administrador."
 			if r.URL.Path == "/api/shared/authorize" {
 				gateway.Page(w, r, http.StatusServiceUnavailable, "Apps compartilhados indisponíveis", message, h.workspace.BasePath+"/")
 			} else {

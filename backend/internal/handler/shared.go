@@ -119,11 +119,16 @@ func (h *Handler) deploymentOutFull(r *http.Request, d sqlc.SharedDeployment, te
 // sharedError maps the deploy service's errors to answers in Portuguese.
 func sharedError(w http.ResponseWriter, err error) {
 	var miss deploy.MissingSettings
+	var limit *deploy.LimitError
 	switch {
 	case errors.Is(err, deploy.ErrBusy):
 		writeError(w, http.StatusConflict, busyMsg)
 	case errors.As(err, &miss):
 		writeError(w, http.StatusBadRequest, miss.Error())
+	case errors.Is(err, deploy.ErrFolderOutside):
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error(), "code": "shared_folder_outside"})
+	case errors.As(err, &limit):
+		writeError(w, http.StatusConflict, limit.Msg)
 	case errors.Is(err, engine.ErrUnavailable):
 		slog.Warn("shared: engine unavailable", "err", err)
 		writeError(w, http.StatusServiceUnavailable, engineDownMsg)
@@ -263,6 +268,10 @@ func (h *Handler) checkShared(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rep, err := h.readiness(a, sa)
+	if errors.Is(err, deploy.ErrFolderOutside) {
+		sharedError(w, err)
+		return
+	}
 	if err != nil {
 		slog.Warn("shared check", "app", a.ID, "err", err)
 		writeError(w, http.StatusBadRequest, folderUnreadable)
@@ -273,6 +282,9 @@ func (h *Handler) checkShared(w http.ResponseWriter, r *http.Request) {
 
 // readiness reads the app folder and runs the checklist.
 func (h *Handler) readiness(a sqlc.App, sa *sqlc.SharedApp) (readiness.Report, error) {
+	if err := h.shared.Svc.CheckFolder(a.FolderPath); err != nil {
+		return readiness.Report{}, err
+	}
 	diag, err := scanner.Scan(a.FolderPath)
 	if err != nil {
 		return readiness.Report{}, err
@@ -296,6 +308,10 @@ func (h *Handler) startShared(w http.ResponseWriter, r *http.Request, test bool)
 		return
 	}
 	rep, err := h.readiness(a, sa)
+	if errors.Is(err, deploy.ErrFolderOutside) {
+		sharedError(w, err)
+		return
+	}
 	if err != nil {
 		slog.Warn("shared check", "app", a.ID, "err", err)
 		writeError(w, http.StatusBadRequest, folderUnreadable)

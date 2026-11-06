@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils"
 const COST_ERROR = "Digite um valor em reais, por exemplo 300 ou 300,50."
 const centsText = (c: number) => (c / 100).toFixed(2).replace(".", ",")
 const ROW = "md:grid md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_0.6fr_minmax(0,1.4fr)_minmax(0,1.1fr)_0.7fr_auto] md:items-center md:gap-4"
+/** The same row without the cost column (a company that shares the server). */
+const ROW_COMPANY = "md:grid md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_0.6fr_minmax(0,1.4fr)_minmax(0,1.1fr)_auto] md:items-center md:gap-4"
 const CELL_LABEL = "text-xs text-muted-foreground md:hidden"
 
 /** "300", "300,50", "1234,5" or "1.234,56" in reais to cents; null for anything
@@ -192,12 +194,18 @@ export function ServerPage() {
 
   const spent = info.apps.reduce((s, a) => s + a.cost_cents, 0) + info.hub_cents
   const hasCost = info.monthly_cost_cents > 0
+  const company = info.company_only === true
+  const row = company ? ROW_COMPANY : ROW
 
   return (
     <div className="flex flex-col gap-8">
       <div>
         <PageHeader title="Servidor e gastos" />
-        <p className="-mt-6 text-muted-foreground">Quanto o servidor usa e quanto cada app compartilhado custa, aproximadamente.</p>
+        <p className="-mt-6 text-muted-foreground">
+          {company
+            ? "O servidor é dividido com outras empresas. Aqui aparecem só os apps desta empresa."
+            : "Quanto o servidor usa e quanto cada app compartilhado custa, aproximadamente."}
+        </p>
       </div>
 
       {!info.engine_ok && (
@@ -208,33 +216,37 @@ export function ServerPage() {
       )}
       {loadError && <p role="alert" className="text-sm text-destructive">{loadError}</p>}
 
-      <section className="grid gap-4 md:grid-cols-3" aria-label="Uso do servidor">
-        <Meter label="Memória" used={info.memory_used} total={info.memory_total} />
-        <div className="flex flex-col gap-2">
-          <Meter label="Disco" used={info.disk_used} total={info.disk_total} warn={info.disk_warning} />
-          {info.disk_warning && <p className="text-sm text-warn">O disco passou de 90%. Apague cópias antigas ou aumente o disco.</p>}
-        </div>
-        <div className="flex flex-col gap-2 rounded-lg border border-border p-4 md:self-start">
-          <p className="text-sm text-muted-foreground">Gasto do mês até agora</p>
-          <p className="text-xl font-semibold tabular-nums">{hasCost ? formatCents(spent) : "—"}</p>
-        </div>
-      </section>
+      {!company && (
+        <>
+          <section className="grid gap-4 md:grid-cols-3" aria-label="Uso do servidor">
+            <Meter label="Memória" used={info.memory_used ?? 0} total={info.memory_total ?? 0} />
+            <div className="flex flex-col gap-2">
+              <Meter label="Disco" used={info.disk_used ?? 0} total={info.disk_total ?? 0} warn={info.disk_warning} />
+              {info.disk_warning && <p className="text-sm text-warn">O disco passou de 90%. Apague cópias antigas ou aumente o disco.</p>}
+            </div>
+            <div className="flex flex-col gap-2 rounded-lg border border-border p-4 md:self-start">
+              <p className="text-sm text-muted-foreground">Gasto do mês até agora</p>
+              <p className="text-xl font-semibold tabular-nums">{hasCost ? formatCents(spent) : "—"}</p>
+            </div>
+          </section>
 
-      <form onSubmit={saveCost} className="flex max-w-md flex-col gap-2" noValidate>
-        <Field label="Quanto o servidor custa por mês" htmlFor="srv-cost" hint="Em reais, por exemplo 300 ou 300,50.">
-          <div className="flex gap-2">
-            <Input id="srv-cost" inputMode="decimal" value={cost} aria-invalid={!!costError} onChange={(e) => editCost(e.target.value, true)} />
-            <Button type="submit" disabled={costBusy || (!costTouched && cost !== "")} variant="outline">{costBusy ? "Salvando…" : "Salvar custo"}</Button>
-          </div>
-        </Field>
-        {costError && <p role="alert" className="text-sm text-destructive">{costError}</p>}
-      </form>
+          <form onSubmit={saveCost} className="flex max-w-md flex-col gap-2" noValidate>
+            <Field label="Quanto o servidor custa por mês" htmlFor="srv-cost" hint="Em reais, por exemplo 300 ou 300,50.">
+              <div className="flex gap-2">
+                <Input id="srv-cost" inputMode="decimal" value={cost} aria-invalid={!!costError} onChange={(e) => editCost(e.target.value, true)} />
+                <Button type="submit" disabled={costBusy || (!costTouched && cost !== "")} variant="outline">{costBusy ? "Salvando…" : "Salvar custo"}</Button>
+              </div>
+            </Field>
+            {costError && <p role="alert" className="text-sm text-destructive">{costError}</p>}
+          </form>
 
-      {!hasCost && <p className="text-sm text-muted-foreground">Informe o custo mensal para ver quanto cada app gasta.</p>}
+          {!hasCost && <p className="text-sm text-muted-foreground">Informe o custo mensal para ver quanto cada app gasta.</p>}
+        </>
+      )}
 
       <section aria-label="Apps compartilhados" className="flex flex-col">
-        <div className={cn("hidden border-b border-border pb-2 text-xs text-muted-foreground", ROW)} aria-hidden>
-          <span>App</span><span>Estado</span><span>Ligado no mês</span><span>Memória (média / máxima / reservada)</span><span>Banco e cópias</span><span>Gasto</span><span className="w-40" />
+        <div className={cn("hidden border-b border-border pb-2 text-xs text-muted-foreground", row)} aria-hidden>
+          <span>App</span><span>Estado</span><span>Ligado no mês</span><span>Memória (média / máxima / reservada)</span><span>Banco e cópias</span>{!company && <span>Gasto</span>}<span className="w-40" />
         </div>
         {info.apps.length === 0 && <p className="py-4 text-sm text-muted-foreground">Nenhum app compartilhado ainda.</p>}
         <ul className="flex flex-col gap-3 md:gap-0">
@@ -242,13 +254,13 @@ export function ServerPage() {
             const running = a.status === "running" || a.status === "starting" || a.status === "sleeping"
             const canStart = a.status === "stopped" || a.status === "crashed"
             return (
-              <li key={a.app_id} className={cn("flex flex-col gap-2 rounded-lg border border-border p-4 md:rounded-none md:border-0 md:border-b md:px-0 md:py-3", ROW)}>
+              <li key={a.app_id} className={cn("flex flex-col gap-2 rounded-lg border border-border p-4 md:rounded-none md:border-0 md:border-b md:px-0 md:py-3", row)}>
                 <Link to={`/apps/${a.app_id}`} className="font-medium underline-offset-4 hover:underline">{a.name}</Link>
                 <Cell label="Estado"><SharedStatusDot status={a.status} /></Cell>
                 <Cell label="Ligado no mês">{Math.round(a.hours_on)} h</Cell>
                 <Cell label="Memória">{Math.round(a.avg_mem_mb)} / {Math.round(a.max_mem_mb)} MB de {a.memory_mb} MB</Cell>
                 <Cell label="Banco e cópias">{formatBytes(a.db_bytes)} · cópias {formatBytes(a.backup_bytes)}</Cell>
-                <Cell label="Gasto" className="tabular-nums">{hasCost ? formatCents(a.cost_cents) : "—"}</Cell>
+                {!company && <Cell label="Gasto" className="tabular-nums">{hasCost ? formatCents(a.cost_cents) : "—"}</Cell>}
                 <div className="flex gap-2 md:justify-end">
                   {running && <Button size="sm" variant="outline" aria-label={`Parar ${a.name}`} onClick={() => setStopping(a)}>Parar</Button>}
                   {canStart && <Button size="sm" variant="outline" aria-label={`Ligar ${a.name}`} disabled={busy} onClick={() => act(a, "start")}>Ligar</Button>}
@@ -258,13 +270,15 @@ export function ServerPage() {
             )
           })}
         </ul>
-        <div className="mt-3 flex items-baseline justify-between gap-3 px-4 text-sm md:px-0">
-          <span>Ziv e espaço livre</span>
-          <span className="tabular-nums">{hasCost ? formatCents(info.hub_cents) : "—"}</span>
-        </div>
+        {!company && (
+          <div className="mt-3 flex items-baseline justify-between gap-3 px-4 text-sm md:px-0">
+            <span>Ziv e espaço livre</span>
+            <span className="tabular-nums">{hasCost ? formatCents(info.hub_cents) : "—"}</span>
+          </div>
+        )}
       </section>
 
-      <p className="text-xs text-muted-foreground">A conta divide o custo do servidor pela memória reservada × tempo ligado de cada app. É uma estimativa.</p>
+      {!company && <p className="text-xs text-muted-foreground">A conta divide o custo do servidor pela memória reservada × tempo ligado de cada app. É uma estimativa.</p>}
 
       <Dialog open={stopping !== null} onOpenChange={(o) => !o && setStopping(null)}>
         <DialogContent>
