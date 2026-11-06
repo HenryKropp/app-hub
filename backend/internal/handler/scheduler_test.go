@@ -26,10 +26,10 @@ func dueSchedule(t *testing.T, h *Handler, now time.Time, connected bool) (sched
 }
 
 type schedState struct {
-	Active               bool
+	Active                  bool
 	PausedReason, Situation string
-	NextRunAt            time.Time
-	Runs, Missed, Jobs   int
+	NextRunAt               time.Time
+	Runs, Missed, Jobs      int
 }
 
 func readSchedule(t *testing.T, id int64) schedState {
@@ -255,9 +255,9 @@ func TestHomeSkipsScheduledMissed(t *testing.T) {
 		VALUES ($1, 3, $2, 'C:\saida', 'error', 'schedule', $3, 'x'), ($1, 3, $2, 'C:\saida', 'missed', 'schedule', $3, 'y')`, app, comp, sid)
 	var out struct {
 		Attention []struct {
-			Kind    string `json:"kind"`
-			AppID   int64  `json:"app_id"`
-			Reason  string `json:"reason"`
+			Kind   string `json:"kind"`
+			AppID  int64  `json:"app_id"`
+			Reason string `json:"reason"`
 		} `json:"attention"`
 	}
 	if code := bia.do("GET", "/api/home", nil, &out); code != 200 {
@@ -274,5 +274,46 @@ func TestHomeSkipsScheduledMissed(t *testing.T) {
 	}
 	if paused != 1 {
 		t.Fatalf("%+v", out.Attention)
+	}
+}
+
+func TestSchedulerPausesWhenComputerRevoked(t *testing.T) {
+	h := schedulerTeam(t)
+	now := time.Now()
+	sid, _, cid := dueSchedule(t, h, now, false)
+	exec(t, `UPDATE computers SET revoked_at = now() WHERE id = $1`, cid)
+	h.schedulerTick(context.Background(), now)
+	s := readSchedule(t, sid)
+	if s.Runs != 0 || s.Active || s.PausedReason != schedComputerGone {
+		t.Fatalf("%+v", s)
+	}
+}
+
+func TestSchedulerInvalidInputsPauseEvenWithComputerOff(t *testing.T) {
+	h := schedulerTeam(t)
+	now := time.Now()
+	sid, _, _ := dueSchedule(t, h, now, false)
+	exec(t, `UPDATE schedules SET inputs = '{}' WHERE id = $1`, sid)
+	h.schedulerTick(context.Background(), now)
+	s := readSchedule(t, sid)
+	if s.Runs != 0 || s.Active || s.PausedReason != schedInputsChanged {
+		t.Fatalf("%+v", s)
+	}
+}
+
+func TestRunStripLeavesOutFinishedScheduledRuns(t *testing.T) {
+	h := schedulerTeam(t)
+	now := time.Now()
+	sid, _, _ := dueSchedule(t, h, now, false)
+	h.schedulerTick(context.Background(), now)
+	if s := readSchedule(t, sid); s.Missed != 1 {
+		t.Fatalf("%+v", s)
+	}
+	rows, err := h.q.ListActiveRuns(context.Background(), 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("strip shows %d scheduled runs", len(rows))
 	}
 }

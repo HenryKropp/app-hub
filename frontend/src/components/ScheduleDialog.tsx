@@ -43,14 +43,16 @@ export function ScheduleDialog({ appId, appName, manifest, schedule, onClose, on
   const [name, setName] = useState(schedule?.name ?? "")
   const [folder, setFolder] = useState(schedule?.output_folder ?? "")
   const [values, setValues] = useState<Record<string, string | string[]>>(() =>
-    Object.fromEntries(Object.entries(schedule?.inputs ?? {}).map(([id, v]) => {
-      const field = manifest.inputs?.find((i) => i.id === id)
-      return [id, field?.type === "choice" && field.multiple ? v : (v[0] ?? "")]
+    // Only fields the app still has: a removed field's value would be refused.
+    Object.fromEntries(Object.entries(schedule?.inputs ?? {}).flatMap(([id, v]) => {
+      const field = manifest.inputs?.find((i) => i.id === id && i.source !== "window")
+      return field ? [[id, field.type === "choice" && field.multiple ? v : (v[0] ?? "")]] : []
     })))
   const [files, setFiles] = useState<Record<string, File>>({})
   // Files saved with the schedule being edited: kept unless replaced or removed.
   const [kept, setKept] = useState<Record<string, string>>(() =>
-    Object.fromEntries(Object.entries(schedule?.files ?? {}).map(([id, file]) => [id, file.name])))
+    Object.fromEntries(Object.entries(schedule?.files ?? {}).filter(([id]) =>
+      manifest.inputs?.some((i) => i.id === id && i.type === "file" && i.source !== "window")).map(([id, file]) => [id, file.name])))
   const [computers, setComputers] = useState<Computer[] | null>(null)
   const [computerId, setComputerId] = useState(schedule?.computer_id ?? 0)
   const [error, setError] = useState("")

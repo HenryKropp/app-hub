@@ -55,6 +55,9 @@ FROM runs r
 JOIN apps a ON a.id = r.app_id
 JOIN computers c ON c.id = r.computer_id
 WHERE r.person_id = $1 AND r.dismissed_at IS NULL
+  -- A schedule's runs show here only while live; the rest stay in the
+  -- history, and a paused schedule warns on the Home (ADR 024).
+  AND (r.origin <> 'schedule' OR r.status IN ('waiting', 'running'))
 ORDER BY r.id DESC
 LIMIT 10;
 

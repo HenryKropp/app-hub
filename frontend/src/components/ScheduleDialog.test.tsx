@@ -66,3 +66,20 @@ test("weekdays without a day cannot be saved", async () => {
   }
   expect(screen.getByRole("button", { name: "Salvar agendamento" })).toBeDisabled()
 })
+
+test("editing leaves out values of fields the app no longer has, so the schedule can be fixed", async () => {
+  const user = userEvent.setup()
+  vi.spyOn(api, "computers").mockResolvedValue(computers)
+  const update = vi.spyOn(api, "updateSchedule").mockResolvedValue({} as never)
+  const schedule = {
+    id: 9, app_id: 3, app_name: "Relatório", person_id: 1, person_name: "Henry", mine: true, name: "",
+    frequency: { kind: "daily" as const, at: "07:00" }, describe: "Todo dia às 7h", computer_id: 7, computer_name: "NOTE-HENRY",
+    active: false, paused_reason: "O app mudou", situation: "", next_run_at: null, last_run_at: null, last_run_id: null,
+    last_run_status: "" as const, upcoming: [], output_folder: "D:\\Saídas",
+    inputs: { mes: ["outubro"], velho: ["x"] }, files: { antigo: { name: "a.csv" } },
+  }
+  render(<ScheduleDialog appId={3} appName="Relatório" manifest={m} schedule={schedule} onClose={vi.fn()} onSaved={vi.fn()} />)
+  await screen.findByRole("option", { name: "NOTE-HENRY" })
+  await user.click(screen.getByRole("button", { name: "Salvar agendamento" }))
+  expect(update).toHaveBeenCalledWith(9, expect.objectContaining({ inputs: { mes: "outubro" }, files: {} }))
+})
