@@ -257,7 +257,7 @@ export type RunSummary = { id: number; status: RunStatus; person_name: string; c
 
 export type VersionSummary = { added: number; removed: number; modified: number; binaries: string[] | null }
 export type VersionInfo = {
-  number: number; origin: "original" | "folder" | "restore"; restored_from: number | null
+  number: number; origin: "original" | "folder" | "restore" | "upload"; channel: "manual" | "mcp"; restored_from: number | null
   author_name: string; author_probable: boolean; description: string; summary: VersionSummary
   files_changed_at: string | null; created_at: string; current: boolean
 }

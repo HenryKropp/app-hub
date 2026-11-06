@@ -7,7 +7,7 @@ import { DiffView } from "@/components/DiffView"
 import { RestoreDialog } from "@/components/RestoreDialog"
 import { versionLine, versionOrigin } from "@/components/HistoryTimeline"
 import { api, type AppDetail, type FileChange, type VersionFile, type VersionInfo } from "@/lib/api"
-import { LoadError } from "@/components/bits"
+import { ByClaude, LoadError } from "@/components/bits"
 import { formatSize, formatWhen } from "@/lib/runs"
 
 const STATUS_LABEL: Record<FileChange["status"], string> = { added: "novo", removed: "removido", modified: "alterado" }
@@ -104,7 +104,7 @@ export function VersionPage() {
       <div className="rounded-xl border border-border bg-card p-8">
         <h1 className="font-heading text-3xl">Versão {info.number}{info.current && <span className="ml-2 text-base text-muted-foreground">(atual)</span>}</h1>
         <p className="mt-2 text-muted-foreground">
-          {versionOrigin(info)} · {formatWhen(info.created_at)} · {info.author_probable ? `provável: ${info.author_name}` : info.author_name || "autor não informado"}
+          {versionOrigin(info)}{info.channel === "mcp" && <ByClaude className="ml-1.5 align-middle" />} · {formatWhen(info.created_at)} · {info.author_probable ? `provável: ${info.author_name}` : info.author_name || "autor não informado"}
         </p>
         {info.description && <p className="mt-2">{info.description}</p>}
         <p className="mt-1 text-sm text-muted-foreground">{versionLine(info)}</p>

@@ -268,7 +268,7 @@ it("saves with the version the edit started from, so a change in between gets th
   vi.mocked(api.app).mockResolvedValueOnce(d).mockResolvedValue({ ...d, updated_at: "2026-10-05T09:00:00Z" })
   vi.mocked(api.history).mockResolvedValue({
     items: [{ type: "version", at: "2026-09-30T10:00:00Z", version: {
-      number: 2, origin: "folder", restored_from: null, author_name: "Ana", author_probable: false, description: "",
+      number: 2, origin: "folder", channel: "manual", restored_from: null, author_name: "Ana", author_probable: false, description: "",
       summary: { added: 0, removed: 0, modified: 1, binaries: [] }, files_changed_at: null, created_at: "2026-09-30T10:00:00Z", current: true,
     } }],
     more: false, next_before: "",
