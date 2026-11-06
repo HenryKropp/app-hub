@@ -53,29 +53,31 @@ func (q *Queries) ClearRunFolder(ctx context.Context, arg ClearRunFolderParams) 
 	return err
 }
 
-const createRun = `-- name: CreateRun :one
-INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id, origin)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, app_id, person_id, computer_id, output_folder, status, exit_code, error_message, app_version, created_at, started_at, finished_at, version_id, origin
+const createMissedRun = `-- name: CreateMissedRun :one
+INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id, origin, schedule_id, status, error_message, started_at, finished_at)
+VALUES ($1, $2, $3, $4, $5, 'schedule', $6, 'missed', $7, now(), now())
+RETURNING id, app_id, person_id, computer_id, output_folder, status, exit_code, error_message, app_version, created_at, started_at, finished_at, version_id, origin, schedule_id
 `
 
-type CreateRunParams struct {
+type CreateMissedRunParams struct {
 	AppID        int64       `json:"app_id"`
 	PersonID     int64       `json:"person_id"`
 	ComputerID   int64       `json:"computer_id"`
 	OutputFolder string      `json:"output_folder"`
 	VersionID    pgtype.Int8 `json:"version_id"`
-	Origin       string      `json:"origin"`
+	ScheduleID   pgtype.Int8 `json:"schedule_id"`
+	ErrorMessage string      `json:"error_message"`
 }
 
-func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, error) {
-	row := q.db.QueryRow(ctx, createRun,
+func (q *Queries) CreateMissedRun(ctx context.Context, arg CreateMissedRunParams) (Run, error) {
+	row := q.db.QueryRow(ctx, createMissedRun,
 		arg.AppID,
 		arg.PersonID,
 		arg.ComputerID,
 		arg.OutputFolder,
 		arg.VersionID,
-		arg.Origin,
+		arg.ScheduleID,
+		arg.ErrorMessage,
 	)
 	var i Run
 	err := row.Scan(
@@ -93,6 +95,54 @@ func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, erro
 		&i.FinishedAt,
 		&i.VersionID,
 		&i.Origin,
+		&i.ScheduleID,
+	)
+	return i, err
+}
+
+const createRun = `-- name: CreateRun :one
+INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id, origin, schedule_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, app_id, person_id, computer_id, output_folder, status, exit_code, error_message, app_version, created_at, started_at, finished_at, version_id, origin, schedule_id
+`
+
+type CreateRunParams struct {
+	AppID        int64       `json:"app_id"`
+	PersonID     int64       `json:"person_id"`
+	ComputerID   int64       `json:"computer_id"`
+	OutputFolder string      `json:"output_folder"`
+	VersionID    pgtype.Int8 `json:"version_id"`
+	Origin       string      `json:"origin"`
+	ScheduleID   pgtype.Int8 `json:"schedule_id"`
+}
+
+func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, error) {
+	row := q.db.QueryRow(ctx, createRun,
+		arg.AppID,
+		arg.PersonID,
+		arg.ComputerID,
+		arg.OutputFolder,
+		arg.VersionID,
+		arg.Origin,
+		arg.ScheduleID,
+	)
+	var i Run
+	err := row.Scan(
+		&i.ID,
+		&i.AppID,
+		&i.PersonID,
+		&i.ComputerID,
+		&i.OutputFolder,
+		&i.Status,
+		&i.ExitCode,
+		&i.ErrorMessage,
+		&i.AppVersion,
+		&i.CreatedAt,
+		&i.StartedAt,
+		&i.FinishedAt,
+		&i.VersionID,
+		&i.Origin,
+		&i.ScheduleID,
 	)
 	return i, err
 }
@@ -139,7 +189,7 @@ func (q *Queries) FinishRun(ctx context.Context, arg FinishRunParams) error {
 }
 
 const getRun = `-- name: GetRun :one
-SELECT r.id, r.app_id, r.person_id, r.computer_id, r.output_folder, r.status, r.exit_code, r.error_message, r.app_version, r.created_at, r.started_at, r.finished_at, r.version_id, r.origin, a.name AS app_name, a.manifest AS app_manifest, p.name AS person_name, c.name AS computer_name,
+SELECT r.id, r.app_id, r.person_id, r.computer_id, r.output_folder, r.status, r.exit_code, r.error_message, r.app_version, r.created_at, r.started_at, r.finished_at, r.version_id, r.origin, r.schedule_id, a.name AS app_name, a.manifest AS app_manifest, p.name AS person_name, c.name AS computer_name,
        c.can_stop AS computer_can_stop, v.number AS version_number
 FROM runs r
 JOIN apps a ON a.id = r.app_id
@@ -164,6 +214,7 @@ type GetRunRow struct {
 	FinishedAt      pgtype.Timestamptz `json:"finished_at"`
 	VersionID       pgtype.Int8        `json:"version_id"`
 	Origin          string             `json:"origin"`
+	ScheduleID      pgtype.Int8        `json:"schedule_id"`
 	AppName         string             `json:"app_name"`
 	AppManifest     []byte             `json:"app_manifest"`
 	PersonName      string             `json:"person_name"`
@@ -190,6 +241,7 @@ func (q *Queries) GetRun(ctx context.Context, id int64) (GetRunRow, error) {
 		&i.FinishedAt,
 		&i.VersionID,
 		&i.Origin,
+		&i.ScheduleID,
 		&i.AppName,
 		&i.AppManifest,
 		&i.PersonName,

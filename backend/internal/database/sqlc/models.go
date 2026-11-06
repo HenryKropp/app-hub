@@ -325,6 +325,7 @@ type Run struct {
 	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
 	VersionID    pgtype.Int8        `json:"version_id"`
 	Origin       string             `json:"origin"`
+	ScheduleID   pgtype.Int8        `json:"schedule_id"`
 }
 
 type RunFile struct {
@@ -343,6 +344,28 @@ type RunFolder struct {
 	AppID     int64              `json:"app_id"`
 	Folder    string             `json:"folder"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Schedule struct {
+	ID           int64              `json:"id"`
+	AppID        int64              `json:"app_id"`
+	PersonID     int64              `json:"person_id"`
+	ComputerID   int64              `json:"computer_id"`
+	Name         string             `json:"name"`
+	Frequency    []byte             `json:"frequency"`
+	Inputs       []byte             `json:"inputs"`
+	Files        []byte             `json:"files"`
+	OutputFolder string             `json:"output_folder"`
+	Active       bool               `json:"active"`
+	PausedReason string             `json:"paused_reason"`
+	Situation    string             `json:"situation"`
+	Failures     int32              `json:"failures"`
+	Email        []byte             `json:"email"`
+	NextRunAt    pgtype.Timestamptz `json:"next_run_at"`
+	LastRunAt    pgtype.Timestamptz `json:"last_run_at"`
+	LastRunID    pgtype.Int8        `json:"last_run_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
 type ScriptSource struct {

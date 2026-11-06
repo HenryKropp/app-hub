@@ -1,6 +1,11 @@
 -- name: CreateRun :one
-INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id, origin)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id, origin, schedule_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING *;
+
+-- name: CreateMissedRun :one
+INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id, origin, schedule_id, status, error_message, started_at, finished_at)
+VALUES ($1, $2, $3, $4, $5, 'schedule', $6, 'missed', $7, now(), now())
 RETURNING *;
 
 -- name: StartRun :exec

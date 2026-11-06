@@ -197,7 +197,7 @@ func (h *Handler) startRun(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: me.ID, ComputerID: comp.ID, OutputFolder: out, VersionID: versionID, Origin: originOf(ctx)})
+	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: me.ID, ComputerID: comp.ID, OutputFolder: out, VersionID: versionID, Origin: originOf(ctx), ScheduleID: pgtype.Int8{}})
 	if err != nil {
 		unlock()
 		internalError(w, "create run", err)
