@@ -90,6 +90,9 @@ func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *
 		if err != nil {
 			return sqlc.Run{}, nil, err
 		}
+		if h.serverPath(a.FolderPath, a.ID) != nil {
+			return sqlc.Run{}, refuse(409, "folder_not_on_server", errFolderNotOnServer.Error()), nil
+		}
 		for name, f := range sources {
 			if !manifest.SafeRelative(name) {
 				return sqlc.Run{}, refuse(409, "code_changed", "O pacote salvo não é seguro. Reimporte o script."), nil

@@ -33,8 +33,6 @@ type scanCache struct {
 	snap   versions.Snapshot
 }
 
-func folderOf(a sqlc.App) versions.Folder { return versions.LocalFolder{Root: a.FolderPath} }
-
 func (h *Handler) lockApp(id int64) func() {
 	h.locksMu.Lock()
 	m, ok := h.locks[id]
@@ -97,7 +95,11 @@ func (h *Handler) checkVersionLocked(ctx context.Context, a sqlc.App) (sqlc.AppV
 	if c, ok := h.cachedScan(a.ID); ok && hasLatest && c.number == latest.Number {
 		trusted = c.snap
 	}
-	snap, contents, err := versions.Scan(folderOf(a), m.Outputs, trusted)
+	folder, err := h.serverFolder(a)
+	if err != nil { // a company app whose code is not kept by the Ziv: like a PC folder the server cannot see
+		return latest, stored, false, nil
+	}
+	snap, contents, err := versions.Scan(folder, m.Outputs, trusted)
 	if err != nil {
 		slog.Warn("version check: folder not readable", "app", a.ID, "err", err)
 		return latest, stored, false, nil

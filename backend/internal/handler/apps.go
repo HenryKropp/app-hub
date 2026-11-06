@@ -61,6 +61,10 @@ func (h *Handler) scan(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "Informe o caminho da pasta.")
 		return
 	}
+	if h.serverPath(local, 0) != nil {
+		writeNotOnServer(w)
+		return
+	}
 	if info, err := os.Stat(local); err != nil || !info.IsDir() {
 		writeError(w, http.StatusBadRequest, "Não encontrei essa pasta. Confira o caminho (ex.: C:\\Users\\voce\\Documentos\\Apps).")
 		return
@@ -391,6 +395,14 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "Você não tem permissão para registrar apps.")
 		return
 	}
+	var oldID int64
+	if oldErr == nil {
+		oldID = old.ID
+	}
+	if h.serverPath(folder, oldID) != nil {
+		writeNotOnServer(w)
+		return
+	}
 	if info, err := os.Stat(folder); err != nil || !info.IsDir() {
 		writeError(w, http.StatusBadRequest, "A pasta do app não foi encontrada.")
 		return
@@ -432,6 +444,10 @@ func (h *Handler) updateApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "Alguém mudou esta ficha agora há pouco. Recarregue para ver a versão nova.")
 		return
 	}
+	if h.serverPath(a.FolderPath, a.ID) != nil {
+		writeNotOnServer(w)
+		return
+	}
 	if info, err := os.Stat(a.FolderPath); err != nil || !info.IsDir() {
 		writeError(w, http.StatusConflict, "Não consegui ler a pasta do app agora. Nada foi salvo. Confira se o OneDrive está sincronizado e tente de novo.")
 		return
@@ -469,6 +485,14 @@ type appBody struct {
 // app and what changed in the ficha. old is the app being updated, or nil.
 // On failure it has already answered and returns false.
 func (h *Handler) writeApp(w http.ResponseWriter, r *http.Request, me sqlc.Person, folder string, body appBody, old *sqlc.App) (sqlc.App, bool) {
+	var appID int64
+	if old != nil {
+		appID = old.ID
+	}
+	if h.serverPath(folder, appID) != nil { // the manifest is written into the folder
+		writeNotOnServer(w)
+		return sqlc.App{}, false
+	}
 	m := body.Manifest
 	m.ManifestVersion = manifest.Version
 	m.Name = strings.TrimSpace(m.Name)
