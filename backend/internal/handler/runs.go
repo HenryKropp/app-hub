@@ -555,7 +555,9 @@ func (h *Handler) downloadAll(w http.ResponseWriter, r *http.Request) {
 // consoleLog is the file the Agente writes with what a script printed.
 const consoleLog = ".apphub-console.txt"
 
-func isConsoleLog(rel string) bool { return rel == consoleLog || strings.HasSuffix(rel, "/"+consoleLog) }
+func isConsoleLog(rel string) bool {
+	return rel == consoleLog || strings.HasSuffix(rel, "/"+consoleLog)
+}
 
 // resultFiles leaves out the console log when the app also made files of its
 // own: the download button brings the result, not the record of what it

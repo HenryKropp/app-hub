@@ -37,7 +37,7 @@ Desenho completo: `docs/superpowers/specs/2026-11-06-agendar-apps-design.md`.
 - **Relógio por empresa.** Cada empresa ligada ao portal tem um relógio que olha os agendamentos a cada 30 segundos.
   - Cada horário é "reservado" no banco antes de disparar (`ClaimSchedule`, que só muda `next_run_at` se ele ainda for o antigo). Assim dois relógios nunca disparam o mesmo horário duas vezes.
   - Antes de olhar, o relógio encerra as execuções vencidas, para "a anterior ainda está rodando" não durar para sempre.
-- **Atraso de até 1 hora.** Se o Ziv estava desligado, ao voltar ele roda uma vez o que ficou para trás, desde que o atraso seja de até 1 hora. Com atraso maior, o agendamento só anota "Perdeu o horário de dd/mm HH:MM: o Ziv estava desligado" e segue para o próximo horário.
+- **Atraso de até 1 hora.** Se o Ziv estava desligado, ao voltar ele roda uma vez o que ficou para trás, desde que o atraso seja de até 1 hora. Com atraso maior, nenhuma Perdida entra no histórico (seriam dezenas num agendamento de 5 minutos); o agendamento só anota "Perdeu o horário de dd/mm HH:MM: o Ziv estava desligado" e segue para o próximo horário.
 - **5 falhas seguidas pausam.** Contam como falha as execuções com Erro, Interrompida e Perdida. A sequência é contada a partir das últimas execuções do agendamento desde a última mudança dele (editar ou reativar zera a conta). Execução parada à mão não conta e não quebra a sequência.
 
 ### O que acontece em cada situação
@@ -50,7 +50,8 @@ Desenho completo: `docs/superpowers/specs/2026-11-06-agendar-apps-design.md`.
 | A anterior ainda está rodando, ou a pasta está em uso | Não. Só a situação ("Pulada: …") | Não | — |
 | Empresa pausou as execuções, ou o app espera aprovação | Não. Só a situação ("Esperando aprovação do app") | Não | Volta sozinho quando o bloqueio acaba |
 | A pessoa perdeu o acesso, ou o app foi suspenso | Não | — | **Pausa** com o motivo |
-| O app mudou e os campos guardados não servem mais | Não | — | **Pausa** ("O app mudou e os campos guardados não servem mais. Edite o agendamento.") |
+| O computador foi desligado do Ziv (Agente pareado de novo) | Não | — | **Pausa** ("O computador escolhido não está mais ligado ao Ziv. Edite o agendamento e escolha outro.") |
+| O app mudou e os campos guardados não servem mais (checado antes do computador) | Não | — | **Pausa** ("O app mudou e os campos guardados não servem mais. Edite o agendamento.") |
 | 5 falhas seguidas | — | — | **Pausa** ("Falhou 5 vezes seguidas") |
 
 ### Quem vê e mexe
@@ -66,7 +67,7 @@ Desenho completo: `docs/superpowers/specs/2026-11-06-agendar-apps-design.md`.
 
 ## Consequences
 - O PC precisa estar ligado, com o Agente aberto, na hora de rodar. Rodar no servidor (entrega 2) tira essa dependência dos apps que não precisam do PC.
-- Uma execução com erro que termina depois do disparo só pausa o agendamento no horário seguinte: pode haver um disparo a mais depois da 5ª falha.
+- Uma execução com erro que termina depois do disparo só pausa o agendamento no horário seguinte: a pausa e o aviso chegam um horário depois.
 - Uma execução agendada que vence sem o PC pegar fica Interrompida, com o texto de hoje. O texto "estava desligado" aparece só quando o PC já está offline na hora de disparar.
-- A faixa de execuções abertas (RunStrip) ainda não distingue a execução agendada.
+- A faixa de execuções abertas mostra a execução agendada só enquanto ela roda. Depois, ela fica só no histórico, para não encher a faixa nem repetir o aviso da Home.
 - Pendentes: rodar no servidor (entrega 2), e-mail opcional por agendamento (entrega 3, precisa escolher um serviço de envio) e as ferramentas de agendar pelo Claude (MCP).

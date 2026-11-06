@@ -24,6 +24,7 @@ const (
 	schedNoAccess      = "Você não tem mais acesso a este app"
 	schedInputsChanged = "O app mudou e os campos guardados não servem mais. Edite o agendamento."
 	schedAgentOutdated = "Atualize o Agente em Configurações › Meu computador"
+	schedComputerGone  = "O computador escolhido não está mais ligado ao Ziv. Edite o agendamento e escolha outro."
 	maxFailures        = 5
 	schedulerEvery     = 30 * time.Second
 )
@@ -103,6 +104,15 @@ func (h *Handler) fireSchedule(ctx context.Context, s sqlc.Schedule, now time.Ti
 	if schedulable(m) != "" {
 		return h.pauseBySystem(ctx, s.ID, schedInputsChanged)
 	}
+	// Checked before the computer, so an app that changed says so even
+	// while the computer is off, instead of piling up Perdidas.
+	var inputs map[string][]string
+	var files map[string]manifest.InputFile
+	_ = json.Unmarshal(s.Inputs, &inputs)
+	_ = json.Unmarshal(s.Files, &files)
+	if m.ValidateRunInputs(inputs, files) != nil {
+		return h.pauseBySystem(ctx, s.ID, schedInputsChanged)
+	}
 	if reason, err := h.executionBlock(ctx, a.ID); err != nil {
 		return err
 	} else if reason != "" {
@@ -119,6 +129,9 @@ func (h *Handler) fireSchedule(ctx context.Context, s sqlc.Schedule, now time.Ti
 	if err != nil {
 		return err
 	}
+	if comp.RevokedAt.Valid {
+		return h.pauseBySystem(ctx, s.ID, schedComputerGone)
+	}
 	connected, err := h.q.IsComputerConnected(ctx, comp.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		connected = false
@@ -128,10 +141,6 @@ func (h *Handler) fireSchedule(ctx context.Context, s sqlc.Schedule, now time.Ti
 	if !connected {
 		return h.missed(ctx, s, "O computador "+comp.Name+" estava desligado")
 	}
-	var inputs map[string][]string
-	var files map[string]manifest.InputFile
-	_ = json.Unmarshal(s.Inputs, &inputs)
-	_ = json.Unmarshal(s.Files, &files)
 	run, refusal, err := h.launchRun(ctx, launchRequest{App: a, Person: person, Computer: comp, Manifest: m, OutputFolder: s.OutputFolder,
 		Inputs: inputs, Files: files, Origin: "schedule", ScheduleID: pgtype.Int8{Int64: s.ID, Valid: true}})
 	if err != nil {

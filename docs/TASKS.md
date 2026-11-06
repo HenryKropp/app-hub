@@ -395,4 +395,4 @@ Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mc
 | Teste do Henry com o Agente ligado | Pending | Agendar a cada 5 min e ver as execuções; desligar o PC e ver Perdida |
 | Peça 2: rodar no servidor | Pending | Para apps que não precisam do PC (ex.: News Scrapper) |
 | Peça 3: e-mail opcional por agendamento | Pending | Precisa escolher um serviço de envio |
-| Selo "agendada" na faixa de execuções abertas | Pending | `ActiveRun` não traz a origem |
+| Faixa de execuções abertas sem as agendadas que já terminaram | Done | Revisão final; ficam no histórico |
