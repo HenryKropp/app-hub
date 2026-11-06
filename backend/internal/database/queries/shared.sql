@@ -200,3 +200,6 @@ SELECT * FROM shared_deployments WHERE status = 'building';
 
 -- name: CountPublishedSharedApps :one
 SELECT count(*) FROM shared_apps WHERE unshared_at IS NULL AND current_deployment_id IS NOT NULL;
+
+-- name: HasSharedApps :one
+SELECT EXISTS(SELECT 1 FROM shared_apps);

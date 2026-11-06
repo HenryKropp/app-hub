@@ -260,6 +260,17 @@ func (q *Queries) GetSharedAppBySlug(ctx context.Context, slug string) (SharedAp
 	return i, err
 }
 
+const hasSharedApps = `-- name: HasSharedApps :one
+SELECT EXISTS(SELECT 1 FROM shared_apps)
+`
+
+func (q *Queries) HasSharedApps(ctx context.Context) (bool, error) {
+	row := q.db.QueryRow(ctx, hasSharedApps)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const insertBackup = `-- name: InsertBackup :one
 INSERT INTO shared_backups (app_id, kind, path, size_bytes, deployment_id, created_by, expires_at, created_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)

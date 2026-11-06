@@ -53,6 +53,7 @@ type Supervisor struct {
 
 	fails         map[int64]failedChecks // failed health checks in a row, per app
 	beforeRestart func(appID int64)      // tests: runs between the health check and the restart
+	beforeStep    func()                 // tests: runs at the start of Step
 }
 
 // failedChecks counts failed health checks in a row for one live container.
@@ -225,6 +226,23 @@ func (s *Supervisor) Tick(ctx context.Context) {
 		return
 	}
 	s.down = false
+	s.Step(ctx)
+}
+
+// HasApps says whether this company has any shared app at all; a company
+// without one needs no reconcile and no rounds. On error it says yes, so a
+// failing check never skips the work.
+func (s *Supervisor) HasApps(ctx context.Context) bool {
+	has, err := s.q.HasSharedApps(ctx)
+	return err != nil || has
+}
+
+// Step is one round of the supervisor once the engine is known to be up:
+// restart, sleep, measure, daily copies, expired tests, cleanup.
+func (s *Supervisor) Step(ctx context.Context) {
+	if s.beforeStep != nil {
+		s.beforeStep()
+	}
 	now := s.now()
 	s.flushAccess(ctx)
 	apps, err := s.q.ListSharedApps(ctx)
