@@ -176,8 +176,8 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]int64{"id": id})
 }
 
-func (h *Handler) importedSources(r *http.Request, id int64) (map[string]manifest.InputFile, error) {
-	raw, err := h.q.ScriptSources(r.Context(), id)
+func (h *Handler) importedSources(ctx context.Context, id int64) (map[string]manifest.InputFile, error) {
+	raw, err := h.q.ScriptSources(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
