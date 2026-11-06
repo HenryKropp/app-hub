@@ -160,5 +160,9 @@ func (h *Handler) restoreVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.storeScan(a.ID, v.Number, after) // new number bypasses the old cache entry; keep it fresh anyway
+	if err := h.syncSourcesFromFolder(ctx, a, after); err != nil {
+		// The restore happened; the next run will say code_changed, as before.
+		slog.Error("sync stored code after restore", "app", a.ID, "err", err)
+	}
 	writeJSON(w, http.StatusOK, restoreJSON{Number: v.Number, Done: done, Failed: failed})
 }
