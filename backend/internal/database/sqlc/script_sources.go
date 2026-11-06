@@ -27,3 +27,16 @@ func (q *Queries) ReplaceScriptSources(ctx context.Context, appID int64, files [
 	_, err := q.db.Exec(ctx, `UPDATE script_sources SET files=$2 WHERE app_id=$1`, appID, files)
 	return err
 }
+
+// SetAppFolder moves an app to another folder on the server (screen apps
+// imported through the Ziv keep their code in the shared-app code folder).
+func (q *Queries) SetAppFolder(ctx context.Context, appID int64, folder string) error {
+	_, err := q.db.Exec(ctx, `UPDATE apps SET folder_path=$2 WHERE id=$1`, appID, folder)
+	return err
+}
+
+// DeleteApp removes an app row (a screen-app import that failed half-way).
+func (q *Queries) DeleteApp(ctx context.Context, appID int64) (int64, error) {
+	tag, err := q.db.Exec(ctx, `DELETE FROM apps WHERE id=$1`, appID)
+	return tag.RowsAffected(), err
+}

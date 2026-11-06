@@ -31,7 +31,6 @@ const (
 	msgKindWindow    = "Apps de janela e .exe ainda não sobem pelo Claude: eles não rodam no servidor. Registre pelo site, em Registrar apps."
 	msgKindScheduled = "Registre como script e agende pelo Ziv, na ficha do app."
 	msgKindSiteOnly  = "Esse tipo só é registrado pelo site."
-	msgKindWebLater  = "Apps com tela ainda não sobem pelo Claude."
 	msgEnvioNotFound = "Não achei esse envio. Chame preparar_envio de novo."
 	msgEnvioUsed     = "Esse envio já foi usado ou venceu. Chame preparar_envio de novo."
 	msgEnvioWaiting  = "O Ziv ainda não recebeu o zip desse envio. Rode o comando curl que preparar_envio mostrou e confira se ele respondeu \"recebido\"."
@@ -266,9 +265,6 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 		if msg := kindRefusal(sent.Kind, sent.Entrypoint); msg != "" {
 			return toolFail(msg)
 		}
-		if sent.Kind == manifest.KindWeb {
-			return toolFail(msgKindWebLater)
-		}
 	}
 	up, res, msg := h.envioFiles(ctx, in.Envio)
 	if msg != "" {
@@ -297,9 +293,6 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 			return toolFail(msg)
 		}
 		cur := d.Manifest
-		if cur.Kind == manifest.KindWeb {
-			return toolFail(msgKindWebLater)
-		}
 		body := map[string]any{"files": inputFiles(res), "confirm_secrets": in.ConfirmarSegredos, "note": in.Nota}
 		entry := cur.Entrypoint
 		if len(in.Manifesto) > 0 {

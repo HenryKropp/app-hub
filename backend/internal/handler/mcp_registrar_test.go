@@ -320,3 +320,25 @@ func TestRegistrarVersaoIgnoraNomeArea(t *testing.T) {
 		t.Fatalf("changed: %q %d %d", after.Manifest.Name, after.AreaID, after.OwnerID)
 	}
 }
+
+func TestRegistrarWebApp(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	s := toolSession(t, c)
+	m := scriptManifesto()
+	m["kind"], m["entrypoint"], m["name"] = "web", "app.py", "Painel"
+	files := map[string]string{"app.py": "import streamlit as st\nst.write('oi')\n", "requirements.txt": "streamlit\n"}
+	envio := sendEnvio(t, h, s, files)
+	if res, text, _ := registrar(t, s, map[string]any{"envio": envio, "manifesto": m}); !res.IsError || !strings.Contains(text, "Scripts sobem normalmente") {
+		t.Fatalf("off: %q", text)
+	}
+	withShared(t, h)
+	res, text, out := registrar(t, s, map[string]any{"envio": envio, "manifesto": m})
+	if res.IsError {
+		t.Fatalf("on: %s", text)
+	}
+	id := int64(out["app_id"].(float64))
+	if slug, kind, folder, _ := appRow(t, id); slug != "painel" || kind != "web" || folder != h.shared.Svc.CodeDir(id) {
+		t.Fatalf("%s %s %s", slug, kind, folder)
+	}
+}
