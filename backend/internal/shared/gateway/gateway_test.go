@@ -26,12 +26,26 @@ type fakeBackend struct {
 	email    *string // when set, the e-mail Allowed answers
 	woken    []int64
 	touched  []int64
+	looked   []string // "slug" or "slug--teste", per Lookup
+}
+
+func (f *fakeBackend) lookups() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.looked...)
 }
 
 func (f *fakeBackend) setAllowed(v bool) { f.mu.Lock(); f.allowed = v; f.mu.Unlock() }
 func (f *fakeBackend) touches() int      { f.mu.Lock(); defer f.mu.Unlock(); return len(f.touched) }
 
 func (f *fakeBackend) Lookup(_ context.Context, slug string, test bool) (Target, bool, error) {
+	f.mu.Lock()
+	if test {
+		f.looked = append(f.looked, slug+"--teste")
+	} else {
+		f.looked = append(f.looked, slug)
+	}
+	f.mu.Unlock()
 	if slug != "notas" {
 		return Target{}, false, nil
 	}
