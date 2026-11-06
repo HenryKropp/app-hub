@@ -237,6 +237,34 @@ func (s *Supervisor) HasApps(ctx context.Context) bool {
 	return err != nil || has
 }
 
+// SleepAll puts every running (or crashed) app of the company to sleep and
+// ends its test boxes: its screen apps were turned off.
+func (s *Supervisor) SleepAll(ctx context.Context) {
+	if tests, err := s.q.ListAllOpenTests(ctx); err == nil {
+		for _, d := range tests {
+			if s.svc.Busy(d.AppID) {
+				continue
+			}
+			if err := s.svc.EndTest(ctx, d.ID); err != nil {
+				slog.Warn("supervisor end test (apps off)", "deployment", d.ID, "err", err)
+			}
+		}
+	}
+	apps, err := s.q.ListSharedApps(ctx)
+	if err != nil {
+		slog.Error("supervisor list", "err", err)
+		return
+	}
+	for _, a := range apps {
+		if (a.Status != "running" && a.Status != "crashed") || s.svc.Busy(a.AppID) {
+			continue
+		}
+		if err := s.svc.Sleep(ctx, a.AppID); err != nil {
+			slog.Warn("supervisor sleep (apps off)", "app", a.AppID, "err", err)
+		}
+	}
+}
+
 // Step is one round of the supervisor once the engine is known to be up:
 // restart, sleep, measure, daily copies, expired tests, cleanup.
 func (s *Supervisor) Step(ctx context.Context) {

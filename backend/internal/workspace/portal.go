@@ -43,6 +43,9 @@ type Portal struct {
 	createMu       sync.Mutex
 	credentialKeys *vault.Keyring
 	principal      func(*handler.Handler)
+	// company runs on every company's handler (principal included) before
+	// its routes are registered: the shared-app parts are plugged in here.
+	company func(slug, schema string, pool *pgxpool.Pool, h *handler.Handler)
 	// clock stops every company's schedule clock on Close.
 	clock     context.Context
 	stopClock context.CancelFunc
@@ -79,7 +82,10 @@ func New(ctx context.Context, root *pgxpool.Pool, cfg config.Config, opts ...Opt
 		ready BOOLEAN NOT NULL DEFAULT FALSE, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 	);
 	INSERT INTO public.workspace_registry(slug,name,schema_name,ready)
-	VALUES('principal','Minha empresa','public',TRUE) ON CONFLICT DO NOTHING;`)
+	VALUES('principal','Minha empresa','public',TRUE) ON CONFLICT DO NOTHING;
+	ALTER TABLE public.workspace_registry ADD COLUMN IF NOT EXISTS shared_apps BOOLEAN;
+	UPDATE public.workspace_registry SET shared_apps = (slug = 'teste') WHERE shared_apps IS NULL;
+	ALTER TABLE public.workspace_registry ALTER COLUMN shared_apps SET DEFAULT FALSE;`)
 	if err != nil {
 		return nil, err
 	}
@@ -155,14 +161,74 @@ func (p *Portal) attach(e *entry) {
 	}
 	h := handler.New(sqlc.New(e.pool), cfg)
 	h.SetCredentialKeys(p.credentialKeys)
-	h.SetWorkspace(handler.WorkspaceOptions{Slug: e.slug, Name: e.name, BasePath: base, Create: p.create, FindLogins: p.findLogins})
+	opts := handler.WorkspaceOptions{Slug: e.slug, Name: e.name, BasePath: base, Create: p.create, FindLogins: p.findLogins}
+	slug := e.slug
+	opts.SharedEnabled = func(ctx context.Context) bool { return p.SharedEnabled(ctx, slug) }
+	if e.slug == "principal" {
+		opts.Companies, opts.SetCompanyShared = p.Companies, p.SetCompanyShared
+	}
+	h.SetWorkspace(opts)
 	if e.slug == "principal" && p.principal != nil {
 		p.principal(h)
+	}
+	if p.company != nil {
+		p.company(e.slug, e.schema, e.pool, h)
 	}
 	mux := http.NewServeMux()
 	h.Register(mux)
 	e.http = h.Secure(mux)
 	h.StartScheduler(p.clock)
+}
+
+// SharedEnabled says whether the company's screen apps are on. The principal
+// company is always on; any error answers off (fails closed).
+func (p *Portal) SharedEnabled(ctx context.Context, slug string) bool {
+	if slug == "principal" {
+		return true
+	}
+	var on bool
+	if err := p.root.QueryRow(ctx, `SELECT COALESCE(shared_apps,FALSE) FROM public.workspace_registry WHERE slug=$1 AND ready=TRUE`, slug).Scan(&on); err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			slog.Warn("workspace shared apps", "slug", slug, "err", err)
+		}
+		return false
+	}
+	return on
+}
+
+// Companies lists every ready company except the principal, by name.
+func (p *Portal) Companies(ctx context.Context) ([]handler.CompanyShared, error) {
+	rows, err := p.root.Query(ctx, `SELECT slug,name,COALESCE(shared_apps,FALSE) FROM public.workspace_registry
+		WHERE ready=TRUE AND slug<>'principal' ORDER BY name, slug`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []handler.CompanyShared{}
+	for rows.Next() {
+		var c handler.CompanyShared
+		if err := rows.Scan(&c.Slug, &c.Name, &c.SharedApps); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// SetCompanyShared turns a company's screen apps on or off. The principal
+// company and unknown slugs answer handler.ErrWorkspaceNotFound.
+func (p *Portal) SetCompanyShared(ctx context.Context, slug string, on bool) error {
+	if slug == "principal" {
+		return handler.ErrWorkspaceNotFound
+	}
+	tag, err := p.root.Exec(ctx, `UPDATE public.workspace_registry SET shared_apps=$2 WHERE slug=$1 AND ready=TRUE`, slug, on)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return handler.ErrWorkspaceNotFound
+	}
+	return nil
 }
 
 func (p *Portal) create(ctx context.Context, name, slug string, me sqlc.Person) (result string, err error) {

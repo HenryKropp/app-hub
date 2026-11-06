@@ -73,6 +73,9 @@ func (s *Service) runApp(ctx context.Context, appID int64, explicit bool) error 
 	if s.vault == nil {
 		return ErrNoVault
 	}
+	if !s.enabled(ctx) {
+		return ErrSharedOff
+	}
 	sa, err := s.q.GetSharedApp(ctx, appID)
 	if err != nil || !sa.CurrentDeploymentID.Valid || sa.UnsharedAt.Valid {
 		return ErrNotShared

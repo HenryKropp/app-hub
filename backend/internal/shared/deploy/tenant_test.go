@@ -131,3 +131,32 @@ func TestCompanyUnshareKeepsPrincipalNetwork(t *testing.T) {
 		t.Fatal("principal box touched", got)
 	}
 }
+
+func TestPublishWhenOff(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	on := true
+	e.S = e.NewServiceOpts(deploy.Options{Enabled: func(context.Context) bool { return on }})
+	if d := e.Publish(t); d.Status != "live" {
+		t.Fatalf("%s: %s", d.Status, d.ErrorMessage)
+	}
+	if err := e.S.Sleep(ctx, e.App.ID); err != nil {
+		t.Fatal(err)
+	}
+	on = false
+	if _, err := e.S.Publish(ctx, e.App, e.M, 1); !errors.Is(err, deploy.ErrSharedOff) {
+		t.Fatal("publish", err)
+	}
+	if _, err := e.S.Test(ctx, e.App, e.M, 1); !errors.Is(err, deploy.ErrSharedOff) {
+		t.Fatal("test", err)
+	}
+	if err := e.S.Run(ctx, e.App.ID); !errors.Is(err, deploy.ErrSharedOff) {
+		t.Fatal("run", err)
+	}
+	if err := e.S.Stop(ctx, e.App.ID, 1); err != nil {
+		t.Fatal("stop", err)
+	}
+	if deploy.ErrSharedOff.Error() != "Os apps com tela não estão ligados para esta empresa. Peça ao administrador do Ziv para ligá-los." {
+		t.Fatal(deploy.ErrSharedOff)
+	}
+}

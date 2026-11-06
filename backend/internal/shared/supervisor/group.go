@@ -17,9 +17,12 @@ type Holder interface {
 }
 
 type member struct {
-	s *Supervisor
-	h Holder
+	s       *Supervisor
+	h       Holder
+	enabled func(context.Context) bool // nil = on
 }
+
+func (m member) on(ctx context.Context) bool { return m.enabled == nil || m.enabled(ctx) }
 
 // Group runs every company's supervisor from one goroutine, one company after
 // another, so the small server never does two companies' work at once.
@@ -32,7 +35,7 @@ type Group struct {
 
 	mu      sync.Mutex
 	queue   []member
-	members []*Supervisor
+	members []member
 }
 
 func NewGroup(eng engine.Engine) *Group {
@@ -40,13 +43,15 @@ func NewGroup(eng engine.Engine) *Group {
 }
 
 // Add holds h at once and queues the company for reconcile; Loop releases h
-// once that is done. Safe from any goroutine, also while Loop runs.
-func (g *Group) Add(s *Supervisor, h Holder) {
+// once that is done. enabled says whether the company's screen apps are on
+// (nil = on): a company that is off gets its apps put to sleep instead of a
+// round. Safe from any goroutine, also while Loop runs.
+func (g *Group) Add(s *Supervisor, h Holder, enabled func(context.Context) bool) {
 	if h != nil {
 		h.Hold()
 	}
 	g.mu.Lock()
-	g.queue = append(g.queue, member{s: s, h: h})
+	g.queue = append(g.queue, member{s: s, h: h, enabled: enabled})
 	g.mu.Unlock()
 	select {
 	case g.wake <- struct{}{}:
@@ -89,7 +94,7 @@ func (g *Group) reconcileQueued(ctx context.Context) {
 			m.h.Release()
 		}
 		g.mu.Lock()
-		g.members = append(g.members, m.s)
+		g.members = append(g.members, m)
 		g.mu.Unlock()
 	}
 }
@@ -106,14 +111,19 @@ func (g *Group) tick(ctx context.Context) {
 	}
 	g.down = false
 	g.mu.Lock()
-	members := append([]*Supervisor(nil), g.members...)
+	members := append([]member(nil), g.members...)
 	g.mu.Unlock()
-	for _, s := range members {
+	for _, m := range members {
 		if ctx.Err() != nil {
 			return
 		}
-		if s.HasApps(ctx) {
-			s.Step(ctx)
+		if !m.s.HasApps(ctx) {
+			continue
+		}
+		if m.on(ctx) {
+			m.s.Step(ctx)
+		} else {
+			m.s.SleepAll(ctx)
 		}
 	}
 }

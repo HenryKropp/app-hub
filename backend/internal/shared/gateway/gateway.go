@@ -48,6 +48,10 @@ type Backend interface {
 
 const cookieName = "apphub_app"
 
+// OffMessage is what people see when their company's screen apps are off
+// (the same words as deploy.ErrSharedOff).
+const OffMessage = "Os apps com tela não estão ligados para esta empresa. Peça ao administrador do Ziv para ligá-los."
+
 type session struct {
 	personID, appID int64
 	test            bool
@@ -196,6 +200,8 @@ func (g *Gateway) notRunning(w http.ResponseWriter, r *http.Request, t Target, t
 	case t.Status == "sleeping" && t.Message != "":
 		g.b.Wake(t.AppID) // tries again: a slot may have freed up
 		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "Servidor no limite", Message: t.Message, Refresh: true})
+	case t.Status == "disabled": // the company's screen apps are off: waking would not help
+		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "Apps com tela desligados", Message: OffMessage, HubURL: g.hubURL})
 	case t.Status == "draft":
 		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "Ainda não publicado", Message: "Este app ainda não foi publicado. Fale com " + owner(t) + ".", HubURL: g.hubURL})
 	default: // sleeping, starting, running sem porta (Hub acabou de ligar)

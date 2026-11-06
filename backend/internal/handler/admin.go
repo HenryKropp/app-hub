@@ -206,3 +206,62 @@ func (h *Handler) setAppControl(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, 200, c)
 }
+
+// adminCompanies lists the companies and whether their screen apps are on.
+// It exists only in the principal company.
+func (h *Handler) adminCompanies(w http.ResponseWriter, r *http.Request) {
+	if h.workspace == nil || h.workspace.Companies == nil {
+		writeError(w, http.StatusNotFound, "Página não encontrada.")
+		return
+	}
+	if _, _, ok := h.requirePerm(w, r, access.ManageRoles); !ok {
+		return
+	}
+	list, err := h.workspace.Companies(r.Context())
+	if err != nil {
+		internalError(w, "companies", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
+// setCompanyShared turns a company's screen apps on or off.
+func (h *Handler) setCompanyShared(w http.ResponseWriter, r *http.Request) {
+	if h.workspace == nil || h.workspace.Companies == nil || h.workspace.SetCompanyShared == nil {
+		writeError(w, http.StatusNotFound, "Página não encontrada.")
+		return
+	}
+	if _, _, ok := h.requirePerm(w, r, access.ManageRoles); !ok {
+		return
+	}
+	var b struct {
+		On *bool `json:"on"`
+	}
+	if !readJSON(w, r, &b) {
+		return
+	}
+	if b.On == nil {
+		writeError(w, http.StatusBadRequest, "Diga se os apps com tela ficam ligados ou desligados.")
+		return
+	}
+	slug := r.PathValue("slug")
+	if err := h.workspace.SetCompanyShared(r.Context(), slug, *b.On); errors.Is(err, ErrWorkspaceNotFound) {
+		writeError(w, http.StatusNotFound, "Empresa não encontrada.")
+		return
+	} else if err != nil {
+		internalError(w, "set company shared", err)
+		return
+	}
+	list, err := h.workspace.Companies(r.Context())
+	if err != nil {
+		internalError(w, "companies", err)
+		return
+	}
+	for _, c := range list {
+		if c.Slug == slug {
+			writeJSON(w, http.StatusOK, c)
+			return
+		}
+	}
+	writeError(w, http.StatusNotFound, "Empresa não encontrada.")
+}

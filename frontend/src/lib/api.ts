@@ -113,6 +113,9 @@ export type ServerApp = {
   app_id: number; name: string; slug: string; status: SharedStatus; always_on: boolean; memory_mb: number; cpus: number; idle_minutes: number
   hours_on: number; avg_mem_mb: number; max_mem_mb: number; avg_cpu: number; db_bytes: number; backup_bytes: number; cost_cents: number
 }
+/** A company other than the principal, and whether its screen apps are on. */
+export type CompanyShared = { slug: string; name: string; shared_apps: boolean }
+
 /** company_only: a company other than the principal sees only its own apps
  * (no server memory, disk or cost: the server is shared). */
 export type ServerInfo = {
@@ -409,6 +412,9 @@ export const api = {
     request<WorkspaceCreated>("POST", "/api/workspaces", b),
   security: () => request<SecurityInfo>("GET", "/api/security"),
   adminOverview: () => request<AdminOverview>("GET", "/api/admin/overview"),
+  /** Only in the principal company (404 elsewhere). */
+  adminCompanies: () => request<CompanyShared[]>("GET", "/api/admin/companies"),
+  setCompanyShared: (slug: string, on: boolean) => request<CompanyShared>("PUT", `/api/admin/companies/${encodeURIComponent(slug)}/shared`, { on }),
   setAppControl: (id: number, b: { approved: boolean; suspended: boolean }) => request<AppControl>("PUT", `/api/apps/${id}/control`, b),
   saveSecuritySettings: (b: SecuritySettings) => request<SecuritySettings>("PUT", "/api/security/settings", b),
   saveSecurityApp: (id: number, b: { classification: "internal" | "confidential" | "restricted"; purpose: string; external_domains: string[]; approved: boolean; suspended: boolean }) =>

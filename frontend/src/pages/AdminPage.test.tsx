@@ -52,3 +52,26 @@ test("someone who is not an administrator is told so", async () => {
   renderPage()
   expect(await screen.findByText("Só administradores veem esta página.")).toBeInTheDocument()
 })
+
+test("the principal company turns screen apps on for another company, after confirming", async () => {
+  vi.spyOn(api, "adminOverview").mockResolvedValue(overview())
+  vi.spyOn(api, "adminCompanies").mockResolvedValue([{ slug: "outra", name: "Outra", shared_apps: false }])
+  const set = vi.spyOn(api, "setCompanyShared").mockResolvedValue({ slug: "outra", name: "Outra", shared_apps: true })
+  const confirm = vi.spyOn(window, "confirm").mockReturnValue(true)
+  renderPage()
+  expect(await screen.findByRole("heading", { name: "Empresas" })).toBeInTheDocument()
+  const sw = screen.getByRole("switch", { name: "Apps com tela de Outra" })
+  expect(sw).not.toBeChecked()
+  await userEvent.click(sw)
+  expect(confirm).toHaveBeenCalledWith("Ligar apps com tela para Outra? Pessoas dessa empresa poderão rodar programas no servidor do Ziv.")
+  expect(set).toHaveBeenCalledWith("outra", true)
+  expect(await screen.findByRole("switch", { name: "Apps com tela de Outra" })).toBeChecked()
+})
+
+test("no Empresas section outside the principal company", async () => {
+  vi.spyOn(api, "adminOverview").mockResolvedValue(overview())
+  vi.spyOn(api, "adminCompanies").mockRejectedValue(new ApiError(404, "Página não encontrada."))
+  renderPage()
+  expect(await screen.findByRole("heading", { name: "Apps por área" })).toBeInTheDocument()
+  expect(screen.queryByRole("heading", { name: "Empresas" })).not.toBeInTheDocument()
+})

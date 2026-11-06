@@ -606,3 +606,14 @@ func TestNotRunningShowsServerFull(t *testing.T) {
 		t.Fatalf("%d %s woken=%v", w.Code, w.Body.String(), b.woken)
 	}
 }
+
+func TestNotRunningDisabled(t *testing.T) {
+	g, b := setup(t)
+	c := enter(t, g, "notas.localhost:8080", false)
+	b.target.Status, b.target.Port = "disabled", 0
+	w := get(g, "notas.localhost:8080", "/", c, nil)
+	if w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), "Apps com tela desligados") ||
+		!strings.Contains(w.Body.String(), "ligá-los") || strings.Contains(w.Body.String(), `http-equiv="refresh"`) || len(b.woken) != 0 {
+		t.Fatalf("%d %s woken=%v", w.Code, w.Body.String(), b.woken)
+	}
+}
