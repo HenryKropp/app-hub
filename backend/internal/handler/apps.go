@@ -205,6 +205,7 @@ type appDetail struct {
 	Control          *appControl        `json:"control"`
 	NeedsRestart     bool               `json:"needs_restart,omitempty"` // PUT /shared: the running app must be turned on again
 	NeedsPublish     bool               `json:"needs_publish,omitempty"` // PUT /shared: a new port only counts after a new publish
+	StoredCode       bool               `json:"stored_code"`             // the Ziv keeps the code: new versions can be sent (Claude)
 }
 
 type appLink struct {
@@ -258,6 +259,12 @@ func (h *Handler) writeDetailWith(w http.ResponseWriter, r *http.Request, me sql
 		return
 	}
 	d.FolderReadable = true // known only after POST /check
+	if _, err := h.q.ScriptSources(r.Context(), a.ID); err == nil {
+		d.StoredCode = true
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		internalError(w, "script sources", err)
+		return
+	}
 	if v, err := h.q.LatestAppVersion(r.Context(), a.ID); err == nil {
 		d.Version = &versionRef{Number: v.Number, CreatedAt: v.CreatedAt.Time}
 	} else if !errors.Is(err, pgx.ErrNoRows) {
