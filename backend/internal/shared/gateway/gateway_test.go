@@ -581,3 +581,14 @@ func TestNeverForwardsWithoutIdentity(t *testing.T) {
 		t.Fatalf("forwarded without identity: %d %s", w.Code, w.Body.String())
 	}
 }
+
+func TestNotRunningShowsServerFull(t *testing.T) {
+	g, b := setup(t)
+	c := enter(t, g, "notas.localhost:8080", false)
+	b.target.Status, b.target.Port, b.target.Message = "sleeping", 0, "O servidor está no limite de apps com tela ligados ao mesmo tempo (2)."
+	w := get(g, "notas.localhost:8080", "/", c, nil)
+	if w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), "Servidor no limite") ||
+		!strings.Contains(w.Body.String(), "no limite") || len(b.woken) != 1 {
+		t.Fatalf("%d %s woken=%v", w.Code, w.Body.String(), b.woken)
+	}
+}

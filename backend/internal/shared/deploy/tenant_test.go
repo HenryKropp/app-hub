@@ -16,6 +16,7 @@ import (
 )
 
 var company = tenant.Tenant{Slug: "teste", Key: "w0123456789a"}
+var deployPrincipal = tenant.Principal
 
 func countDeployments(t *testing.T) int {
 	t.Helper()

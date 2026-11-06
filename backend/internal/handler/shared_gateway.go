@@ -135,6 +135,9 @@ func (b gatewayBackend) Lookup(ctx context.Context, slug string, test bool) (gat
 		return gateway.Target{}, false, err
 	}
 	t := gateway.Target{AppID: app.ID, Name: app.Name, Status: sa.Status}
+	if sa.Status == "sleeping" {
+		t.Message = sa.StatusMessage // set when the server was full
+	}
 	if owner, err := b.h.q.GetPerson(ctx, app.OwnerID); err == nil {
 		t.Owner = owner.Name
 	}

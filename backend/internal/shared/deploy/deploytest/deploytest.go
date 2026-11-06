@@ -103,6 +103,16 @@ func (e *Env) NewTenantService(t tenant.Tenant, folderRoot string, maxApps, maxM
 		Tenant: t, FolderRoot: folderRoot, MaxApps: maxApps, MaxMemoryMB: maxMemMB})
 }
 
+// NewTenantServiceSlots is a company service (no folder or app limits) that
+// shares the server-wide running limit slots.
+func (e *Env) NewTenantServiceSlots(t tenant.Tenant, slots *deploy.Slots) *deploy.Service {
+	v, _ := vault.New(e.key)
+	dbs := appdb.NewFake()
+	dbs.Prefix = t.DBPrefix()
+	return deploy.New(e.Q, engine.Scoped(e.Eng, t.Key), dbs, v, deploy.Options{DataDir: t.DataDir(e.dataDir),
+		Domain: t.AppsDomain("localhost:8080"), Scheme: "http", HealthTimeout: time.Second, Tenant: t, Slots: slots})
+}
+
 // AddApp registers another Streamlit app (a copy of the testdata) with this slug.
 func (e *Env) AddApp(t *testing.T, slug string) sqlc.App {
 	t.Helper()

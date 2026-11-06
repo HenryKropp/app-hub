@@ -372,7 +372,14 @@ func (s *Supervisor) restart(ctx context.Context, a sqlc.ListSharedAppsRow, now 
 		slog.Info("supervisor restarts app", "app", a.AppID, "try", count+1)
 		return nil
 	})
+	var full *deploy.LimitError
 	switch {
+	case errors.As(err, &full):
+		// The server was full: not the app's fault, so not a try. Put the count back.
+		if err := s.q.SetSharedRestarts(ctx, sqlc.SetSharedRestartsParams{AppID: a.AppID, RestartCount: a.RestartCount, RestartWindowStart: a.RestartWindowStart}); err != nil {
+			slog.Warn("supervisor restart count", "app", a.AppID, "err", err)
+		}
+		slog.Info("supervisor skips restart: the server is full", "app", a.AppID)
 	case err == nil, errors.Is(err, errGaveUp):
 	case errors.Is(err, errChanged), errors.Is(err, deploy.ErrBusy), errors.Is(err, deploy.ErrStopped):
 		slog.Info("supervisor skips restart: the app changed", "app", a.AppID, "err", err) // not a try
