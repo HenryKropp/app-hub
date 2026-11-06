@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -17,13 +18,12 @@ import (
 
 	"github.com/HenryKropp/app-hub/backend/internal/config"
 	"github.com/HenryKropp/app-hub/backend/internal/database"
-	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
-	"github.com/HenryKropp/app-hub/backend/internal/handler"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/adopt"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/appdb"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/engine"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/gateway"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/sharedrun"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/supervisor"
 	"github.com/HenryKropp/app-hub/backend/internal/vault"
 	"github.com/HenryKropp/app-hub/backend/internal/workspace"
@@ -60,34 +60,37 @@ func main() {
 		slog.Error("migrate", "err", err)
 		os.Exit(1)
 	}
-	// Shared apps (design 2026-10-06) run for the main company only: their
-	// containers, databases and app addresses use global names, so other
-	// companies keep them off until those are company-scoped.
-	var gw *gateway.Gateway
-	var sup *supervisor.Supervisor
-	portal, err := workspace.New(ctx, pool, cfg, workspace.WithPrincipal(func(h *handler.Handler) {
-		gw, sup = startShared(ctx, pool, cfg, h)
-	}))
+	// Screen apps (shared apps) run in every company, each with its own
+	// containers, databases, folders and app addresses (ADR 025). One
+	// supervisor group walks the companies; one router picks the company's
+	// gateway from the address.
+	deps := startShared(ctx, pool, cfg)
+	router := gateway.NewRouter(cfg.SharedDomain)
+	group := supervisor.NewGroup(deps.Engine)
+	deps.Router, deps.Group = router, group
+	deps.Slots = deploy.NewSlots(deps.Engine, cfg.SharedAppsMaxRunning, cfg.SharedAppsMemoryBudgetMB)
+	// Attach runs inside workspace.New, before the portal exists: until then
+	// only the principal company counts as on.
+	var portalRef atomic.Pointer[workspace.Portal]
+	deps.Enabled = func(ctx context.Context, slug string) bool {
+		if p := portalRef.Load(); p != nil {
+			return p.SharedEnabled(ctx, slug)
+		}
+		return slug == "principal"
+	}
+	portal, err := workspace.New(ctx, pool, cfg, workspace.WithShared(deps.Attach))
 	if err != nil {
 		slog.Error("workspace initialization", "err", err)
 		os.Exit(1)
 	}
 	defer portal.Close()
-	// The Hub (UI, API, Agente) answers right away; app addresses answer
-	// "Ligando o app…" until the supervisor has reconciled, so the gateway
-	// never wakes an app the Hub is about to adopt.
-	gw.Hold()
-	go func() {
-		if err := sup.Reconcile(ctx); err != nil {
-			slog.Warn("supervisor reconcile", "err", err)
-		}
-		gw.Release()
-		sup.Loop(ctx)
-	}()
+	portalRef.Store(portal)
+	router.SetLoader(portal.Load)
+	// The Hub (UI, API, Agente) answers right away; each company's app
+	// addresses answer "Ligando o app…" until the group has reconciled it.
+	go group.Loop(ctx)
 
 	// Hosts under SHARED_APPS_DOMAIN go to their company's gateway; the rest is the portal.
-	router := gateway.NewRouter(cfg.SharedDomain)
-	router.Set("principal", gw)
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router.Root(portal), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 90 * time.Second, MaxHeaderBytes: 1 << 20}
 	stopped := make(chan struct{})
 	go func() {
@@ -105,11 +108,12 @@ func main() {
 	<-stopped
 }
 
-// startShared builds the shared-app parts and plugs them into the main
-// company's handler. Without HUB_SECRET_KEY or Podman the Hub still starts;
-// only shared apps become unavailable.
-func startShared(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, h *handler.Handler) (*gateway.Gateway, *supervisor.Supervisor) {
-	q := sqlc.New(pool)
+// startShared does the once-only, server-wide steps (vault, adopting old
+// containers and folders, the container engine, the apps' database admin)
+// and returns what every company's shared-app parts are built from. Without
+// HUB_SECRET_KEY or Podman the Hub still starts; only screen apps become
+// unavailable.
+func startShared(ctx context.Context, pool *pgxpool.Pool, cfg config.Config) sharedrun.Deps {
 	v, err := vault.New(cfg.SecretKey)
 	if err != nil {
 		slog.Warn("shared apps without vault (set HUB_SECRET_KEY)", "err", err)
@@ -164,21 +168,17 @@ func startShared(ctx context.Context, pool *pgxpool.Pool, cfg config.Config, h *
 	if adminURL, err := url.Parse(cfg.AppsDBAdminURL); err == nil && adminURL.User != nil {
 		adminUser = adminURL.User.Username()
 	}
-	dbs := appdb.New(adminPool, cfg.AppsDBHost, eng, cfg.AppsDBContainer, adminUser)
-	if err := dbs.LockDown(ctx, pool.Config().ConnConfig.Database); err != nil {
+	if err := appdb.New(adminPool, cfg.AppsDBHost, eng, cfg.AppsDBContainer, adminUser).LockDown(ctx, pool.Config().ConnConfig.Database); err != nil {
 		slog.Warn("lock hub database", "err", err)
 	}
 	scheme := "http"
 	if cfg.SecureCookies() {
 		scheme = "https"
 	}
-	svc := deploy.New(q, eng, dbs, v, deploy.Options{DataDir: cfg.SharedDataDir, Domain: cfg.SharedDomain, Scheme: scheme})
-	sup := supervisor.New(q, eng, svc)
-	svc.SealOldBackups(ctx)
 	if cfg.BaseURL == "" {
 		slog.Warn("BASE_URL is empty: app addresses cannot send people to the Hub sign-in")
 	}
-	gw := gateway.New(cfg.SharedDomain, cfg.BaseURL, cfg.SecureCookies(), h.GatewayBackend())
-	h.SetShared(handler.Shared{Svc: svc, Sup: sup, Vault: v, DBs: dbs, Eng: eng, Codes: gw.Codes, DataDir: cfg.SharedDataDir})
-	return gw, sup
+	return sharedrun.Deps{Engine: eng, AdminPool: adminPool, DBHost: cfg.AppsDBHost, DBContainer: cfg.AppsDBContainer, DBAdminUser: adminUser,
+		Vault: v, DataRoot: cfg.SharedDataDir, Domain: cfg.SharedDomain, Scheme: scheme, Secure: cfg.SecureCookies(),
+		MaxApps: cfg.SharedAppsPerCompany, MaxMemoryMB: cfg.SharedAppMaxMemoryMB}
 }
