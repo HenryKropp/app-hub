@@ -45,7 +45,7 @@ test("Configurações sits at the foot of the sidebar; Meu computador moved into
   expect(screen.queryByRole("radiogroup", { name: "Tema" })).not.toBeInTheDocument()
 })
 
-test("Em breve is only for who registers apps; a skip link leads to the content", async () => {
+test("No Em breve items in the menu; a skip link leads to the content", async () => {
   vi.spyOn(api, "activeRuns").mockResolvedValue([])
   mount(bia)
   expect(screen.queryByText("Em breve")).not.toBeInTheDocument()

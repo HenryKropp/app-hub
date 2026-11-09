@@ -1,8 +1,8 @@
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
-import { History, House, KeyRound, LayoutDashboard, LibraryBig, ListChecks, PanelsTopLeft, LogOut, Server, Settings, Users } from "lucide-react"
+import { History, House, LayoutDashboard, LibraryBig, ListChecks, PanelsTopLeft, LogOut, Server, Settings, Users } from "lucide-react"
 import { api, workspaceBasePath, type Person } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
-import { canRegister, canSeeServer, canSeeTeam, has } from "@/lib/permissions"
+import { canSeeServer, canSeeTeam, has } from "@/lib/permissions"
 import { RunsProvider, useRuns } from "@/lib/runs-context"
 import { isLive } from "@/lib/runs"
 import { cn } from "@/lib/utils"
@@ -32,10 +32,6 @@ const NAV = [
 const NAV_ITEM = "flex shrink-0 items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm transition-colors"
 const NAV_ON = "relative bg-accent font-medium text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-[3px] before:rounded-full before:bg-brand"
 const NAV_OFF = "text-muted-foreground hover:bg-accent/70 hover:text-foreground"
-
-const SOON = [
-  { label: "Cofre", icon: KeyRound },
-]
 
 export function Layout() {
   const { person } = useAuth()
@@ -123,15 +119,6 @@ function Shell() {
               )}
             </NavLink>
           ))}
-          {(canRegister(person) || canSeeTeam(person)) && <div className="hidden md:mt-6 md:block">
-            <p className="px-2.5 pb-1 text-xs text-muted-foreground">Em breve</p>
-            {SOON.map(({ label, icon: Icon }) => (
-              <div key={label} aria-disabled="true" className="flex items-center gap-2.5 px-2.5 py-1.5 text-sm text-muted-foreground/60">
-                <Icon className="size-4" />
-                {label}
-              </div>
-            ))}
-          </div>}
         </nav>
 
         <div className="mt-auto hidden flex-col gap-2 p-3 md:flex">

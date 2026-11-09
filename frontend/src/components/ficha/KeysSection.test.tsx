@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, expect, it, vi } from "vitest"
 import { api, type KeysList } from "@/lib/api"
-import { KeysSection } from "./KeysSection"
+import { KeysSection, keyName } from "./KeysSection"
 
 beforeEach(() => vi.restoreAllMocks())
 
@@ -50,4 +50,32 @@ it("says when the vault is locked on the server", async () => {
   vi.spyOn(api.keys, "list").mockResolvedValue(list({ locked: true }))
   render(<KeysSection appId={7} />)
   expect(await screen.findByText(/cofre está fechado/)).toBeInTheDocument()
+})
+
+it("turns what a person types into the name the script reads", () => {
+  expect(keyName(" api token ")).toBe("API_TOKEN")
+  expect(keyName("Senha do BTG")).toBe("SENHA_DO_BTG")
+  expect(keyName("usuário-é")).toBe("USUARIO_E")
+})
+
+it("adds a key from an empty vault", async () => {
+  const get = vi.spyOn(api.keys, "list").mockResolvedValue(list({ keys: [], missing: [], ready: true }))
+  const set = vi.spyOn(api.keys, "set").mockResolvedValue({ ok: true })
+  render(<KeysSection appId={7} />)
+  expect(await screen.findByText(/Nenhuma chave ainda/)).toBeInTheDocument()
+  await userEvent.click(screen.getByRole("button", { name: "Adicionar chave" }))
+  await userEvent.type(screen.getByLabelText("Nome"), "api token")
+  expect(screen.getByText(/Vai ficar/)).toHaveTextContent("API_TOKEN")
+  await userEvent.type(screen.getByLabelText("Valor"), "abc123")
+  await userEvent.click(screen.getByRole("button", { name: "Salvar" }))
+  expect(set).toHaveBeenCalledWith(7, "API_TOKEN", "abc123")
+  await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2))
+  expect(screen.queryByLabelText("Valor")).not.toBeInTheDocument()
+})
+
+it("does not offer Adicionar chave to who cannot manage the vault", async () => {
+  vi.spyOn(api.keys, "list").mockResolvedValue(list({ can_manage: false }))
+  render(<KeysSection appId={7} />)
+  expect(await screen.findByText(/Só o dono do app/)).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Adicionar chave" })).not.toBeInTheDocument()
 })

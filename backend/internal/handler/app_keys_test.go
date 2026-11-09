@@ -117,8 +117,8 @@ func TestAppKeysFillRevealDelete(t *testing.T) {
 	if n := auditCount(t, "app_key.revealed") - revealed; n != 1 {
 		t.Fatalf("reveal audit rows %d", n)
 	}
-	if code := c.do("PUT", base+"/NAO_DECLARADA", map[string]string{"value": "x"}, nil); code != http.StatusNotFound {
-		t.Fatalf("undeclared %d", code)
+	if code := c.do("PUT", base+"/nao%20vale", map[string]string{"value": "x"}, nil); code != http.StatusBadRequest {
+		t.Fatalf("bad name %d", code)
 	}
 	if code := c.do("PUT", base+"/EMAIL", map[string]string{"value": "a\nb"}, nil); code != http.StatusBadRequest {
 		t.Fatalf("newline %d", code)
@@ -208,5 +208,73 @@ func TestAgentGetsKeysOncePerRun(t *testing.T) {
 	}
 	if n := auditCount(t, "app_key.delivered") - delivered; n != 1 {
 		t.Fatalf("delivery audit %d", n)
+	}
+}
+
+// A key added on the site (not in the ficha) joins the vault, goes to the
+// run and leaves the list when deleted.
+func TestAppKeysAddedOnSite(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withKeyVault(t, h)
+	id := importKeyScript(t, c)
+	base := "/api/apps/" + itoa(id) + "/keys"
+
+	if code := c.do("PUT", base+"/API_TOKEN", map[string]string{"value": keyValue}, nil); code != http.StatusOK {
+		t.Fatalf("add %d", code)
+	}
+	for _, bad := range []string{"PATH", "PYTHONPATH", "token"} {
+		if code := c.do("PUT", base+"/"+bad, map[string]string{"value": "x"}, nil); code != http.StatusBadRequest {
+			t.Fatalf("%s %d", bad, code)
+		}
+	}
+	var got keysOut
+	c.do("GET", base, nil, &got)
+	if len(got.Keys) != 3 || got.Keys[2].Name != "API_TOKEN" || !got.Keys[2].HasValue || got.Keys[2].Required {
+		t.Fatalf("list %+v", got)
+	}
+	a, err := h.q.GetApp(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	values, err := h.keyValues(context.Background(), a)
+	if err != nil || values["API_TOKEN"] != keyValue {
+		t.Fatalf("run values %v %v", err, values)
+	}
+	var shown struct {
+		Value string `json:"value"`
+	}
+	if code := c.do("POST", base+"/API_TOKEN/reveal", nil, &shown); code != http.StatusOK || shown.Value != keyValue {
+		t.Fatalf("reveal %d", code)
+	}
+	if code := c.do("DELETE", base+"/API_TOKEN", nil, nil); code != http.StatusOK {
+		t.Fatalf("delete %d", code)
+	}
+	c.do("GET", base, nil, &got)
+	if len(got.Keys) != 2 {
+		t.Fatalf("after delete %+v", got)
+	}
+	if code := c.do("DELETE", base+"/API_TOKEN", nil, nil); code != http.StatusNotFound {
+		t.Fatalf("delete again %d", code)
+	}
+}
+
+// The vault caps keys, declared plus added, at manifest.MaxKeys.
+func TestAppKeysAddedCap(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withKeyVault(t, h)
+	id := importKeyScript(t, c) // 2 declared
+	base := "/api/apps/" + itoa(id) + "/keys"
+	for i := 0; i < manifest.MaxKeys-2; i++ {
+		if code := c.do("PUT", base+"/EXTRA_"+itoa(int64(i)), map[string]string{"value": "x"}, nil); code != http.StatusOK {
+			t.Fatalf("add %d: %d", i, code)
+		}
+	}
+	if code := c.do("PUT", base+"/EXTRA_X", map[string]string{"value": "x"}, nil); code != http.StatusBadRequest {
+		t.Fatalf("over cap %d", code)
+	}
+	if code := c.do("PUT", base+"/EXTRA_0", map[string]string{"value": "y"}, nil); code != http.StatusOK {
+		t.Fatalf("replace at cap %d", code)
 	}
 }
