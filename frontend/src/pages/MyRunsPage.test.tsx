@@ -111,6 +111,8 @@ test("Rodando agora shows each live run with a ticking timer, the computer and P
     expect(within(block).getByRole("link", { name: /Eq\. Research Files Prep/ })).toHaveAttribute("href", "/execucoes/7")
     expect(block).toHaveTextContent("rodando há 3 min 12 s")
     expect(block).toHaveTextContent("NOTE-HENRY")
+    // the same run is not repeated in the list below
+    expect(screen.queryByRole("button", { name: "Rodar de novo" })).toBeNull()
     act(() => { vi.advanceTimersByTime(4000) })
     expect(block).toHaveTextContent("rodando há 3 min 16 s")
     await user.click(within(block).getByRole("button", { name: "Parar" }))

@@ -58,6 +58,8 @@ export function MyRunsPage() {
   // Reload when the filter changes and when a run in the strip changes situation.
   const signal = active.map((r) => `${r.id}:${r.status}`).join(",")
   const live = active.filter((r) => isLive(r.status))
+  // A run already in "Rodando agora" is not repeated in the list below.
+  const listed = items?.filter((r) => !live.some((l) => l.id === r.id)) ?? null
   useEffect(() => {
     let gone = false
     api.runs(scope).then(
@@ -112,9 +114,9 @@ export function MyRunsPage() {
           No catálogo, clique em Rodar no cartão do app. O resultado aparece aqui.
         </EmptyState>
       )}
-      {items && items.length > 0 && (
+      {listed && listed.length > 0 && (
         <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-          {items.map((r) => {
+          {listed.map((r) => {
             return (
               <li key={r.id} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-5 py-3.5 transition-colors hover:bg-muted/50">
                 <div className="min-w-0">

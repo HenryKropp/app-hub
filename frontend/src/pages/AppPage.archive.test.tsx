@@ -19,7 +19,7 @@ const mount = (d: AppDetail, person = henry) => {
   vi.spyOn(api, "appRuns").mockResolvedValue([])
   vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: true, version: null })
   vi.spyOn(api, "appAccess").mockResolvedValue({ restricted: false, areas: [], people: [], grants: [], area_grants: [] })
-  vi.spyOn(api.keys, "list").mockResolvedValue({ keys: [], can_manage: true, ready: true, missing: [], locked: false })
+  vi.spyOn(api.settings, "list").mockResolvedValue({ items: [], can_manage: true, missing: [], locked: false })
   return render(
     <MemoryRouter initialEntries={["/apps/3"]}>
       <RunsProvider>
