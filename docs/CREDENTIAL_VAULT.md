@@ -1,5 +1,7 @@
 # Cofre de credenciais por empresa
 
+> Para guardar as senhas que um **script** usa ao rodar, veja o cofre do app (ADR 027). Este cofre é outro: só faz testes HEAD no servidor.
+
 ## Escopo e limites
 
 O portal tem um cofre independente do armazenamento de configuração dos apps

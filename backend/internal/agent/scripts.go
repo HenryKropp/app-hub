@@ -198,6 +198,11 @@ func (r *Runner) runScript(ctx context.Context, p agentproto.RunPayload, report 
 	if err != nil {
 		return failed("Não consegui verificar os arquivos antes da execução.")
 	}
+	// The vault's keys go only to the script itself, after the dependency
+	// installs, and are never logged.
+	for name, value := range p.KeyValues {
+		env = append(env, name+"="+value)
+	}
 	cmd := exec.Command(executable, args...)
 	cmd.Dir, cmd.Env, cmd.Stdin = work, env, strings.NewReader(stdin.String())
 	var log limitedBuffer

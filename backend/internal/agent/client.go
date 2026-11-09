@@ -115,6 +115,20 @@ func (c *Client) Result(ctx context.Context, jobID int64, r agentproto.Result) e
 	return err
 }
 
+// Keys fetches a run's keys from the app's vault. The Hub answers once per
+// job; the values stay in memory and go only to the script's environment.
+func (c *Client) Keys(ctx context.Context, jobID int64) (map[string]string, error) {
+	var k map[string]string
+	code, err := c.do(ctx, "GET", "/api/agent/jobs/"+strconv.FormatInt(jobID, 10)+"/keys", nil, "", &k)
+	if err != nil {
+		return nil, err
+	}
+	if code != http.StatusOK {
+		return nil, fmt.Errorf("keys: status %d", code)
+	}
+	return k, nil
+}
+
 // DownloadBinary streams the Hub's agent binary into w. No timeout: it is a
 // multi-MB file.
 func (c *Client) DownloadBinary(ctx context.Context, w io.Writer) (int64, error) {

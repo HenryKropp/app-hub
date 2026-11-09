@@ -3,6 +3,8 @@ package manifest
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"slices"
 	"os"
 	"path/filepath"
 	"strings"
@@ -332,4 +334,37 @@ func hasText(errs []string, part string) bool {
 		}
 	}
 	return false
+}
+
+func TestKeysValidate(t *testing.T) {
+	m := valid()
+	m.Keys = []Key{{Name: "BTG_SENHA", Label: "Senha do BTG", Required: true}, {Name: "EMAIL_USUARIO"}}
+	if errs := m.Validate(); len(errs) != 0 {
+		t.Fatalf("valid keys: %v", errs)
+	}
+	for _, bad := range [][]Key{
+		{{Name: "senha"}},
+		{{Name: "_DB"}},
+		{{Name: "A"}, {Name: "A"}},
+		{{Name: "PYTHONPATH"}},
+		{{Name: "APP_HUB_OUTPUT_DIR"}},
+	} {
+		m.Keys = bad
+		if errs := m.Validate(); len(errs) != 1 {
+			t.Errorf("%v: %v", bad, errs)
+		}
+	}
+	m.Keys = make([]Key, MaxKeys+1)
+	for i := range m.Keys {
+		m.Keys[i].Name = fmt.Sprintf("K%d", i)
+	}
+	if errs := m.Validate(); len(errs) != 1 {
+		t.Errorf("too many: %v", errs)
+	}
+	w := valid()
+	w.Kind = KindWeb
+	w.Keys = []Key{{Name: "X"}}
+	if errs := w.Validate(); !slices.ContainsFunc(errs, func(e string) bool { return strings.Contains(e, "Configurações") }) {
+		t.Errorf("web keys: %v", errs)
+	}
 }

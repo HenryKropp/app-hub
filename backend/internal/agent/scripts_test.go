@@ -1,8 +1,10 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -117,5 +119,28 @@ func TestScriptPythonPrintsAnyCharacter(t *testing.T) {
 	log, err := os.ReadFile(filepath.Join(out, "Execucao-310", ".apphub-console.txt"))
 	if err != nil || !strings.Contains(string(log), "Olá ✓ 🙂") {
 		t.Fatalf("%q %v", log, err)
+	}
+}
+
+func TestScriptGetsKeysInEnvironment(t *testing.T) {
+	if _, _, err := scriptInterpreter("python"); err != nil {
+		t.Skip(err)
+	}
+	const secret = "valor-do-cofre-123"
+	source := "import os\nopen(os.path.join(os.environ['APP_HUB_OUTPUT_DIR'],'k.txt'),'w').write(os.environ.get('BTG_SENHA',''))\nprint('ok')\n"
+	out := t.TempDir()
+	r := &Runner{StateDir: t.TempDir()}
+	p := agentproto.RunPayload{RunID: 401, AppFolder: `C:\missing`, Exe: "main.py", OutputFolder: out, Keys: true, KeyValues: map[string]string{"BTG_SENHA": secret},
+		Script: &agentproto.ScriptPayload{Manifest: manifest.Manifest{Kind: "script", Entrypoint: "main.py"},
+			Sources: map[string]manifest.InputFile{"main.py": {Name: "main.py", ContentBase64: base64.StdEncoding.EncodeToString([]byte(source))}}}}
+	if res := r.Run(context.Background(), p, func(agentproto.Result) {}); res.Event != agentproto.EventFinished || res.ExitCode != 0 {
+		t.Fatalf("%+v", res)
+	}
+	got, err := os.ReadFile(filepath.Join(out, "Execucao-401", "k.txt"))
+	if err != nil || string(got) != secret {
+		t.Fatalf("env %q %v", got, err)
+	}
+	if b, _ := json.Marshal(p); bytes.Contains(b, []byte(secret)) {
+		t.Fatal("key values must never be serialized")
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -142,3 +143,44 @@ func waitFor(t *testing.T, cond func() bool) {
 }
 
 func fmtSscan(s string, v *int64) (int, error) { return fmt.Sscan(s, v) }
+
+func TestClientKeys(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/agent/jobs/7/keys" && r.Header.Get("Authorization") == "Bearer t" {
+			_, _ = w.Write([]byte(`{"BTG_SENHA":"x"}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+	c := &Client{BaseURL: srv.URL, Token: "t", HTTP: srv.Client()}
+	if k, err := c.Keys(context.Background(), 7); err != nil || k["BTG_SENHA"] != "x" {
+		t.Fatalf("%v %v", k, err)
+	}
+	if _, err := c.Keys(context.Background(), 8); err == nil {
+		t.Fatal("404 must fail")
+	}
+}
+
+func TestAgentRunFailsWithoutKeys(t *testing.T) {
+	hub := &fakeHub{results: map[int64][]agentproto.Result{}, uploads: map[int64]string{}}
+	hub.jobs = []agentproto.Job{{ID: 9, Kind: agentproto.KindRun, Payload: payload(agentproto.RunPayload{RunID: 9, Exe: "main.py", OutputFolder: t.TempDir(), Keys: true,
+		Script: &agentproto.ScriptPayload{}})}}
+	srv := httptest.NewServer(hub.handler())
+	defer srv.Close()
+	state := t.TempDir()
+	a := &Agent{Client: &Client{BaseURL: srv.URL, Token: "t", HTTP: srv.Client()}, Runner: &Runner{StateDir: state}, StateDir: state}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go a.Loop(ctx)
+	waitFor(t, func() bool {
+		hub.mu.Lock()
+		defer hub.mu.Unlock()
+		return len(hub.results[9]) == 1
+	})
+	hub.mu.Lock()
+	defer hub.mu.Unlock()
+	if r := hub.results[9][0]; r.Event != agentproto.EventFailed || !strings.Contains(r.Error, "cofre") {
+		t.Fatalf("%+v", r)
+	}
+}

@@ -10,6 +10,7 @@ import { EditLink, Part, SaveBar, Section } from "@/components/ficha/Part"
 import { BuildView, InputList, Notes, OtherApps, OutputList, People, RunList } from "@/components/ficha/views"
 import { MakeShared, SharedSection } from "@/components/ficha/shared/SharedSection"
 import { AppControlBar } from "@/components/ficha/AppControl"
+import { KeysSection } from "@/components/ficha/KeysSection"
 import { Tech } from "@/components/ficha/shared/Tech"
 import { FavoriteStar } from "@/components/FavoriteStar"
 import { ScheduleDialog } from "@/components/ScheduleDialog"
@@ -288,6 +289,7 @@ export function AppPage() {
           </Section>
         )}
         {m.kind === "script" && <SchedulesSection appId={app.id} appName={m.name} manifest={m} reloadKey={schedulesKey} />}
+        {m.kind === "script" && (m.keys ?? []).length > 0 && <KeysSection appId={app.id} />}
         {scheduling && (
           <ScheduleDialog appId={app.id} appName={m.name} manifest={m} onClose={() => setScheduling(false)}
             onSaved={() => { setScheduling(false); setSchedulesKey((k) => k + 1); toast.success("Agendamento salvo.") }} />

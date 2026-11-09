@@ -10,7 +10,7 @@ import (
 )
 
 // Version is the agent version this Hub expects.
-const Version = "0.3.3"
+const Version = "0.3.4"
 
 // Job kinds.
 const (
@@ -47,6 +47,12 @@ type RunPayload struct {
 	Script       *ScriptPayload `json:"script,omitempty"`
 	// AppName names the app when another run needs this folder (0.3.2+).
 	AppName string `json:"app_name,omitempty"`
+	// Keys: the app has a vault; fetch the values once from
+	// GET /api/agent/jobs/{id}/keys and give them only to the script (0.3.4+).
+	Keys bool `json:"keys,omitempty"`
+	// KeyValues holds the fetched keys in the Agente's memory only. Never
+	// serialized, logged or written to disk.
+	KeyValues map[string]string `json:"-"`
 }
 
 type ScriptPayload struct {

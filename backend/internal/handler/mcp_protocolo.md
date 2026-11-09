@@ -68,7 +68,14 @@ Pelo Claude sobem só `script` e `web`. Apps de janela (`desktop`) e `.exe` não
 Cada arquivo que o app grava. O `pattern` usa `*` onde o nome muda (`rentabilidade_*.xlsx`); o `label` diz o que a pessoa recebe.
 
 ### Passo 7 — Chaves e senhas (`secrets`)
-Liste chaves de API, tokens, senhas e strings de conexão só com `name` (o que é), `file`, `line` e `hint` ("mover para o cofre"). Chave escrita direto no código é sempre ponto de atenção. Um placeholder (`SUA_CHAVE_AQUI`) não é segredo. Se um app com tela precisa de chaves, diga quais faltam: a pessoa preenche no Ziv depois, nunca pela conversa. O Ziv ainda não guarda chaves de scripts: avise a pessoa que um script que precisa delas pode falhar ao rodar.
+Liste chaves de API, tokens, senhas e strings de conexão só com `name` (o que é), `file`, `line` e `hint` ("mover para o cofre"). Chave escrita direto no código é sempre ponto de atenção. Um placeholder (`SUA_CHAVE_AQUI`) não é segredo. Se um app com tela precisa de chaves, diga quais faltam: a pessoa preenche no Ziv depois, nunca pela conversa.
+
+**Cofre do script (`keys`).** Um script guarda as senhas de verdade no cofre do app, no Ziv:
+1. No código, troque o valor pela leitura do ambiente: `os.environ["BTG_SENHA"]` (em Node, `process.env.BTG_SENHA`). Mostre a mudança à pessoa antes.
+2. Na ficha, liste cada nome em `keys`: `[{"name": "BTG_SENHA", "label": "Senha do BTG", "required": true}]`. Os nomes têm só letras maiúsculas, números e `_`, começando por letra, e não podem começar com `PYTHON`, `APP_HUB_`, `NODE_`, `NPM_`, `PIP_` ou `PATH`.
+3. Depois do registro, o Ziv devolve o link do cofre. O dono do app ou um administrador preenche os valores lá, nunca pela conversa. Até lá, o script não roda.
+
+Quando alguém roda o script, o Agente entrega as chaves só àquela execução.
 
 ### Passo 8 — Agenda
 Só com evidência (`schtasks`, cron, README dizendo "roda todo dia às 8h"). Vai nos pontos de atenção; o agendamento é feito no Ziv.
@@ -100,7 +107,7 @@ O Ziv valida a ficha quando você chama `registrar_app` e devolve os problemas e
 
 **Vários de uma vez:** um resumo e uma confirmação por app, e um `preparar_envio` por app.
 
-**Possível senha:** se `registrar_app` avisar que o código parece ter senhas ou chaves, pergunte à pessoa. Só se ela confirmar, chame de novo com o mesmo envio e `confirmar_segredos: true`. Se a empresa não permitir, tire as senhas do código e prepare um envio novo.
+**Possível senha:** se `registrar_app` avisar que o código parece ter senhas ou chaves, pergunte à pessoa. Só se ela confirmar, chame de novo com o mesmo envio e `confirmar_segredos: true`. O aviso diz o arquivo e a linha de cada trecho. Se for senha de verdade, mova para o cofre (`keys`, Passo 7) e prepare um envio novo. Se a empresa não permitir confirmar, esse é o único caminho.
 
 **Arquivo de início não encontrado:** o .zip precisa ser feito de dentro da pasta do app (`-C "<PASTA>" .`), para os arquivos não ficarem dentro de uma pasta a mais.
 
@@ -139,6 +146,7 @@ Mande o manifesto como objeto JSON em `manifesto`:
   ],
   "outputs": [{"label": "Planilha com a rentabilidade", "pattern": "output/rentabilidade_*.xlsx"}],
   "secrets": [{"name": "Chave da API da CVM", "file": "config.py", "line": 12, "hint": "Mover para o cofre"}],
+  "keys": [{"name": "CVM_API_KEY", "label": "Chave da API da CVM", "required": true}],
   "area": "Investimentos",
   "tags": ["cvm", "fundos", "excel"],
   "depends_on": [],

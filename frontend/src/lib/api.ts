@@ -39,6 +39,20 @@ export type SharedSpec = {
   python?: string; node?: string; command?: string; env?: EnvVar[] | null
 }
 
+/** A key of the script's vault (cofre): the name only, never the value. */
+export type AppKey = { name: string; label?: string; required?: boolean }
+
+export type KeyItem = {
+  name: string
+  label: string
+  required: boolean
+  has_value: boolean
+  updated_by: string
+  updated_at: string | null
+}
+
+export type KeysList = { keys: KeyItem[]; can_manage: boolean; ready: boolean; missing: string[]; locked: boolean }
+
 export type Manifest = {
   manifest_version: number
   id: string
@@ -61,6 +75,7 @@ export type Manifest = {
   build?: { source: string; command: string } | null
   notes: string[] | null
   shared?: SharedSpec | null
+  keys?: AppKey[]
 }
 
 export type Question = { field: string; text: string }
@@ -524,6 +539,12 @@ export const api = {
   restorePreview: (appId: number, n: number) => request<{ plan: RestorePlan; current: number }>("GET", `/api/apps/${appId}/versions/${n}/restore-preview`),
   restore: (appId: number, n: number) => request<RestoreResult>("POST", `/api/apps/${appId}/versions/${n}/restore`),
   run: (id: number | string) => request<Run>("GET", `/api/runs/${id}`),
+  keys: {
+    list: (id: number) => request<KeysList>("GET", `/api/apps/${id}/keys`),
+    set: (id: number, name: string, value: string) => request<{ ok: boolean }>("PUT", `/api/apps/${id}/keys/${encodeURIComponent(name)}`, { value }),
+    remove: (id: number, name: string) => request<{ ok: boolean }>("DELETE", `/api/apps/${id}/keys/${encodeURIComponent(name)}`),
+    reveal: (id: number, name: string) => request<{ value: string }>("POST", `/api/apps/${id}/keys/${encodeURIComponent(name)}/reveal`),
+  },
   shared: {
     get: (id: number) => request<SharedInfo>("GET", `/api/apps/${id}/shared`),
     check: (id: number) => request<Readiness>("GET", `/api/apps/${id}/shared/check`),
