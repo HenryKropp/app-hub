@@ -5,7 +5,7 @@ Você lê a pasta do app no computador da pessoa, monta a ficha (o manifesto), m
 ## 1. Regras que nunca mudam
 
 1. **Só leitura.** Você lê a pasta no disco e não altera, move, apaga nem roda nenhum arquivo do app. O .zip vai para a pasta temporária do computador, nunca para a pasta do app.
-2. **Nunca o valor de um segredo.** Chaves, senhas e tokens aparecem só como nome + arquivo + linha. O valor nunca vai para a ficha, para a conversa nem para o Ziv, nem em parte (nada de "começa com sk-…"). Não abra o .env: basta saber que ele existe e os nomes das chaves que o código usa.
+2. **Nunca o valor de um segredo.** Chaves, senhas e tokens aparecem só como nome + arquivo + linha. O valor nunca vai para a ficha, para a conversa nem para o Ziv, nem em parte (nada de "começa com sk-…"). Não abra o .env: basta saber que ele existe e os nomes das chaves que o código usa. Para levar os valores do .env ao cofre, use `enviar_chaves` (Passo 7): o curl manda o arquivo direto ao Ziv, sem você ler.
 3. **Nada inventado.** Todo campo preenchido tem uma evidência no código ou na documentação. O que não tem evidência vira pergunta, não palpite.
 4. **Pessoas não se deduzem do código.** O responsável é sempre quem está registrando (o Ziv coloca sozinho), então não pergunte responsável nem reserva. O nome que aparece num caminho (`C:\Users\fulano`) não diz nada sobre quem cuida do app.
 5. **Um humano confirma.** Mostre o que entendeu e só registre depois do "pode registrar". Numa versão nova, só mande depois do "pode mandar".
@@ -68,14 +68,15 @@ Pelo Claude sobem só `script` e `web`. Apps de janela (`desktop`) e `.exe` não
 Cada arquivo que o app grava. O `pattern` usa `*` onde o nome muda (`rentabilidade_*.xlsx`); o `label` diz o que a pessoa recebe.
 
 ### Passo 7 — Chaves e senhas (`secrets`)
-Liste chaves de API, tokens, senhas e strings de conexão só com `name` (o que é), `file`, `line` e `hint` ("mover para o cofre"). Chave escrita direto no código é sempre ponto de atenção. Um placeholder (`SUA_CHAVE_AQUI`) não é segredo. Se um app com tela precisa de chaves, diga quais faltam: a pessoa preenche no Ziv depois, nunca pela conversa.
+Liste chaves de API, tokens, senhas e strings de conexão só com `name` (o que é), `file`, `line` e `hint` ("mover para o cofre"). Chave escrita direto no código é sempre ponto de atenção. Um placeholder (`SUA_CHAVE_AQUI`) não é segredo. 
 
-**Cofre do script (`keys`).** Um script guarda as senhas de verdade no cofre do app, no Ziv:
+**Cofre do app (`keys`).** Todo app que roda (script, app com tela, app com janela, executável) guarda as senhas de verdade no cofre do app, no Ziv. A mesma senha vale no computador da pessoa e na versão ligada 24h no servidor:
 1. No código, troque o valor pela leitura do ambiente: `os.environ["BTG_SENHA"]` (em Node, `process.env.BTG_SENHA`). Mostre a mudança à pessoa antes.
 2. Na ficha, liste cada nome em `keys`: `[{"name": "BTG_SENHA", "label": "Senha do BTG", "required": true}]`. Os nomes têm só letras maiúsculas, números e `_`, começando por letra, e não podem começar com `PYTHON`, `APP_HUB_`, `NODE_`, `NPM_`, `PIP_` ou `PATH`.
-3. Depois do registro, o Ziv devolve o link do cofre. O dono do app ou um administrador preenche os valores lá, nunca pela conversa. Até lá, o script não roda.
+3. **Se a pasta tem um `.env`, depois do registro chame `enviar_chaves` com o `app_id`** e rode o curl que ele devolve, com o caminho do .env. Não abra o arquivo: o curl manda direto ao Ziv, e a resposta traz só os nomes guardados. Diga à pessoa quais chaves foram guardadas.
+4. O que não estava no .env, o dono do app ou um administrador preenche no link do cofre, nunca pela conversa. Até lá, um app com chave obrigatória não abre.
 
-Quando alguém roda o script, o Agente entrega as chaves só àquela execução.
+Quando alguém roda o app, o Agente entrega as chaves só àquela execução: ao script, ou ao programa que ele abre (o app com tela recebe as chaves no ambiente, como se viessem do .env).
 
 ### Passo 8 — Agenda
 Só com evidência (`schtasks`, cron, README dizendo "roda todo dia às 8h"). Vai nos pontos de atenção; o agendamento é feito no Ziv.
@@ -125,7 +126,7 @@ Um app `web` não roda no computador da pessoa: ele fica no ar num endereço pr�
 
 1. **Avisos.** Se a checagem do Ziv trouxer avisos (dados gravados em arquivo, pastas do Windows, senha no código, recurso que não vem na receita), mostre cada um à pessoa com o que significa. Só depois que ela disser que está ciente, chame de novo com `ciente` (as chaves dos avisos: `file_data`, `windows_paths`, `secrets`, `container_limits`). Pendências que bloqueiam vêm com o que mudar no código: proponha a mudança e, se a pessoa aceitar, mande uma versão nova.
 2. **Comando de início.** Se a checagem pedir o comando de início, sugira um a partir do código, confirme com a pessoa e mande em `comando`.
-3. **Chaves que faltam.** Se faltar preencher chaves, diga quais e mande o link: a pessoa preenche no Ziv (parte Compartilhar › Configurações), nunca pela conversa. Quando ela avisar, chame de novo.
+3. **Chaves que faltam.** Se faltar preencher chaves e a pasta tem um `.env`, use `enviar_chaves`. O resto, diga quais e mande o link: a pessoa preenche no Ziv (parte Cofre ou Compartilhar › Configurações), nunca pela conversa. Quando ela avisar, chame de novo.
 4. **Esperar.** Enquanto estiver publicando, chame de novo com `esperar` 30. No fim, diga o endereço. Se a versão nova não abrir, a anterior continua no ar: diga o erro.
 5. **Aprovação.** Se a empresa exigir aprovação, o app só vai ao ar depois que um administrador aprovar: diga isso à pessoa.
 6. O endereço vem sempre do Ziv; nunca monte um endereço sozinho.

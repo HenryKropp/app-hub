@@ -79,3 +79,14 @@ it("does not offer Adicionar chave to who cannot manage the vault", async () => 
   expect(await screen.findByText(/Só o dono do app/)).toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "Adicionar chave" })).not.toBeInTheDocument()
 })
+
+it("speaks of the app, not a script, for a screen app, and offers to restart the 24h version", async () => {
+  vi.spyOn(api.keys, "list").mockResolvedValue(list())
+  vi.spyOn(api.keys, "set").mockResolvedValue({ ok: true, needs_restart: true })
+  render(<KeysSection appId={7} kind="web" />)
+  expect(await screen.findByText(/O app não abre até preencher/)).toBeInTheDocument()
+  expect(screen.getByText(/no lugar do .env/)).toBeInTheDocument()
+  await userEvent.type(screen.getByLabelText("Senha do BTG"), "s3nha")
+  await userEvent.click(screen.getByRole("button", { name: "Salvar Senha do BTG" }))
+  expect(await screen.findByRole("button", { name: "Religar agora" })).toBeInTheDocument()
+})

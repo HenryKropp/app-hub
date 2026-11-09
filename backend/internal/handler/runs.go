@@ -35,7 +35,8 @@ func canRun(m manifest.Manifest) bool { return canRunKind(m.Kind, m.Entrypoint) 
 
 func canRunKind(kind, entrypoint string) bool {
 	return (kind == "desktop" && manifest.SafeRelative(entrypoint) && strings.HasSuffix(strings.ToLower(entrypoint), ".exe")) ||
-		(kind == manifest.KindScript && manifest.ScriptRuntime(entrypoint) != "")
+		(kind == manifest.KindScript && manifest.ScriptRuntime(entrypoint) != "") ||
+		(kind == manifest.KindWeb && strings.TrimSpace(entrypoint) != "") // opened on the computer from the code the Ziv keeps
 }
 
 func tsPtr(t pgtype.Timestamptz) *time.Time {

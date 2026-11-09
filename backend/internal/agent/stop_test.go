@@ -17,7 +17,7 @@ import (
 // openLauncher writes a file and stays open until the run is stopped.
 type openLauncher struct{ opened chan struct{} }
 
-func (l openLauncher) Launch(ctx context.Context, exe, dir string) (int, error) {
+func (l openLauncher) Launch(ctx context.Context, exe, dir string, env []string) (int, error) {
 	_ = os.WriteFile(filepath.Join(dir, "parcial.xlsx"), []byte("x"), 0o644)
 	close(l.opened)
 	<-ctx.Done()

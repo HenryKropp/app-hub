@@ -10,7 +10,7 @@ import { EditLink, Part, SaveBar, Section } from "@/components/ficha/Part"
 import { BuildView, InputList, Notes, OtherApps, OutputList, People, RunList } from "@/components/ficha/views"
 import { MakeShared, SharedSection } from "@/components/ficha/shared/SharedSection"
 import { AppControlBar } from "@/components/ficha/AppControl"
-import { KeysSection } from "@/components/ficha/KeysSection"
+import { KeysSection, VAULT_KINDS } from "@/components/ficha/KeysSection"
 import { Tech } from "@/components/ficha/shared/Tech"
 import { FavoriteStar } from "@/components/FavoriteStar"
 import { ScheduleDialog } from "@/components/ScheduleDialog"
@@ -251,12 +251,17 @@ export function AppPage() {
             <a href={openSharedUrl(opens.slug)} target="_blank" rel="noopener" className={cn(buttonVariants({ variant: "run" }), "h-11 gap-2 pr-6 pl-5 text-[0.95rem] [&_svg]:fill-none")}>
               <ExternalLink className="size-4" /> Abrir
             </a>
+            {app.can_run && (
+              <Button variant="outline" onClick={() => run(target)} disabled={busy.has(app.id)} className="gap-2">
+                <Play className="size-4" /> No meu computador
+              </Button>
+            )}
           </div>
         )}
         {!opens && app.can_run && (
           <div className="flex shrink-0 flex-col items-start gap-2 lg:items-end">
             <Button variant="run" onClick={() => run(target)} disabled={busy.has(app.id)} className="h-11 gap-2 pr-6 pl-5 text-[0.95rem]">
-              <Play className="size-4" /> Rodar
+              <Play className="size-4" /> {m.kind === "web" ? "Abrir no computador" : "Rodar"}
             </Button>
             {m.kind === "script" && (
               <Button variant="outline" onClick={() => setScheduling(true)} className="gap-2">
@@ -289,7 +294,7 @@ export function AppPage() {
           </Section>
         )}
         {m.kind === "script" && <SchedulesSection appId={app.id} appName={m.name} manifest={m} reloadKey={schedulesKey} />}
-        {m.kind === "script" && <KeysSection appId={app.id} />}
+        {VAULT_KINDS.includes(m.kind) && <KeysSection appId={app.id} kind={m.kind} />}
         {scheduling && (
           <ScheduleDialog appId={app.id} appName={m.name} manifest={m} onClose={() => setScheduling(false)}
             onSaved={() => { setScheduling(false); setSchedulesKey((k) => k + 1); toast.success("Agendamento salvo.") }} />

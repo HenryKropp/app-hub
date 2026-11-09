@@ -253,7 +253,9 @@ func TestToolGuiaVisual(t *testing.T) {
 	}
 }
 
-// Only rodar_app, publicar_artifact, preparar_envio, registrar_app and publicar_app_com_tela change something.
+// Only rodar_app, publicar_artifact, preparar_envio, registrar_app,
+// publicar_app_com_tela and enviar_chaves change something; enviar_chaves is
+// the only one that may replace what was there (a key already in the vault).
 func TestToolAnnotations(t *testing.T) {
 	c, _ := newPoolClient(t)
 	setupAdmin(t, c)
@@ -264,7 +266,7 @@ func TestToolAnnotations(t *testing.T) {
 	}
 	want := map[string]bool{"buscar": true, "ver_app": true, "ver_artifact": true, "rodar_app": false, "ver_execucao": true,
 		"minhas_execucoes": true, "publicar_artifact": false, "guia_visual": true, "preparar_envio": false, "formato_do_app": true, "registrar_app": false,
-		"publicar_app_com_tela": false}
+		"publicar_app_com_tela": false, "enviar_chaves": false}
 	if len(list.Tools) != len(want) {
 		t.Fatalf("tools = %d", len(list.Tools))
 	}
@@ -272,6 +274,12 @@ func TestToolAnnotations(t *testing.T) {
 		ro, ok := want[tool.Name]
 		if !ok || tool.Annotations == nil || tool.Annotations.ReadOnlyHint != ro {
 			t.Fatalf("%s: annotations %+v", tool.Name, tool.Annotations)
+		}
+		if tool.Name == "enviar_chaves" {
+			if tool.Annotations.DestructiveHint == nil || !*tool.Annotations.DestructiveHint {
+				t.Fatalf("enviar_chaves replaces keys: destructiveHint must be true")
+			}
+			continue
 		}
 		if !ro && (tool.Annotations.DestructiveHint == nil || *tool.Annotations.DestructiveHint) {
 			t.Fatalf("%s: destructiveHint must be false", tool.Name)

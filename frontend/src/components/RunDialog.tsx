@@ -25,6 +25,7 @@ export function RunDialog({ target, onCancel, onConfirm }: { target: RunTarget |
   const [values, setValues] = useState<Record<string, string | string[]>>({})
   const [files, setFiles] = useState<Record<string, SelectedFile>>({})
   const [submitting, setSubmitting] = useState(false)
+  const web = target?.kind === "web"
   const scriptFields = useMemo(() => (manifest?.inputs ?? []).filter((item) => item.source !== "window"), [manifest])
 
   useEffect(() => {
@@ -106,8 +107,12 @@ export function RunDialog({ target, onCancel, onConfirm }: { target: RunTarget |
     <Dialog open={target !== null} onOpenChange={(v) => !v && onCancel()}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Rodar {target?.name}</DialogTitle>
-          <DialogDescription>{target?.kind === "script" ? "Preencha os dados pedidos pelo app e escolha onde salvar os resultados. A preparação das dependências pode levar até 5 minutos; a execução, até 15 minutos." : "O app vai abrir no seu computador. Use a janela normalmente e feche quando terminar. O Ziv mostra os arquivos que ele gerou."}</DialogDescription>
+          <DialogTitle>{web ? "Abrir" : "Rodar"} {target?.name}</DialogTitle>
+          <DialogDescription>{target?.kind === "script"
+            ? "Preencha os dados pedidos pelo app e escolha onde salvar os resultados. A preparação das dependências pode levar até 5 minutos; a execução, até 15 minutos."
+            : web
+              ? "O app vai ligar no seu computador, com as senhas do Cofre, e abrir no navegador. Na primeira vez, preparar as bibliotecas pode levar alguns minutos. Para desligar, use Parar."
+              : "O app vai abrir no seu computador. Use a janela normalmente e feche quando terminar. O Ziv mostra os arquivos que ele gerou."}</DialogDescription>
         </DialogHeader>
         {target?.kind === "script" && loadingManifest && <div className="space-y-3" aria-label="Carregando formulário"><div className="h-4 w-2/3 animate-pulse rounded bg-muted" /><div className="h-10 animate-pulse rounded bg-muted" /><div className="h-10 animate-pulse rounded bg-muted" /></div>}
         {target?.kind === "script" && !loadingManifest && manifest && scriptFields.length > 0 && (
@@ -117,7 +122,7 @@ export function RunDialog({ target, onCancel, onConfirm }: { target: RunTarget |
           </div>
         )}
         {target?.kind === "script" && !loadingManifest && manifest && scriptFields.length === 0 && <p className="rounded-lg bg-muted/60 p-3 text-sm text-muted-foreground">Este script não pede informações antes de rodar.</p>}
-        <Field label="Onde salvar os resultados?" htmlFor="run-folder" hint="O Ziv mostra para baixar os arquivos novos que o app criar nesta pasta.">
+        <Field label={web ? "Onde o app guarda os dados?" : "Onde salvar os resultados?"} htmlFor="run-folder" hint={web ? "Pasta do seu computador para os arquivos que o app gravar (ele a recebe em APPHUB_DATA_DIR). O Ziv mostra o que for novo." : "O Ziv mostra para baixar os arquivos novos que o app criar nesta pasta."}>
           <div className="flex gap-2">
             <Input id="run-folder" value={folder} onChange={(e) => setFolder(e.target.value)} placeholder="Escolha uma pasta" title={folder} disabled={submitting} />
             <Button type="button" variant={folder.trim() ? "outline" : "default"} onClick={chooseOutput} disabled={choosing || submitting} className="shrink-0 gap-2">

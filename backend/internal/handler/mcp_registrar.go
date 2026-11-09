@@ -354,11 +354,7 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 		b.WriteString("\nDeixei de fora: " + strings.Join(dropped, ", ") + " (senhas e pastas que não sobem).")
 		for _, d := range dropped {
 			if !strings.HasSuffix(d, "/") {
-				if web {
-					b.WriteString(" Se o app precisa dessas chaves, a pessoa preenche no Ziv; nunca mande os valores pela conversa.")
-				} else {
-					b.WriteString(" Se o script precisa dessas chaves, ele deve ler cada uma do ambiente (os.environ[\"NOME\"]) e a ficha deve listar os nomes em keys: a pessoa preenche os valores no cofre do app; nunca mande os valores pela conversa.")
-				}
+				fmt.Fprintf(&b, " Se o app precisa dessas chaves, ele deve ler cada uma do ambiente (os.environ[\"NOME\"]) e a ficha pode listar os nomes em keys. Para guardar os valores do .env no cofre do app, chame enviar_chaves com app_id %d e rode o curl (sem abrir o arquivo); nunca mande os valores pela conversa.", ans.ID)
 				break
 			}
 		}
@@ -383,9 +379,9 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 			for _, k := range keys.Keys {
 				names = append(names, k.Name)
 			}
-			fmt.Fprintf(&b, "\nO script lê do cofre do app: %s.", strings.Join(names, ", "))
+			fmt.Fprintf(&b, "\nO app lê do cofre: %s.", strings.Join(names, ", "))
 			if len(missing) > 0 {
-				fmt.Fprintf(&b, " Falta preencher: %s. O dono do app ou um administrador preenche em %s, nunca pela conversa; até lá o script não roda.",
+				fmt.Fprintf(&b, " Falta preencher: %s. Se estão no .env da pasta, use enviar_chaves; senão, o dono do app ou um administrador preenche em %s, nunca pela conversa. Até lá o app não abre.",
 					strings.Join(missing, ", "), h.mcpLink("/apps/%d#chaves", ans.ID))
 			}
 		}

@@ -279,3 +279,61 @@ var stdlib = func() map[string]bool {
 	}
 	return m
 }()
+
+// Local is how the Agente starts a screen app on a person's computer: the
+// same recipe as the 24h version, listening only on the computer itself.
+type Local struct {
+	Runtime      string   // "python" or "node"
+	Args         []string // after the Python interpreter, or npm's arguments; "{PORT}" is the port
+	DepsFile     string   // requirements.txt, when the app has one
+	Requirements []string // libraries to install besides it
+}
+
+// ErrNoLocal: the app has no recipe the Agente can start on a computer.
+var ErrNoLocal = errors.New("O Ziv ainda não sabe ligar este app no computador: ele precisa ser Streamlit, FastAPI, Flask, Django ou Node com \"npm start\".")
+
+// LocalStart turns a recipe into a local start. gunicorn does not run on
+// Windows, so a gunicorn command runs under waitress, which takes the same
+// "module:app" target.
+func LocalStart(r Recipe) (Local, error) {
+	if r.Kind == "node" {
+		return Local{Runtime: "node", Args: []string{"start"}}, nil
+	}
+	fields := strings.Fields(r.Command)
+	if r.Kind == "" || r.Kind == "dockerfile" || len(fields) == 0 {
+		return Local{}, ErrNoLocal
+	}
+	l := Local{Runtime: "python", Requirements: append([]string{}, r.Requirements...)}
+	if len(r.Requirements) == 0 {
+		l.DepsFile = "requirements.txt"
+	}
+	for i, f := range fields {
+		f = strings.ReplaceAll(f, "0.0.0.0", "127.0.0.1")
+		fields[i] = strings.ReplaceAll(f, "$PORT", "{PORT}")
+	}
+	switch tool := fields[0]; tool {
+	case "python", "python3":
+		l.Args = fields[1:]
+	case "streamlit", "uvicorn", "flask":
+		l.Args = append([]string{"-m"}, fields...)
+		if tool == "uvicorn" {
+			l.Requirements = append(l.Requirements, "uvicorn")
+		}
+	case "gunicorn":
+		target := fields[len(fields)-1]
+		if strings.HasPrefix(target, "-") {
+			return Local{}, ErrNoLocal
+		}
+		if !strings.Contains(target, ":") {
+			target += ":application" // Django's wsgi module
+		}
+		l.Args = []string{"-m", "waitress", "--listen=127.0.0.1:{PORT}", target}
+		l.Requirements = append(l.Requirements, "waitress")
+	default:
+		return Local{}, ErrNoLocal
+	}
+	if len(l.Args) == 0 {
+		return Local{}, ErrNoLocal
+	}
+	return l, nil
+}

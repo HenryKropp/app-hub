@@ -36,6 +36,7 @@ const mockApp = (d: AppDetail) => {
   vi.spyOn(api, "people").mockResolvedValue([])
   vi.spyOn(api, "apps").mockResolvedValue([])
   vi.spyOn(api, "appAccess").mockResolvedValue({ restricted: false, areas: [], people: [], grants: [], area_grants: [] })
+  vi.spyOn(api.keys, "list").mockResolvedValue({ keys: [], can_manage: true, ready: true, missing: [], locked: false })
 }
 const base = mockApp
 
@@ -421,4 +422,20 @@ test("the back link goes to /apps and the title has a star", async () => {
   await screen.findByRole("heading", { name: "Eq. Research Files Prep" })
   expect(screen.getByRole("link", { name: /Apps/ })).toHaveAttribute("href", "/apps")
   expect(screen.getByRole("button", { name: "Tirar Eq. Research Files Prep dos favoritos" })).toHaveAttribute("aria-pressed", "true")
+})
+
+test("a screen app has the Cofre and opens on the computer", async () => {
+  base(detail({ manifest: manifest({ kind: "web", name: "Notícias" }) }))
+  renderAt()
+  expect(await screen.findByRole("button", { name: "Abrir no computador" })).toBeInTheDocument()
+  expect(await screen.findByRole("heading", { name: "Cofre" })).toBeInTheDocument()
+  expect(screen.getByText(/no lugar do .env/)).toBeInTheDocument()
+})
+
+test("a screen app on the server opens there, and also on the computer", async () => {
+  base(detail({ manifest: manifest({ kind: "web", name: "Notícias" }), shared: { status: "running", url: "http://noticias.localhost", slug: "noticias" } as AppDetail["shared"] }))
+  vi.spyOn(api.shared, "get").mockReturnValue(new Promise(() => {})) // the Compartilhar part is tested elsewhere
+  renderAt()
+  expect((await screen.findAllByRole("link", { name: /Abrir/ })).length).toBeGreaterThan(0)
+  expect(screen.getByRole("button", { name: "No meu computador" })).toBeInTheDocument()
 })

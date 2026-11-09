@@ -6,12 +6,19 @@ import { Label } from "@/components/ui/label"
 import { api, type KeyItem, type KeysList } from "@/lib/api"
 import { formatWhen } from "@/lib/runs"
 import { Section } from "./Part"
+import { RestartNow } from "./shared/RestartNow"
 import { errText } from "./shared/settings"
 
-/** The script's vault (cofre): names and state for everyone who sees the
+/** Kinds of app with a vault: every app the Agente opens on a computer. */
+export const VAULT_KINDS = ["script", "web", "desktop", "scheduled", "executable"]
+
+/** The app's vault (cofre): names and state for everyone who sees the
  * app; fill, show, replace and delete for the owner or an administrator.
- * A shown value lives only in this component's memory until "Esconder". */
-function KeyRow({ appId, item, canManage, onChanged }: { appId: number; item: KeyItem; canManage: boolean; onChanged: () => void }) {
+ * A shown value lives only in this component's memory until "Esconder".
+ * One value serves the computer and the app's 24h version. */
+type Changed = (needsRestart?: boolean) => void
+
+function KeyRow({ appId, item, canManage, onChanged }: { appId: number; item: KeyItem; canManage: boolean; onChanged: Changed }) {
   const [value, setValue] = useState("")
   const [replacing, setReplacing] = useState(false)
   const [shown, setShown] = useState<string | null>(null)
@@ -32,18 +39,18 @@ function KeyRow({ appId, item, canManage, onChanged }: { appId: number; item: Ke
     }
   }
   const save = () => act(async () => {
-    await api.keys.set(appId, item.name, value)
+    const r = await api.keys.set(appId, item.name, value)
     setValue("")
     setReplacing(false)
     setShown(null)
-    onChanged()
+    onChanged(r.needs_restart)
   }, "Não consegui guardar a chave.")
   const remove = () => {
-    if (!window.confirm(`Apagar ${label} do cofre? O script fica sem esse valor.`)) return
+    if (!window.confirm(`Apagar ${label} do cofre? O app fica sem esse valor.`)) return
     void act(async () => {
-      await api.keys.remove(appId, item.name)
+      const r = await api.keys.remove(appId, item.name)
       setShown(null)
-      onChanged()
+      onChanged(r.needs_restart)
     }, "Não consegui apagar a chave.")
   }
   const reveal = () => act(async () => setShown((await api.keys.reveal(appId, item.name)).value), "Não consegui mostrar a chave.")
@@ -92,7 +99,7 @@ export function keyName(typed: string) {
 }
 
 /** "Adicionar chave": a new key with its value, for the owner or an administrator. */
-function AddKey({ appId, onAdded }: { appId: number; onAdded: () => void }) {
+function AddKey({ appId, onAdded }: { appId: number; onAdded: Changed }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [value, setValue] = useState("")
@@ -104,9 +111,9 @@ function AddKey({ appId, onAdded }: { appId: number; onAdded: () => void }) {
     setBusy(true)
     setError("")
     try {
-      await api.keys.set(appId, env, value)
+      const r = await api.keys.set(appId, env, value)
       close()
-      onAdded()
+      onAdded(r.needs_restart)
     } catch (e) {
       setError(errText(e, "Não consegui guardar a chave."))
     } finally {
@@ -125,7 +132,7 @@ function AddKey({ appId, onAdded }: { appId: number; onAdded: () => void }) {
           {env && env !== name.trim()
             ? <>Vai ficar <code className="font-mono">{env}</code>. </>
             : null}
-          O script lê o valor por esse nome: <code className="font-mono">os.environ["{env || "NOME"}"]</code>
+          O app lê o valor por esse nome: <code className="font-mono">os.environ["{env || "NOME"}"]</code>
         </p>
       </div>
       <div className="flex flex-col gap-1.5">
@@ -141,14 +148,19 @@ function AddKey({ appId, onAdded }: { appId: number; onAdded: () => void }) {
   )
 }
 
-export function KeysSection({ appId }: { appId: number }) {
+export function KeysSection({ appId, kind = "script" }: { appId: number; kind?: string }) {
   const [list, setList] = useState<KeysList | null>(null)
   const [error, setError] = useState("")
+  const [restart, setRestart] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const load = useCallback(() => {
     api.keys.list(appId).then(setList, (e) => setError(errText(e, "Não consegui abrir o cofre.")))
   }, [appId])
   useEffect(load, [load])
+  const changed: Changed = (needsRestart) => {
+    if (needsRestart) setRestart(true)
+    load()
+  }
   // The link Claude gives (…/apps/N#chaves) opens straight on the vault.
   useEffect(() => {
     if (list && window.location.hash === "#chaves") ref.current?.scrollIntoView({ block: "start" })
@@ -156,9 +168,13 @@ export function KeysSection({ appId }: { appId: number }) {
 
   if (!list && !error) return null
   const labelOf = (name: string) => list?.keys.find((k) => k.name === name)?.label || name
+  const script = kind === "script"
+  const what = script ? "o script" : "o app"
   return (
     <div ref={ref} id="chaves" className="scroll-mt-4">
-      <Section title="Cofre" aside={<p className="text-xs text-muted-foreground">As senhas que o script usa. O valor só vai para o script na hora de rodar.</p>}>
+      <Section title="Cofre" aside={<p className="text-xs text-muted-foreground">{script
+        ? "As senhas que o script usa. O valor só vai para o script na hora de rodar."
+        : "As senhas que o app usa, no lugar do .env. Valem quando ele abre no seu computador e na versão ligada no servidor."}</p>}>
         {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
         {list && (
           <div className="flex flex-col gap-4">
@@ -168,18 +184,23 @@ export function KeysSection({ appId }: { appId: number }) {
             {list.missing.length > 0 && (
               <p className="flex gap-2 text-sm">
                 <KeyRound className="mt-0.5 size-4 shrink-0 text-warn" />
-                O script não roda até preencher: {list.missing.map(labelOf).join(", ")}.
+                {script ? "O script não roda" : "O app não abre"} até preencher: {list.missing.map(labelOf).join(", ")}.
               </p>
             )}
             {list.keys.length === 0 && (
-              <p className="text-sm text-muted-foreground">Nenhuma chave ainda. Guarde aqui as senhas e tokens que o script usa, em vez de deixá-los no código.</p>
+              <p className="text-sm text-muted-foreground">Nenhuma chave ainda. Guarde aqui as senhas e tokens que {what} usa, em vez de deixá-los no código ou no .env. Pelo Claude, peça "preencha o cofre com o .env" e ele manda o arquivo direto ao Ziv, sem ver as senhas.</p>
             )}
             {list.keys.length > 0 && (
               <ul className="flex flex-col gap-4">
-                {list.keys.map((k) => <KeyRow key={k.name} appId={appId} item={k} canManage={list.can_manage && !list.locked} onChanged={load} />)}
+                {list.keys.map((k) => <KeyRow key={k.name} appId={appId} item={k} canManage={list.can_manage && !list.locked} onChanged={changed} />)}
               </ul>
             )}
-            {list.can_manage && !list.locked && <AddKey appId={appId} onAdded={load} />}
+            {restart && (
+              <p className="flex flex-wrap items-center gap-2 text-sm">
+                A versão ligada no servidor só usa a mudança depois de religar. <RestartNow appId={appId} onDone={() => setRestart(false)} />
+              </p>
+            )}
+            {list.can_manage && !list.locked && <AddKey appId={appId} onAdded={changed} />}
             {!list.can_manage && (
               <p className="text-xs text-muted-foreground">Só o dono do app ou um administrador mexe no cofre.</p>
             )}

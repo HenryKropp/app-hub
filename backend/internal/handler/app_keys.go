@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -16,11 +17,12 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 )
 
-// The app's vault (cofre): the secrets a script reads from its environment.
-// The ficha names them (manifest.Keys), and the owner can also add keys on the
-// site: for a script every sealed app_config row is a vault key, declared or
-// not (scripts use app_config for nothing else). The values are sealed with
-// the server key. Only the app's owner or an administrator fills,
+// The app's vault (cofre): the secrets an app reads from its environment.
+// The ficha names them (manifest.Keys, plus a shared app's secret settings),
+// and the owner can also add keys on the site: every sealed app_config row is
+// a vault key, except the Ziv's own "_" rows. One value serves the computer
+// (the Agente hands it over when the app opens) and the 24h version (the
+// container's environment). The values are sealed with the server key. Only the app's owner or an administrator fills,
 // replaces, reveals or deletes them; anyone who sees the app sees the names
 // and whether each one is filled. The Agente gets them per run (agent_keys.go).
 
@@ -28,7 +30,7 @@ const (
 	msgKeysLocked   = "O cofre está fechado neste servidor (falta a chave do servidor). Fale com o responsável pelo Ziv."
 	msgKeysManage   = "Só o dono do app ou um administrador mexe no cofre."
 	msgKeyNotListed = "Essa chave não está no cofre do app."
-	msgKeysScripts  = "Só scripts têm cofre de chaves; apps com tela usam Configurações."
+	msgKeysNoVault  = "Este tipo de app não roda, então não tem cofre de chaves."
 	msgKeyBadValue  = "O valor pode ter até 4.096 caracteres, numa linha só."
 	maxKeyValue     = 4096
 )
@@ -63,20 +65,44 @@ func canManageKeys(a sqlc.App, me sqlc.Person, acc *access.Person) bool {
 	return a.OwnerID == me.ID || (acc != nil && acc.Has(access.ManageRoles))
 }
 
-func declaredKey(m manifest.Manifest, name string) *manifest.Key {
-	for i := range m.Keys {
-		if m.Keys[i].Name == name {
-			return &m.Keys[i]
+// declaredKeys are the vault keys the ficha names: its keys, then the secret
+// settings of a shared app's Configurações. Both live in the same app_config
+// rows, so one value serves the computer and the 24h version. A shared
+// setting never blocks opening the app on a computer: only the ficha's
+// required keys do.
+func declaredKeys(m manifest.Manifest) []manifest.Key {
+	keys := append([]manifest.Key{}, m.Keys...)
+	if m.Shared != nil {
+		for _, e := range m.Shared.Env {
+			if e.Secret && !strings.HasPrefix(e.Name, "_") && !slices.ContainsFunc(keys, func(k manifest.Key) bool { return k.Name == e.Name }) {
+				keys = append(keys, manifest.Key{Name: e.Name, Label: e.Label})
+			}
 		}
 	}
-	return nil
+	return keys
 }
 
-// vaultKeys lists a script's keys: the ficha's first, then the ones added on
-// the site (sealed rows the ficha does not name), with the stored rows by name.
+// plainSetting reports a setting of Configurações that is not a secret: it
+// stays out of the vault.
+func plainSetting(m manifest.Manifest, name string) bool {
+	if m.Shared == nil {
+		return false
+	}
+	for _, e := range m.Shared.Env {
+		if e.Name == name {
+			return !e.Secret
+		}
+	}
+	return false
+}
+
+// vaultKeys lists an app's keys: the declared ones first, then the ones added
+// on the site (sealed rows nobody declared), with the stored rows by name.
+// Rows starting with "_" are the Ziv's own (the app database's password) and
+// never part of the vault.
 func (h *Handler) vaultKeys(ctx context.Context, a sqlc.App) ([]manifest.Key, map[string]sqlc.AppConfig, error) {
 	m := manifestOf(a)
-	if m.Kind != manifest.KindScript {
+	if !manifest.HasVault(m.Kind) {
 		return nil, nil, nil
 	}
 	rows, err := h.q.ListAppConfig(ctx, a.ID)
@@ -85,13 +111,17 @@ func (h *Handler) vaultKeys(ctx context.Context, a sqlc.App) ([]manifest.Key, ma
 	}
 	have := map[string]sqlc.AppConfig{}
 	for _, row := range rows {
-		if len(row.ValueCipher) > 0 {
+		if len(row.ValueCipher) > 0 && !strings.HasPrefix(row.Name, "_") {
 			have[row.Name] = row
 		}
 	}
-	keys := append([]manifest.Key{}, m.Keys...)
+	keys := declaredKeys(m)
+	declared := map[string]bool{}
+	for _, k := range keys {
+		declared[k.Name] = true
+	}
 	for _, row := range rows { // ListAppConfig orders by name
-		if _, sealed := have[row.Name]; sealed && declaredKey(m, row.Name) == nil {
+		if _, sealed := have[row.Name]; sealed && !declared[row.Name] {
 			keys = append(keys, manifest.Key{Name: row.Name})
 		}
 	}
@@ -159,8 +189,9 @@ func (h *Handler) keyFor(w http.ResponseWriter, r *http.Request, adding bool) (s
 		writeError(w, http.StatusForbidden, msgKeysManage)
 		return a, me, "", false
 	}
-	if manifestOf(a).Kind != manifest.KindScript {
-		writeError(w, http.StatusNotFound, msgKeysScripts)
+	m := manifestOf(a)
+	if !manifest.HasVault(m.Kind) {
+		writeError(w, http.StatusNotFound, msgKeysNoVault)
 		return a, me, "", false
 	}
 	name := r.PathValue("name")
@@ -177,6 +208,9 @@ func (h *Handler) keyFor(w http.ResponseWriter, r *http.Request, adding bool) (s
 	case listed:
 	case !adding:
 		writeError(w, http.StatusNotFound, msgKeyNotListed)
+		return a, me, "", false
+	case plainSetting(m, name):
+		writeError(w, http.StatusBadRequest, name+" é uma configuração do app que não é segredo; preencha na parte Configurações.")
 		return a, me, "", false
 	case manifest.KeyNameProblem(name) != "":
 		writeError(w, http.StatusBadRequest, manifest.KeyNameProblem(name))
@@ -218,7 +252,7 @@ func (h *Handler) putKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.keyAudit(r.Context(), me.ID, "app_key.saved", "PUT /api/apps/{id}/keys/{name}")
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true, "needs_restart": h.sharedRunning(r.Context(), a.ID)})
 }
 
 // deleteKey empties a key of the ficha and removes a key added on the site.
@@ -251,7 +285,14 @@ func (h *Handler) deleteKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.keyAudit(r.Context(), me.ID, "app_key.deleted", "DELETE /api/apps/{id}/keys/{name}")
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true, "needs_restart": h.sharedRunning(r.Context(), a.ID)})
+}
+
+// sharedRunning: the app's 24h version is on, so a changed key only reaches
+// it after a restart.
+func (h *Handler) sharedRunning(ctx context.Context, appID int64) bool {
+	sa, err := h.q.GetSharedApp(ctx, appID)
+	return err == nil && !sa.UnsharedAt.Valid && sa.Status == "running"
 }
 
 // revealKey shows one value to the owner or an administrator; every reveal
@@ -291,7 +332,7 @@ func (h *Handler) openKey(ctx context.Context, appID int64, name string) (string
 	return "", errKeyEmpty
 }
 
-// keyValues opens every filled key of a script's vault, for one run.
+// keyValues opens every filled key of an app's vault, for one run.
 func (h *Handler) keyValues(ctx context.Context, a sqlc.App) (map[string]string, error) {
 	out := map[string]string{}
 	_, have, err := h.vaultKeys(ctx, a)

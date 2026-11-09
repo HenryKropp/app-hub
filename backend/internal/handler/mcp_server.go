@@ -95,6 +95,8 @@ var mcpRoutes = []string{
 	"GET /api/areas",
 	"POST /api/scripts/import",
 	"POST /api/apps/{id}/sources",
+	// enviar_chaves: names and state only; the values arrive by curl, never here
+	"GET /api/apps/{id}/keys",
 	// publicar_app_com_tela: the settings values (PUT …/shared/config) stay site-only
 	"GET /api/apps/{id}/shared",
 	"PUT /api/apps/{id}/shared",

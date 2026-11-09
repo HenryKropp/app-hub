@@ -9,16 +9,17 @@ import (
 )
 
 type AgentJob struct {
-	ID         int64              `json:"id"`
-	ComputerID int64              `json:"computer_id"`
-	RunID      pgtype.Int8        `json:"run_id"`
-	Kind       string             `json:"kind"`
-	Payload    []byte             `json:"payload"`
-	Status     string             `json:"status"`
-	Result     []byte             `json:"result"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	TakenAt    pgtype.Timestamptz `json:"taken_at"`
-	DoneAt     pgtype.Timestamptz `json:"done_at"`
+	ID              int64              `json:"id"`
+	ComputerID      int64              `json:"computer_id"`
+	RunID           pgtype.Int8        `json:"run_id"`
+	Kind            string             `json:"kind"`
+	Payload         []byte             `json:"payload"`
+	Status          string             `json:"status"`
+	Result          []byte             `json:"result"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	TakenAt         pgtype.Timestamptz `json:"taken_at"`
+	DoneAt          pgtype.Timestamptz `json:"done_at"`
+	KeysDeliveredAt pgtype.Timestamptz `json:"keys_delivered_at"`
 }
 
 type App struct {
@@ -261,6 +262,16 @@ type McpConnection struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	LastUsedAt       pgtype.Timestamptz `json:"last_used_at"`
 	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type McpKeyUpload struct {
+	ID        int64              `json:"id"`
+	TokenHash string             `json:"token_hash"`
+	PersonID  int64              `json:"person_id"`
+	AppID     int64              `json:"app_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	UsedAt    pgtype.Timestamptz `json:"used_at"`
 }
 
 type McpUpload struct {

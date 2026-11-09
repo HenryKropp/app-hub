@@ -137,6 +137,8 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 		// A preparar_envio address is sent to by curl from Claude's shell: the
 		// one-time token in the path protects it, and the body is a zip.
 		isClaude = isClaude || (r.Method == "PUT" && strings.HasPrefix(r.URL.Path, envioRoute))
+		// An enviar_chaves address likewise: curl sends the .env straight to it.
+		isClaude = isClaude || (r.Method == "PUT" && strings.HasPrefix(r.URL.Path, chavesRoute))
 		if unsafe && !isAgent && !isClaude {
 			origin := r.Header.Get("Origin")
 			if origin != "" {
