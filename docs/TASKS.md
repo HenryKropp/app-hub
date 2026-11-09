@@ -409,4 +409,5 @@ Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mc
 | Faces Usar e Cuidar, menu de seções, Pendências com etapas | Done | `CareMenu.tsx`; quem cuida abre em Cuidar |
 | Um coral só na página (Publicar e Abrir do servidor neutros) | Done | |
 | Testes da página atualizados e novos (faces, pendências, aprovação) | Done | |
+| Publicado em zivapp.duckdns.org | Done | 2026-11-09 |
 | Teste do Henry na página de um app real | Pending | Script e app de navegador |
