@@ -22,6 +22,15 @@ export function formatDuration(startISO: string | null, endISO: string | null, n
   return `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, "0")} min`
 }
 
+/** How long something has been going, to the second while under an hour: "45 s", "3 min 12 s", "1 h 03 min". */
+export function formatElapsed(fromISO: string, nowMs = Date.now()): string {
+  const secs = Math.max(0, Math.floor((nowMs - Date.parse(fromISO)) / 1000))
+  if (secs < 60) return `${secs} s`
+  const mins = Math.floor(secs / 60)
+  if (mins < 60) return `${mins} min ${String(secs % 60).padStart(2, "0")} s`
+  return `${Math.floor(mins / 60)} h ${String(mins % 60).padStart(2, "0")} min`
+}
+
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`

@@ -263,12 +263,20 @@ func (h *Handler) toRunJSON(ctx context.Context, row sqlc.GetRunRow) (runJSON, e
 	for i, o := range m.Outputs {
 		j.Groups = append(j.Groups, runGroupJSON{Index: i, Label: o.Label, Files: []runFileJSON{}})
 	}
+	inputs, recorded, err := h.runInputs(ctx, row, m)
+	if err != nil {
+		return j, err
+	}
+	j.Inputs, j.InputsRecorded = inputs, recorded
 	files, err := h.q.ListRunFiles(ctx, row.ID)
 	if err != nil {
 		return j, err
 	}
 	for _, f := range files {
 		fj := runFileJSON{ID: f.ID, Path: f.RelPath, Size: f.Size, Modified: f.ModifiedAt.Time, Change: f.Change}
+		if isConsoleLog(f.RelPath) && j.Console == nil {
+			j.Console = &runConsoleJSON{FileID: f.ID, Size: f.Size}
+		}
 		// Group by the current manifest, so fixing its patterns fixes past runs too.
 		idx, _ := outputs.Match(m.Outputs, f.RelPath)
 		if idx >= 0 {
@@ -428,6 +436,17 @@ type runJSON struct {
 	FinishedAt    *time.Time     `json:"finished_at"`
 	CanStop       bool           `json:"can_stop"`
 	Groups        []runGroupJSON `json:"groups"`
+	// Inputs is what was filled in the form (ADR 033); InputsRecorded is
+	// false for runs older than that record.
+	Inputs         []runInputJSON `json:"inputs"`
+	InputsRecorded bool           `json:"inputs_recorded"`
+	// Console is the file with what a script printed, when the run kept one.
+	Console *runConsoleJSON `json:"console"`
+}
+
+type runConsoleJSON struct {
+	FileID int64 `json:"file_id"`
+	Size   int64 `json:"size"`
 }
 type runSummaryJSON struct {
 	ID         int64      `json:"id"`
@@ -708,7 +727,9 @@ type activeRunJSON struct {
 	FileCount    int64      `json:"file_count"`
 	ResultCount  int64      `json:"result_count"`
 	CreatedAt    time.Time  `json:"created_at"`
+	StartedAt    *time.Time `json:"started_at"`
 	FinishedAt   *time.Time `json:"finished_at"`
+	ComputerName string     `json:"computer_name"`
 	CanStop      bool       `json:"can_stop"`
 }
 
@@ -750,8 +771,8 @@ func (h *Handler) activeRuns(w http.ResponseWriter, r *http.Request) {
 	out := make([]activeRunJSON, 0, len(rows))
 	for _, x := range rows {
 		out = append(out, activeRunJSON{ID: x.ID, AppID: x.AppID, AppName: x.AppName, AppFolder: hostpath.ToDisplay(x.AppFolderPath), Status: x.Status,
-			ErrorMessage: x.ErrorMessage, OutputFolder: x.OutputFolder, FileCount: x.FileCount, ResultCount: resultCount(x.FileCount, x.ConsoleCount), CreatedAt: x.CreatedAt.Time, FinishedAt: tsPtr(x.FinishedAt),
-			CanStop: canStop(x.Status, x.ComputerCanStop)})
+			ErrorMessage: x.ErrorMessage, OutputFolder: x.OutputFolder, FileCount: x.FileCount, ResultCount: resultCount(x.FileCount, x.ConsoleCount), CreatedAt: x.CreatedAt.Time, StartedAt: tsPtr(x.StartedAt), FinishedAt: tsPtr(x.FinishedAt),
+			ComputerName: x.ComputerName, CanStop: canStop(x.Status, x.ComputerCanStop)})
 	}
 	writeJSON(w, http.StatusOK, out)
 }

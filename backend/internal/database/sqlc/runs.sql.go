@@ -56,7 +56,7 @@ func (q *Queries) ClearRunFolder(ctx context.Context, arg ClearRunFolderParams) 
 const createMissedRun = `-- name: CreateMissedRun :one
 INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id, origin, schedule_id, status, error_message, started_at, finished_at)
 VALUES ($1, $2, $3, $4, $5, 'schedule', $6, 'missed', $7, now(), now())
-RETURNING id, app_id, person_id, computer_id, output_folder, status, exit_code, error_message, app_version, created_at, started_at, finished_at, version_id, origin, schedule_id
+RETURNING id, app_id, person_id, computer_id, output_folder, status, exit_code, error_message, app_version, created_at, started_at, finished_at, version_id, origin, schedule_id, inputs
 `
 
 type CreateMissedRunParams struct {
@@ -96,14 +96,15 @@ func (q *Queries) CreateMissedRun(ctx context.Context, arg CreateMissedRunParams
 		&i.VersionID,
 		&i.Origin,
 		&i.ScheduleID,
+		&i.Inputs,
 	)
 	return i, err
 }
 
 const createRun = `-- name: CreateRun :one
-INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id, origin, schedule_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, app_id, person_id, computer_id, output_folder, status, exit_code, error_message, app_version, created_at, started_at, finished_at, version_id, origin, schedule_id
+INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id, origin, schedule_id, inputs)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, app_id, person_id, computer_id, output_folder, status, exit_code, error_message, app_version, created_at, started_at, finished_at, version_id, origin, schedule_id, inputs
 `
 
 type CreateRunParams struct {
@@ -114,6 +115,7 @@ type CreateRunParams struct {
 	VersionID    pgtype.Int8 `json:"version_id"`
 	Origin       string      `json:"origin"`
 	ScheduleID   pgtype.Int8 `json:"schedule_id"`
+	Inputs       []byte      `json:"inputs"`
 }
 
 func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, error) {
@@ -125,6 +127,7 @@ func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, erro
 		arg.VersionID,
 		arg.Origin,
 		arg.ScheduleID,
+		arg.Inputs,
 	)
 	var i Run
 	err := row.Scan(
@@ -143,6 +146,7 @@ func (q *Queries) CreateRun(ctx context.Context, arg CreateRunParams) (Run, erro
 		&i.VersionID,
 		&i.Origin,
 		&i.ScheduleID,
+		&i.Inputs,
 	)
 	return i, err
 }
@@ -189,7 +193,7 @@ func (q *Queries) FinishRun(ctx context.Context, arg FinishRunParams) error {
 }
 
 const getRun = `-- name: GetRun :one
-SELECT r.id, r.app_id, r.person_id, r.computer_id, r.output_folder, r.status, r.exit_code, r.error_message, r.app_version, r.created_at, r.started_at, r.finished_at, r.version_id, r.origin, r.schedule_id, a.name AS app_name, a.manifest AS app_manifest, p.name AS person_name, c.name AS computer_name,
+SELECT r.id, r.app_id, r.person_id, r.computer_id, r.output_folder, r.status, r.exit_code, r.error_message, r.app_version, r.created_at, r.started_at, r.finished_at, r.version_id, r.origin, r.schedule_id, r.inputs, a.name AS app_name, a.manifest AS app_manifest, p.name AS person_name, c.name AS computer_name,
        c.can_stop AS computer_can_stop, v.number AS version_number
 FROM runs r
 JOIN apps a ON a.id = r.app_id
@@ -215,6 +219,7 @@ type GetRunRow struct {
 	VersionID       pgtype.Int8        `json:"version_id"`
 	Origin          string             `json:"origin"`
 	ScheduleID      pgtype.Int8        `json:"schedule_id"`
+	Inputs          []byte             `json:"inputs"`
 	AppName         string             `json:"app_name"`
 	AppManifest     []byte             `json:"app_manifest"`
 	PersonName      string             `json:"person_name"`
@@ -242,6 +247,7 @@ func (q *Queries) GetRun(ctx context.Context, id int64) (GetRunRow, error) {
 		&i.VersionID,
 		&i.Origin,
 		&i.ScheduleID,
+		&i.Inputs,
 		&i.AppName,
 		&i.AppManifest,
 		&i.PersonName,
@@ -294,7 +300,8 @@ func (q *Queries) GetRunFolder(ctx context.Context, arg GetRunFolderParams) (str
 }
 
 const listActiveRuns = `-- name: ListActiveRuns :many
-SELECT r.id, r.app_id, a.name AS app_name, a.folder_path AS app_folder_path, r.status, r.error_message, r.output_folder, r.created_at, r.finished_at,
+SELECT r.id, r.app_id, a.name AS app_name, a.folder_path AS app_folder_path, r.status, r.error_message, r.output_folder, r.created_at, r.started_at, r.finished_at,
+       c.name AS computer_name,
        (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count,
        (SELECT count(*) FROM run_files f WHERE f.run_id = r.id AND f.rel_path ~ '(^|/)\.apphub-console\.txt$') AS console_count,
        c.can_stop AS computer_can_stop
@@ -318,7 +325,9 @@ type ListActiveRunsRow struct {
 	ErrorMessage    string             `json:"error_message"`
 	OutputFolder    string             `json:"output_folder"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
 	FinishedAt      pgtype.Timestamptz `json:"finished_at"`
+	ComputerName    string             `json:"computer_name"`
 	FileCount       int64              `json:"file_count"`
 	ConsoleCount    int64              `json:"console_count"`
 	ComputerCanStop bool               `json:"computer_can_stop"`
@@ -342,7 +351,9 @@ func (q *Queries) ListActiveRuns(ctx context.Context, personID int64) ([]ListAct
 			&i.ErrorMessage,
 			&i.OutputFolder,
 			&i.CreatedAt,
+			&i.StartedAt,
 			&i.FinishedAt,
+			&i.ComputerName,
 			&i.FileCount,
 			&i.ConsoleCount,
 			&i.ComputerCanStop,

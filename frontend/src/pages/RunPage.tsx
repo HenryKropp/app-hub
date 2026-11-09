@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react"
 import { Link, useParams } from "react-router-dom"
-import { ArrowLeft, Download, Play, Square, X } from "lucide-react"
+import { ArrowLeft, Download, FileText, Play, Square, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { ByClaude, LoadError, RunState, Scheduled } from "@/components/bits"
-import { api, fileUrl, groupZipUrl, selectedUrl, type Run, type RunGroup } from "@/lib/api"
+import { Elapsed } from "@/components/Elapsed"
+import { api, fileUrl, groupZipUrl, selectedUrl, type Run, type RunGroup, type RunInput } from "@/lib/api"
 import { useRuns } from "@/lib/runs-context"
 import { formatDuration, formatSize, formatWhen, isLive } from "@/lib/runs"
 import { cn } from "@/lib/utils"
@@ -71,6 +72,96 @@ function Group({ run, g, selected, toggle }: { run: Run; g: RunGroup; selected: 
   )
 }
 
+/** A date input comes as 2026-11-09; people read 09/11/2026. */
+function inputValue(i: RunInput): string {
+  if (i.type === "date") return i.values.map((v) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v.split("-").reverse().join("/") : v)).join(", ")
+  return i.values.join(", ")
+}
+
+/** O que foi preenchido: the values this run used, in the order of the ficha. */
+function Filled({ run }: { run: Run }) {
+  const inputs = run.inputs ?? []
+  return (
+    <section className="mt-8" aria-labelledby="preenchido">
+      <h2 id="preenchido" className="mb-3 text-sm font-semibold">O que foi preenchido</h2>
+      {run.inputs_recorded === false ? (
+        <p className="text-sm text-muted-foreground">Esta execução é de antes de o Ziv guardar o que foi preenchido.</p>
+      ) : inputs.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Nenhum valor preenchido.</p>
+      ) : (
+        <dl className="divide-y divide-border overflow-hidden rounded-xl border border-border text-sm">
+          {inputs.map((i) => (
+            <div key={i.id} className="grid gap-x-6 gap-y-0.5 px-4 py-2.5 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
+              <dt className="text-muted-foreground">{i.label}</dt>
+              <dd className="min-w-0 [overflow-wrap:anywhere]">
+                {i.masked ? (
+                  <span className="text-muted-foreground"><span aria-hidden className="font-mono">••••••</span> escondido</span>
+                ) : i.file ? (
+                  <span className="inline-flex items-center gap-1.5"><FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden /><span className="font-mono text-xs">{i.file}</span></span>
+                ) : (
+                  inputValue(i)
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </section>
+  )
+}
+
+/** Above this the log is only downloaded: bringing it from the computer to show would be slow. */
+const CONSOLE_SHOW_MAX = 1024 * 1024
+/** How much of the end of the log the page shows. */
+const CONSOLE_TAIL = 20_000
+
+/** Registro do app: what a script printed, brought from the computer where it ran. */
+function ConsoleLog({ run, file }: { run: Run; file: { file_id: number; size: number } }) {
+  const [text, setText] = useState<string | null>(null)
+  const [error, setError] = useState("")
+  const [tries, setTries] = useState(0)
+  const big = file.size > CONSOLE_SHOW_MAX
+  useEffect(() => {
+    if (big) return
+    let gone = false
+    api.runFileText(run.id, file.file_id).then(
+      (t) => !gone && setText(t),
+      (e: Error) => !gone && setError(e.message),
+    )
+    return () => { gone = true }
+  }, [run.id, file.file_id, big, tries])
+  const cut = text !== null && text.length > CONSOLE_TAIL
+  return (
+    <section className="mt-8" aria-labelledby="registro">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <h2 id="registro" className="text-sm font-semibold">Registro do app <span className="font-normal text-muted-foreground">(o que ele escreveu enquanto rodava)</span></h2>
+        <a href={fileUrl(run.id, file.file_id)} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-2")}>
+          <Download className="size-4" /> Baixar o registro
+        </a>
+      </div>
+      {big ? (
+        <p className="text-sm text-muted-foreground">O registro tem {formatSize(file.size)}: grande demais para mostrar aqui. Baixe para ver.</p>
+      ) : error ? (
+        <p className="flex flex-wrap items-center gap-x-3 text-sm text-muted-foreground">
+          {error}
+          <button type="button" onClick={() => { setError(""); setTries((n) => n + 1) }} className="font-medium text-foreground underline underline-offset-4">Tentar de novo</button>
+        </p>
+      ) : text === null ? (
+        <p className="text-sm text-muted-foreground">Trazendo o registro do computador {run.computer_name}…</p>
+      ) : text.trim() === "" ? (
+        <p className="text-sm text-muted-foreground">O app não escreveu nada.</p>
+      ) : (
+        <>
+          {cut && <p className="mb-2 text-xs text-muted-foreground">Mostrando só o final. Baixe o registro para ver tudo.</p>}
+          <pre aria-label="Registro do app" className="max-h-96 overflow-auto rounded-xl border border-border bg-muted/40 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere]">
+            {cut ? text.slice(-CONSOLE_TAIL) : text}
+          </pre>
+        </>
+      )}
+    </section>
+  )
+}
+
 export function RunPage() {
   const { id } = useParams()
   const [run, setRun] = useState<Run | null>(null)
@@ -130,7 +221,11 @@ export function RunPage() {
           </h1>
           <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
             <RunState status={run.status} />
-            <span>· <span className="font-mono text-[0.8rem]">{formatWhen(run.created_at)}</span> · <span className="font-mono text-[0.8rem]">{formatDuration(run.started_at, run.finished_at)}</span></span>
+            <span>· <span className="font-mono text-[0.8rem]">{formatWhen(run.created_at)}</span> · {isLive(run.status) && run.started_at ? (
+              <span>rodando há <Elapsed from={run.started_at} className="text-[0.8rem] text-foreground" /></span>
+            ) : (
+              <span className="font-mono text-[0.8rem]">{formatDuration(run.started_at, run.finished_at)}</span>
+            )}</span>
             <span className="whitespace-nowrap">· {run.person_name}</span>
             {run.origin === "mcp" && <ByClaude />}
             {run.origin === "schedule" && <Scheduled />}
@@ -175,6 +270,7 @@ export function RunPage() {
           <div className="px-4 py-3 max-sm:border-b sm:border-r"><dt className="text-xs text-muted-foreground">Computador</dt><dd className="mt-0.5 font-medium">{run.computer_name}</dd></div>
           <div className="px-4 py-3"><dt className="text-xs text-muted-foreground">Versão do app</dt><dd className="mt-0.5 font-mono text-[0.8rem]">{run.version_number ? `versão ${run.version_number}` : run.app_version || "—"}</dd></div>
         </dl>
+        <Filled run={run} />
         {!isLive(run.status) && run.groups.length > 0 && (
           <div className="mt-6">
             <p className="mb-2 text-sm text-muted-foreground">Clique num arquivo para baixar só ele, ou marque os que quiser e baixe de uma vez.</p>
@@ -183,6 +279,7 @@ export function RunPage() {
             ))}
           </div>
         )}
+        {!isLive(run.status) && run.console && <ConsoleLog run={run} file={run.console} />}
         {selected.size > 0 && (
           <div className="sticky bottom-4 z-10 mt-4 flex flex-wrap items-center justify-end gap-3 shadow-pop rounded-xl border border-border bg-popover p-3">
             <button type="button" onClick={() => setSelected(new Set())} className="inline-flex cursor-pointer items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
