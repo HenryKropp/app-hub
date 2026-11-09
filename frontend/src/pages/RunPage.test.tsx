@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { act, render, screen, within } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { api } from "@/lib/api"
@@ -162,4 +162,80 @@ test("a run started by Claude says pelo Claude; a manual one does not", async ()
   renderAt()
   expect(await screen.findByText("Concluída")).toBeInTheDocument()
   expect(screen.queryByText("pelo Claude")).not.toBeInTheDocument()
+})
+
+// O que foi preenchido, the live timer and the app's log (ADR 033).
+test("shows what was filled: labels, a file by its name, a masked secret and a date as people read it", async () => {
+  vi.spyOn(api, "run").mockResolvedValue(run({ inputs_recorded: true, inputs: [
+    { id: "mes", label: "Mês", type: "text", values: ["outubro"], masked: false },
+    { id: "dia", label: "Dia", type: "date", values: ["2026-11-09"], masked: false },
+    { id: "docs", label: "Documentos", type: "choice", values: ["FRE", "ITR"], masked: false },
+    { id: "base", label: "Base", type: "file", values: [], file: "base.csv", masked: false },
+    { id: "senha", label: "Senha do portal", type: "text", values: [], masked: true },
+  ] }))
+  renderAt()
+  const filled = await screen.findByRole("region", { name: "O que foi preenchido" })
+  const value = (label: string) => within(filled).getByText(label).nextElementSibling
+  expect(value("Mês")).toHaveTextContent("outubro")
+  expect(value("Dia")).toHaveTextContent("09/11/2026")
+  expect(value("Documentos")).toHaveTextContent("FRE, ITR")
+  expect(value("Base")).toHaveTextContent("base.csv")
+  expect(value("Senha do portal")).toHaveTextContent("escondido")
+})
+
+test("says when nothing was filled, and when the run is older than the record", async () => {
+  vi.spyOn(api, "run").mockResolvedValue(run({ inputs_recorded: true, inputs: [] }))
+  const { unmount } = renderAt()
+  expect(await screen.findByText("Nenhum valor preenchido.")).toBeInTheDocument()
+  unmount()
+  vi.mocked(api.run).mockResolvedValue(run({ inputs_recorded: false, inputs: [] }))
+  renderAt()
+  expect(await screen.findByText(/antes de o Ziv guardar o que foi preenchido/)).toBeInTheDocument()
+})
+
+test("a live run shows how long it has been running, ticking", async () => {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] })
+  vi.setSystemTime(new Date("2026-11-09T12:00:45Z"))
+  try {
+    vi.spyOn(api, "run").mockResolvedValue(run({ status: "running", started_at: "2026-11-09T12:00:00Z", finished_at: null, groups: [] }))
+    renderAt()
+    const line = (await screen.findByText(/rodando há/)).closest("span")!
+    expect(line).toHaveTextContent("rodando há 45 s")
+    act(() => { vi.advanceTimersByTime(20_000) })
+    expect(line).toHaveTextContent("rodando há 1 min 05 s")
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+test("a finished run with a console log shows it in a readable block, and links to download it", async () => {
+  vi.spyOn(api, "run").mockResolvedValue(run({ console: { file_id: 9, size: 30 } }))
+  const text = vi.spyOn(api, "runFileText").mockResolvedValue("Baixando PETROBRAS...\nPronto.\n")
+  renderAt()
+  const log = await screen.findByLabelText("Registro do app", { selector: "pre" })
+  expect(log).toHaveTextContent("Baixando PETROBRAS... Pronto.")
+  expect(text).toHaveBeenCalledWith(7, 9)
+  expect(screen.getByRole("link", { name: /Baixar o registro/ })).toHaveAttribute("href", "/api/runs/7/files/9")
+})
+
+test("a long log shows only its end; a huge one is only downloaded; a failure says why", async () => {
+  vi.spyOn(api, "run").mockResolvedValue(run({ console: { file_id: 9, size: 30_000 } }))
+  vi.spyOn(api, "runFileText").mockResolvedValue("a".repeat(25_000) + "FIM")
+  const first = renderAt()
+  expect(await screen.findByText(/Mostrando só o final/)).toBeInTheDocument()
+  expect(screen.getByLabelText("Registro do app", { selector: "pre" }).textContent).toHaveLength(20_000)
+  first.unmount()
+
+  vi.mocked(api.run).mockResolvedValue(run({ console: { file_id: 9, size: 5 * 1024 * 1024 } }))
+  vi.mocked(api.runFileText).mockClear()
+  const second = renderAt()
+  expect(await screen.findByText(/grande demais para mostrar aqui/)).toBeInTheDocument()
+  expect(api.runFileText).not.toHaveBeenCalled()
+  second.unmount()
+
+  vi.mocked(api.run).mockResolvedValue(run({ console: { file_id: 9, size: 30 } }))
+  vi.mocked(api.runFileText).mockRejectedValue(new Error("O computador onde o app rodou (NOTE-HENRY) não está conectado."))
+  renderAt()
+  expect(await screen.findByText(/NOTE-HENRY\) não está conectado/)).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "Tentar de novo" })).toBeInTheDocument()
 })
