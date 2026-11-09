@@ -289,7 +289,7 @@ export function AppPage() {
           </Section>
         )}
         {m.kind === "script" && <SchedulesSection appId={app.id} appName={m.name} manifest={m} reloadKey={schedulesKey} />}
-        {m.kind === "script" && (m.keys ?? []).length > 0 && <KeysSection appId={app.id} />}
+        {m.kind === "script" && <KeysSection appId={app.id} />}
         {scheduling && (
           <ScheduleDialog appId={app.id} appName={m.name} manifest={m} onClose={() => setScheduling(false)}
             onSaved={() => { setScheduling(false); setSchedulesKey((k) => k + 1); toast.success("Agendamento salvo.") }} />

@@ -52,8 +52,8 @@ function KeyRow({ appId, item, canManage, onChanged }: { appId: number; item: Ke
   return (
     <li className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-baseline gap-x-2">
-        {editing ? <Label htmlFor={id}>{label}</Label> : <span className="text-sm leading-none font-medium">{label}</span>}
-        <code className="font-mono text-xs text-muted-foreground">{item.name}</code>
+        {editing ? <Label htmlFor={id}>{label}</Label> : <span className={`text-sm leading-none font-medium${label === item.name ? " font-mono" : ""}`}>{label}</span>}
+        {item.label && item.label !== item.name && <code className="font-mono text-xs text-muted-foreground">{item.name}</code>}
         {item.required && <span className="text-xs text-muted-foreground">obrigatória</span>}
       </div>
       <p className="text-xs text-muted-foreground">
@@ -83,6 +83,61 @@ function KeyRow({ appId, item, canManage, onChanged }: { appId: number; item: Ke
       )}
       {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
     </li>
+  )
+}
+
+/** Normalizes what a person types into an environment name: "api token" → "API_TOKEN". */
+export function keyName(typed: string) {
+  return typed.trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "")
+}
+
+/** "Adicionar chave": a new key with its value, for the owner or an administrator. */
+function AddKey({ appId, onAdded }: { appId: number; onAdded: () => void }) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState("")
+  const [value, setValue] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState("")
+  const env = keyName(name)
+  const close = () => { setOpen(false); setName(""); setValue(""); setError("") }
+  const save = async () => {
+    setBusy(true)
+    setError("")
+    try {
+      await api.keys.set(appId, env, value)
+      close()
+      onAdded()
+    } catch (e) {
+      setError(errText(e, "Não consegui guardar a chave."))
+    } finally {
+      setBusy(false)
+    }
+  }
+  if (!open) {
+    return <Button size="sm" variant="outline" className="w-fit" onClick={() => setOpen(true)}>Adicionar chave</Button>
+  }
+  return (
+    <div className="flex flex-col gap-3 rounded-md border p-3">
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="new-key-name">Nome</Label>
+        <Input id="new-key-name" value={name} autoComplete="off" placeholder="BTG_SENHA" onChange={(e) => setName(e.target.value)} className="font-mono sm:max-w-md" />
+        <p className="text-xs text-muted-foreground">
+          {env && env !== name.trim()
+            ? <>Vai ficar <code className="font-mono">{env}</code>. </>
+            : null}
+          O script lê o valor por esse nome: <code className="font-mono">os.environ["{env || "NOME"}"]</code>
+        </p>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="new-key-value">Valor</Label>
+        <Input id="new-key-value" type="password" autoComplete="new-password" value={value} onChange={(e) => setValue(e.target.value)} className="sm:max-w-md" />
+      </div>
+      {error && <p className="text-xs text-destructive" role="alert">{error}</p>}
+      <div className="flex gap-2">
+        <Button size="sm" variant="outline" disabled={busy || !env || !value} onClick={save}>Salvar</Button>
+        <Button size="sm" variant="ghost" onClick={close}>Cancelar</Button>
+      </div>
+    </div>
   )
 }
 
@@ -116,9 +171,15 @@ export function KeysSection({ appId }: { appId: number }) {
                 O script não roda até preencher: {list.missing.map(labelOf).join(", ")}.
               </p>
             )}
-            <ul className="flex flex-col gap-4">
-              {list.keys.map((k) => <KeyRow key={k.name} appId={appId} item={k} canManage={list.can_manage && !list.locked} onChanged={load} />)}
-            </ul>
+            {list.keys.length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhuma chave ainda. Guarde aqui as senhas e tokens que o script usa, em vez de deixá-los no código.</p>
+            )}
+            {list.keys.length > 0 && (
+              <ul className="flex flex-col gap-4">
+                {list.keys.map((k) => <KeyRow key={k.name} appId={appId} item={k} canManage={list.can_manage && !list.locked} onChanged={load} />)}
+              </ul>
+            )}
+            {list.can_manage && !list.locked && <AddKey appId={appId} onAdded={load} />}
             {!list.can_manage && (
               <p className="text-xs text-muted-foreground">Só o dono do app ou um administrador mexe no cofre.</p>
             )}

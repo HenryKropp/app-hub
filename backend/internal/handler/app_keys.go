@@ -17,15 +17,18 @@ import (
 )
 
 // The app's vault (cofre): the secrets a script reads from its environment.
-// The ficha names them (manifest.Keys); the values are sealed in app_config
-// with the server key. Only the app's owner or an administrator fills,
+// The ficha names them (manifest.Keys), and the owner can also add keys on the
+// site: for a script every sealed app_config row is a vault key, declared or
+// not (scripts use app_config for nothing else). The values are sealed with
+// the server key. Only the app's owner or an administrator fills,
 // replaces, reveals or deletes them; anyone who sees the app sees the names
 // and whether each one is filled. The Agente gets them per run (agent_keys.go).
 
 const (
 	msgKeysLocked   = "O cofre está fechado neste servidor (falta a chave do servidor). Fale com o responsável pelo Ziv."
 	msgKeysManage   = "Só o dono do app ou um administrador mexe no cofre."
-	msgKeyNotListed = "Essa chave não está na ficha do app."
+	msgKeyNotListed = "Essa chave não está no cofre do app."
+	msgKeysScripts  = "Só scripts têm cofre de chaves; apps com tela usam Configurações."
 	msgKeyBadValue  = "O valor pode ter até 4.096 caracteres, numa linha só."
 	maxKeyValue     = 4096
 )
@@ -69,26 +72,43 @@ func declaredKey(m manifest.Manifest, name string) *manifest.Key {
 	return nil
 }
 
-// appKeys lists the ficha's keys with their state, never the values.
-func (h *Handler) appKeys(ctx context.Context, a sqlc.App) (keysList, error) {
+// vaultKeys lists a script's keys: the ficha's first, then the ones added on
+// the site (sealed rows the ficha does not name), with the stored rows by name.
+func (h *Handler) vaultKeys(ctx context.Context, a sqlc.App) ([]manifest.Key, map[string]sqlc.AppConfig, error) {
 	m := manifestOf(a)
-	out := keysList{Keys: []keyItem{}, Missing: []string{}, Locked: h.shared.Vault == nil}
-	if len(m.Keys) == 0 {
-		out.Ready = true
-		return out, nil
+	if m.Kind != manifest.KindScript {
+		return nil, nil, nil
 	}
 	rows, err := h.q.ListAppConfig(ctx, a.ID)
 	if err != nil {
-		return out, err
+		return nil, nil, err
 	}
 	have := map[string]sqlc.AppConfig{}
 	for _, row := range rows {
-		have[row.Name] = row
+		if len(row.ValueCipher) > 0 {
+			have[row.Name] = row
+		}
+	}
+	keys := append([]manifest.Key{}, m.Keys...)
+	for _, row := range rows { // ListAppConfig orders by name
+		if _, sealed := have[row.Name]; sealed && declaredKey(m, row.Name) == nil {
+			keys = append(keys, manifest.Key{Name: row.Name})
+		}
+	}
+	return keys, have, nil
+}
+
+// appKeys lists the vault's keys with their state, never the values.
+func (h *Handler) appKeys(ctx context.Context, a sqlc.App) (keysList, error) {
+	out := keysList{Keys: []keyItem{}, Missing: []string{}, Locked: h.shared.Vault == nil}
+	keys, have, err := h.vaultKeys(ctx, a)
+	if err != nil {
+		return out, err
 	}
 	names := map[int64]string{}
-	for _, k := range m.Keys {
+	for _, k := range keys {
 		it := keyItem{Name: k.Name, Label: k.Label, Required: k.Required}
-		if row, ok := have[k.Name]; ok && len(row.ValueCipher) > 0 {
+		if row, ok := have[k.Name]; ok {
 			it.HasValue = true
 			if row.UpdatedAt.Valid {
 				t := row.UpdatedAt.Time
@@ -127,9 +147,10 @@ func (h *Handler) listKeys(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// keyFor loads the app and the declared key in the URL for someone who may
-// manage the vault, answering the error otherwise.
-func (h *Handler) keyFor(w http.ResponseWriter, r *http.Request) (sqlc.App, sqlc.Person, string, bool) {
+// keyFor loads the app and the vault key in the URL for someone who may
+// manage the vault, answering the error otherwise. With adding, a valid name
+// not yet in the vault is accepted while the vault has room.
+func (h *Handler) keyFor(w http.ResponseWriter, r *http.Request, adding bool) (sqlc.App, sqlc.Person, string, bool) {
 	a, me, acc, _, ok := h.appFor(w, r)
 	if !ok {
 		return a, me, "", false
@@ -138,9 +159,30 @@ func (h *Handler) keyFor(w http.ResponseWriter, r *http.Request) (sqlc.App, sqlc
 		writeError(w, http.StatusForbidden, msgKeysManage)
 		return a, me, "", false
 	}
+	if manifestOf(a).Kind != manifest.KindScript {
+		writeError(w, http.StatusNotFound, msgKeysScripts)
+		return a, me, "", false
+	}
 	name := r.PathValue("name")
-	if declaredKey(manifestOf(a), name) == nil {
+	keys, _, err := h.vaultKeys(r.Context(), a)
+	if err != nil {
+		internalError(w, "vault keys", err)
+		return a, me, "", false
+	}
+	listed := false
+	for _, k := range keys {
+		listed = listed || k.Name == name
+	}
+	switch {
+	case listed:
+	case !adding:
 		writeError(w, http.StatusNotFound, msgKeyNotListed)
+		return a, me, "", false
+	case manifest.KeyNameProblem(name) != "":
+		writeError(w, http.StatusBadRequest, manifest.KeyNameProblem(name))
+		return a, me, "", false
+	case len(keys) >= manifest.MaxKeys:
+		writeError(w, http.StatusBadRequest, "O cofre do app guarda no máximo "+strconv.Itoa(manifest.MaxKeys)+" chaves.")
 		return a, me, "", false
 	}
 	if h.shared.Vault == nil {
@@ -151,7 +193,7 @@ func (h *Handler) keyFor(w http.ResponseWriter, r *http.Request) (sqlc.App, sqlc
 }
 
 func (h *Handler) putKey(w http.ResponseWriter, r *http.Request) {
-	a, me, name, ok := h.keyFor(w, r)
+	a, me, name, ok := h.keyFor(w, r, true)
 	if !ok {
 		return
 	}
@@ -179,6 +221,8 @@ func (h *Handler) putKey(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// deleteKey empties a key of the ficha and removes a key added on the site.
+// It works with the vault closed: deleting needs no server key.
 func (h *Handler) deleteKey(w http.ResponseWriter, r *http.Request) {
 	a, me, acc, _, ok := h.appFor(w, r)
 	if !ok {
@@ -189,7 +233,16 @@ func (h *Handler) deleteKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.PathValue("name")
-	if declaredKey(manifestOf(a), name) == nil {
+	keys, _, err := h.vaultKeys(r.Context(), a)
+	if err != nil {
+		internalError(w, "vault keys", err)
+		return
+	}
+	listed := false
+	for _, k := range keys {
+		listed = listed || k.Name == name
+	}
+	if !listed {
 		writeError(w, http.StatusNotFound, msgKeyNotListed)
 		return
 	}
@@ -204,7 +257,7 @@ func (h *Handler) deleteKey(w http.ResponseWriter, r *http.Request) {
 // revealKey shows one value to the owner or an administrator; every reveal
 // is recorded in the security history (never the value).
 func (h *Handler) revealKey(w http.ResponseWriter, r *http.Request) {
-	a, me, name, ok := h.keyFor(w, r)
+	a, me, name, ok := h.keyFor(w, r, false)
 	if !ok {
 		return
 	}
@@ -238,24 +291,17 @@ func (h *Handler) openKey(ctx context.Context, appID int64, name string) (string
 	return "", errKeyEmpty
 }
 
-// keyValues opens every declared key that is filled, for one run.
+// keyValues opens every filled key of a script's vault, for one run.
 func (h *Handler) keyValues(ctx context.Context, a sqlc.App) (map[string]string, error) {
-	m := manifestOf(a)
 	out := map[string]string{}
-	if len(m.Keys) == 0 {
-		return out, nil
+	_, have, err := h.vaultKeys(ctx, a)
+	if err != nil || len(have) == 0 {
+		return out, err
 	}
 	if h.shared.Vault == nil {
 		return nil, errors.New(msgKeysLocked)
 	}
-	rows, err := h.q.ListAppConfig(ctx, a.ID)
-	if err != nil {
-		return nil, err
-	}
-	for _, row := range rows {
-		if declaredKey(m, row.Name) == nil || len(row.ValueCipher) == 0 {
-			continue
-		}
+	for _, row := range have {
 		v, err := h.shared.Vault.Open(row.ValueCipher)
 		if err != nil {
 			return nil, err

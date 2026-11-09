@@ -34,6 +34,13 @@ Desenho: `docs/superpowers/specs/2026-11-09-cofre-do-app-design.md`.
   - A recusa por senhas no código aponta arquivo, linha e nome (nunca o valor) e manda mover a senha para `os.environ["NOME"]` mais `keys`.
 - **Site:** a página do script ganha a parte "Cofre", com preencher, mostrar e esconder, trocar e apagar.
 
+## Adendo (2026-11-09): chaves adicionadas pelo site
+- A parte "Cofre" aparece em todo script, mesmo sem `keys` na ficha, e o dono ou um administrador usa "Adicionar chave" (nome + valor). O site transforma o que a pessoa digita no nome que o script lê ("api token" vira `API_TOKEN`).
+- Uma chave adicionada pelo site não muda a ficha: ela é uma linha selada em `app_config`. Para um script, toda linha selada de `app_config` é chave do cofre (os scripts não usam `app_config` para mais nada). As chaves da ficha vêm primeiro, depois as do site, por nome.
+- Valem as mesmas regras de nome (letras maiúsculas, números e `_`; nada de nomes reservados) e o mesmo limite de 20 chaves no total. "Apagar" esvazia uma chave da ficha e tira da lista uma chave do site.
+- A execução entrega ao Agente todas as chaves preenchidas, da ficha ou do site. Só as da ficha marcadas como obrigatórias impedem de rodar.
+- O item "Cofre (em breve)" saiu do menu, e os avisos de senha no código passam a mandar para a parte Cofre.
+
 ## Consequences
 - Um script com senha sobe pelo Claude sem a senha passar pela conversa, e roda com a senha vinda do Ziv.
 - A regra antiga de que nenhum valor vai ao Agente muda para os scripts: o valor viaja pela conexão do Agente, que já é autenticada e usa HTTPS, só na hora de rodar, e não fica gravado em disco.

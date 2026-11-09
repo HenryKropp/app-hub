@@ -118,18 +118,26 @@ func (m Manifest) keyProblems() []string {
 	}
 	seen := map[string]bool{}
 	for _, k := range m.Keys {
-		reserved := slices.ContainsFunc(reservedKeyPrefixes, func(p string) bool { return strings.HasPrefix(k.Name, p) })
-		switch {
-		case !envName.MatchString(k.Name):
-			out = append(out, fmt.Sprintf("O nome da chave %q só pode ter letras maiúsculas, números e _, começando por letra.", k.Name))
-		case reserved:
-			out = append(out, k.Name+" é um nome usado pelo Ziv ou pelo Python; escolha outro nome para a chave.")
+		switch p := KeyNameProblem(k.Name); {
+		case p != "":
+			out = append(out, p)
 		case seen[k.Name]:
 			out = append(out, "A chave "+k.Name+" aparece duas vezes.")
 		}
 		seen[k.Name] = true
 	}
 	return out
+}
+
+// KeyNameProblem says why name cannot be a vault key, or "" when it can.
+func KeyNameProblem(name string) string {
+	switch {
+	case !envName.MatchString(name):
+		return fmt.Sprintf("O nome da chave %q só pode ter letras maiúsculas, números e _, começando por letra.", name)
+	case slices.ContainsFunc(reservedKeyPrefixes, func(p string) bool { return strings.HasPrefix(name, p) }):
+		return name + " é um nome usado pelo Ziv ou pelo Python; escolha outro nome para a chave."
+	}
+	return ""
 }
 
 type Run struct {

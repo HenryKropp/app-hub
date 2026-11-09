@@ -55,6 +55,7 @@ func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *
 		return sqlc.Run{}, refuse(403, "blocked", reason), nil
 	}
 	script := m.Kind == manifest.KindScript
+	hasKeys := false // the vault has keys, from the ficha or added on the site
 	if script {
 		if err := m.ValidateRunInputs(req.Inputs, req.Files); err != nil {
 			return sqlc.Run{}, refuse(400, "invalid_inputs", err.Error()), nil
@@ -62,11 +63,12 @@ func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *
 		if req.Computer.AgentVersion != agentproto.Version {
 			return sqlc.Run{}, refuse(409, "agent_outdated", "Atualize o Agente em Configurações › Meu computador para rodar scripts."), nil
 		}
-		if len(m.Keys) > 0 {
-			keys, err := h.appKeys(ctx, a)
-			if err != nil {
-				return sqlc.Run{}, nil, err
-			}
+		keys, err := h.appKeys(ctx, a)
+		if err != nil {
+			return sqlc.Run{}, nil, err
+		}
+		hasKeys = len(keys.Keys) > 0
+		if hasKeys {
 			if keys.Locked {
 				return sqlc.Run{}, refuse(503, "keys_locked", msgKeysLocked), nil
 			}
@@ -127,7 +129,7 @@ func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *
 	payload := agentproto.RunPayload{RunID: run.ID, AppFolder: hostpath.ToDisplay(a.FolderPath), Exe: m.Entrypoint, OutputFolder: req.OutputFolder, AppName: a.Name}
 	if script {
 		payload.Script = &agentproto.ScriptPayload{Manifest: m, Inputs: req.Inputs, Files: req.Files, Sources: sources}
-		payload.Keys = len(m.Keys) > 0
+		payload.Keys = hasKeys
 	}
 	if _, err = h.enqueue(ctx, req.Computer.ID, &run.ID, agentproto.KindRun, payload); err != nil {
 		return sqlc.Run{}, nil, err
