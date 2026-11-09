@@ -1,10 +1,11 @@
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
 import { api, type Home, type Person, type TeamHome } from "@/lib/api"
 import * as auth from "@/lib/auth"
-import { bia, henry } from "@/test/fixtures"
+import { RunsProvider } from "@/lib/runs-context"
+import { activeRun, bia, henry } from "@/test/fixtures"
 import { HomePage } from "./HomePage"
 
 const empty: Home = { attention: [], favorites: [], recent: [], runs: [] }
@@ -128,4 +129,49 @@ test("shows each computer warning once", async () => {
   vi.spyOn(api, "home").mockResolvedValue({ ...empty, attention: [outdated, { ...outdated }] })
   mount()
   expect(await screen.findAllByRole("link", { name: /O Agente do computador PC-1 está desatualizado/ })).toHaveLength(1)
+})
+
+// Rodando agora (ADR 033): one compact line per live run while something runs.
+test("Rodando agora: one line per live run, linking to it, with a ticking timer", async () => {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] })
+  vi.setSystemTime(new Date("2026-11-09T12:03:00Z"))
+  try {
+    vi.spyOn(api, "home").mockResolvedValue(empty)
+    vi.spyOn(api, "activeRuns").mockResolvedValue([
+      activeRun({ id: 7, app_name: "Rentabilidade", status: "running", started_at: "2026-11-09T12:00:00Z" }),
+      activeRun({ id: 8, app_name: "Fechamento", status: "waiting", started_at: null }),
+      activeRun({ id: 9, app_name: "Antigo", status: "done", started_at: "2026-11-09T10:00:00Z", finished_at: "2026-11-09T10:01:00Z" }),
+    ])
+    render(
+      <MemoryRouter>
+        <RunsProvider>
+          <HomePage />
+        </RunsProvider>
+      </MemoryRouter>,
+    )
+    const list = await screen.findByRole("list", { name: "Rodando agora" })
+    const lines = within(list).getAllByRole("listitem")
+    expect(lines).toHaveLength(2)
+    expect(within(lines[0]).getByRole("link", { name: "Rentabilidade" })).toHaveAttribute("href", "/execucoes/7")
+    expect(lines[0]).toHaveTextContent("Rodando agora: Rentabilidade há 3 min 00 s")
+    expect(lines[1]).toHaveTextContent("Rodando agora: Fechamento esperando o computador")
+    act(() => { vi.advanceTimersByTime(2000) })
+    expect(lines[0]).toHaveTextContent("há 3 min 02 s")
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+test("no Rodando agora line when nothing runs", async () => {
+  vi.spyOn(api, "home").mockResolvedValue(empty)
+  vi.spyOn(api, "activeRuns").mockResolvedValue([activeRun({ status: "done" })])
+  render(
+    <MemoryRouter>
+      <RunsProvider>
+        <HomePage />
+      </RunsProvider>
+    </MemoryRouter>,
+  )
+  await screen.findByText(/Marque apps e artifacts/)
+  expect(screen.queryByRole("list", { name: "Rodando agora" })).toBeNull()
 })

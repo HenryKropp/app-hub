@@ -167,7 +167,8 @@ func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *
 			return sqlc.Run{}, refuse(409, "no_local_start", problem), nil
 		}
 	}
-	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: req.Person.ID, ComputerID: req.Computer.ID, OutputFolder: req.OutputFolder, VersionID: versionID, Origin: req.Origin, ScheduleID: req.ScheduleID})
+	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: req.Person.ID, ComputerID: req.Computer.ID, OutputFolder: req.OutputFolder, VersionID: versionID, Origin: req.Origin, ScheduleID: req.ScheduleID,
+		Inputs: recordInputs(m, req.Inputs, req.Files)})
 	if err != nil {
 		return sqlc.Run{}, nil, err
 	}

@@ -350,6 +350,7 @@ type Run struct {
 	VersionID    pgtype.Int8        `json:"version_id"`
 	Origin       string             `json:"origin"`
 	ScheduleID   pgtype.Int8        `json:"schedule_id"`
+	Inputs       []byte             `json:"inputs"`
 }
 
 type RunFile struct {

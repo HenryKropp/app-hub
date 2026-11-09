@@ -36,6 +36,11 @@ export function useRuns(): Ctx {
   return c
 }
 
+/** Like useRuns, but null outside the provider: for pages that only read the live runs. */
+export function useRunsMaybe(): Ctx | null {
+  return useContext(RunsCtx)
+}
+
 let seq = 0
 
 // RunsProvider is the one place that starts runs: it decides between asking

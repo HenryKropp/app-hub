@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react"
+import { act, render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 import { afterEach, beforeEach, expect, test, vi } from "vitest"
@@ -93,4 +93,44 @@ test("De todos: Rodar de novo only on my own runs", async () => {
   await screen.findByText(/· Ana/)
   expect(screen.getAllByRole("button", { name: "Rodar de novo" })).toHaveLength(1)
   expect(screen.getAllByRole("link", { name: "Ver e baixar" })).toHaveLength(2)
+})
+
+// Rodando agora (ADR 033): live runs on top with a ticking timer and Parar.
+test("Rodando agora shows each live run with a ticking timer, the computer and Parar", async () => {
+  vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] })
+  vi.setSystemTime(new Date("2026-11-09T12:03:12Z"))
+  try {
+    const user = userEvent.setup()
+    vi.mocked(api.activeRuns).mockResolvedValue([
+      activeRun({ id: 7, status: "running", started_at: "2026-11-09T12:00:00Z", computer_name: "NOTE-HENRY", can_stop: true }),
+    ])
+    vi.spyOn(api, "runs").mockResolvedValue({ items: [item({ id: 7, status: "running", finished_at: null })], more: false })
+    const stop = vi.spyOn(api, "stopRun").mockResolvedValue(undefined as never)
+    mount()
+    const block = await screen.findByRole("region", { name: "Rodando agora" })
+    expect(within(block).getByRole("link", { name: /Eq\. Research Files Prep/ })).toHaveAttribute("href", "/execucoes/7")
+    expect(block).toHaveTextContent("rodando há 3 min 12 s")
+    expect(block).toHaveTextContent("NOTE-HENRY")
+    act(() => { vi.advanceTimersByTime(4000) })
+    expect(block).toHaveTextContent("rodando há 3 min 16 s")
+    await user.click(within(block).getByRole("button", { name: "Parar" }))
+    const dialog = await screen.findByRole("dialog")
+    await user.click(within(dialog).getByRole("button", { name: "Parar" }))
+    await vi.waitFor(() => expect(stop).toHaveBeenCalledWith(7))
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+test("no Rodando agora block when nothing runs, and no Parar when the Agente cannot stop", async () => {
+  vi.mocked(api.activeRuns).mockResolvedValue([activeRun({ status: "done" })])
+  vi.spyOn(api, "runs").mockResolvedValue({ items: [item()], more: false })
+  const { unmount } = mount()
+  await screen.findByRole("link", { name: "Eq. Research Files Prep" })
+  expect(screen.queryByRole("region", { name: "Rodando agora" })).toBeNull()
+  unmount()
+  vi.mocked(api.activeRuns).mockResolvedValue([activeRun({ status: "running", can_stop: false })])
+  mount()
+  const block = await screen.findByRole("region", { name: "Rodando agora" })
+  expect(within(block).queryByRole("button", { name: "Parar" })).toBeNull()
 })
