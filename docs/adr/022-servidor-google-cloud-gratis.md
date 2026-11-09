@@ -34,7 +34,7 @@ O Henry quer o Ziv no ar 24 horas, para outras pessoas usarem, sem depender do c
 - O custo é zero, dentro dos limites do nível grátis: 1 instância e2-micro, 30 GB de disco padrão e 1 GB de saída por mês para fora da América do Norte. Convém olhar a fatura nos primeiros dias.
 - 1 GB de RAM é pouco: poucos apps compartilhados ao mesmo tempo. Se apertar, o caminho é uma máquina paga (cerca de R$25/mês).
 - As cópias ficam no mesmo disco: protegem contra erro, não contra perder a máquina. Falta uma cópia fora dela.
-- O `ask` do TLS sob demanda aceita qualquer subdomínio: o `/healthz` cai na página do site e responde 200. Alguém poderia gastar o limite do Let's Encrypt pedindo nomes aleatórios. Falta um endpoint que só aceite apps que existem.
+- O `ask` do TLS sob demanda aceitava qualquer subdomínio. Resolvido na ADR 025: o Caddy pergunta a `/__ziv/tls-ask`, que só aprova endereços de apps que existem.
 - O endereço fica gravado no Agente e no conector do Claude. Trocar para um domínio próprio depois exige recompilar o Agente e baixar de novo.
 - Banco novo e vazio: os dados locais e os do Replit não foram trazidos.
 - Num servidor novo, a empresa principal fica livre para o primeiro que abrir `/entrar`. Neste servidor o Henry ocupou logo após subir. Num próximo servidor, ocupar antes de divulgar o endereço.
