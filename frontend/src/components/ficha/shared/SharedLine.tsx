@@ -18,7 +18,7 @@ export function SharedLine({ app, info, onRestart, busy }: { app: AppDetail; inf
       <SharedStatusDot status={status} label={line} className="text-sm" />
       {status !== "draft" && slug && (
         <a href={openSharedUrl(slug)} target="_blank" rel="noopener" aria-label={`Abrir ${app.manifest.name}`}
-          className={cn(buttonVariants({ variant: "run" }), "h-8 gap-1.5 pr-3.5 pl-3 [&_svg]:fill-none")}>
+          className={cn(buttonVariants({ variant: "outline" }), "h-8 gap-1.5 pr-3.5 pl-3")}>
           <ExternalLink className="size-3.5" /> Abrir
         </a>
       )}
