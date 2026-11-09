@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 )
 
 type settingsOut struct {
@@ -150,4 +152,67 @@ func TestPlainValuesWithoutServerKey(t *testing.T) {
 	if code := c.do("GET", "/api/apps/"+itoa(id)+"/settings", nil, &got); code != http.StatusOK || !got.Locked {
 		t.Fatalf("list %d %+v", code, got)
 	}
+}
+
+// A password saved as an ordinary value (old form, or a ficha that did not mark
+// it) is locked on the next look; "Tornar senha" locks any other plain value.
+func TestPasswordLikeSettingsAreLocked(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withShared(t, h)
+	id := webWithSettings(t, c)
+	base := "/api/apps/" + itoa(id) + "/settings"
+	ctx := context.Background()
+	// as the old Configurações form left it: plain, readable
+	if err := h.q.UpsertAppConfig(ctx, sqlcUpsertPlain(id, "BTG_SENHA", "s3gredo")); err != nil {
+		t.Fatal(err)
+	}
+	var got settingsOut
+	if code := c.do("GET", base, nil, &got); code != http.StatusOK {
+		t.Fatalf("list %d", code)
+	}
+	found := false
+	for _, it := range got.Items {
+		if it.Name == "BTG_SENHA" {
+			found = true
+			if !it.Secret || it.Value != "" || !it.HasValue {
+				t.Fatalf("BTG_SENHA should be a filled, hidden password: %+v", it)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("BTG_SENHA missing %+v", got)
+	}
+	var shown struct{ Value string `json:"value"` }
+	if code := c.do("POST", "/api/apps/"+itoa(id)+"/keys/BTG_SENHA/reveal", nil, &shown); code != http.StatusOK || shown.Value != "s3gredo" {
+		t.Fatalf("reveal %d %q", code, shown.Value)
+	}
+	// a new plain value with a password's name is refused
+	if code := c.do("PUT", base+"/OUTRO_TOKEN", map[string]string{"value": "x"}, nil); code != http.StatusBadRequest {
+		t.Fatalf("token as plain %d", code)
+	}
+	// Tornar senha
+	if code := c.do("PUT", base+"/CONTA", map[string]string{"value": "12345"}, nil); code != http.StatusOK {
+		t.Fatalf("put %d", code)
+	}
+	made := auditCount(t, "app_setting.made_secret")
+	if code := c.do("POST", base+"/CONTA/secret", nil, nil); code != http.StatusOK {
+		t.Fatalf("make secret %d", code)
+	}
+	if auditCount(t, "app_setting.made_secret")-made != 1 {
+		t.Fatal("no audit")
+	}
+	c.do("GET", base, nil, &got)
+	for _, it := range got.Items {
+		if it.Name == "CONTA" && (!it.Secret || it.Value != "") {
+			t.Fatalf("CONTA should be hidden now: %+v", it)
+		}
+	}
+	if code := c.do("PUT", base+"/CONTA", map[string]string{"value": "x"}, nil); code != http.StatusBadRequest {
+		t.Fatalf("back to plain %d", code)
+	}
+}
+
+func sqlcUpsertPlain(appID int64, name, value string) sqlc.UpsertAppConfigParams {
+	return sqlc.UpsertAppConfigParams{AppID: appID, Name: name, ValuePlain: value}
 }

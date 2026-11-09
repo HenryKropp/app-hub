@@ -126,3 +126,13 @@ it("speaks of the app for a screen app, and offers to restart the 24h version", 
   await userEvent.click(screen.getByRole("button", { name: "Salvar Senha do BTG" }))
   expect(await screen.findByRole("button", { name: "Religar agora" })).toBeInTheDocument()
 })
+
+it("turns a plain value into a password after a confirmation", async () => {
+  const get = vi.spyOn(api.settings, "list").mockResolvedValue(list())
+  const make = vi.spyOn(api.settings, "makeSecret").mockResolvedValue({ ok: true })
+  vi.spyOn(window, "confirm").mockReturnValue(true)
+  render(<SettingsSection appId={7} />)
+  await userEvent.click(await screen.findByRole("button", { name: "Tornar PASTA uma senha" }))
+  expect(make).toHaveBeenCalledWith(7, "PASTA")
+  await vi.waitFor(() => expect(get).toHaveBeenCalledTimes(2))
+})

@@ -75,7 +75,7 @@ func declaredKeys(m manifest.Manifest) []manifest.Key {
 	keys := append([]manifest.Key{}, m.Keys...)
 	if m.Shared != nil {
 		for _, e := range m.Shared.Env {
-			if e.Secret && !strings.HasPrefix(e.Name, "_") && !slices.ContainsFunc(keys, func(k manifest.Key) bool { return k.Name == e.Name }) {
+			if (e.Secret || looksSecret(e.Name, e.Label)) && !strings.HasPrefix(e.Name, "_") && !slices.ContainsFunc(keys, func(k manifest.Key) bool { return k.Name == e.Name }) {
 				keys = append(keys, manifest.Key{Name: e.Name, Label: e.Label})
 			}
 		}
@@ -91,7 +91,7 @@ func plainSetting(m manifest.Manifest, name string) bool {
 	}
 	for _, e := range m.Shared.Env {
 		if e.Name == name {
-			return !e.Secret
+			return !e.Secret && !looksSecret(e.Name, e.Label)
 		}
 	}
 	return false

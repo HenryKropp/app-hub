@@ -136,6 +136,13 @@ function PlainRow({ appId, item, canManage, onChanged }: { appId: number; item: 
       onChanged(r.needs_restart)
     }, "Não consegui apagar.")
   }
+  const makeSecret = () => {
+    if (!window.confirm(`Tornar ${label} uma senha? O valor fica escondido e só aparece em Mostrar. Não dá para voltar a ser um ajuste comum.`)) return
+    void act(async () => {
+      const r = await api.settings.makeSecret(appId, item.name)
+      onChanged(r.needs_restart)
+    }, "Não consegui tornar senha.")
+  }
 
   return (
     <li className="flex flex-col gap-1.5">
@@ -148,6 +155,7 @@ function PlainRow({ appId, item, canManage, onChanged }: { appId: number; item: 
           <div className="flex gap-2">
             <Button size="sm" variant="outline" className="h-8" aria-label={`Salvar ${label}`} disabled={busy || !value.trim() || value === (item.value ?? "")} onClick={save}>Salvar</Button>
             {item.has_value && <Button size="sm" variant="ghost" className="h-8" aria-label={`Apagar ${label}`} disabled={busy} onClick={remove}>Apagar</Button>}
+            {!!item.value && <Button size="sm" variant="ghost" className="h-8" aria-label={`Tornar ${label} uma senha`} disabled={busy} onClick={makeSecret}>Tornar senha</Button>}
           </div>
         </div>
       )}
