@@ -8,9 +8,9 @@ import { useTheme, type ThemePref } from "@/lib/theme"
 import { cn } from "@/lib/utils"
 
 /** O ícone do Ziv: o "i" do nome, com o pingo coral brilhando como um farol. Geometria oficial no BRAND.md. */
-export function Logo({ className }: { className?: string }) {
+export function Logo({ className, ...rest }: ComponentProps<"svg">) {
   return (
-    <svg viewBox="0 0 48 48" className={className} role="img" aria-label={PRODUCT_NAME}>
+    <svg viewBox="0 0 48 48" className={className} role="img" aria-label={PRODUCT_NAME} {...rest}>
       <rect width="48" height="48" rx="12" fill="var(--logo-square)" />
       <g fill="none" stroke="#FF6B4A" strokeWidth="1.4" strokeLinecap="round">
         <path d="M24 6V3.5" />
