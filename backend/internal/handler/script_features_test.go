@@ -140,11 +140,16 @@ helper := "const password = 'your_password'; const token = 'AnotherFakeValue987'
 		if code := c.do("POST", "/api/scripts/import", body, &out); code != http.StatusConflict {
 			t.Fatalf("unconfirmed import status %d", code)
 		}
-		if out["code"] != "script_secrets_confirmation_required" || out["secret_count"] != float64(2) || len(out) != 3 {
+		if out["code"] != "script_secrets_confirmation_required" || out["secret_count"] != float64(2) || len(out) != 4 {
 			t.Fatal("unexpected confirmation response")
 		}
 		raw, _ := json.Marshal(out)
-		for _, value := range []string{"FictitiousValue987", "AnotherFakeValue987", "settings.py", "helper.js", "password", "const token"} {
+		// Where the secrets are (file, line, name) is shown so the person can fix
+		// them; the values and the source text never are.
+		if spots, _ := out["findings"].([]any); len(spots) != 2 || !strings.Contains(string(raw), `"file":"`) {
+			t.Fatalf("findings must say where: %s", raw)
+		}
+		for _, value := range []string{"FictitiousValue987", "AnotherFakeValue987", "password", "const token"} {
 			if strings.Contains(string(raw), value) || strings.Contains(logs.String(), value) {
 				t.Fatal("response or logs exposed source data")
 			}

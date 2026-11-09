@@ -134,18 +134,20 @@ func missingEntrypoint(entry string, res bundle.Result) string {
 // sentFailure turns an import/sources refusal into the text for Claude.
 func sentFailure(status int, raw []byte, msg string) string {
 	var e struct {
-		Code        string `json:"code"`
-		Error       string `json:"error"`
-		SecretCount int    `json:"secret_count"`
+		Code        string       `json:"code"`
+		Error       string       `json:"error"`
+		SecretCount int          `json:"secret_count"`
+		Findings    []secretSpot `json:"findings"`
 	}
 	_ = json.Unmarshal(raw, &e)
 	switch {
 	case status == http.StatusConflict && e.Code == "script_secrets_confirmation_required":
-		return fmt.Sprintf("O Ziv achou %d trecho(s) no código que parecem senhas ou chaves. Nada foi mandado. "+
-			"Tire esses trechos do código, ou pergunte à pessoa se quer mandar mesmo assim; "+
-			"só se ela confirmar, chame registrar_app de novo com o mesmo envio e confirmar_segredos: true.", e.SecretCount)
+		return fmt.Sprintf("O Ziv achou %d trecho(s) no código que parecem senhas ou chaves:", e.SecretCount) + spotLines(e.Findings) +
+			"\nNada foi mandado. Veja cada linha: se for uma senha ou chave de verdade, troque o valor pela leitura de uma variável de ambiente (os.environ) e prepare um envio novo; " +
+			"se não for (por exemplo, o nome de um campo), pergunte à pessoa se quer mandar mesmo assim; só se ela confirmar, chame registrar_app de novo com o mesmo envio e confirmar_segredos: true. Nunca mostre os valores na conversa."
 	case status == http.StatusUnprocessableEntity && e.Code == "script_secrets_blocked":
-		return e.Error + " Tire as senhas do código e prepare um envio novo."
+		return e.Error + spotLines(e.Findings) +
+			"\nVeja cada linha: troque cada senha ou chave pela leitura de uma variável de ambiente (os.environ); se a linha não tem senha, reescreva para não parecer uma (por exemplo, sem atribuir a uma variável chamada token ou senha). Depois prepare um envio novo. Nunca mostre os valores na conversa."
 	case status == http.StatusConflict && e.Code == "no_stored_code":
 		return e.Error
 	case status == http.StatusBadRequest:
@@ -372,4 +374,13 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 		"app_id": ans.ID, "versao": ans.Version, "mudou": mudou, "link": link,
 		"esperando_aprovacao": waiting, "deixados_de_fora": dropped,
 	})
+}
+
+// spotLines lists where the probable secrets are, one per line, without values.
+func spotLines(spots []secretSpot) string {
+	var b strings.Builder
+	for _, p := range spots {
+		fmt.Fprintf(&b, "\n- %s, linha %d (%s)", p.File, p.Line, p.Name)
+	}
+	return b.String()
 }
