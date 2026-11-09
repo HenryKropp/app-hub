@@ -56,8 +56,25 @@ const NetworkPrefix = "ziv-apps-"
 // LegacyNetworkPrefixes are the networks Kova and the App Hub gave each app.
 var LegacyNetworkPrefixes = []string{"kova-apps-", "app-hub-apps-"}
 
-// AppNetwork is the network of one app (live and test boxes share it).
-func AppNetwork(appID int64) string { return NetworkPrefix + strconv.FormatInt(appID, 10) }
+// WorkspaceLabel carries the company key on every box, image and network of a
+// company other than principal. Principal's boxes have no such label.
+const WorkspaceLabel = "ziv.workspace"
+
+// MemoryLabel records the memory (MB) a box reserved, so the server-wide
+// limit can add up every company's boxes.
+const MemoryLabel = "ziv.memory_mb"
+
+// WorkspaceOf is the company key a box carries ("" for principal).
+func WorkspaceOf(labels map[string]string) string { return labels[WorkspaceLabel] }
+
+// AppNetwork is the network of one app (live and test boxes share it):
+// ziv-apps-<id> in principal (key ""), ziv-apps-<key>-<id> in other companies.
+func AppNetwork(key string, appID int64) string {
+	if key == "" {
+		return NetworkPrefix + strconv.FormatInt(appID, 10)
+	}
+	return NetworkPrefix + key + "-" + strconv.FormatInt(appID, 10)
+}
 
 // LegacyAppNetworks are the networks older versions gave the app.
 func LegacyAppNetworks(appID int64) []string {
@@ -73,7 +90,7 @@ var networkRe = func() *regexp.Regexp {
 	for _, p := range LegacyNetworkPrefixes {
 		alts = append(alts, regexp.QuoteMeta(p))
 	}
-	return regexp.MustCompile(`^(` + strings.Join(alts, "|") + `)[0-9]+$`)
+	return regexp.MustCompile(`^((` + strings.Join(alts, "|") + `)|` + regexp.QuoteMeta(NetworkPrefix) + `w[0-9a-f]{11}-)[0-9]+$`)
 }()
 
 // HubNetwork reports whether a network name is one Ziv (or Kova, or the App Hub) creates.

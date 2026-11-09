@@ -33,8 +33,6 @@ type scanCache struct {
 	snap   versions.Snapshot
 }
 
-func folderOf(a sqlc.App) versions.Folder { return versions.LocalFolder{Root: a.FolderPath} }
-
 func (h *Handler) lockApp(id int64) func() {
 	h.locksMu.Lock()
 	m, ok := h.locks[id]
@@ -75,10 +73,10 @@ func (h *Handler) checkVersionLocked(ctx context.Context, a sqlc.App) (sqlc.AppV
 	if err := json.Unmarshal(a.Manifest, &m); err != nil {
 		return sqlc.AppVersion{}, nil, false, err
 	}
-	if m.Kind == manifest.KindScript {
-		if err := h.hydrateImportedScript(ctx, a, m); err != nil {
-			return sqlc.AppVersion{}, nil, false, err
-		}
+	// Any app whose code the Ziv keeps (scripts, screen apps) gets its folder
+	// back after a restart; others have no sources row and are left alone.
+	if err := h.hydrateImportedScript(ctx, a, m); err != nil {
+		return sqlc.AppVersion{}, nil, false, err
 	}
 	latest, err := h.q.LatestAppVersion(ctx, a.ID)
 	hasLatest := err == nil
@@ -97,7 +95,11 @@ func (h *Handler) checkVersionLocked(ctx context.Context, a sqlc.App) (sqlc.AppV
 	if c, ok := h.cachedScan(a.ID); ok && hasLatest && c.number == latest.Number {
 		trusted = c.snap
 	}
-	snap, contents, err := versions.Scan(folderOf(a), m.Outputs, trusted)
+	folder, err := h.serverFolder(a)
+	if err != nil { // a company app whose code is not kept by the Ziv: like a PC folder the server cannot see
+		return latest, stored, false, nil
+	}
+	snap, contents, err := versions.Scan(folder, m.Outputs, trusted)
 	if err != nil {
 		slog.Warn("version check: folder not readable", "app", a.ID, "err", err)
 		return latest, stored, false, nil
@@ -110,7 +112,7 @@ func (h *Handler) checkVersionLocked(ctx context.Context, a sqlc.App) (sqlc.AppV
 	if !hasLatest {
 		origin = "original"
 	}
-	v, err := h.insertVersion(ctx, a, stored, snap, contents, origin, pgtype.Int4{}, pgtype.Int8{Int64: a.OwnerID, Valid: true}, true)
+	v, err := h.insertVersion(ctx, a, stored, snap, contents, origin, pgtype.Int4{}, pgtype.Int8{Int64: a.OwnerID, Valid: true}, true, "manual", "")
 	if err != nil {
 		return v, snap, true, err
 	}
@@ -119,7 +121,7 @@ func (h *Handler) checkVersionLocked(ctx context.Context, a sqlc.App) (sqlc.AppV
 }
 
 func (h *Handler) insertVersion(ctx context.Context, a sqlc.App, prev, snap versions.Snapshot, contents map[string][]byte,
-	origin string, restoredFrom pgtype.Int4, author pgtype.Int8, probable bool) (sqlc.AppVersion, error) {
+	origin string, restoredFrom pgtype.Int4, author pgtype.Int8, probable bool, channel, description string) (sqlc.AppVersion, error) {
 	for sha, data := range contents {
 		if err := h.q.PutCodeBlob(ctx, sqlc.PutCodeBlobParams{Sha256: sha, Content: data, Size: int64(len(data))}); err != nil {
 			return sqlc.AppVersion{}, err
@@ -140,7 +142,7 @@ func (h *Handler) insertVersion(ctx context.Context, a sqlc.App, prev, snap vers
 	}
 	return h.q.InsertAppVersion(ctx, sqlc.InsertAppVersionParams{
 		AppID: a.ID, Origin: origin, RestoredFrom: restoredFrom, AuthorID: author, AuthorProbable: probable,
-		Files: files, Summary: summary, FilesChangedAt: changedAt,
+		Files: files, Summary: summary, FilesChangedAt: changedAt, Channel: channel, Description: description,
 	})
 }
 
@@ -207,7 +209,7 @@ func (h *Handler) versionItemOf(r *http.Request, a sqlc.App, v sqlc.GetAppVersio
 	if latest, err := h.q.LatestAppVersion(r.Context(), a.ID); err == nil {
 		current = latest.Number
 	}
-	return newVersionItem(v.Number, v.Origin, v.RestoredFrom, v.AuthorName, v.AuthorProbable, v.Description, v.Summary, v.FilesChangedAt, v.CreatedAt, current)
+	return newVersionItem(v.Number, v.Origin, v.RestoredFrom, v.AuthorName, v.AuthorProbable, v.Description, v.Summary, v.FilesChangedAt, v.CreatedAt, v.Channel, current)
 }
 
 func (h *Handler) getVersion(w http.ResponseWriter, r *http.Request) {

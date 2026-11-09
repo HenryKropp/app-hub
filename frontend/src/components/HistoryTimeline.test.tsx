@@ -3,12 +3,12 @@ import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 import { afterEach, expect, test, vi } from "vitest"
 import { api, type HistoryItem, type VersionInfo } from "@/lib/api"
-import { HistoryTimeline } from "./HistoryTimeline"
+import { HistoryTimeline, versionOrigin } from "./HistoryTimeline"
 
 afterEach(() => vi.restoreAllMocks())
 
 const v = (over: Partial<VersionInfo> = {}): VersionInfo => ({
-  number: 2, origin: "folder", restored_from: null, author_name: "Henry Kropp", author_probable: true, description: "",
+  number: 2, origin: "folder", channel: "manual", restored_from: null, author_name: "Henry Kropp", author_probable: true, description: "",
   summary: { added: 1, removed: 0, modified: 2, binaries: ["Ferramenta CVM.exe"] }, files_changed_at: "2026-10-01T12:00:00Z",
   created_at: "2026-10-01T12:05:00Z", current: true, ...over,
 })
@@ -88,4 +88,23 @@ test("preview shows the newest items and opens the rest on request", async () =>
   expect(within(list).getAllByRole("listitem")).toHaveLength(2)
   await user.click(screen.getByRole("button", { name: "Ver histórico completo" }))
   expect(within(list).getAllByRole("listitem")).toHaveLength(4)
+})
+
+test("code sent through the Ziv says so, and Claude's versions are marked", async () => {
+  expect(versionOrigin(v({ origin: "upload" }))).toBe("Código enviado")
+  vi.spyOn(api, "history").mockResolvedValue({
+    items: [
+      { type: "version", at: "2026-10-02T12:00:00Z", version: v({ number: 3, origin: "upload", channel: "mcp" }) },
+      { type: "version", at: "2026-10-01T12:00:00Z", version: v({ number: 2, origin: "upload", channel: "manual", current: false }) },
+      { type: "version", at: "2026-10-01T09:00:00Z", version: v({ number: 1, origin: "original", channel: "mcp", current: false }) },
+    ],
+    more: false, next_before: "",
+  })
+  renderIt()
+  const rows = within(await screen.findByRole("list", { name: "Histórico" })).getAllByRole("listitem")
+  expect(rows[0]).toHaveTextContent("Código enviado")
+  expect(rows[0]).toHaveTextContent("pelo Claude")
+  expect(rows[1]).not.toHaveTextContent("pelo Claude")
+  expect(rows[2]).toHaveTextContent("Estado original")
+  expect(rows[2]).toHaveTextContent("pelo Claude")
 })

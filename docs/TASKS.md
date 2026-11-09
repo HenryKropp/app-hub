@@ -161,11 +161,12 @@ Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mc
 
 | Tarefa | Status | Notas |
 |---|---|---|
-| Protocolo de registro pelo Claude | In Progress | `docs/PROTOCOLO-REGISTRO.md` v0.2 (8 melhorias da rodada 1 aprovadas); vira as instruções do MCP |
+| Protocolo de registro pelo Claude | Done | `docs/PROTOCOLO-REGISTRO.md` v0.3 aponta para o texto do MCP (`formato_do_app`, `mcp_protocolo.md`) |
 | Teste local do protocolo em 4 apps da Alis | In Progress | Rodada 1 (Eq. Research Files Prep, app extra) aprovada. Faltam: Python Rentabilidade fundos, Research Platform, transcritor-calls, CVM Downloader (decidir aí a relação com o Files Prep) |
 | Formato v0.2 do manifesto | Done | Origem `window`, `multiple`, `depends_on`, `build`, todos opcionais; comando `cmd/validate-manifest` para validar rascunhos |
 | Tela de revisão: mostrar/editar `depends_on`, `build` e várias escolhas | Done | Etapa 2 (2026-10-05): a tela de registro usa os mesmos editores da ficha |
-| Ferramentas: formato do manifesto, pessoas, ler pasta pelo Agente com segredos mascarados, registrar | Pending | Mesmo caminho do botão Publicar; marca "via Claude"; libera o teste de vários apps juntos |
+| Ferramentas de registrar pelo Claude | Done (falta merge e deploy) | 2026-11-06, branch `etapa-2-registrar`, ADR 026. O Claude Code lê a pasta no PC, a pessoa confere na conversa, e o código vai por um endereço de uso único (`preparar_envio`). `formato_do_app` traz o protocolo, `registrar_app` registra scripts e apps com tela, ou manda uma versão nova de um app com código guardado. `publicar_app_com_tela` põe o app no ar como o botão Publicar. Valores de chaves só pelo site; versões "Código enviado · pelo Claude" no histórico |
+| Teste com as mãos do Henry (5 cenários do desenho, §6) | Pending | Depois do deploy, na empresa Teste: script novo e rodar; versão 2 sem app duplicado; pasta com dois programas; Streamlit no link próprio e atualizar; pasta com `.env` |
 
 ### Etapa 3 — criar apps para o Ziv · Etapa 4 — agendar
 
@@ -294,7 +295,7 @@ Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mc
 | Cadastro sem campo de endereço | Done | O servidor gera o endereço do nome da empresa; se já existe ou é reservado, usa o próximo número (`horizonte-2`) |
 | Confirmação de e-mail no cadastro | Pending | Precisa de SMTP |
 | Limite de login compartilhado entre cópias do servidor | Pending | Hoje é por cópia |
-| Apps compartilhados por empresa | Pending | Nomes de containers, redes e endereços por empresa |
+| Apps compartilhados por empresa | In Progress | Código feito em 2026-11-06 na branch `etapa-2-registrar`: nomes de containers, redes, bancos e pastas por empresa; endereço `app.empresa.dominio`; chave liga/desliga por empresa no Admin da principal. Falta: Caddy com os endereços por empresa, ADR 025, deploy e conferir o isolamento na VM |
 
 ## Agente sem atrito (2026-11-03, ADR 016)
 

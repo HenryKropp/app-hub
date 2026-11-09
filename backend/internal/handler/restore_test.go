@@ -2,12 +2,16 @@ package handler
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
+	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 	"github.com/HenryKropp/app-hub/backend/internal/versions"
 )
 
@@ -176,5 +180,52 @@ func TestRestoreTrashesUnsavedFileFirst(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(matches[0]); string(b) != big {
 		t.Fatal("trash copy must keep the big content")
+	}
+}
+
+func TestRestoreImportedScriptThenRun(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	id := importFiles(t, c, map[string]string{"main.py": "print('a')"})
+	if code, out := send(t, c, id, map[string]string{"main.py": "print('b')"}, nil); code != 200 || out.Version != 2 {
+		t.Fatalf("%d %+v", code, out)
+	}
+	if code := c.do("POST", appPath(id, "/versions/1/restore"), nil, nil); code != http.StatusOK {
+		t.Fatal("restore", code)
+	}
+	if got := storedNames(t, id)["main.py"]; got != "print('a')" {
+		t.Fatal(got)
+	}
+	token := pairComputer(t, c, "PC")
+	c.agent("POST", "/api/agent/hello", token, agentproto.Hello{Name: "PC", Version: agentproto.Version}, nil)
+	var e map[string]any
+	if code := c.do("POST", appPath(id, "/runs"), map[string]any{"output_folder": `C:\R`, "inputs": map[string]string{"amount": "2"}}, &e); code != http.StatusCreated {
+		t.Fatalf("run %d %+v", code, e)
+	}
+}
+
+func TestHydrateWebAppFolder(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	ctx := context.Background()
+	m := manifest.Manifest{ManifestVersion: 1, ID: "painel", Name: "Painel", Kind: manifest.KindWeb, Entrypoint: "app.py", Area: "Research"}
+	raw, _ := json.Marshal(m)
+	folder := filepath.Join(t.TempDir(), "sumiu")
+	var id int64
+	if err := testPool.QueryRow(ctx, `INSERT INTO apps (slug, name, kind, area, area_id, folder_path, owner_id, manifest, created_by)
+		VALUES ('painel', 'Painel', 'web', 'Research', 1, $1, 1, $2, 1) RETURNING id`, folder, raw).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	files, _ := json.Marshal(map[string]manifest.InputFile{"app.py": {Name: "app.py", ContentBase64: base64.StdEncoding.EncodeToString([]byte("import streamlit"))}})
+	exec(t, `INSERT INTO script_sources (app_id, files) VALUES ($1, $2)`, id, files)
+	a, err := h.q.GetApp(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := h.checkVersion(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(filepath.Join(folder, "app.py")); err != nil || string(b) != "import streamlit" {
+		t.Fatalf("%q %v", b, err)
 	}
 }

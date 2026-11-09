@@ -690,3 +690,20 @@ func TestSharedBackupDownloadTampered(t *testing.T) {
 		t.Fatalf("tampered copy: %d %q", res.StatusCode, body)
 	}
 }
+
+func TestCheckSharedRefusesForeignFolder(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withSharedOpts(t, h, deploy.Options{FolderRoot: t.TempDir()})
+	id := sharedApp(t, h, d, "notas")
+	var e struct {
+		Error string `json:"error"`
+		Code  string `json:"code"`
+	}
+	if code := c.do("GET", "/api/apps/"+itoa(id)+"/shared/check", nil, &e); code != http.StatusConflict || e.Code != "shared_folder_outside" || e.Error != deploy.ErrFolderOutside.Error() {
+		t.Fatalf("%d %+v", code, e)
+	}
+	if code := c.do("POST", "/api/apps/"+itoa(id)+"/shared/test", nil, &e); code != http.StatusConflict || e.Code != "shared_folder_outside" {
+		t.Fatalf("test: %d %+v", code, e)
+	}
+}

@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -346,20 +347,37 @@ func TestPortalSharedRuntimeFailsClosed(t *testing.T) {
 
 // The shared-app runtime is plugged into the main company only, never into
 // a company created by signup.
-func TestPortalPrincipalHookSkipsOtherCompanies(t *testing.T) {
+func TestPortalSharedHookRunsForEveryCompany(t *testing.T) {
 	p, pool, srv := testPortal(t)
 	b := browser(t, srv.URL)
 	credentials := map[string]any{"name": "Test admin", "email": "admin@example.test", "password": "test-password-not-a-real-secret"}
 	b.want("POST", "/api/auth/setup", credentials, 201)
 	b.want("POST", "/api/workspaces", map[string]any{"name": "Other company", "slug": "other-company", "password": credentials["password"]}, 201)
-	calls := 0
-	p2, err := New(context.Background(), pool, p.cfg, WithPrincipal(func(*handler.Handler) { calls++ }))
+	var got []Company
+	p2, err := New(context.Background(), pool, p.cfg, WithShared(func(c Company, _ *handler.Handler) { got = append(got, c) }))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer p2.Close()
-	if len(p2.entries) < 2 || calls != 1 {
-		t.Fatalf("principal hook ran %d times for %d companies", calls, len(p2.entries))
+	if len(got) != 2 {
+		t.Fatalf("hook ran for %d companies", len(got))
+	}
+	byslug := map[string]Company{}
+	for _, c := range got {
+		byslug[c.Tenant.Slug] = c
+	}
+	if c := byslug["principal"]; c.Tenant.Key != "" || c.BaseURL != "http://localhost" || c.Pool == nil {
+		t.Fatalf("principal %+v", c)
+	}
+	if c := byslug["other-company"]; !regexp.MustCompile(`^w[0-9a-f]{11}$`).MatchString(c.Tenant.Key) || c.BaseURL != "http://localhost/w/other-company" || c.Name != "Other company" || c.Pool == nil {
+		t.Fatalf("other %+v", c)
+	}
+}
+
+func TestPortalLoadUnknown(t *testing.T) {
+	p, _, _ := testPortal(t)
+	if p.Load(context.Background(), "nao-existe") || p.Load(context.Background(), "BAD!") {
+		t.Fatal("loaded a company that does not exist")
 	}
 }
 

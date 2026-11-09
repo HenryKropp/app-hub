@@ -26,12 +26,26 @@ type fakeBackend struct {
 	email    *string // when set, the e-mail Allowed answers
 	woken    []int64
 	touched  []int64
+	looked   []string // "slug" or "slug--teste", per Lookup
+}
+
+func (f *fakeBackend) lookups() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.looked...)
 }
 
 func (f *fakeBackend) setAllowed(v bool) { f.mu.Lock(); f.allowed = v; f.mu.Unlock() }
 func (f *fakeBackend) touches() int      { f.mu.Lock(); defer f.mu.Unlock(); return len(f.touched) }
 
 func (f *fakeBackend) Lookup(_ context.Context, slug string, test bool) (Target, bool, error) {
+	f.mu.Lock()
+	if test {
+		f.looked = append(f.looked, slug+"--teste")
+	} else {
+		f.looked = append(f.looked, slug)
+	}
+	f.mu.Unlock()
 	if slug != "notas" {
 		return Target{}, false, nil
 	}
@@ -579,5 +593,27 @@ func TestNeverForwardsWithoutIdentity(t *testing.T) {
 	w := get(g, "notas.localhost:8080", "/", c, nil)
 	if w.Code != http.StatusFound || strings.Contains(w.Body.String(), "email=") {
 		t.Fatalf("forwarded without identity: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestNotRunningShowsServerFull(t *testing.T) {
+	g, b := setup(t)
+	c := enter(t, g, "notas.localhost:8080", false)
+	b.target.Status, b.target.Port, b.target.Message = "sleeping", 0, "O servidor está no limite de apps com tela ligados ao mesmo tempo (2)."
+	w := get(g, "notas.localhost:8080", "/", c, nil)
+	if w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), "Servidor no limite") ||
+		!strings.Contains(w.Body.String(), "no limite") || len(b.woken) != 1 {
+		t.Fatalf("%d %s woken=%v", w.Code, w.Body.String(), b.woken)
+	}
+}
+
+func TestNotRunningDisabled(t *testing.T) {
+	g, b := setup(t)
+	c := enter(t, g, "notas.localhost:8080", false)
+	b.target.Status, b.target.Port = "disabled", 0
+	w := get(g, "notas.localhost:8080", "/", c, nil)
+	if w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), "Apps com tela desligados") ||
+		!strings.Contains(w.Body.String(), "ligá-los") || strings.Contains(w.Body.String(), `http-equiv="refresh"`) || len(b.woken) != 0 {
+		t.Fatalf("%d %s woken=%v", w.Code, w.Body.String(), b.woken)
 	}
 }

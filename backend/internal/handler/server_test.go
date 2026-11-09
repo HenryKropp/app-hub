@@ -142,3 +142,40 @@ func TestServerSettingsKeepWantsDB(t *testing.T) {
 		t.Fatal("wants_db turned off while the app has a database")
 	}
 }
+
+func TestServerPageCompanyOnly(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	h.SetWorkspace(WorkspaceOptions{Slug: "teste", Name: "Teste"})
+	d := withShared(t, h)
+	sharedApp(t, h, d, "notas")
+	if _, err := testPool.Exec(t.Context(), "UPDATE server_settings SET monthly_cost_cents = 30000 WHERE id = 1"); err != nil {
+		t.Fatal(err)
+	}
+	var out map[string]any
+	if code := c.do("GET", "/api/server", nil, &out); code != 200 {
+		t.Fatal(code)
+	}
+	if out["company_only"] != true {
+		t.Fatalf("%+v", out)
+	}
+	for _, k := range []string{"memory_total", "memory_used", "disk_total", "disk_used", "disk_warning"} {
+		if _, ok := out[k]; ok {
+			t.Fatalf("%s sent to a company", k)
+		}
+	}
+	if out["monthly_cost_cents"] != float64(0) || out["hub_cents"] != float64(0) {
+		t.Fatalf("%+v", out)
+	}
+	for _, a := range out["apps"].([]any) {
+		if a.(map[string]any)["cost_cents"] != float64(0) {
+			t.Fatalf("%+v", a)
+		}
+	}
+	var e struct {
+		Error string `json:"error"`
+	}
+	if code := c.do("PUT", "/api/server/cost", map[string]int64{"monthly_cost_cents": 1}, &e); code != http.StatusForbidden || e.Error != "O custo do servidor é definido pela empresa principal." {
+		t.Fatalf("%d %q", code, e.Error)
+	}
+}

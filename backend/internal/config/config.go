@@ -33,6 +33,13 @@ type Config struct {
 	SharedDataDirExplicit bool
 	ContainerEngine       string // CONTAINER_ENGINE
 
+	// Screen apps per company (ADR 025). The principal company has no
+	// per-company limits; the server-wide ones apply to every company.
+	SharedAppsPerCompany     int // SHARED_APPS_PER_COMPANY: published screen apps in a company
+	SharedAppMaxMemoryMB     int // SHARED_APP_MAX_MEMORY_MB: memory per screen app in a company
+	SharedAppsMaxRunning     int // SHARED_APPS_MAX_RUNNING: screen apps on at once, whole server
+	SharedAppsMemoryBudgetMB int // SHARED_APPS_MEMORY_BUDGET_MB: their memory together, whole server
+
 	CompanyLimit         int             // COMPANY_LIMIT: companies in the portal, the main one included
 	CompanySignupsPerDay int             // COMPANY_SIGNUPS_PER_DAY: new companies in any 24 hours
 	ReservedSlugs        map[string]bool // built-in names plus RESERVED_COMPANY_SLUGS (comma-separated)
@@ -82,6 +89,10 @@ func Load() (Config, error) {
 	cfg.SharedDataDir = envOr("SHARED_DATA_DIR", filepath.Join(home, ".local", "share", "ziv", "shared"))
 	cfg.SharedDataDirExplicit = os.Getenv("SHARED_DATA_DIR") != ""
 	cfg.ContainerEngine = envOr("CONTAINER_ENGINE", "podman")
+	cfg.SharedAppsPerCompany = envInt("SHARED_APPS_PER_COMPANY", 2)
+	cfg.SharedAppMaxMemoryMB = envInt("SHARED_APP_MAX_MEMORY_MB", 256)
+	cfg.SharedAppsMaxRunning = envInt("SHARED_APPS_MAX_RUNNING", 2)
+	cfg.SharedAppsMemoryBudgetMB = envInt("SHARED_APPS_MEMORY_BUDGET_MB", 512)
 	cfg.CompanyLimit = envInt("COMPANY_LIMIT", 20)
 	cfg.CompanySignupsPerDay = envInt("COMPANY_SIGNUPS_PER_DAY", 10)
 	cfg.ReservedSlugs = map[string]bool{}
@@ -113,6 +124,8 @@ func (c Config) redacted() map[string]any {
 		"AppsDBAdminURL": hideURLPassword(c.AppsDBAdminURL), "AppsDBHost": c.AppsDBHost,
 		"AppsDBContainer": c.AppsDBContainer, "SharedDomain": c.SharedDomain,
 		"SharedDataDir": c.SharedDataDir, "ContainerEngine": c.ContainerEngine,
+		"SharedAppsPerCompany": c.SharedAppsPerCompany, "SharedAppMaxMemoryMB": c.SharedAppMaxMemoryMB,
+		"SharedAppsMaxRunning": c.SharedAppsMaxRunning, "SharedAppsMemoryBudgetMB": c.SharedAppsMemoryBudgetMB,
 	}
 }
 

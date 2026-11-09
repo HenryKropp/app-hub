@@ -25,7 +25,26 @@ type WorkspaceOptions struct {
 	// FindLogins lists the companies (other than the main one) where this
 	// e-mail and password sign in. The e-mail arrives normalized.
 	FindLogins func(ctx context.Context, email, password string) ([]LoginMatch, error)
+	// SharedEnabled says whether this company may run screen apps (always
+	// true for the principal company). nil means on.
+	SharedEnabled func(context.Context) bool
+	// Companies and SetCompanyShared exist only in the principal company:
+	// its Admin turns screen apps on or off for each company.
+	Companies        func(context.Context) ([]CompanyShared, error)
+	SetCompanyShared func(ctx context.Context, slug string, on bool) error
 }
+
+// CompanyShared is one company (other than the principal) and whether its
+// screen apps are on.
+type CompanyShared struct {
+	Slug       string `json:"slug"`
+	Name       string `json:"name"`
+	SharedApps bool   `json:"shared_apps"`
+}
+
+// ErrWorkspaceNotFound: no such company (or the principal company, whose
+// screen apps cannot be turned off).
+var ErrWorkspaceNotFound = errors.New("workspace not found")
 
 // LoginMatch is one company where an e-mail and password sign in.
 type LoginMatch struct {

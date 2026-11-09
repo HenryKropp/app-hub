@@ -34,7 +34,8 @@ type Target struct {
 	Owner     string // nome de quem cuida
 	Status    string // draft, starting, running, sleeping, crashed, stopped
 	StoppedBy string
-	Port      int // 0 = não há caixa para onde mandar
+	Port      int    // 0 = não há caixa para onde mandar
+	Message   string // why a sleeping app could not wake (the server was full)
 }
 
 // Backend is what the Hub gives the gateway (implemented by the handler).
@@ -46,6 +47,10 @@ type Backend interface {
 }
 
 const cookieName = "apphub_app"
+
+// OffMessage is what people see when their company's screen apps are off
+// (the same words as deploy.ErrSharedOff).
+const OffMessage = "Os apps com tela não estão ligados para esta empresa. Peça ao administrador do Ziv para ligá-los."
 
 type session struct {
 	personID, appID int64
@@ -89,6 +94,17 @@ func (g *Gateway) Match(host string) (string, bool, bool) {
 		return slug, true, slug != ""
 	}
 	return sub, false, true
+}
+
+// Known says whether host is the address of an app this gateway serves
+// (the TLS ask: only those get a certificate).
+func (g *Gateway) Known(ctx context.Context, host string) bool {
+	slug, test, ok := g.Match(host)
+	if !ok {
+		return false
+	}
+	_, found, err := g.b.Lookup(ctx, slug, test)
+	return err == nil && found
 }
 
 // SafeVolta only lets same-site paths through: browsers drop tabs/newlines
@@ -181,6 +197,11 @@ func (g *Gateway) notRunning(w http.ResponseWriter, r *http.Request, t Target, t
 		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "App parado", Message: "Parado por " + t.StoppedBy + ". Peça para " + owner(t) + " ligá-lo de novo.", HubURL: g.hubURL})
 	case t.Status == "crashed":
 		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "App com problema", Message: "O app parou de responder e o Ziv não conseguiu religá-lo. " + owner(t) + " já vê o aviso na ficha do app.", HubURL: g.hubURL})
+	case t.Status == "sleeping" && t.Message != "":
+		g.b.Wake(t.AppID) // tries again: a slot may have freed up
+		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "Servidor no limite", Message: t.Message, Refresh: true})
+	case t.Status == "disabled": // the company's screen apps are off: waking would not help
+		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "Apps com tela desligados", Message: OffMessage, HubURL: g.hubURL})
 	case t.Status == "draft":
 		g.show(w, r, http.StatusServiceUnavailable, page{App: t.Name, Title: "Ainda não publicado", Message: "Este app ainda não foi publicado. Fale com " + owner(t) + ".", HubURL: g.hubURL})
 	default: // sleeping, starting, running sem porta (Hub acabou de ligar)

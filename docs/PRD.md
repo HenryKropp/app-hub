@@ -188,7 +188,13 @@ O Henry pediu isto em 2026-09-30 e redesenhou em 2026-11-04. A pessoa usa o Ziv 
     - guia de visual.
   - Rodar e publicar pedem "permitir?" no Claude, ficam marcados como **pelo Claude** e entram no registro de segurança.
   - O acesso acaba quando a pessoa cancela, quando é removida ou quando a chave vence.
-- **Etapa 2: registrar apps prontos.** O Claude lê a pasta do app pelo Agente, com chaves e senhas mascaradas, e segue `docs/PROTOCOLO-REGISTRO.md`. Depois registra o app com responsável e reserva pelo mesmo caminho do botão Publicar, e o app fica marcado "via Claude".
+- **Etapa 2: registrar apps prontos** (construída em 2026-11-06, ADR 026). O Claude Code lê a pasta do app no PC e segue o protocolo que `formato_do_app` devolve. A pessoa confere a ficha na conversa, e o registro só acontece depois do "pode registrar".
+  - O código vai num .zip por um endereço de uso único (30 minutos), sem `.env`, chaves, `.git` nem `venv`.
+  - O registro passa pelo mesmo caminho do import do site, e o responsável é quem registra.
+  - Vale para scripts e apps com tela, um por vez ou vários.
+  - Versão nova só para apps com o código guardado no Ziv. Ela pode mudar o código, o resumo, as entradas, as saídas e (nos scripts) o arquivo de início e as dependências. Nome, área, responsável, reserva e acesso só mudam pelo site.
+  - Apps com tela vão ao ar com `publicar_app_com_tela`, com a mesma checagem, os mesmos avisos e a mesma aprovação do botão Publicar. As chaves são preenchidas só no site.
+  - As versões ficam marcadas "Código enviado · pelo Claude".
 - **Etapa 3: criar apps para o Ziv.** O Claude recebe o formato do manifesto, as regras e exemplos, e entrega o app com o `ziv.yaml` pronto.
 - **Etapa 4: agendar.** Primeiro o Ziv aprende a agendar; depois o Claude ganha agendar, ver agendamentos e cancelar.
 

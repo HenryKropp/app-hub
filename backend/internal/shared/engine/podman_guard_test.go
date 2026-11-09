@@ -110,8 +110,8 @@ func TestNetworksOnlyTheHubs(t *testing.T) {
 	if _, err := p.Start(ctx, StartSpec{Name: "apphub-x-1", Labels: map[string]string{Label: "5"}, Network: "podman"}); err == nil {
 		t.Fatal("start on a foreign network")
 	}
-	if AppNetwork(42) != "ziv-apps-42" || !HubNetwork(AppNetwork(42)) {
-		t.Fatal(AppNetwork(42))
+	if AppNetwork("", 42) != "ziv-apps-42" || !HubNetwork(AppNetwork("", 42)) {
+		t.Fatal(AppNetwork("", 42))
 	}
 }
 
@@ -166,7 +166,7 @@ func TestLabelsReadNewThenLegacy(t *testing.T) {
 	if DeploymentID(map[string]string{"app-hub.deployment": "9"}) != "9" || DeploymentID(map[string]string{"kova.deployment": "3", "app-hub.deployment": "9"}) != "3" || DeploymentID(map[string]string{"ziv.deployment": "4", "kova.deployment": "3"}) != "4" {
 		t.Error("DeploymentID")
 	}
-	if !HubNetwork("app-hub-apps-5") || !HubNetwork("kova-apps-5") || !HubNetwork("ziv-apps-5") || HubNetwork("ziv-apps-x") || AppNetwork(5) != "ziv-apps-5" || strings.Join(LegacyAppNetworks(5), ",") != "kova-apps-5,app-hub-apps-5" {
+	if !HubNetwork("app-hub-apps-5") || !HubNetwork("kova-apps-5") || !HubNetwork("ziv-apps-5") || HubNetwork("ziv-apps-x") || AppNetwork("", 5) != "ziv-apps-5" || strings.Join(LegacyAppNetworks(5), ",") != "kova-apps-5,app-hub-apps-5" {
 		t.Error("networks")
 	}
 	if !imageAllowed("", []string{"localhost/apphub/notas:3"}) || !imageAllowed("", []string{"localhost/kova/notas:3"}) || !imageAllowed("", []string{"localhost/ziv/notas:3"}) || imageAllowed("", []string{"docker.io/x"}) {

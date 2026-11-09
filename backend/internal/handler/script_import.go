@@ -10,12 +10,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/HenryKropp/app-hub/backend/internal/access"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
-	"github.com/HenryKropp/app-hub/backend/internal/scanner"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -36,7 +36,37 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m := b.Manifest
-	m.ManifestVersion, m.Kind = manifest.Version, manifest.KindScript
+	switch m.Kind {
+	case "":
+		m.Kind = manifest.KindScript
+	case manifest.KindScript, manifest.KindWeb:
+	default:
+		writeError(w, http.StatusBadRequest, "Escolha script ou app com tela.")
+		return
+	}
+	web := m.Kind == manifest.KindWeb
+	if web && !h.sharedOn(r.Context()) { // before any write
+		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"code": "shared_runtime_unavailable", "error": msgWebOff})
+		return
+	}
+	m.ManifestVersion = manifest.Version
+	if web {
+		// Only the variable names come from the sender; secret defaults are
+		// dropped, and the command and resources are confirmed on the
+		// Compartilhar screen (PUT /shared, can.Restore).
+		env := []manifest.EnvVar{}
+		if m.Shared != nil {
+			for _, e := range m.Shared.Env {
+				if e.Secret {
+					e.Default = ""
+				}
+				env = append(env, e)
+			}
+		}
+		m.Shared = &manifest.Shared{Enabled: true, Env: env}
+	} else {
+		m.Shared = nil
+	}
 	m.Name, m.Summary = strings.TrimSpace(m.Name), strings.TrimSpace(m.Summary)
 	m.ID = manifest.Slugify(m.Name)
 	m.Owner = &manifest.PersonRef{Name: me.Name, Email: me.Email}
@@ -50,72 +80,8 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, strings.Join(issues, " "))
 		return
 	}
-	if len(b.Files) == 0 || len(b.Files) > 100 {
-		writeError(w, http.StatusBadRequest, "Envie de 1 a 100 arquivos do script.")
-		return
-	}
-	if _, ok := b.Files[m.Entrypoint]; !ok {
-		writeError(w, http.StatusBadRequest, "Inclua o arquivo que inicia o script.")
-		return
-	}
-	if m.Runtime.DependenciesFile != "" {
-		if _, ok := b.Files[m.Runtime.DependenciesFile]; !ok {
-			writeError(w, http.StatusBadRequest, "Inclua o arquivo de dependências escolhido.")
-			return
-		}
-	}
-	total := 0
-	seen := map[string]bool{}
-	decoded := map[string][]byte{}
-	for name, f := range b.Files {
-		key := strings.ToLower(strings.ReplaceAll(name, `\`, "/"))
-		base := strings.ToLower(filepath.Base(name))
-		secretFile := base == ".env" || strings.HasPrefix(base, ".env.") || strings.HasSuffix(base, ".pem") || strings.HasSuffix(base, ".key") || base == "id_rsa"
-		if secretFile {
-			writeError(w, http.StatusBadRequest, "Não envie arquivos de credenciais (.env, .pem, .key). Retire as senhas do pacote antes de importar.")
-			return
-		}
-		if !manifest.SafeRelative(name) || manifest.IsManifestName(base) || name == manifest.FichaName || strings.HasPrefix(base, ".apphub-") || seen[key] || strings.Contains(name, `\`) {
-			writeError(w, http.StatusBadRequest, "Use nomes de arquivos relativos, sem repetições ou caminhos externos.")
-			return
-		}
-		seen[key] = true
-		data, err := base64.StdEncoding.DecodeString(f.ContentBase64)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "Um arquivo enviado está inválido.")
-			return
-		}
-		total += len(data)
-		if total > manifest.MaxInputBytes {
-			writeError(w, http.StatusBadRequest, "Os arquivos podem somar no máximo 10 MB.")
-			return
-		}
-		decoded[name] = data
-	}
-	// Scan every file before any filesystem or database persistence. Only a count
-	// leaves this handler: filenames, variable names and source excerpts can also
-	// contain sensitive values. Confirmation never changes the executable sources.
-	secretCount := 0
-	for name, data := range decoded {
-		secretCount += len(scanner.FindSecrets(name, string(data)))
-	}
-	if secretCount > 0 && h.workspace != nil {
-		settings, err := h.securityConfig(r.Context())
-		if err != nil {
-			internalError(w, "script security policy", err)
-			return
-		}
-		if settings.BlockSecrets {
-			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"code": "script_secrets_blocked", "error": "Possíveis senhas ou chaves no código. Retire as credenciais antes de importar; a política da empresa não permite ignorar este bloqueio.", "secret_count": secretCount})
-			return
-		}
-	}
-	if secretCount > 0 && !b.ConfirmSecrets {
-		writeJSON(w, http.StatusConflict, map[string]any{
-			"code":         "script_secrets_confirmation_required",
-			"error":        "Possíveis senhas ou chaves no código. Revise os arquivos ou confirme o envio sem alterações.",
-			"secret_count": secretCount,
-		})
+	decoded, ok := h.checkSentFiles(w, r, m, b.Files, b.ConfirmSecrets)
+	if !ok {
 		return
 	}
 	area, err := h.q.GetAreaByName(r.Context(), m.Area)
@@ -152,7 +118,16 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	m.Language = manifest.ScriptRuntime(m.Entrypoint)
-	m.ID += "-" + token[:8]
+	if web {
+		slug, err := h.freeSlug(r.Context(), m.ID)
+		if err != nil {
+			internalError(w, "web slug", err)
+			return
+		}
+		m.ID = slug
+	} else {
+		m.ID += "-" + token[:8]
+	}
 	if err := manifest.WriteToFolder(folder, m); err != nil {
 		internalError(w, "script manifest", err)
 		return
@@ -162,18 +137,36 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 	id, err := h.q.ImportScript(r.Context(), sqlc.UpsertAppParams{
 		Slug: m.ID, Name: m.Name, Summary: m.Summary, Language: m.Language, Area: m.Area, AreaID: area.ID,
 		FolderPath: folder, OwnerID: me.ID, Manifest: raw,
-	}, files)
+	}, m.Kind, files)
 	if err != nil {
 		internalError(w, "import script", err)
 		return
 	}
 	success = true
-	if a, err := h.q.GetApp(r.Context(), id); err == nil {
-		if _, _, err := h.checkVersion(r.Context(), a); err != nil {
-			slog.Error("import script version", "app", id, "err", err)
+	if web {
+		// Screen apps keep their code in the shared-app code folder, which
+		// the deploy service accepts in every company.
+		if err := h.moveToCodeDir(r.Context(), id, folder, m); err != nil {
+			_, _ = h.q.DeleteApp(r.Context(), id)
+			internalError(w, "web code folder", err)
+			return
 		}
 	}
-	writeJSON(w, http.StatusCreated, map[string]int64{"id": id})
+	var number int32
+	if a, err := h.q.GetApp(r.Context(), id); err == nil {
+		unlock := h.lockApp(id)
+		v, _, err := h.recordSentVersion(r.Context(), a, me.ID, "")
+		unlock()
+		if err != nil {
+			slog.Error("import script version", "app", id, "err", err)
+		}
+		number = v.Number
+	}
+	blocked, err := h.executionBlock(r.Context(), id)
+	if err != nil {
+		slog.Error("import script approval", "app", id, "err", err)
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{"id": id, "version": number, "blocked_reason": blocked})
 }
 
 func (h *Handler) importedSources(ctx context.Context, id int64) (map[string]manifest.InputFile, error) {
@@ -223,4 +216,56 @@ func (h *Handler) hydrateImportedScript(ctx context.Context, a sqlc.App, m manif
 		}
 	}
 	return manifest.WriteToFolder(a.FolderPath, m)
+}
+
+const msgWebOff = "Os apps com tela ainda não estão ligados nesta empresa. Peça ao responsável pelo Ziv para ligar. Scripts sobem normalmente."
+
+// sharedOn says whether this company can run screen apps now.
+func (h *Handler) sharedOn(ctx context.Context) bool {
+	if h.workspace != nil && h.workspace.SharedEnabled != nil && !h.workspace.SharedEnabled(ctx) {
+		return false
+	}
+	return h.shared.Svc != nil
+}
+
+// freeSlug is base cut to 40 characters (an app address), with -2, -3… when taken.
+func (h *Handler) freeSlug(ctx context.Context, base string) (string, error) {
+	cut := func(s string, n int) string {
+		if len(s) > n {
+			s = s[:n]
+		}
+		return strings.TrimRight(s, "-")
+	}
+	for i := 1; ; i++ {
+		slug := cut(base, 40)
+		if i > 1 {
+			suffix := "-" + strconv.Itoa(i)
+			slug = cut(base, 40-len(suffix)) + suffix
+		}
+		taken, err := h.q.SlugExists(ctx, sqlc.SlugExistsParams{Slug: slug})
+		if err != nil {
+			return "", err
+		}
+		if !taken {
+			return slug, nil
+		}
+	}
+}
+
+// moveToCodeDir points a just-imported screen app at its code folder and
+// rebuilds the files there from the stored code.
+func (h *Handler) moveToCodeDir(ctx context.Context, id int64, temp string, m manifest.Manifest) error {
+	dir := h.shared.Svc.CodeDir(id)
+	if err := h.q.SetAppFolder(ctx, id, dir); err != nil {
+		return err
+	}
+	_ = os.RemoveAll(temp)
+	a, err := h.q.GetApp(ctx, id)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dir), 0o700); err != nil {
+		return err
+	}
+	return h.hydrateImportedScript(ctx, a, m)
 }

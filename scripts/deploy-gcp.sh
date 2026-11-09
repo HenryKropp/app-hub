@@ -15,15 +15,22 @@ OUT="$(mktemp -d)"
 trap 'rm -rf "$OUT"' EXIT
 
 mkdir -p "$OUT/frontend" "$OUT/agent"
-echo "1/4 site"
+echo "1/5 site"
 (cd "$ROOT/frontend" && mise x -- npm run build >/dev/null)
 cp -r "$ROOT/frontend/dist" "$OUT/frontend/"
-echo "2/4 servidor"
+echo "2/5 servidor"
 (cd "$ROOT/backend" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 mise x -- go build -trimpath -o "$OUT/server" ./cmd/server)
-echo "3/4 agente (aponta para $URL)"
+echo "3/5 agente (aponta para $URL)"
 (cd "$ROOT/backend" && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 mise x -- go build -trimpath \
   -ldflags "-H=windowsgui -X main.hubURL=$URL" -o "$OUT/agent/AppHubAgente.exe" ./cmd/agent)
-echo "4/4 enviando e reiniciando"
+echo "4/5 enviando e reiniciando"
 rsync -a --delete --exclude ziv.env --exclude .dbpw -e "ssh -i $KEY" "$OUT/" "$HOST:ziv/"
 ssh -i "$KEY" "$HOST" 'systemctl --user restart ziv && sleep 4 && systemctl --user is-active ziv'
 curl -fsS -o /dev/null -w "site: %{http_code}\n" "$URL/"
+echo "5/5 caddy"
+if ssh -i "$KEY" "$HOST" 'sudo cat /etc/caddy/Caddyfile' | cmp -s - "$ROOT/deploy/Caddyfile"; then
+	echo "caddy: sem mudança"
+else
+	scp -q -i "$KEY" "$ROOT/deploy/Caddyfile" "$HOST:/tmp/Caddyfile.ziv"
+	ssh -i "$KEY" "$HOST" 'sudo caddy validate --adapter caddyfile --config /tmp/Caddyfile.ziv && sudo install -m 644 /tmp/Caddyfile.ziv /etc/caddy/Caddyfile && sudo systemctl reload caddy && rm /tmp/Caddyfile.ziv && echo "caddy: recarregado"'
+fi

@@ -158,9 +158,10 @@ type Fake struct {
 	OnDump      func(name string) // called at the start of every Dump (tests)
 	FailDrop    error             // Drop fails with this (and changes nothing)
 	FailSize    error             // Size fails with this
+	Prefix      string            // starts every name, like Admin.Prefix
 }
 
-func NewFake() *Fake { return &Fake{DBs: map[string]string{}, Data: map[string]string{}} }
+func NewFake() *Fake { return &Fake{DBs: map[string]string{}, Data: map[string]string{}, Prefix: "app_"} }
 
 func (f *Fake) Ensure(_ context.Context, n, pw string) error {
 	f.mu.Lock()
@@ -206,9 +207,9 @@ func (f *Fake) Restore(_ context.Context, n string, r io.Reader) error {
 	return err
 }
 
-func (f *Fake) Name(appID int64) string { return fmt.Sprintf("app_%d", appID) }
+func (f *Fake) Name(appID int64) string { return fmt.Sprintf("%s%d", f.Prefix, appID) }
 
-func (f *Fake) TestName(appID, dep int64) string { return fmt.Sprintf("app_%d_test_%d", appID, dep) }
+func (f *Fake) TestName(appID, dep int64) string { return fmt.Sprintf("%s%d_test_%d", f.Prefix, appID, dep) }
 
 func (f *Fake) Size(_ context.Context, n string) (int64, error) {
 	if f.FailSize != nil {

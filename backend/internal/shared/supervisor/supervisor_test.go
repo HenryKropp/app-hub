@@ -18,6 +18,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy/deploytest"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/engine"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/tenant"
 )
 
 var pool *pgxpool.Pool
@@ -793,5 +794,27 @@ func TestReconcileRemovesLegacyOrphan(t *testing.T) {
 	}
 	if st, _ := e.Eng.Inspect(ctx, orphan); st.Exists {
 		t.Fatal("orphan App Hub container not recognized")
+	}
+}
+
+func TestRestartWhenFullIsNotATry(t *testing.T) {
+	ctx := context.Background()
+	e, _, c := live(t)
+	svc := e.NewTenantServiceSlots(tenant.Principal, deploy.NewSlots(e.Eng, 2, 0))
+	svc.SetNow(c.now)
+	s := New(e.Q, e.Eng, svc)
+	s.SetNow(c.now)
+	before := e.Shared(t).RestartCount
+	e.Eng.Crash(currentContainer(t, e))
+	for i := 0; i < 2; i++ {
+		mustStart(t, e, engine.StartSpec{Name: "outro-" + deploytest.Itoa(int64(i)), Labels: map[string]string{engine.Label: "99", engine.MemoryLabel: "128"}, Network: engine.AppNetwork("", 99)})
+	}
+	s.Tick(ctx)
+	sa := e.Shared(t)
+	if sa.RestartCount != before {
+		t.Fatalf("restart counted while full: %d -> %d", before, sa.RestartCount)
+	}
+	if sa.Status != "sleeping" || !strings.Contains(sa.StatusMessage, "no limite") {
+		t.Fatalf("%s %q", sa.Status, sa.StatusMessage)
 	}
 }
