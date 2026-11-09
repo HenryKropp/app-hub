@@ -180,7 +180,7 @@ func TestAgentRunFailsWithoutKeys(t *testing.T) {
 	})
 	hub.mu.Lock()
 	defer hub.mu.Unlock()
-	if r := hub.results[9][0]; r.Event != agentproto.EventFailed || !strings.Contains(r.Error, "cofre") {
+	if r := hub.results[9][0]; r.Event != agentproto.EventFailed || !strings.Contains(r.Error, "chaves e senhas") {
 		t.Fatalf("%+v", r)
 	}
 }

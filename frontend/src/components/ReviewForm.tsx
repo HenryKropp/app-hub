@@ -224,7 +224,7 @@ export function ReviewForm({ item, people, areas, apps, me, onPublished, onSkip 
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-muted-foreground">Guarde cada uma no cofre do app (na página do app, parte Cofre) e faça o script ler pelo nome.</p>
+            <p className="mt-3 text-muted-foreground">Guarde cada uma nas configurações do app (na página do app, parte Configurações) e faça o script ler pelo nome.</p>
           </div>
         </Block>
       )}

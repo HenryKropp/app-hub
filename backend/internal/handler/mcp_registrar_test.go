@@ -532,7 +532,7 @@ func TestRegistrarScriptKeysHonest(t *testing.T) {
 	s := toolSession(t, c)
 	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print(1)\n", ".env": "SENHA=x\n"})
 	res, text, out := registrar(t, s, map[string]any{"envio": envio, "manifesto": scriptManifesto()})
-	if res.IsError || !strings.Contains(text, "cofre do app") || !strings.Contains(text, "keys") || !strings.Contains(text, "nunca mande os valores") {
+	if res.IsError || !strings.Contains(text, "Configurações do app") || !strings.Contains(text, "keys") || !strings.Contains(text, "nunca mande os valores") {
 		t.Fatalf("%q", text)
 	}
 	t.Cleanup(func() { cleanupAppFolder(t, int64(out["app_id"].(float64))) })
@@ -590,7 +590,7 @@ func TestRegistrarScriptKeysGoToVault(t *testing.T) {
 	id := int64(out["app_id"].(float64))
 	t.Cleanup(func() { cleanupAppFolder(t, id) })
 	link := "http://hub.test/apps/" + itoa(id) + "#chaves"
-	if !strings.Contains(text, "cofre") || !strings.Contains(text, "BTG_SENHA") || !strings.Contains(text, link) || !strings.Contains(text, "nunca pela conversa") {
+	if !strings.Contains(text, "Configurações do app") || !strings.Contains(text, "BTG_SENHA") || !strings.Contains(text, link) || !strings.Contains(text, "nunca pela conversa") {
 		t.Fatalf("text %q", text)
 	}
 	if f, _ := out["chaves_faltando"].([]any); len(f) != 1 || f[0] != "BTG_SENHA" {
@@ -600,7 +600,7 @@ func TestRegistrarScriptKeysGoToVault(t *testing.T) {
 	m["keys"] = []any{map[string]any{"name": "BTG_SENHA", "label": "Senha do BTG", "required": true}, map[string]any{"name": "EMAIL", "label": "E-mail"}}
 	envio = sendEnvio(t, h, s, map[string]string{"main.py": "import os\nprint(os.environ.get('EMAIL'))\n"})
 	res, text, _ = registrar(t, s, map[string]any{"envio": envio, "app_id": id, "manifesto": m})
-	if res.IsError || !strings.Contains(text, "chaves do cofre") {
+	if res.IsError || !strings.Contains(text, "chaves e senhas") {
 		t.Fatalf("update %q", text)
 	}
 	var got keysOut

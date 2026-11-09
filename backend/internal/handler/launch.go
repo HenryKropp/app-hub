@@ -97,16 +97,20 @@ func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *
 		return sqlc.Run{}, nil, err
 	}
 	if len(keys.Missing) > 0 {
-		return sqlc.Run{}, refuse(409, "keys_missing", "Falta preencher no cofre do app: "+strings.Join(keys.Missing, ", ")+". O dono do app ou um administrador preenche na página do app, parte Cofre."), nil
+		return sqlc.Run{}, refuse(409, "keys_missing", "Falta preencher nas configurações do app: "+strings.Join(keys.Missing, ", ")+". O dono do app ou um administrador preenche na página do app, parte Configurações."), nil
 	}
-	hasKeys := slices.ContainsFunc(keys.Keys, func(k keyItem) bool { return k.HasValue })
-	if hasKeys {
-		if keys.Locked {
-			return sqlc.Run{}, refuse(503, "keys_locked", msgKeysLocked), nil
-		}
-		if !script && req.Computer.AgentVersion != agentproto.Version {
-			return sqlc.Run{}, refuse(409, "agent_outdated", "Este app usa o cofre: atualize o Agente em Configurações › Meu computador para abrir o app com as chaves."), nil
-		}
+	hasSecrets := slices.ContainsFunc(keys.Keys, func(k keyItem) bool { return k.HasValue })
+	if hasSecrets && keys.Locked {
+		return sqlc.Run{}, refuse(503, "keys_locked", msgKeysLocked), nil
+	}
+	// Plain values (Outros ajustes) travel with the keys (ADR 032).
+	plain, err := h.plainValues(ctx, a)
+	if err != nil {
+		return sqlc.Run{}, nil, err
+	}
+	hasKeys := hasSecrets || len(plain) > 0
+	if hasKeys && !script && req.Computer.AgentVersion != agentproto.Version {
+		return sqlc.Run{}, refuse(409, "agent_outdated", "Este app usa as configurações guardadas no Ziv: atualize o Agente em Configurações › Meu computador para abrir o app com elas."), nil
 	}
 	if msg, err := h.folderInUse(ctx, req.Computer.ID, req.OutputFolder, script); err != nil {
 		return sqlc.Run{}, nil, err

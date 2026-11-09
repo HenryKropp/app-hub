@@ -371,7 +371,7 @@ func TestKeysValidate(t *testing.T) {
 	r.Kind = KindReference
 	r.Entrypoint = ""
 	r.Keys = []Key{{Name: "X"}}
-	if errs := r.Validate(); !slices.ContainsFunc(errs, func(e string) bool { return strings.Contains(e, "não tem cofre") }) {
+	if errs := r.Validate(); !slices.ContainsFunc(errs, func(e string) bool { return strings.Contains(e, "não tem configurações") }) {
 		t.Errorf("reference keys: %v", errs)
 	}
 }

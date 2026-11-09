@@ -89,7 +89,7 @@ func (a *Agent) handle(ctx context.Context, job agentproto.Job) {
 			keys, err := a.Client.Keys(ctx, job.ID)
 			if err != nil {
 				slog.Error("fetch app keys", "job", job.ID, "err", err)
-				a.report(ctx, job.ID, failed("Não consegui pegar as chaves do cofre do app. Tente rodar de novo."))
+				a.report(ctx, job.ID, failed("Não consegui pegar as chaves e senhas do app. Tente rodar de novo."))
 				return
 			}
 			p.KeyValues = keys

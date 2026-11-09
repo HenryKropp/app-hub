@@ -143,11 +143,11 @@ func sentFailure(status int, raw []byte, msg string) string {
 	switch {
 	case status == http.StatusConflict && e.Code == "script_secrets_confirmation_required":
 		return fmt.Sprintf("O Ziv achou %d trecho(s) no código que parecem senhas ou chaves:", e.SecretCount) + spotLines(e.Findings) +
-			"\nNada foi mandado. Veja cada linha: se for uma senha ou chave de verdade, troque o valor pela leitura do ambiente (os.environ[\"NOME\"]), liste o NOME em keys na ficha (a pessoa preenche o valor no cofre do app, nunca pela conversa) e prepare um envio novo; " +
+			"\nNada foi mandado. Veja cada linha: se for uma senha ou chave de verdade, troque o valor pela leitura do ambiente (os.environ[\"NOME\"]), liste o NOME em keys na ficha (a pessoa preenche o valor nas Configurações do app, nunca pela conversa) e prepare um envio novo; " +
 			"se não for (por exemplo, o nome de um campo), pergunte à pessoa se quer mandar mesmo assim; só se ela confirmar, chame registrar_app de novo com o mesmo envio e confirmar_segredos: true. Nunca mostre os valores na conversa."
 	case status == http.StatusUnprocessableEntity && e.Code == "script_secrets_blocked":
 		return e.Error + spotLines(e.Findings) +
-			"\nVeja cada linha: troque cada senha ou chave pela leitura do ambiente (os.environ[\"NOME\"]) e liste o NOME em keys na ficha (a pessoa preenche o valor no cofre do app, nunca pela conversa); se a linha não tem senha, reescreva para não parecer uma (por exemplo, sem atribuir a uma variável chamada token ou senha). Depois prepare um envio novo. Nunca mostre os valores na conversa."
+			"\nVeja cada linha: troque cada senha ou chave pela leitura do ambiente (os.environ[\"NOME\"]) e liste o NOME em keys na ficha (a pessoa preenche o valor nas Configurações do app, nunca pela conversa); se a linha não tem senha, reescreva para não parecer uma (por exemplo, sem atribuir a uma variável chamada token ou senha). Depois prepare um envio novo. Nunca mostre os valores na conversa."
 	case status == http.StatusConflict && e.Code == "no_stored_code":
 		return e.Error
 	case status == http.StatusBadRequest:
@@ -185,7 +185,7 @@ func fichaChanges(cur manifest.Manifest, sent map[string]any, next manifest.Mani
 		}
 		if has("keys") && !reflect.DeepEqual(normJSON(next.Keys), normJSON(cur.Keys)) {
 			f.Keys = &next.Keys
-			changed = append(changed, "chaves do cofre")
+			changed = append(changed, "chaves e senhas")
 		}
 	}
 	if has("name") && strings.TrimSpace(next.Name) != cur.Name {
@@ -354,7 +354,7 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 		b.WriteString("\nDeixei de fora: " + strings.Join(dropped, ", ") + " (senhas e pastas que não sobem).")
 		for _, d := range dropped {
 			if !strings.HasSuffix(d, "/") {
-				fmt.Fprintf(&b, " Se o app precisa dessas chaves, ele deve ler cada uma do ambiente (os.environ[\"NOME\"]) e a ficha pode listar os nomes em keys. Para guardar os valores do .env no cofre do app, chame enviar_chaves com app_id %d e rode o curl (sem abrir o arquivo); nunca mande os valores pela conversa.", ans.ID)
+				fmt.Fprintf(&b, " Se o app precisa dessas chaves, ele deve ler cada uma do ambiente (os.environ[\"NOME\"]) e a ficha pode listar os nomes em keys. Para guardar os valores do .env nas Configurações do app, chame enviar_chaves com app_id %d e rode o curl (sem abrir o arquivo); nunca mande os valores pela conversa.", ans.ID)
 				break
 			}
 		}
@@ -379,7 +379,7 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 			for _, k := range keys.Keys {
 				names = append(names, k.Name)
 			}
-			fmt.Fprintf(&b, "\nO app lê do cofre: %s.", strings.Join(names, ", "))
+			fmt.Fprintf(&b, "\nO app lê das Configurações do app: %s.", strings.Join(names, ", "))
 			if len(missing) > 0 {
 				fmt.Fprintf(&b, " Falta preencher: %s. Se estão no .env da pasta, use enviar_chaves; senão, o dono do app ou um administrador preenche em %s, nunca pela conversa. Até lá o app não abre.",
 					strings.Join(missing, ", "), h.mcpLink("/apps/%d#chaves", ans.ID))

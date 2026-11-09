@@ -120,11 +120,11 @@ func (m Manifest) keyProblems() []string {
 		return nil
 	}
 	if !HasVault(m.Kind) {
-		return []string{"Este tipo de app não roda, então não tem cofre de chaves."}
+		return []string{"Este tipo de app não roda, então não tem configurações."}
 	}
 	var out []string
 	if len(m.Keys) > MaxKeys {
-		out = append(out, fmt.Sprintf("O cofre do app guarda no máximo %d chaves.", MaxKeys))
+		out = append(out, fmt.Sprintf("O app guarda no máximo %d chaves e senhas.", MaxKeys))
 	}
 	seen := map[string]bool{}
 	for _, k := range m.Keys {
