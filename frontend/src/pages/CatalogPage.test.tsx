@@ -148,3 +148,12 @@ test("each card has a star that reflects favorite", async () => {
   expect(await screen.findByRole("button", { name: "Tirar Eq. Research Files Prep dos favoritos" })).toHaveAttribute("aria-pressed", "true")
   expect(screen.getByRole("button", { name: "Marcar Outro como favorito" })).toHaveAttribute("aria-pressed", "false")
 })
+
+test("Arquivados shows only when there are archived apps the person could bring back", async () => {
+  vi.spyOn(api, "apps").mockResolvedValue([appSummary()])
+  vi.spyOn(api, "archivedApps").mockResolvedValue([
+    { id: 9, name: "Velho", summary: "", kind: "web", area: "", owner_name: "Henry", archived_at: "2026-11-01T00:00:00Z", archived_by_name: "Henry", purge_at: "2026-12-01T00:00:00Z", days_left: 22 },
+  ])
+  mount()
+  expect(await screen.findByRole("link", { name: /Arquivados \(1\)/ })).toHaveAttribute("href", "/apps/arquivados")
+})

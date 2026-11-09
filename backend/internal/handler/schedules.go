@@ -239,6 +239,9 @@ func (h *Handler) scheduleFor(w http.ResponseWriter, r *http.Request) (sqlc.Sche
 	mine := s.PersonID == me.ID
 	carer := false
 	if a, err := h.q.GetApp(r.Context(), s.AppID); err == nil {
+		if a.ArchivedAt.Valid {
+			return notFound()
+		}
 		acc, err := h.loadAccess(r.Context(), me)
 		if err != nil {
 			internalError(w, "load access", err)

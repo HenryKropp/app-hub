@@ -108,7 +108,7 @@ const listMyAttentionRuns = `-- name: ListMyAttentionRuns :many
 SELECT r.id, r.app_id, a.name AS app_name, r.status, r.created_at, r.error_message
 FROM runs r
 JOIN apps a ON a.id = r.app_id
-WHERE r.person_id = $1 AND r.dismissed_at IS NULL AND r.origin <> 'schedule'
+WHERE r.person_id = $1 AND r.dismissed_at IS NULL AND r.origin <> 'schedule' AND a.archived_at IS NULL
   AND r.created_at > now() - interval '7 days'
   AND (r.status IN ('error', 'interrupted') OR (r.status = 'waiting' AND r.created_at < now() - interval '5 minutes'))
 ORDER BY r.created_at DESC
@@ -362,13 +362,13 @@ SELECT kind, id, name, area_id, owner_id, backup_id, restricted, person_name, ev
     SELECT 'app'::text AS kind, a.id, a.name, a.area_id, a.owner_id, a.backup_id, a.restricted,
            COALESCE(pe.name, '')::text AS person_name, 'created'::text AS event, 1::int AS version, a.created_at AS at
     FROM apps a LEFT JOIN people pe ON pe.id = a.created_by
-    WHERE a.created_at > now() - interval '14 days'
+    WHERE a.created_at > now() - interval '14 days' AND a.archived_at IS NULL
       AND ($1::bool OR a.area_id = ANY($2::bigint[]))
     UNION ALL
     SELECT 'app', a.id, a.name, a.area_id, a.owner_id, a.backup_id, a.restricted,
            COALESCE(pe.name, ''), 'new_version', v.number, v.created_at
     FROM app_versions v JOIN apps a ON a.id = v.app_id LEFT JOIN people pe ON pe.id = v.author_id
-    WHERE v.number > 1 AND v.created_at > now() - interval '14 days'
+    WHERE v.number > 1 AND v.created_at > now() - interval '14 days' AND a.archived_at IS NULL
       AND ($1::bool OR a.area_id = ANY($2::bigint[]))
     UNION ALL
     SELECT 'artifact', a.id, a.name, a.area_id, a.owner_id, a.backup_id, a.restricted,

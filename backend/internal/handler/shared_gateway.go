@@ -91,6 +91,10 @@ func (h *Handler) sharedAuthorize(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "authorize app", err)
 		return
 	}
+	if app.ArchivedAt.Valid {
+		gateway.Page(w, r, http.StatusNotFound, "App arquivado", "Este app foi arquivado. Quem cuida dele pode trazê-lo de volta no Ziv.", "/")
+		return
+	}
 	acc, err := h.loadAccess(r.Context(), me)
 	if err != nil {
 		internalError(w, "authorize access", err)
@@ -140,6 +144,9 @@ func (b gatewayBackend) Lookup(ctx context.Context, slug string, test bool) (gat
 	if err != nil {
 		return gateway.Target{}, false, err
 	}
+	if app.ArchivedAt.Valid {
+		return gateway.Target{}, false, nil // an archived app has no address
+	}
 	t := gateway.Target{AppID: app.ID, Name: app.Name, Status: sa.Status}
 	if ws := b.h.workspace; ws != nil && ws.SharedEnabled != nil && !ws.SharedEnabled(ctx) {
 		return gateway.Target{AppID: app.ID, Name: app.Name, Status: "disabled"}, true, nil
@@ -177,6 +184,9 @@ func (b gatewayBackend) Allowed(ctx context.Context, personID, appID int64, test
 	}
 	if err != nil {
 		return gateway.Identity{}, false, err
+	}
+	if app.ArchivedAt.Valid {
+		return gateway.Identity{}, false, nil
 	}
 	acc, err := b.h.loadAccess(ctx, p)
 	if err != nil {

@@ -321,7 +321,7 @@ func (q *Queries) ListAppSchedules(ctx context.Context, appID int64) ([]ListAppS
 const listMyPausedSchedules = `-- name: ListMyPausedSchedules :many
 SELECT s.id, s.app_id, a.name AS app_name, s.paused_reason, s.updated_at
 FROM schedules s JOIN apps a ON a.id = s.app_id
-WHERE s.person_id = $1 AND NOT s.active AND s.paused_reason <> ''
+WHERE s.person_id = $1 AND NOT s.active AND s.paused_reason <> '' AND a.archived_at IS NULL
 ORDER BY s.updated_at DESC
 LIMIT 10
 `
@@ -368,7 +368,7 @@ JOIN people p ON p.id = s.person_id
 JOIN computers c ON c.id = s.computer_id
 JOIN apps a ON a.id = s.app_id
 LEFT JOIN runs r ON r.id = s.last_run_id
-WHERE s.person_id = $1
+WHERE s.person_id = $1 AND a.archived_at IS NULL
 ORDER BY s.created_at
 `
 
@@ -440,6 +440,23 @@ func (q *Queries) ListPersonSchedules(ctx context.Context, personID int64) ([]Li
 		return nil, err
 	}
 	return items, nil
+}
+
+const pauseAppSchedules = `-- name: PauseAppSchedules :execrows
+UPDATE schedules SET active = false, paused_reason = $2, updated_at = now() WHERE app_id = $1 AND active
+`
+
+type PauseAppSchedulesParams struct {
+	AppID        int64  `json:"app_id"`
+	PausedReason string `json:"paused_reason"`
+}
+
+func (q *Queries) PauseAppSchedules(ctx context.Context, arg PauseAppSchedulesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, pauseAppSchedules, arg.AppID, arg.PausedReason)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const recordScheduleLaunch = `-- name: RecordScheduleLaunch :exec

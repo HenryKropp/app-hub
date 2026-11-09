@@ -11,8 +11,56 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const appArchived = `-- name: AppArchived :one
+SELECT (archived_at IS NOT NULL)::bool AS archived FROM apps WHERE id = $1
+`
+
+func (q *Queries) AppArchived(ctx context.Context, id int64) (bool, error) {
+	row := q.db.QueryRow(ctx, appArchived, id)
+	var archived bool
+	err := row.Scan(&archived)
+	return archived, err
+}
+
+const archiveApp = `-- name: ArchiveApp :one
+UPDATE apps SET archived_at = now(), archived_by = $2
+WHERE id = $1 AND archived_at IS NULL
+RETURNING id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by
+`
+
+type ArchiveAppParams struct {
+	ID         int64       `json:"id"`
+	ArchivedBy pgtype.Int8 `json:"archived_by"`
+}
+
+func (q *Queries) ArchiveApp(ctx context.Context, arg ArchiveAppParams) (App, error) {
+	row := q.db.QueryRow(ctx, archiveApp, arg.ID, arg.ArchivedBy)
+	var i App
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Name,
+		&i.Summary,
+		&i.Kind,
+		&i.Language,
+		&i.Area,
+		&i.FolderPath,
+		&i.OwnerID,
+		&i.BackupID,
+		&i.Manifest,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AreaID,
+		&i.Restricted,
+		&i.ArchivedAt,
+		&i.ArchivedBy,
+	)
+	return i, err
+}
+
 const getApp = `-- name: GetApp :one
-SELECT id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted FROM apps WHERE id = $1
+SELECT id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by FROM apps WHERE id = $1
 `
 
 func (q *Queries) GetApp(ctx context.Context, id int64) (App, error) {
@@ -35,12 +83,14 @@ func (q *Queries) GetApp(ctx context.Context, id int64) (App, error) {
 		&i.UpdatedAt,
 		&i.AreaID,
 		&i.Restricted,
+		&i.ArchivedAt,
+		&i.ArchivedBy,
 	)
 	return i, err
 }
 
 const getAppByFolder = `-- name: GetAppByFolder :one
-SELECT id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted FROM apps WHERE folder_path = $1
+SELECT id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by FROM apps WHERE folder_path = $1
 `
 
 func (q *Queries) GetAppByFolder(ctx context.Context, folderPath string) (App, error) {
@@ -63,20 +113,23 @@ func (q *Queries) GetAppByFolder(ctx context.Context, folderPath string) (App, e
 		&i.UpdatedAt,
 		&i.AreaID,
 		&i.Restricted,
+		&i.ArchivedAt,
+		&i.ArchivedBy,
 	)
 	return i, err
 }
 
 const listAppIdentities = `-- name: ListAppIdentities :many
-SELECT id, slug, name, summary, folder_path FROM apps
+SELECT id, slug, name, summary, folder_path, archived_at FROM apps
 `
 
 type ListAppIdentitiesRow struct {
-	ID         int64  `json:"id"`
-	Slug       string `json:"slug"`
-	Name       string `json:"name"`
-	Summary    string `json:"summary"`
-	FolderPath string `json:"folder_path"`
+	ID         int64              `json:"id"`
+	Slug       string             `json:"slug"`
+	Name       string             `json:"name"`
+	Summary    string             `json:"summary"`
+	FolderPath string             `json:"folder_path"`
+	ArchivedAt pgtype.Timestamptz `json:"archived_at"`
 }
 
 func (q *Queries) ListAppIdentities(ctx context.Context) ([]ListAppIdentitiesRow, error) {
@@ -94,6 +147,7 @@ func (q *Queries) ListAppIdentities(ctx context.Context) ([]ListAppIdentitiesRow
 			&i.Name,
 			&i.Summary,
 			&i.FolderPath,
+			&i.ArchivedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -108,7 +162,7 @@ func (q *Queries) ListAppIdentities(ctx context.Context) ([]ListAppIdentitiesRow
 const listAppLinks = `-- name: ListAppLinks :many
 SELECT id, slug, name, area_id, owner_id, backup_id, restricted,
        COALESCE(manifest->'depends_on', '[]'::jsonb) AS depends_on
-FROM apps ORDER BY name
+FROM apps WHERE archived_at IS NULL ORDER BY name
 `
 
 type ListAppLinksRow struct {
@@ -157,6 +211,7 @@ SELECT a.id, a.slug, a.name, a.summary, a.kind, a.language, a.area, a.area_id, a
        COALESCE(a.manifest->>'entrypoint', '')::text AS entrypoint
 FROM apps a
 JOIN people o ON o.id = a.owner_id
+WHERE a.archived_at IS NULL
 ORDER BY a.name
 `
 
@@ -216,6 +271,108 @@ func (q *Queries) ListApps(ctx context.Context) ([]ListAppsRow, error) {
 	return items, nil
 }
 
+const listArchivedApps = `-- name: ListArchivedApps :many
+SELECT a.id, a.name, a.summary, a.kind, a.area, a.area_id, a.restricted, a.owner_id, a.backup_id,
+       o.name AS owner_name, a.archived_at::timestamptz AS archived_at,
+       COALESCE(b.name, '')::text AS archived_by_name
+FROM apps a
+JOIN people o ON o.id = a.owner_id
+LEFT JOIN people b ON b.id = a.archived_by
+WHERE a.archived_at IS NOT NULL
+ORDER BY a.archived_at DESC
+`
+
+type ListArchivedAppsRow struct {
+	ID             int64              `json:"id"`
+	Name           string             `json:"name"`
+	Summary        string             `json:"summary"`
+	Kind           string             `json:"kind"`
+	Area           string             `json:"area"`
+	AreaID         int64              `json:"area_id"`
+	Restricted     bool               `json:"restricted"`
+	OwnerID        int64              `json:"owner_id"`
+	BackupID       pgtype.Int8        `json:"backup_id"`
+	OwnerName      string             `json:"owner_name"`
+	ArchivedAt     pgtype.Timestamptz `json:"archived_at"`
+	ArchivedByName string             `json:"archived_by_name"`
+}
+
+func (q *Queries) ListArchivedApps(ctx context.Context) ([]ListArchivedAppsRow, error) {
+	rows, err := q.db.Query(ctx, listArchivedApps)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListArchivedAppsRow
+	for rows.Next() {
+		var i ListArchivedAppsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Summary,
+			&i.Kind,
+			&i.Area,
+			&i.AreaID,
+			&i.Restricted,
+			&i.OwnerID,
+			&i.BackupID,
+			&i.OwnerName,
+			&i.ArchivedAt,
+			&i.ArchivedByName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listArchivedBefore = `-- name: ListArchivedBefore :many
+SELECT id FROM apps WHERE archived_at IS NOT NULL AND archived_at < $1 ORDER BY id
+`
+
+func (q *Queries) ListArchivedBefore(ctx context.Context, archivedAt pgtype.Timestamptz) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listArchivedBefore, archivedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const purgeArchivedApp = `-- name: PurgeArchivedApp :execrows
+DELETE FROM apps WHERE id = $1 AND archived_at IS NOT NULL AND archived_at < $2
+`
+
+type PurgeArchivedAppParams struct {
+	ID         int64              `json:"id"`
+	ArchivedAt pgtype.Timestamptz `json:"archived_at"`
+}
+
+// Deletes the app for good (everything that hangs on it goes by cascade);
+// only while it is still archived since before the cutoff.
+func (q *Queries) PurgeArchivedApp(ctx context.Context, arg PurgeArchivedAppParams) (int64, error) {
+	result, err := q.db.Exec(ctx, purgeArchivedApp, arg.ID, arg.ArchivedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const slugExists = `-- name: SlugExists :one
 SELECT EXISTS(SELECT 1 FROM apps WHERE slug = $1 AND folder_path <> $2)
 `
@@ -232,6 +389,38 @@ func (q *Queries) SlugExists(ctx context.Context, arg SlugExistsParams) (bool, e
 	return exists, err
 }
 
+const unarchiveApp = `-- name: UnarchiveApp :one
+UPDATE apps SET archived_at = NULL, archived_by = NULL
+WHERE id = $1 AND archived_at IS NOT NULL
+RETURNING id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by
+`
+
+func (q *Queries) UnarchiveApp(ctx context.Context, id int64) (App, error) {
+	row := q.db.QueryRow(ctx, unarchiveApp, id)
+	var i App
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Name,
+		&i.Summary,
+		&i.Kind,
+		&i.Language,
+		&i.Area,
+		&i.FolderPath,
+		&i.OwnerID,
+		&i.BackupID,
+		&i.Manifest,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.AreaID,
+		&i.Restricted,
+		&i.ArchivedAt,
+		&i.ArchivedBy,
+	)
+	return i, err
+}
+
 const upsertApp = `-- name: UpsertApp :one
 INSERT INTO apps (slug, name, summary, kind, language, area, area_id, folder_path, owner_id, backup_id, manifest, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
@@ -246,7 +435,7 @@ ON CONFLICT (folder_path) DO UPDATE SET
     backup_id = EXCLUDED.backup_id,
     manifest = EXCLUDED.manifest,
     updated_at = now()
-RETURNING id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted
+RETURNING id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by
 `
 
 type UpsertAppParams struct {
@@ -297,6 +486,8 @@ func (q *Queries) UpsertApp(ctx context.Context, arg UpsertAppParams) (App, erro
 		&i.UpdatedAt,
 		&i.AreaID,
 		&i.Restricted,
+		&i.ArchivedAt,
+		&i.ArchivedBy,
 	)
 	return i, err
 }

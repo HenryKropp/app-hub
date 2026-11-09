@@ -12,7 +12,8 @@ import (
 )
 
 const countPublishedSharedApps = `-- name: CountPublishedSharedApps :one
-SELECT count(*) FROM shared_apps WHERE unshared_at IS NULL AND current_deployment_id IS NOT NULL
+SELECT count(*) FROM shared_apps s JOIN apps a ON a.id = s.app_id
+WHERE s.unshared_at IS NULL AND s.current_deployment_id IS NOT NULL AND a.archived_at IS NULL
 `
 
 func (q *Queries) CountPublishedSharedApps(ctx context.Context) (int64, error) {
@@ -873,7 +874,7 @@ func (q *Queries) ListOpenTests(ctx context.Context, appID int64) ([]SharedDeplo
 const listSharedApps = `-- name: ListSharedApps :many
 SELECT s.app_id, s.slug, s.status, s.always_on, s.idle_minutes, s.memory_mb, s.cpus, s.health_path, s.port, s.wants_db, s.db_name, s.current_deployment_id, s.previous_deployment_id, s.restart_count, s.restart_window_start, s.last_access_at, s.status_changed_at, s.status_message, s.acks, s.stopped_by, s.unshared_at, s.created_at, a.name AS app_name, a.owner_id, a.backup_id
 FROM shared_apps s JOIN apps a ON a.id = s.app_id
-WHERE s.unshared_at IS NULL
+WHERE s.unshared_at IS NULL AND a.archived_at IS NULL
 ORDER BY a.name
 `
 

@@ -282,10 +282,6 @@ func (h *Handler) updateSecurityApp(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) allowExecution(w http.ResponseWriter, r *http.Request, id int64) bool {
-	// Legacy unit handlers stay compatible; the portal always sets workspace.
-	if h.workspace == nil {
-		return true
-	}
 	reason, err := h.executionBlock(r.Context(), id)
 	if err != nil {
 		internalError(w, "execution policy", err)
@@ -299,6 +295,12 @@ func (h *Handler) allowExecution(w http.ResponseWriter, r *http.Request, id int6
 }
 
 func (h *Handler) executionBlock(ctx context.Context, id int64) (string, error) {
+	if archived, err := h.isArchived(ctx, id); err != nil {
+		return "", err
+	} else if archived {
+		return msgArchivedRun, nil
+	}
+	// Legacy unit handlers stay compatible; the portal always sets workspace.
 	if h.workspace == nil {
 		return "", nil
 	}

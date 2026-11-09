@@ -10,6 +10,7 @@ import { EditLink, Part, SaveBar, Section } from "@/components/ficha/Part"
 import { BuildView, InputList, Notes, OtherApps, OutputList, People, RunList } from "@/components/ficha/views"
 import { MakeShared, SharedSection } from "@/components/ficha/shared/SharedSection"
 import { AppControlBar } from "@/components/ficha/AppControl"
+import { ArchiveApp } from "@/components/ficha/ArchiveApp"
 import { CareNav, FaceSwitch, Steps, TodoList, type Face, type MenuItem, type Step, type Todo } from "@/components/ficha/CareMenu"
 import { SettingsSection, VAULT_KINDS } from "@/components/ficha/SettingsSection"
 import { RunsPanel } from "@/components/ficha/RunsPanel"
@@ -486,6 +487,9 @@ export function AppPage() {
           </div>
         </div>
       )}
+
+      {/* Arquivar (ADR 031): only the owner or an administrator. */}
+      {can.access && <ArchiveApp className="mt-12" appId={app.id} name={m.name} shared={!!app.shared && app.shared.status !== "draft"} />}
     </article>
   )
 }
