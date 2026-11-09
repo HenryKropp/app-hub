@@ -131,6 +131,9 @@ func (h *Handler) Register(mux *http.ServeMux) {
 
 	mux.HandleFunc("POST /api/scan", h.scan)
 	mux.HandleFunc("GET /api/apps", h.listApps)
+	mux.HandleFunc("GET /api/apps/archived", h.listArchivedApps)
+	mux.HandleFunc("POST /api/apps/{id}/archive", h.archiveApp)
+	mux.HandleFunc("POST /api/apps/{id}/unarchive", h.restoreArchivedApp)
 	mux.HandleFunc("GET /api/apps/{id}", h.getApp)
 	mux.HandleFunc("PUT /api/apps/{id}", h.updateApp)
 	mux.HandleFunc("POST /api/apps/{id}/check", h.checkApp)

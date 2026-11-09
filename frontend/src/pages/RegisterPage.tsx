@@ -56,7 +56,7 @@ export function RegisterPage() {
         /* storage unavailable */
       }
       const initial: Record<string, Status> = {}
-      r.items.forEach((it) => (initial[it.folder_path] = it.registered_app_id ? "published" : it.suggest_skip ? "skipped" : "pending"))
+      r.items.forEach((it) => (initial[it.folder_path] = it.registered_app_id ? "published" : it.archived_app_id || it.suggest_skip ? "skipped" : "pending"))
       setStatus(initial)
       setPublished({})
       setResult(r)
@@ -220,6 +220,13 @@ export function RegisterPage() {
             </ol>
 
             <div className="min-w-0 rounded-xl border border-border bg-card px-6 pt-6">
+              {current?.archived_app_id ? (
+                <p className="mb-5 rounded-md bg-muted px-4 py-3 text-sm">
+                  O app desta pasta está arquivado. Traga-o de volta em{" "}
+                  <Link to="/apps/arquivados" className="font-medium underline underline-offset-4">Apps › Arquivados</Link>{" "}
+                  em vez de registrar de novo.
+                </p>
+              ) : null}
               {current && status[current.folder_path] === "published" && (
                 <p className="mb-5 rounded-md bg-ok-soft px-4 py-3 text-sm">
                   Este app já está no catálogo.{" "}

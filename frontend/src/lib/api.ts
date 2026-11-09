@@ -94,6 +94,8 @@ export type ScanItem = {
   has_manifest: boolean
   suggest_skip: boolean
   registered_app_id: number
+  // The folder belongs to an archived app (ADR 031): bring it back instead.
+  archived_app_id?: number
   similar: { name: string; app_id?: number; folder_name?: string }[]
 }
 
@@ -137,6 +139,20 @@ export type ServerInfo = {
   company_only?: boolean
   memory_total?: number; memory_used?: number; disk_total?: number; disk_used?: number; disk_warning?: boolean; engine_ok: boolean
   monthly_cost_cents: number; hub_cents: number; period_start: string; apps: ServerApp[]
+}
+
+// An app in Apps › Arquivados (ADR 031), deleted for good at purge_at.
+export type ArchivedApp = {
+  id: number
+  name: string
+  summary: string
+  kind: Kind
+  area: string
+  owner_name: string
+  archived_at: string
+  archived_by_name: string
+  purge_at: string
+  days_left: number
 }
 
 export type AppSummary = {
@@ -452,6 +468,9 @@ export const api = {
   scan: (path: string, mode: "batch" | "single") => request<ScanResult>("POST", "/api/scan", { path, mode }),
   apps: () => request<AppSummary[]>("GET", "/api/apps"),
   app: (id: number | string) => request<AppDetail>("GET", `/api/apps/${id}`),
+  archivedApps: () => request<ArchivedApp[]>("GET", "/api/apps/archived"),
+  archiveApp: (id: number) => request<ArchivedApp>("POST", `/api/apps/${id}/archive`),
+  unarchiveApp: (id: number) => request<{ id: number; name: string }>("POST", `/api/apps/${id}/unarchive`),
   saveApp: (b: { folder_path: string; owner_id: number; backup_id: number | null; manifest: Manifest }) =>
     request<AppDetail>("POST", "/api/apps", b),
   importScript: (b: { manifest: Manifest; files: Record<string, { name: string; content_base64: string }>; confirm_secrets?: boolean }) =>

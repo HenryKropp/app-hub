@@ -168,6 +168,10 @@ func (h *Handler) serverApp(w http.ResponseWriter, r *http.Request) (sqlc.Person
 		internalError(w, "get app", err)
 		return me, sqlc.App{}, sqlc.SharedApp{}, false
 	}
+	if a.ArchivedAt.Valid {
+		writeError(w, http.StatusGone, msgArchived)
+		return me, sqlc.App{}, sqlc.SharedApp{}, false
+	}
 	return me, a, sa, true
 }
 
