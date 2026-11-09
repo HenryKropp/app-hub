@@ -436,4 +436,5 @@ Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mc
 | Aba Execuções na face Cuidar, com "Rodando agora" e relógio | Done | |
 | "Rodando agora" em Minhas execuções e na Home | Done | Só as execuções da própria pessoa |
 | Página da execução: o que foi preenchido, tempo correndo e registro do app | Done | Valores com cara de senha não são guardados |
+| Publicado em zivapp.duckdns.org | Done | 2026-11-09 |
 | Teste do Henry no Ziv publicado | Pending | |
