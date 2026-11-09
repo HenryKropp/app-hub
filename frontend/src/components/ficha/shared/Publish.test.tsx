@@ -94,8 +94,8 @@ it("disables publishing while the check has pending items", () => {
   expect(screen.getByText("Resolva a checagem primeiro.")).toBeInTheDocument()
 })
 
-it("only Publicar is coral; Testar is a neutral button", async () => {
+it("Testar and Publicar are not coral: the page keeps one coral button, Abrir (ADR 029)", async () => {
   render(<PublishBar appId={1} ready live={false} latest={1} liveVersion={undefined} hasPrevious={false} interval={10} onDone={() => {}} />)
   expect(screen.getByRole("button", { name: "Testar" }).className).not.toContain("bg-brand")
-  expect(screen.getByRole("button", { name: "Publicar" }).className).toContain("bg-brand")
+  expect(screen.getByRole("button", { name: "Publicar" }).className).not.toContain("bg-brand")
 })

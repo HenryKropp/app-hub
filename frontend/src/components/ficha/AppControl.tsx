@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
  * Whether the company lets this app run. Everyone sees why it can't run;
  * administrators approve, suspend and reactivate it right here.
  */
-export function AppControlBar({ appId, control, onChanged }: { appId: number; control?: AppControl | null; onChanged: (c: AppControl) => void }) {
+export function AppControlBar({ appId, control, onChanged, className = "mb-8" }: { appId: number; control?: AppControl | null; onChanged: (c: AppControl) => void; className?: string }) {
   const [busy, setBusy] = useState(false)
   if (!control) return null
   const pending = control.require_approval && !control.approved
@@ -40,7 +40,8 @@ export function AppControlBar({ appId, control, onChanged }: { appId: number; co
     <div
       role="status"
       className={cn(
-        "mb-8 flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between",
+        "flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between",
+        className,
         state.tone === "bad" && "border-destructive/30 bg-destructive/5",
         state.tone === "warn" && "border-warn/35 bg-warn-soft",
         state.tone === "ok" && "border-border bg-card",

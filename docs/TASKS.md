@@ -400,3 +400,13 @@ Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mc
 | Peça 2: rodar no servidor | Pending | Para apps que não precisam do PC (ex.: News Scrapper) |
 | Peça 3: e-mail opcional por agendamento | Pending | Precisa escolher um serviço de envio |
 | Faixa de execuções abertas sem as agendadas que já terminaram | Done | Revisão final; ficam no histórico |
+
+## Ficha em duas faces: Usar e Cuidar (2026-11-09, ADR 029)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| 5 opções de organização da página do app | Done | Henry escolheu misturar "Usar · Cuidar" com "Menu de seções" (opção 6) |
+| Faces Usar e Cuidar, menu de seções, Pendências com etapas | Done | `CareMenu.tsx`; quem cuida abre em Cuidar |
+| Um coral só na página (Publicar e Abrir do servidor neutros) | Done | |
+| Testes da página atualizados e novos (faces, pendências, aprovação) | Done | |
+| Teste do Henry na página de um app real | Pending | Script e app de navegador |

@@ -10,6 +10,7 @@ import { EditLink, Part, SaveBar, Section } from "@/components/ficha/Part"
 import { BuildView, InputList, Notes, OtherApps, OutputList, People, RunList } from "@/components/ficha/views"
 import { MakeShared, SharedSection } from "@/components/ficha/shared/SharedSection"
 import { AppControlBar } from "@/components/ficha/AppControl"
+import { CareNav, FaceSwitch, Steps, TodoList, type Face, type MenuItem, type Step, type Todo } from "@/components/ficha/CareMenu"
 import { KeysSection, VAULT_KINDS } from "@/components/ficha/KeysSection"
 import { Tech } from "@/components/ficha/shared/Tech"
 import { FavoriteStar } from "@/components/FavoriteStar"
@@ -28,16 +29,10 @@ type PartKey = "sobre" | "pede" | "entrega" | "pessoas" | "notas" | "outros" | "
 // changed elsewhere gets the 409 instead of reverting the other parts.
 type Draft = { manifest: Manifest; ownerId: number; backupId: number; updatedAt: string }
 type Lists = { areas: Area[]; people: PersonRow[]; apps: AppSummary[] }
+// The sections of the Cuidar face (ADR 029).
+type CareKey = "pendencias" | "ficha" | "servidor" | "cofre" | "acesso" | "codigo" | "historico"
 
 const RUNS_SHOWN = 5
-const techKey = (id?: string) => `apphub-tech-open-${id}`
-function readTechOpen(id?: string) {
-  try {
-    return localStorage.getItem(techKey(id)) === "1"
-  } catch {
-    return false
-  }
-}
 
 export function AppPage() {
   const { id } = useParams()
@@ -54,8 +49,11 @@ export function AppPage() {
   const [draft, setDraft] = useState<Draft | null>(null)
   const [lists, setLists] = useState<Lists>({ areas: [], people: [], apps: [] })
   const listsAsked = useRef(false)
-  const [techOpen, setTechOpen] = useState(() => readTechOpen(id))
-  const [techSeen, setTechSeen] = useState(techOpen)
+  // null until the app loads: whoever takes care of it starts on Cuidar.
+  const [face, setFace] = useState<Face | null>(null)
+  const [section, setSection] = useState<CareKey>("pendencias")
+  // Sections already opened stay mounted (hidden), so going back keeps their state.
+  const [visited, setVisited] = useState<Set<CareKey>>(() => new Set(["pendencias"]))
   const { run, busy, rememberedFor, active } = useRuns()
 
   // The ficha shows what the Hub already knows; the folder check (OneDrive can
@@ -87,15 +85,15 @@ export function AppPage() {
     }
   }, [id, tries])
 
-  // Another app on the same page: forget the open part and the technical block.
+  // Another app on the same page: forget the open part and where the person was.
   useEffect(() => {
     setApp(null)
     setRuns(null)
     setOpen(null)
     setDraft(null)
-    const o = readTechOpen(id)
-    setTechOpen(o)
-    setTechSeen(o)
+    setFace(null)
+    setSection("pendencias")
+    setVisited(new Set(["pendencias"]))
   }, [id])
 
   // Runs reload when one of this app's runs changes situation in the strip.
@@ -138,10 +136,11 @@ export function AppPage() {
     })
   }
   const startEdit = (k: PartKey) => {
-    if (open && dirty && !window.confirm("Descartar o que você mudou?")) return
+    if (open && dirty && !window.confirm("Descartar o que você mudou?")) return false
     loadLists()
     setDraft({ manifest: structuredClone(app.manifest), ownerId: app.owner_id, backupId: app.backup_id ?? 0, updatedAt: app.updated_at })
     setOpen(k)
+    return true
   }
   const close = () => {
     setOpen(null)
@@ -165,15 +164,6 @@ export function AppPage() {
     setTries((n) => n + 1)
   }
   const setManifest = (patch: Partial<Manifest>) => setDraft((d) => (d ? { ...d, manifest: { ...d.manifest, ...patch } } : d))
-  const toggleTech = (o: boolean) => {
-    setTechOpen(o)
-    if (o) setTechSeen(true)
-    try {
-      localStorage.setItem(techKey(id), o ? "1" : "0")
-    } catch {
-      // Private windows may refuse storage; the block still opens.
-    }
-  }
 
   // One part of the ficha: everything a Part needs that is the same for all.
   const part = (k: PartKey, title: string, view: ReactNode, edit: () => ReactNode, canEdit = can.edit) => (
@@ -205,12 +195,87 @@ export function AppPage() {
     else void api.app(app.id).then(setApp, () => toast.error("Não consegui atualizar a ficha. Recarregue a página para ver o estado novo."))
   }
 
+  const control = app.control ?? null
+  const waitingApproval = !!control && control.require_approval && !control.approved
+  const blocked = !!control && (control.suspended || waitingApproval)
+
+  // Who takes care of the app gets the Cuidar face; everyone else only uses it.
+  const serverPart = can.restore && (!!app.shared || m.kind === "web")
+  const cares = can.edit || can.tech || serverPart || !!control?.can_manage
+  const shownFace: Face = cares ? (face ?? "cuidar") : "usar"
+
+  const go = (k: CareKey) => {
+    setFace("cuidar")
+    setSection(k)
+    setVisited((v) => (v.has(k) ? v : new Set(v).add(k)))
+  }
+  const editIn = (k: CareKey, p: PartKey) => {
+    if (startEdit(p)) go(k)
+  }
+
+  // Pendências: what stands between the app and the team using it with peace of mind.
+  const todos: Todo[] = []
+  if (!readable) {
+    todos.push({ key: "pasta", title: "Não consegui ler a pasta do app", detail: "mudanças novas no código não são registradas e não dá para voltar versões" })
+  }
+  if (app.shared && can.restore && (app.shared.status === "draft" || app.shared.status === "crashed")) {
+    todos.push({
+      key: "publicar",
+      title: app.shared.status === "draft" ? "Publicar no servidor" : "O app parou com erro no servidor",
+      detail: app.shared.status === "draft" ? "a equipe ainda não abre pelo endereço" : "veja o que aconteceu e ligue de novo",
+      action: <Button size="sm" variant="outline" onClick={() => go("servidor")}>Ir para Servidor</Button>,
+    })
+  }
+  if (!m.backup && can.edit && can.access) {
+    todos.push({ key: "reserva", title: "Escolher uma reserva", detail: "alguém que cuida do app quando o responsável não está", action: <Button size="sm" variant="outline" onClick={() => editIn("ficha", "pessoas")}>Escolher</Button> })
+  }
+  if (!m.summary && can.edit) {
+    todos.push({ key: "resumo", title: "Escrever o resumo", detail: "uma frase sobre o que o app faz", action: <Button size="sm" variant="outline" onClick={() => startEdit("sobre")}>Escrever</Button> })
+  }
+  if ((m.outputs ?? []).length === 0 && can.edit) {
+    todos.push({ key: "entrega", title: "Dizer o que ele entrega", detail: "quem usa sabe o que esperar", action: <Button size="sm" variant="outline" onClick={() => editIn("ficha", "entrega")}>Descrever</Button> })
+  }
+  const pendingCount = todos.length + (blocked ? 1 : 0)
+
+  const steps: Step[] = [{ label: "Registrado", done: true, state: "feito" }]
+  if (control?.require_approval || control?.suspended) {
+    steps.push({
+      label: "Aprovado",
+      done: control.approved && !control.suspended,
+      bad: control.suspended,
+      state: control.suspended ? "suspenso" : control.approved ? "feito" : control.can_manage ? "esperando você" : "esperando um administrador",
+    })
+  }
+  if (app.shared) {
+    steps.push({ label: "Publicado", done: app.shared.status !== "draft", state: app.shared.status === "draft" ? "rascunho" : "feito" })
+  }
+  steps.push({ label: "Com reserva", done: !!m.backup, state: m.backup ? m.backup.name : "ninguém ainda" })
+
+  const menu: MenuItem[] = [
+    { key: "pendencias", label: "Pendências", count: pendingCount, warn: true },
+    { key: "ficha", label: "Ficha", group: "App" },
+  ]
+  if (serverPart) menu.push({ key: "servidor", label: "Servidor", group: "App" })
+  if (VAULT_KINDS.includes(m.kind)) menu.push({ key: "cofre", label: "Cofre", group: "Ajustes" })
+  if (can.tech) {
+    menu.push({ key: "acesso", label: "Acesso", group: "Ajustes" })
+    menu.push({ key: "codigo", label: "Código", group: "Técnico", count: notes.length })
+    menu.push({ key: "historico", label: "Histórico", group: "Técnico" })
+  }
+  const current: CareKey = menu.some((i) => i.key === section) ? section : "pendencias"
+  const panel = (k: CareKey, body: ReactNode) =>
+    (visited.has(k) || current === k) && (
+      <div key={k} hidden={current !== k} role="region" aria-label={menu.find((i) => i.key === k)?.label}>
+        {body}
+      </div>
+    )
+
   return (
     <article>
       <Link to="/apps" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> Apps
       </Link>
-      <header className="flex flex-col gap-5 pb-8 lg:flex-row lg:items-end lg:justify-between">
+      <header className="flex flex-col gap-5 pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0 flex-1">
           {open === "sobre" && draft ? (
             <div className="flex max-w-2xl flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-xs" role="group" aria-label="Sobre">
@@ -239,7 +304,6 @@ export function AppPage() {
             {[
               m.area,
               m.owner && <>Responsável <span className="text-foreground">{m.owner.name}</span></>,
-              m.backup ? <>Reserva <span className="text-foreground">{m.backup.name}</span></> : <span className="text-warn">Sem reserva</span>,
               app.version && <span className="inline-flex gap-1"><span>versão {app.version.number}</span><span>de {formatWhen(app.version.created_at)}</span></span>,
             ].filter(Boolean).map((p, i) => (
               <span key={i} className="inline-flex items-center gap-2"><span aria-hidden className="text-muted-foreground/50">·</span>{p}</span>
@@ -273,94 +337,131 @@ export function AppPage() {
         )}
       </header>
 
-      <AppControlBar appId={app.id} control={app.control} onChanged={(control) => setApp({ ...app, control })} />
-
-      {!readable && (
-        <p role="alert" className="mt-4 flex gap-2 text-sm text-warn">
-          <TriangleAlert className="mt-0.5 size-4 shrink-0" /> Não consegui ler a pasta do app agora. O histórico continua aqui, mas mudanças novas no código não são registradas e não dá para voltar versões.
-        </p>
+      {cares && (
+        <div className="mb-6">
+          <FaceSwitch face={shownFace} onChange={setFace} pending={pendingCount} />
+        </div>
       )}
 
-      <div className="mt-8">
-        {part("pede", "O que ele pede", <InputList inputs={m.inputs ?? []} />, () => (
-          <InputsEditor value={draft!.manifest.inputs ?? []} onChange={(v) => setManifest({ inputs: v })} />
-        ))}
-        {part("entrega", "O que ele entrega", <OutputList outputs={m.outputs} />, () => (
-          <OutputsEditor value={draft!.manifest.outputs ?? []} onChange={(v) => setManifest({ outputs: v })} />
-        ))}
-        {(app.can_run || (runs?.length ?? 0) > 0) && (
-          <Section title={can.runs ? "Execuções" : "Suas execuções"}>
-            <RunList runs={runs} everyone={can.runs} />
-          </Section>
-        )}
-        {m.kind === "script" && <SchedulesSection appId={app.id} appName={m.name} manifest={m} reloadKey={schedulesKey} />}
-        {VAULT_KINDS.includes(m.kind) && <KeysSection appId={app.id} kind={m.kind} />}
-        {scheduling && (
-          <ScheduleDialog appId={app.id} appName={m.name} manifest={m} onClose={() => setScheduling(false)}
-            onSaved={() => { setScheduling(false); setSchedulesKey((k) => k + 1); toast.success("Agendamento salvo.") }} />
-        )}
-        {app.shared ? (
-          <SharedSection app={app} can={can} onChanged={sharedChanged} />
-        ) : (
-          m.kind === "web" && can.restore && <MakeShared app={app} onChanged={setApp} />
-        )}
-        {part("pessoas", "Quem cuida", <People owner={m.owner?.name ?? ""} backup={m.backup?.name ?? ""} />, () => (
-          <PeopleEditor people={lists.people} ownerId={draft!.ownerId} backupId={draft!.backupId} onChange={(o, b) => setDraft({ ...draft!, ownerId: o, backupId: b })} />
-        ), can.edit && can.access)}
+      {scheduling && (
+        <ScheduleDialog appId={app.id} appName={m.name} manifest={m} onClose={() => setScheduling(false)}
+          onSaved={() => { setScheduling(false); setSchedulesKey((k) => k + 1); toast.success("Agendamento salvo.") }} />
+      )}
 
-        {can.tech && (
-          <details open={techOpen} onToggle={(e) => toggleTech(e.currentTarget.open)} className="group/tech border-t border-border">
-            <summary className="flex cursor-pointer list-none items-center gap-2.5 py-5 text-sm font-semibold [&::-webkit-details-marker]:hidden">
-              <span aria-hidden className="text-lg leading-none text-muted-foreground transition-transform group-open/tech:rotate-90">›</span>
-              Para quem cuida do app
-              <small className="font-normal text-muted-foreground">
-                {notes.length > 0 && `${notes.length} ${notes.length === 1 ? "ponto" : "pontos"} de atenção · `}código, outros apps, histórico, acesso
-              </small>
-            </summary>
-            {techSeen && app.shared && <Tech app={app} onChanged={sharedChanged} />}
-            {part("notas", "Pontos de atenção", <Notes notes={notes} />, () => (
-              <NotesEditor value={draft!.manifest.notes ?? []} onChange={(v) => setManifest({ notes: v })} />
+      {shownFace === "usar" ? (
+        <div>
+          {blocked && <AppControlBar className="mb-6" appId={app.id} control={control} onChanged={(c) => setApp({ ...app, control: c })} />}
+          {!readable && !cares && (
+            <p role="alert" className="mb-4 flex gap-2 text-sm text-warn">
+              <TriangleAlert className="mt-0.5 size-4 shrink-0" /> Não consegui ler a pasta do app agora.
+            </p>
+          )}
+          <Section title="O que ele pede"><InputList inputs={m.inputs ?? []} /></Section>
+          <Section title="O que ele entrega"><OutputList outputs={m.outputs} /></Section>
+          {(app.can_run || (runs?.length ?? 0) > 0) && (
+            <Section title={can.runs ? "Execuções" : "Suas execuções"}>
+              <RunList runs={runs} everyone={can.runs} />
+            </Section>
+          )}
+          {m.kind === "script" && <SchedulesSection appId={app.id} appName={m.name} manifest={m} reloadKey={schedulesKey} />}
+          {app.shared && !can.restore && <SharedSection app={app} can={can} onChanged={sharedChanged} />}
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-[11rem_minmax(0,1fr)] md:gap-10">
+          <CareNav items={menu} current={current} onPick={(k) => go(k as CareKey)} />
+          <div className="min-w-0">
+            {panel("pendencias", (
+              <div className="flex flex-col gap-4">
+                <Steps steps={steps} />
+                <AppControlBar className="" appId={app.id} control={control} onChanged={(c) => setApp({ ...app, control: c })} />
+                {todos.length > 0 ? (
+                  <TodoList todos={todos} />
+                ) : (
+                  !blocked && <p className="text-sm text-muted-foreground">Tudo em dia. Nada pendente neste app.</p>
+                )}
+              </div>
             ))}
-            {showOthers && part("outros", "Outros apps", <OtherApps uses={uses} usedBy={usedBy} />, () => (
-              <DependsEditor value={draft!.manifest.depends_on ?? []} onChange={(v) => setManifest({ depends_on: v })} apps={lists.apps} selfSlug={m.id} />
+
+            {panel("ficha", (
+              <div className="[&>section:first-child]:border-t-0 [&>section:first-child]:pt-0">
+                {part("pede", "O que ele pede", <InputList inputs={m.inputs ?? []} />, () => (
+                  <InputsEditor value={draft!.manifest.inputs ?? []} onChange={(v) => setManifest({ inputs: v })} />
+                ))}
+                {part("entrega", "O que ele entrega", <OutputList outputs={m.outputs} />, () => (
+                  <OutputsEditor value={draft!.manifest.outputs ?? []} onChange={(v) => setManifest({ outputs: v })} />
+                ))}
+                {part("pessoas", "Quem cuida", <People owner={m.owner?.name ?? ""} backup={m.backup?.name ?? ""} />, () => (
+                  <PeopleEditor people={lists.people} ownerId={draft!.ownerId} backupId={draft!.backupId} onChange={(o, b) => setDraft({ ...draft!, ownerId: o, backupId: b })} />
+                ), can.edit && can.access)}
+              </div>
             ))}
-            {showBuild && part("codigo", "Código-fonte", <BuildView build={m.build ?? null} />, () => (
-              <BuildEditor value={draft!.manifest.build ?? null} onChange={(v) => setManifest({ build: v })} />
+
+            {serverPart && panel("servidor", (
+              <div className="[&>section:first-child]:border-t-0 [&>section:first-child]:pt-0">
+                {app.shared ? <SharedSection app={app} can={can} onChanged={sharedChanged} /> : <MakeShared app={app} onChanged={setApp} />}
+                {app.shared && can.tech && <Tech app={app} onChanged={sharedChanged} />}
+              </div>
             ))}
-            {(m.secrets ?? []).length > 0 && (
-              <Section title="Chaves e senhas">
-                <p className="flex gap-2 text-sm">
-                  <KeyRound className="mt-0.5 size-4 shrink-0 text-destructive" />
-                  Usa {m.secrets!.length} chave(s) ou senha(s) escritas no código. Os valores nunca aparecem no Ziv.
-                </p>
-              </Section>
-            )}
-            {deps.length > 0 && (
-              <Section title="Bibliotecas">
-                <p className="flex flex-wrap gap-1.5">
-                  {deps.map((d) => <code key={d} className="rounded-sm bg-secondary px-1.5 py-0.5 font-mono text-xs">{d}</code>)}
-                </p>
-              </Section>
-            )}
-            {howRuns && (
-              <Section title="Como roda">
-                <code className="font-mono text-xs [overflow-wrap:anywhere]">{howRuns}</code>
-              </Section>
-            )}
-            <Section title="Histórico">
+
+            {VAULT_KINDS.includes(m.kind) && panel("cofre", (
+              <div className="[&>section:first-child]:border-t-0 [&>section:first-child]:pt-0">
+                <KeysSection appId={app.id} kind={m.kind} />
+              </div>
+            ))}
+
+            {can.tech && person && panel("acesso", (
+              <div className="[&>section:first-child]:border-t-0 [&>section:first-child]:pt-0">
+                <AccessSection target={{ kind: "app", id: app.id, can: app.can, areaName: app.manifest.area }} me={person} />
+              </div>
+            ))}
+
+            {can.tech && panel("codigo", (
+              <div className="[&>section:first-child]:border-t-0 [&>section:first-child]:pt-0">
+                {part("notas", "Pontos de atenção", <Notes notes={notes} />, () => (
+                  <NotesEditor value={draft!.manifest.notes ?? []} onChange={(v) => setManifest({ notes: v })} />
+                ))}
+                {showOthers && part("outros", "Outros apps", <OtherApps uses={uses} usedBy={usedBy} />, () => (
+                  <DependsEditor value={draft!.manifest.depends_on ?? []} onChange={(v) => setManifest({ depends_on: v })} apps={lists.apps} selfSlug={m.id} />
+                ))}
+                {showBuild && part("codigo", "Código-fonte", <BuildView build={m.build ?? null} />, () => (
+                  <BuildEditor value={draft!.manifest.build ?? null} onChange={(v) => setManifest({ build: v })} />
+                ))}
+                {(m.secrets ?? []).length > 0 && (
+                  <Section title="Chaves no código">
+                    <p className="flex gap-2 text-sm">
+                      <KeyRound className="mt-0.5 size-4 shrink-0 text-destructive" />
+                      Usa {m.secrets!.length} chave(s) ou senha(s) escritas no código. Os valores nunca aparecem no Ziv. Guarde-as no Cofre.
+                    </p>
+                  </Section>
+                )}
+                {deps.length > 0 && (
+                  <Section title="Bibliotecas">
+                    <p className="flex flex-wrap gap-1.5">
+                      {deps.map((d) => <code key={d} className="rounded-sm bg-secondary px-1.5 py-0.5 font-mono text-xs">{d}</code>)}
+                    </p>
+                  </Section>
+                )}
+                {howRuns && (
+                  <Section title="Como roda">
+                    <code className="font-mono text-xs [overflow-wrap:anywhere]">{howRuns}</code>
+                  </Section>
+                )}
+                <Section title="Onde está">
+                  <p className="flex items-start gap-2 text-sm">
+                    <FolderOpen className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                    <span className="[overflow-wrap:anywhere]">{app.folder_display}</span>
+                  </p>
+                  <p className="mt-1.5 pl-6 text-xs text-muted-foreground">A ficha também fica salva nessa pasta.</p>
+                </Section>
+              </div>
+            ))}
+
+            {can.tech && panel("historico", (
               <HistoryTimeline preview={5} appId={app.id} canEdit={can.edit} canRestore={can.restore} reloadKey={historyKey} onChanged={() => void api.app(app.id).then(setApp, () => {})} />
-            </Section>
-            <Section title="Onde está">
-              <p className="flex items-start gap-2 text-sm">
-                <FolderOpen className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                <span className="[overflow-wrap:anywhere]">{app.folder_display}</span>
-              </p>
-              <p className="mt-1.5 pl-6 text-xs text-muted-foreground">A ficha também fica salva nessa pasta.</p>
-            </Section>
-            {techSeen && person && <AccessSection target={{ kind: "app", id: app.id, can: app.can, areaName: app.manifest.area }} me={person} />}
-          </details>
-        )}
-      </div>
+            ))}
+          </div>
+        </div>
+      )}
     </article>
   )
 }
