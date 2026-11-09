@@ -69,6 +69,17 @@ func (q *Queries) ConsumeMCPAuthCode(ctx context.Context, codeHash pgtype.Text) 
 	return i, err
 }
 
+const countOpenMCPKeyUploads = `-- name: CountOpenMCPKeyUploads :one
+SELECT count(*) FROM mcp_key_uploads WHERE person_id = $1 AND expires_at > now() AND used_at IS NULL
+`
+
+func (q *Queries) CountOpenMCPKeyUploads(ctx context.Context, personID int64) (int64, error) {
+	row := q.db.QueryRow(ctx, countOpenMCPKeyUploads, personID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countOpenMCPUploads = `-- name: CountOpenMCPUploads :one
 SELECT count(*) FROM mcp_uploads WHERE person_id = $1 AND expires_at > now() AND used_at IS NULL
 `
@@ -175,6 +186,30 @@ func (q *Queries) CreateMCPConnection(ctx context.Context, arg CreateMCPConnecti
 	return i, err
 }
 
+const createMCPKeyUpload = `-- name: CreateMCPKeyUpload :one
+INSERT INTO mcp_key_uploads (token_hash, person_id, app_id, expires_at) VALUES ($1, $2, $3, $4)
+RETURNING id
+`
+
+type CreateMCPKeyUploadParams struct {
+	TokenHash string             `json:"token_hash"`
+	PersonID  int64              `json:"person_id"`
+	AppID     int64              `json:"app_id"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+func (q *Queries) CreateMCPKeyUpload(ctx context.Context, arg CreateMCPKeyUploadParams) (int64, error) {
+	row := q.db.QueryRow(ctx, createMCPKeyUpload,
+		arg.TokenHash,
+		arg.PersonID,
+		arg.AppID,
+		arg.ExpiresAt,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const createMCPUpload = `-- name: CreateMCPUpload :one
 INSERT INTO mcp_uploads (token_hash, person_id, expires_at) VALUES ($1, $2, $3)
 RETURNING id
@@ -191,6 +226,15 @@ func (q *Queries) CreateMCPUpload(ctx context.Context, arg CreateMCPUploadParams
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const deleteExpiredMCPKeyUploads = `-- name: DeleteExpiredMCPKeyUploads :exec
+DELETE FROM mcp_key_uploads WHERE expires_at < now() - interval '1 day' OR used_at < now() - interval '1 day'
+`
+
+func (q *Queries) DeleteExpiredMCPKeyUploads(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteExpiredMCPKeyUploads)
+	return err
 }
 
 const deleteExpiredMCPUploads = `-- name: DeleteExpiredMCPUploads :exec
@@ -411,6 +455,23 @@ func (q *Queries) MCPUploadOpen(ctx context.Context, tokenHash string) (int64, e
 	return id, err
 }
 
+const openMCPKeyUpload = `-- name: OpenMCPKeyUpload :one
+SELECT id, person_id, app_id FROM mcp_key_uploads WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
+`
+
+type OpenMCPKeyUploadRow struct {
+	ID       int64 `json:"id"`
+	PersonID int64 `json:"person_id"`
+	AppID    int64 `json:"app_id"`
+}
+
+func (q *Queries) OpenMCPKeyUpload(ctx context.Context, tokenHash string) (OpenMCPKeyUploadRow, error) {
+	row := q.db.QueryRow(ctx, openMCPKeyUpload, tokenHash)
+	var i OpenMCPKeyUploadRow
+	err := row.Scan(&i.ID, &i.PersonID, &i.AppID)
+	return i, err
+}
+
 const receiveMCPUpload = `-- name: ReceiveMCPUpload :one
 UPDATE mcp_uploads SET content = $1, size = $2, received_at = now()
 WHERE token_hash = $3 AND received_at IS NULL AND expires_at > now()
@@ -486,6 +547,25 @@ WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - interval '1 mi
 func (q *Queries) TouchMCPConnection(ctx context.Context, id int64) error {
 	_, err := q.db.Exec(ctx, touchMCPConnection, id)
 	return err
+}
+
+const useMCPKeyUpload = `-- name: UseMCPKeyUpload :one
+UPDATE mcp_key_uploads SET used_at = now()
+WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
+RETURNING id, person_id, app_id
+`
+
+type UseMCPKeyUploadRow struct {
+	ID       int64 `json:"id"`
+	PersonID int64 `json:"person_id"`
+	AppID    int64 `json:"app_id"`
+}
+
+func (q *Queries) UseMCPKeyUpload(ctx context.Context, tokenHash string) (UseMCPKeyUploadRow, error) {
+	row := q.db.QueryRow(ctx, useMCPKeyUpload, tokenHash)
+	var i UseMCPKeyUploadRow
+	err := row.Scan(&i.ID, &i.PersonID, &i.AppID)
+	return i, err
 }
 
 const useMCPUpload = `-- name: UseMCPUpload :exec

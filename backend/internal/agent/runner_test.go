@@ -13,12 +13,13 @@ import (
 // fakeLauncher simulates the app: records where it ran and writes files.
 type fakeLauncher struct {
 	exe, dir string
+	env      []string
 	write    map[string]string
 	block    chan struct{}
 }
 
-func (f *fakeLauncher) Launch(ctx context.Context, exe, dir string) (int, error) {
-	f.exe, f.dir = exe, dir
+func (f *fakeLauncher) Launch(ctx context.Context, exe, dir string, env []string) (int, error) {
+	f.exe, f.dir, f.env = exe, dir, env
 	if f.block != nil {
 		<-f.block
 	}
@@ -98,5 +99,26 @@ func TestRunMissingFolderOrExe(t *testing.T) {
 	res = r.Run(context.Background(), agentproto.RunPayload{AppFolder: app, Exe: "Outro.exe", OutputFolder: app}, func(agentproto.Result) {})
 	if res.Event != agentproto.EventFailed || !strings.Contains(res.Error, "Outro.exe") {
 		t.Fatalf("missing exe %+v", res)
+	}
+}
+
+func TestRunGivesVaultKeysToTheApp(t *testing.T) {
+	app := appFolder(t)
+	l := &fakeLauncher{}
+	r := &Runner{Launcher: l, StateDir: t.TempDir()}
+	p := agentproto.RunPayload{RunID: 9, AppFolder: app, Exe: "Ferramenta CVM.exe", OutputFolder: app,
+		KeyValues: map[string]string{"SENHA_EMAIL": "s3gredo", "API_TOKEN": "abc=1"}}
+	if res := r.Run(context.Background(), p, func(agentproto.Result) {}); res.Event != agentproto.EventFinished {
+		t.Fatalf("result %+v", res)
+	}
+	if strings.Join(l.env, "|") != "API_TOKEN=abc=1|SENHA_EMAIL=s3gredo" {
+		t.Fatalf("env %v", l.env)
+	}
+	// Without a vault the app gets nothing extra.
+	l2 := &fakeLauncher{}
+	r2 := &Runner{Launcher: l2, StateDir: t.TempDir()}
+	r2.Run(context.Background(), agentproto.RunPayload{RunID: 10, AppFolder: app, Exe: "Ferramenta CVM.exe", OutputFolder: app}, func(agentproto.Result) {})
+	if l2.env != nil {
+		t.Fatalf("env without vault %v", l2.env)
 	}
 }

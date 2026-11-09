@@ -541,8 +541,8 @@ export const api = {
   run: (id: number | string) => request<Run>("GET", `/api/runs/${id}`),
   keys: {
     list: (id: number) => request<KeysList>("GET", `/api/apps/${id}/keys`),
-    set: (id: number, name: string, value: string) => request<{ ok: boolean }>("PUT", `/api/apps/${id}/keys/${encodeURIComponent(name)}`, { value }),
-    remove: (id: number, name: string) => request<{ ok: boolean }>("DELETE", `/api/apps/${id}/keys/${encodeURIComponent(name)}`),
+    set: (id: number, name: string, value: string) => request<{ ok: boolean; needs_restart?: boolean }>("PUT", `/api/apps/${id}/keys/${encodeURIComponent(name)}`, { value }),
+    remove: (id: number, name: string) => request<{ ok: boolean; needs_restart?: boolean }>("DELETE", `/api/apps/${id}/keys/${encodeURIComponent(name)}`),
     reveal: (id: number, name: string) => request<{ value: string }>("POST", `/api/apps/${id}/keys/${encodeURIComponent(name)}/reveal`),
   },
   shared: {

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
@@ -15,6 +16,8 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/hostpath"
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/recipes"
+	"github.com/HenryKropp/app-hub/backend/internal/versions"
 )
 
 // launchRequest is everything needed to start one run on a chosen computer.
@@ -45,6 +48,26 @@ func refuse(status int, code, msg string) *launchError {
 	return &launchError{Status: status, Code: code, Msg: msg}
 }
 
+const msgWebNoCode = "Para abrir no computador, o código do app precisa estar guardado no Ziv. Registre o app pelo Claude ou envie o código pelo site."
+
+// webStart works out how the Agente starts a screen app on the computer,
+// with the same recipe as the 24h version. problem says why it cannot.
+func webStart(a sqlc.App, m manifest.Manifest, sources map[string]manifest.InputFile) (*agentproto.WebPayload, string) {
+	rec, err := recipes.Detect(versions.LocalFolder{Root: a.FolderPath}, m)
+	if err != nil {
+		return nil, "Não consegui ler o código do app para saber como ligá-lo."
+	}
+	local, err := recipes.LocalStart(rec)
+	if err != nil {
+		return nil, err.Error()
+	}
+	if _, ok := sources[local.DepsFile]; !ok {
+		local.DepsFile = ""
+	}
+	return &agentproto.WebPayload{AppID: a.ID, Runtime: local.Runtime, Args: local.Args, DepsFile: local.DepsFile,
+		Requirements: local.Requirements, Sources: sources}, ""
+}
+
 // launchRun checks that the run may happen, records it and queues it for the
 // computer's agent. err is an internal failure; *launchError a refusal.
 func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *launchError, error) {
@@ -55,7 +78,7 @@ func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *
 		return sqlc.Run{}, refuse(403, "blocked", reason), nil
 	}
 	script := m.Kind == manifest.KindScript
-	hasKeys := false // the vault has keys, from the ficha or added on the site
+	web := m.Kind == manifest.KindWeb
 	if script {
 		if err := m.ValidateRunInputs(req.Inputs, req.Files); err != nil {
 			return sqlc.Run{}, refuse(400, "invalid_inputs", err.Error()), nil
@@ -63,18 +86,26 @@ func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *
 		if req.Computer.AgentVersion != agentproto.Version {
 			return sqlc.Run{}, refuse(409, "agent_outdated", "Atualize o Agente em Configurações › Meu computador para rodar scripts."), nil
 		}
-		keys, err := h.appKeys(ctx, a)
-		if err != nil {
-			return sqlc.Run{}, nil, err
+	}
+	if web && req.Computer.AgentVersion != agentproto.Version {
+		return sqlc.Run{}, refuse(409, "agent_outdated", "Atualize o Agente em Configurações › Meu computador para abrir apps com tela no computador."), nil
+	}
+	// The vault has filled keys, declared or added on the site: the Agente
+	// fetches them once and hands them to the script or the program it opens.
+	keys, err := h.appKeys(ctx, a)
+	if err != nil {
+		return sqlc.Run{}, nil, err
+	}
+	if len(keys.Missing) > 0 {
+		return sqlc.Run{}, refuse(409, "keys_missing", "Falta preencher no cofre do app: "+strings.Join(keys.Missing, ", ")+". O dono do app ou um administrador preenche na página do app, parte Cofre."), nil
+	}
+	hasKeys := slices.ContainsFunc(keys.Keys, func(k keyItem) bool { return k.HasValue })
+	if hasKeys {
+		if keys.Locked {
+			return sqlc.Run{}, refuse(503, "keys_locked", msgKeysLocked), nil
 		}
-		hasKeys = len(keys.Keys) > 0
-		if hasKeys {
-			if keys.Locked {
-				return sqlc.Run{}, refuse(503, "keys_locked", msgKeysLocked), nil
-			}
-			if len(keys.Missing) > 0 {
-				return sqlc.Run{}, refuse(409, "keys_missing", "Falta preencher no cofre do app: "+strings.Join(keys.Missing, ", ")+". O dono do app ou um administrador preenche na página do app, parte Cofre."), nil
-			}
+		if !script && req.Computer.AgentVersion != agentproto.Version {
+			return sqlc.Run{}, refuse(409, "agent_outdated", "Este app usa o cofre: atualize o Agente em Configurações › Meu computador para abrir o app com as chaves."), nil
 		}
 	}
 	if msg, err := h.folderInUse(ctx, req.Computer.ID, req.OutputFolder, script); err != nil {
@@ -100,10 +131,13 @@ func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *
 	// Only a version the Hub just confirmed in the folder is linked to the run.
 	versionID := pgtype.Int8{Int64: v.ID, Valid: readable && v.ID != 0}
 	var sources map[string]manifest.InputFile
-	if script {
+	if script || web {
 		sources, err = h.importedSources(ctx, a.ID)
 		if err != nil {
 			return sqlc.Run{}, nil, err
+		}
+		if web && len(sources) == 0 {
+			return sqlc.Run{}, refuse(409, "no_stored_code", msgWebNoCode), nil
 		}
 		if h.serverPath(a.FolderPath, a.ID) != nil {
 			return sqlc.Run{}, refuse(409, "folder_not_on_server", errFolderNotOnServer.Error()), nil
@@ -122,6 +156,13 @@ func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *
 			}
 		}
 	}
+	var local *agentproto.WebPayload
+	if web {
+		var problem string
+		if local, problem = webStart(a, m, sources); problem != "" {
+			return sqlc.Run{}, refuse(409, "no_local_start", problem), nil
+		}
+	}
 	run, err := h.q.CreateRun(ctx, sqlc.CreateRunParams{AppID: a.ID, PersonID: req.Person.ID, ComputerID: req.Computer.ID, OutputFolder: req.OutputFolder, VersionID: versionID, Origin: req.Origin, ScheduleID: req.ScheduleID})
 	if err != nil {
 		return sqlc.Run{}, nil, err
@@ -129,8 +170,9 @@ func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *
 	payload := agentproto.RunPayload{RunID: run.ID, AppFolder: hostpath.ToDisplay(a.FolderPath), Exe: m.Entrypoint, OutputFolder: req.OutputFolder, AppName: a.Name}
 	if script {
 		payload.Script = &agentproto.ScriptPayload{Manifest: m, Inputs: req.Inputs, Files: req.Files, Sources: sources}
-		payload.Keys = hasKeys
 	}
+	payload.Web = local
+	payload.Keys = hasKeys
 	if _, err = h.enqueue(ctx, req.Computer.ID, &run.ID, agentproto.KindRun, payload); err != nil {
 		return sqlc.Run{}, nil, err
 	}

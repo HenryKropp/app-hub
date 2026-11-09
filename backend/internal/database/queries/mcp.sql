@@ -84,3 +84,21 @@ UPDATE mcp_uploads SET used_at = now(), content = NULL WHERE id = $1;
 
 -- name: DeleteExpiredMCPUploads :exec
 DELETE FROM mcp_uploads WHERE expires_at < now() - interval '1 day' OR used_at < now() - interval '1 day';
+
+-- name: CreateMCPKeyUpload :one
+INSERT INTO mcp_key_uploads (token_hash, person_id, app_id, expires_at) VALUES ($1, $2, $3, $4)
+RETURNING id;
+
+-- name: CountOpenMCPKeyUploads :one
+SELECT count(*) FROM mcp_key_uploads WHERE person_id = $1 AND expires_at > now() AND used_at IS NULL;
+
+-- name: UseMCPKeyUpload :one
+UPDATE mcp_key_uploads SET used_at = now()
+WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()
+RETURNING id, person_id, app_id;
+
+-- name: DeleteExpiredMCPKeyUploads :exec
+DELETE FROM mcp_key_uploads WHERE expires_at < now() - interval '1 day' OR used_at < now() - interval '1 day';
+
+-- name: OpenMCPKeyUpload :one
+SELECT id, person_id, app_id FROM mcp_key_uploads WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now();

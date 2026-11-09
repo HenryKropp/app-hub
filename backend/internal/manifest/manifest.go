@@ -98,6 +98,16 @@ type Key struct {
 	Required bool   `yaml:"required,omitempty" json:"required"`
 }
 
+// HasVault reports whether apps of this kind have a vault: every kind the
+// Agente opens on a computer (scripts, screen apps, windows, executables).
+func HasVault(kind string) bool {
+	switch kind {
+	case KindScript, KindWeb, KindDesktop, KindScheduled, KindExecutable:
+		return true
+	}
+	return false
+}
+
 // MaxKeys caps the keys of one app's vault.
 const MaxKeys = 20
 
@@ -109,8 +119,8 @@ func (m Manifest) keyProblems() []string {
 	if len(m.Keys) == 0 {
 		return nil
 	}
-	if m.Kind != KindScript {
-		return []string{"Só scripts têm cofre de chaves; apps com tela usam Configurações."}
+	if !HasVault(m.Kind) {
+		return []string{"Este tipo de app não roda, então não tem cofre de chaves."}
 	}
 	var out []string
 	if len(m.Keys) > MaxKeys {

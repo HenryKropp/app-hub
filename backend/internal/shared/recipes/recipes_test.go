@@ -165,3 +165,33 @@ func TestStartCommandRunsWithExec(t *testing.T) {
 		}
 	}
 }
+
+func TestLocalStart(t *testing.T) {
+	for _, c := range []struct {
+		r    Recipe
+		args string
+		reqs string
+		deps string
+	}{
+		{Recipe{Kind: "streamlit", Command: "streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true"},
+			"-m streamlit run app.py --server.port {PORT} --server.address 127.0.0.1 --server.headless true", "", "requirements.txt"},
+		{Recipe{Kind: "fastapi", Command: "uvicorn main:app --host 0.0.0.0 --port $PORT", Requirements: []string{"fastapi"}},
+			"-m uvicorn main:app --host 127.0.0.1 --port {PORT}", "fastapi uvicorn", ""},
+		{Recipe{Kind: "flask", Command: "gunicorn -b 0.0.0.0:$PORT app:app"},
+			"-m waitress --listen=127.0.0.1:{PORT} app:app", "waitress", "requirements.txt"},
+		{Recipe{Kind: "django", Command: "gunicorn -b 0.0.0.0:$PORT site.wsgi"},
+			"-m waitress --listen=127.0.0.1:{PORT} site.wsgi:application", "waitress", "requirements.txt"},
+		{Recipe{Kind: "flask", Command: "python app.py"}, "app.py", "", "requirements.txt"},
+		{Recipe{Kind: "node", Command: "npm start"}, "start", "", ""},
+	} {
+		l, err := LocalStart(c.r)
+		if err != nil || strings.Join(l.Args, " ") != c.args || strings.Join(l.Requirements, " ") != c.reqs || l.DepsFile != c.deps {
+			t.Errorf("%s: %+v %v", c.r.Command, l, err)
+		}
+	}
+	for _, r := range []Recipe{{Kind: "dockerfile"}, {}, {Kind: "flask", Command: "bash start.sh"}} {
+		if _, err := LocalStart(r); err != ErrNoLocal {
+			t.Errorf("%+v: %v", r, err)
+		}
+	}
+}

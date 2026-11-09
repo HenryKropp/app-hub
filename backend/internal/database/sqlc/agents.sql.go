@@ -52,7 +52,7 @@ WHERE id = (
     LIMIT 1
     FOR UPDATE SKIP LOCKED
 )
-RETURNING id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at
+RETURNING id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at, keys_delivered_at
 `
 
 func (q *Queries) ClaimJob(ctx context.Context, computerID int64) (AgentJob, error) {
@@ -69,6 +69,7 @@ func (q *Queries) ClaimJob(ctx context.Context, computerID int64) (AgentJob, err
 		&i.CreatedAt,
 		&i.TakenAt,
 		&i.DoneAt,
+		&i.KeysDeliveredAt,
 	)
 	return i, err
 }
@@ -180,7 +181,7 @@ func (q *Queries) CreateComputer(ctx context.Context, arg CreateComputerParams) 
 const createJob = `-- name: CreateJob :one
 INSERT INTO agent_jobs (computer_id, run_id, kind, payload)
 VALUES ($1, $2, $3, $4)
-RETURNING id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at
+RETURNING id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at, keys_delivered_at
 `
 
 type CreateJobParams struct {
@@ -209,6 +210,7 @@ func (q *Queries) CreateJob(ctx context.Context, arg CreateJobParams) (AgentJob,
 		&i.CreatedAt,
 		&i.TakenAt,
 		&i.DoneAt,
+		&i.KeysDeliveredAt,
 	)
 	return i, err
 }
@@ -327,7 +329,7 @@ func (q *Queries) GetComputerByToken(ctx context.Context, tokenHash string) (Com
 }
 
 const getJob = `-- name: GetJob :one
-SELECT id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at FROM agent_jobs WHERE id = $1
+SELECT id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at, keys_delivered_at FROM agent_jobs WHERE id = $1
 `
 
 func (q *Queries) GetJob(ctx context.Context, id int64) (AgentJob, error) {
@@ -344,6 +346,7 @@ func (q *Queries) GetJob(ctx context.Context, id int64) (AgentJob, error) {
 		&i.CreatedAt,
 		&i.TakenAt,
 		&i.DoneAt,
+		&i.KeysDeliveredAt,
 	)
 	return i, err
 }
@@ -439,7 +442,7 @@ func (q *Queries) IsComputerConnected(ctx context.Context, id int64) (bool, erro
 }
 
 const latestUpdateJob = `-- name: LatestUpdateJob :one
-SELECT id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at FROM agent_jobs WHERE computer_id = $1 AND kind = 'update' ORDER BY id DESC LIMIT 1
+SELECT id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at, keys_delivered_at FROM agent_jobs WHERE computer_id = $1 AND kind = 'update' ORDER BY id DESC LIMIT 1
 `
 
 func (q *Queries) LatestUpdateJob(ctx context.Context, computerID int64) (AgentJob, error) {
@@ -456,6 +459,7 @@ func (q *Queries) LatestUpdateJob(ctx context.Context, computerID int64) (AgentJ
 		&i.CreatedAt,
 		&i.TakenAt,
 		&i.DoneAt,
+		&i.KeysDeliveredAt,
 	)
 	return i, err
 }

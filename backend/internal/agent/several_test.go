@@ -17,7 +17,7 @@ type waitLauncher struct {
 	release chan struct{}
 }
 
-func (l waitLauncher) Launch(ctx context.Context, exe, dir string) (int, error) {
+func (l waitLauncher) Launch(ctx context.Context, exe, dir string, env []string) (int, error) {
 	_ = os.WriteFile(filepath.Join(dir, "saida.txt"), []byte(dir), 0o644)
 	l.opened <- dir
 	select {

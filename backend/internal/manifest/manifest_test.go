@@ -363,8 +363,15 @@ func TestKeysValidate(t *testing.T) {
 	}
 	w := valid()
 	w.Kind = KindWeb
-	w.Keys = []Key{{Name: "X"}}
-	if errs := w.Validate(); !slices.ContainsFunc(errs, func(e string) bool { return strings.Contains(e, "Configurações") }) {
+	w.Keys = []Key{{Name: "SENHA_EMAIL"}}
+	if errs := w.Validate(); len(errs) != 0 {
 		t.Errorf("web keys: %v", errs)
+	}
+	r := valid()
+	r.Kind = KindReference
+	r.Entrypoint = ""
+	r.Keys = []Key{{Name: "X"}}
+	if errs := r.Validate(); !slices.ContainsFunc(errs, func(e string) bool { return strings.Contains(e, "não tem cofre") }) {
+		t.Errorf("reference keys: %v", errs)
 	}
 }

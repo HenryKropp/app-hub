@@ -142,6 +142,9 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 	// "permitir?" because they are not read-only.
 	notDestructive := false
 	changes := &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &notDestructive}
+	// enviar_chaves replaces a key already in the vault with the .env's value.
+	replaces := true
+	replacesKeys := &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &replaces}
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "buscar",
@@ -210,6 +213,14 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 			"(sem .env, .git, venv, node_modules) numa pasta temporária e mandar com curl. Use só depois que a pessoa disse \"pode registrar\".",
 		Annotations: changes,
 	}, h.toolPrepararEnvio)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "enviar_chaves",
+		Description: "Preenche o cofre de um app do Ziv com as senhas e chaves do arquivo .env da pasta do app, sem que os valores passem pela conversa. " +
+			"Devolve um endereço de uso único (30 minutos) e o comando curl que manda o .env direto ao Ziv. Nunca abra, leia nem mostre o .env. " +
+			"Use depois de registrar_app quando a pasta tiver um .env, ou quando a pessoa pedir para preencher o cofre. Só o dono do app ou um administrador pode.",
+		Annotations: replacesKeys,
+	}, h.toolEnviarChaves)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "formato_do_app",

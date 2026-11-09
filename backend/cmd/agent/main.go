@@ -115,7 +115,7 @@ func main() {
 	if err != nil {
 		slog.Warn("cannot locate the running agent; self-update may fail", "err", err)
 	}
-	runner := &agent.Runner{Launcher: agent.ExecLauncher{}, StateDir: dir}
+	runner := &agent.Runner{Launcher: agent.ExecLauncher{}, StateDir: dir, OpenURL: openBrowser}
 	a := &agent.Agent{
 		Client: client, StateDir: dir, Name: name, ChooseFolder: chooseFolder, Runner: runner,
 		Updater: &agent.Updater{Client: client, Runner: runner, StateDir: dir, CurrentExe: exe,

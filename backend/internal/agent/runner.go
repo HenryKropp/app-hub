@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -15,17 +16,21 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
 )
 
-// Launcher opens an app and waits for it to close.
+// Launcher opens an app and waits for it to close. env holds extra
+// NAME=value entries (the app's vault) added to the Agente's environment.
 type Launcher interface {
-	Launch(ctx context.Context, exe, dir string) (exitCode int, err error)
+	Launch(ctx context.Context, exe, dir string, env []string) (exitCode int, err error)
 }
 
 // ExecLauncher opens the program with dir as its working folder.
 type ExecLauncher struct{}
 
-func (ExecLauncher) Launch(ctx context.Context, exe, dir string) (int, error) {
+func (ExecLauncher) Launch(ctx context.Context, exe, dir string, env []string) (int, error) {
 	cmd := exec.Command(exe)
 	cmd.Dir = dir
+	if len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
+	}
 	err := runTree(ctx, cmd)
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
@@ -39,6 +44,8 @@ func (ExecLauncher) Launch(ctx context.Context, exe, dir string) (int, error) {
 type Runner struct {
 	Launcher Launcher
 	StateDir string
+	// OpenURL opens a page in the browser (a screen app, once it answers).
+	OpenURL func(url string) error
 	mu       sync.Mutex
 	open     map[int64]*openRun
 	held     bool          // updating: no new run may start
@@ -174,6 +181,9 @@ func (r *Runner) run(ctx context.Context, p agentproto.RunPayload, report func(a
 	if p.Script != nil {
 		return r.runScript(ctx, p, report)
 	}
+	if p.Web != nil {
+		return r.runWeb(ctx, p, report)
+	}
 	exe := filepath.Join(p.AppFolder, p.Exe)
 	info, err := os.Stat(exe)
 	if err != nil {
@@ -207,7 +217,7 @@ func (r *Runner) run(ctx context.Context, p agentproto.RunPayload, report func(a
 		}
 		defer os.Remove(target)
 	}
-	code, err := r.Launcher.Launch(ctx, target, p.OutputFolder)
+	code, err := r.Launcher.Launch(ctx, target, p.OutputFolder, vaultEnv(p.KeyValues))
 	if err != nil {
 		return failed("Não consegui abrir o app: " + err.Error())
 	}
@@ -220,6 +230,24 @@ func (r *Runner) run(ctx context.Context, p agentproto.RunPayload, report func(a
 		return failed("Não consegui guardar a lista de arquivos desta execução.")
 	}
 	return agentproto.Result{Event: agentproto.EventFinished, ExitCode: code, Files: files}
+}
+
+// vaultEnv turns the app's vault into NAME=value entries, sorted by name.
+// The values only live in memory and are never logged.
+func vaultEnv(keys map[string]string) []string {
+	if len(keys) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(keys))
+	for name := range keys {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		out = append(out, name+"="+keys[name])
+	}
+	return out
 }
 
 func checkWritable(dir string) error {

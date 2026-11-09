@@ -200,6 +200,9 @@ O Henry pediu isto em 2026-09-30 e redesenhou em 2026-11-04. A pessoa usa o Ziv 
     - O dono do app ou um administrador preenche, mostra (cada visualização é registrada), troca e apaga.
     - O Agente entrega as chaves só ao script, na hora de rodar.
     - Se o Ziv recusa um envio por senha no código, diz o arquivo e a linha de cada trecho.
+    - **Em todo app que roda** (2026-11-09, ADR 028): scripts, apps com tela, agendados e executáveis têm Cofre. Uma chave vale nos dois lugares: quando o app abre no computador e na versão ligada 24h no servidor. As senhas das Configurações e o Cofre são a mesma coisa.
+    - O Claude preenche o cofre pelo `.env` da pasta sem ver as senhas: a ferramenta `enviar_chaves` dá um endereço de uso único e o Claude manda o arquivo direto ao Ziv com `curl`. O Ziv responde só os nomes guardados.
+    - **App com tela no computador:** o botão "Abrir no computador" faz o Agente pegar o código guardado no Ziv, preparar as bibliotecas, ligar o app numa porta livre com as chaves do cofre e abrir o navegador. "Parar" desliga.
 - **Etapa 3: criar apps para o Ziv.** O Claude recebe o formato do manifesto, as regras e exemplos, e entrega o app com o `ziv.yaml` pronto.
 - **Etapa 4: agendar.** Primeiro o Ziv aprende a agendar; depois o Claude ganha agendar, ver agendamentos e cancelar.
 
