@@ -1,0 +1,28 @@
+# Caddy do Ziv na VM do Google Cloud (ADR 022, ADR 025).
+# Fonte da verdade: scripts/deploy-gcp.sh copia este arquivo para
+# /etc/caddy/Caddyfile e recarrega o Caddy quando ele muda.
+{
+	email henry.kropp@alisinvestimentos.com
+	on_demand_tls {
+		# O Ziv só aprova certificado para endereços que existem
+		# (app da principal ou app.empresa de uma empresa ligada).
+		ask http://localhost:8080/__ziv/tls-ask
+	}
+}
+
+zivapp.duckdns.org {
+	respond /__ziv/* 404
+	reverse_proxy localhost:8080
+}
+
+# Apps com tela: app.zivapp.duckdns.org (principal) e
+# app.empresa.zivapp.duckdns.org (outras empresas). Um curinga *.dominio
+# cobre um nível só, então o bloco pega qualquer endereço e o certificado
+# sai na hora, se o ask aprovar.
+https:// {
+	tls {
+		on_demand
+	}
+	respond /__ziv/* 404
+	reverse_proxy localhost:8080
+}
