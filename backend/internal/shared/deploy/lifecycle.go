@@ -73,6 +73,9 @@ func (s *Service) runApp(ctx context.Context, appID int64, explicit bool) error 
 	if s.vault == nil {
 		return ErrNoVault
 	}
+	if !s.enabled(ctx) {
+		return ErrSharedOff
+	}
 	sa, err := s.q.GetSharedApp(ctx, appID)
 	if err != nil || !sa.CurrentDeploymentID.Valid || sa.UnsharedAt.Valid {
 		return ErrNotShared
@@ -86,6 +89,9 @@ func (s *Service) runApp(ctx context.Context, appID int64, explicit bool) error 
 	}
 	app, err := s.q.GetApp(ctx, appID)
 	if err != nil {
+		return err
+	}
+	if err := s.CheckFolder(app.FolderPath); err != nil {
 		return err
 	}
 	s.setTarget(appID, false, 0)
@@ -105,6 +111,12 @@ func (s *Service) runApp(ctx context.Context, appID int64, explicit bool) error 
 	}
 	j := job{app: app, sa: sa, m: m, dep: dep, rec: recipes.Recipe{Port: port}}
 	cid, hostPort, f := s.start(ctx, j, dep.ImageID, sa.DbName)
+	if f != nil && f.limit != nil {
+		// Nothing wrong with the app: it sleeps until a slot frees up, and its
+		// address keeps retrying.
+		logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "sleeping", StatusMessage: f.msg}), "set status", "app", appID)
+		return f.limit
+	}
 	if f != nil {
 		logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: appID, Status: "crashed", StatusMessage: f.msg}), "set status", "app", appID)
 		return errors.New(f.msg)
@@ -252,10 +264,8 @@ func (s *Service) Unshare(ctx context.Context, appID, by int64) error {
 			logErr(s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: d.ID, Status: "retired"}), "retire", "deployment", d.ID)
 		}
 	}
-	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork(appID)), "remove network", "app", appID)
-	for _, n := range engine.LegacyAppNetworks(appID) {
-		logErr(s.eng.RemoveNetwork(ctx, n), "remove network", "app", appID)
-	}
+	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork(s.opt.Tenant.Key, appID)), "remove network", "app", appID)
+	s.removeLegacyNetworks(ctx, appID)
 	if err := s.q.MarkUnshared(ctx, appID); err != nil {
 		return err
 	}
@@ -282,10 +292,8 @@ func (s *Service) Purge(ctx context.Context, appID int64) error {
 			return fmt.Errorf("drop %s: %w", sa.DbName, err)
 		}
 	}
-	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork(appID)), "remove network", "app", appID) // if Unshare could not
-	for _, n := range engine.LegacyAppNetworks(appID) {
-		logErr(s.eng.RemoveNetwork(ctx, n), "remove network", "app", appID)
-	}
+	logErr(s.eng.RemoveNetwork(ctx, engine.AppNetwork(s.opt.Tenant.Key, appID)), "remove network", "app", appID) // if Unshare could not
+	s.removeLegacyNetworks(ctx, appID)
 	logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "backups", strconv.FormatInt(appID, 10))), "remove backups", "app", appID)
 	logErr(os.RemoveAll(filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(appID, 10))), "remove app data", "app", appID)
 	if err := s.q.DeleteBackupsOfApp(ctx, appID); err != nil {

@@ -60,3 +60,27 @@ SELECT * FROM mcp_connections WHERE refresh_hash = $1;
 UPDATE mcp_connections
 SET token_hash = $3, access_expires_at = $4, refresh_hash = $5, refresh_expires_at = $6
 WHERE id = $1 AND refresh_hash = $2 AND revoked_at IS NULL;
+
+-- name: CreateMCPUpload :one
+INSERT INTO mcp_uploads (token_hash, person_id, expires_at) VALUES ($1, $2, $3)
+RETURNING id;
+
+-- name: CountOpenMCPUploads :one
+SELECT count(*) FROM mcp_uploads WHERE person_id = $1 AND expires_at > now() AND used_at IS NULL;
+
+-- name: ReceiveMCPUpload :one
+UPDATE mcp_uploads SET content = sqlc.arg(content), size = sqlc.arg(size), received_at = now()
+WHERE token_hash = sqlc.arg(token_hash) AND received_at IS NULL AND expires_at > now()
+RETURNING id;
+
+-- name: MCPUploadOpen :one
+SELECT id FROM mcp_uploads WHERE token_hash = $1 AND received_at IS NULL AND expires_at > now();
+
+-- name: GetMCPUpload :one
+SELECT * FROM mcp_uploads WHERE id = $1 AND person_id = $2;
+
+-- name: UseMCPUpload :exec
+UPDATE mcp_uploads SET used_at = now(), content = NULL WHERE id = $1;
+
+-- name: DeleteExpiredMCPUploads :exec
+DELETE FROM mcp_uploads WHERE expires_at < now() - interval '1 day' OR used_at < now() - interval '1 day';

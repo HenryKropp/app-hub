@@ -33,23 +33,29 @@ func (h *Handler) SetShared(s Shared) { h.shared = s }
 
 // sharedReady answers 503 (a plain page: the browser navigates here) when the shared-app parts are not running.
 func (h *Handler) sharedReady(w http.ResponseWriter, r *http.Request) bool {
+	if h.workspace != nil && h.workspace.SharedEnabled != nil && !h.workspace.SharedEnabled(r.Context()) {
+		h.sharedUnavailable(w, r, deploy.ErrSharedOff.Error())
+		return false
+	}
 	if h.shared.Svc == nil || h.shared.Codes == nil {
 		if h.workspace != nil {
-			message := "A execução de apps compartilhados está desativada para esta empresa. Ela exige isolamento dos containers, bancos e endereços por empresa."
-			if h.workspace.Slug == "principal" {
-				message = "O servidor de apps não está ligado. Tente de novo em alguns minutos ou fale com o administrador."
-			}
-			if r.URL.Path == "/api/shared/authorize" {
-				gateway.Page(w, r, http.StatusServiceUnavailable, "Apps compartilhados indisponíveis", message, h.workspace.BasePath+"/")
-			} else {
-				writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": message, "code": "shared_runtime_unavailable"})
-			}
+			h.sharedUnavailable(w, r, "O servidor de apps não está ligado. Tente de novo em alguns minutos ou fale com o administrador.")
 			return false
 		}
 		gateway.Page(w, r, http.StatusServiceUnavailable, "Apps indisponíveis", "O servidor de apps não está disponível. Tente de novo em alguns minutos ou fale com o administrador.", "/")
 		return false
 	}
 	return true
+}
+
+// sharedUnavailable is the 503 of a company whose shared apps cannot run: a
+// plain page for the browser's /api/shared/authorize, JSON elsewhere.
+func (h *Handler) sharedUnavailable(w http.ResponseWriter, r *http.Request, message string) {
+	if r.URL.Path == "/api/shared/authorize" {
+		gateway.Page(w, r, http.StatusServiceUnavailable, "Apps compartilhados indisponíveis", message, h.workspace.BasePath+"/")
+		return
+	}
+	writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": message, "code": "shared_runtime_unavailable"})
 }
 
 // sharedAuthorize hands a signed-in person over to an app address: it sends
@@ -135,6 +141,12 @@ func (b gatewayBackend) Lookup(ctx context.Context, slug string, test bool) (gat
 		return gateway.Target{}, false, err
 	}
 	t := gateway.Target{AppID: app.ID, Name: app.Name, Status: sa.Status}
+	if ws := b.h.workspace; ws != nil && ws.SharedEnabled != nil && !ws.SharedEnabled(ctx) {
+		return gateway.Target{AppID: app.ID, Name: app.Name, Status: "disabled"}, true, nil
+	}
+	if sa.Status == "sleeping" {
+		t.Message = sa.StatusMessage // set when the server was full
+	}
 	if owner, err := b.h.q.GetPerson(ctx, app.OwnerID); err == nil {
 		t.Owner = owner.Name
 	}

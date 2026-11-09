@@ -39,6 +39,10 @@ func (h *Handler) prepareRestore(w http.ResponseWriter, r *http.Request, a sqlc.
 		writeError(w, http.StatusConflict, "Espere a execução terminar antes de voltar o código.")
 		return sqlc.AppVersion{}, nil, false
 	}
+	if _, err := h.serverFolder(a); err != nil {
+		writeNotOnServer(w)
+		return sqlc.AppVersion{}, nil, false
+	}
 	cur, snap, readable, err := h.checkVersionLocked(ctx, a)
 	if err != nil {
 		internalError(w, "version check", err)
@@ -57,8 +61,13 @@ func (h *Handler) prepareRestore(w http.ResponseWriter, r *http.Request, a sqlc.
 
 // planRestore looks at the folder too, so files with no copy in the Hub are
 // listed for the trash before anything is written over them.
-func planRestore(w http.ResponseWriter, a sqlc.App, snap, targetSnap versions.Snapshot) (versions.RestorePlan, bool) {
-	plan, err := versions.PlanRestoreIn(folderOf(a), snap, targetSnap)
+func (h *Handler) planRestore(w http.ResponseWriter, a sqlc.App, snap, targetSnap versions.Snapshot) (versions.RestorePlan, bool) {
+	folder, err := h.serverFolder(a)
+	if err != nil {
+		writeNotOnServer(w)
+		return versions.RestorePlan{}, false
+	}
+	plan, err := versions.PlanRestoreIn(folder, snap, targetSnap)
 	if err != nil {
 		slog.Error("plan restore", "app", a.ID, "err", err)
 		writeError(w, http.StatusConflict, "Não consegui ler a pasta do app. Confira se ela existe e se o OneDrive está sincronizado.")
@@ -91,7 +100,7 @@ func (h *Handler) restorePreview(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	plan, ok := planRestore(w, a, snap, targetSnap)
+	plan, ok := h.planRestore(w, a, snap, targetSnap)
 	if !ok {
 		return
 	}
@@ -119,12 +128,16 @@ func (h *Handler) restoreVersion(w http.ResponseWriter, r *http.Request) {
 	}
 	// From here files change on disk: finish and record even if the client leaves.
 	ctx := context.WithoutCancel(r.Context())
-	plan, ok := planRestore(w, a, snap, targetSnap)
+	plan, ok := h.planRestore(w, a, snap, targetSnap)
 	if !ok {
 		return
 	}
 	blob := func(sha string) ([]byte, error) { return h.q.GetCodeBlob(ctx, sha) }
-	folder := folderOf(a)
+	folder, err := h.serverFolder(a)
+	if err != nil {
+		writeNotOnServer(w)
+		return
+	}
 	done, failed := versions.ApplyRestore(folder, plan, targetSnap, blob, versions.TrashFolder(time.Now()))
 	if done == nil {
 		done = []string{}
@@ -141,11 +154,15 @@ func (h *Handler) restoreVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v, err := h.insertVersion(ctx, a, snap, after, contents, "restore",
-		pgtype.Int4{Int32: target.Number, Valid: true}, pgtype.Int8{Int64: me.ID, Valid: true}, false)
+		pgtype.Int4{Int32: target.Number, Valid: true}, pgtype.Int8{Int64: me.ID, Valid: true}, false, "manual", "")
 	if err != nil {
 		internalError(w, "insert restore version", err)
 		return
 	}
 	h.storeScan(a.ID, v.Number, after) // new number bypasses the old cache entry; keep it fresh anyway
+	if err := h.syncSourcesFromFolder(ctx, a, after); err != nil {
+		// The restore happened; the next run will say code_changed, as before.
+		slog.Error("sync stored code after restore", "app", a.ID, "err", err)
+	}
 	writeJSON(w, http.StatusOK, restoreJSON{Number: v.Number, Done: done, Failed: failed})
 }

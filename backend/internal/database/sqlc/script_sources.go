@@ -5,14 +5,14 @@ import (
 	"encoding/json"
 )
 
-func (q *Queries) ImportScript(ctx context.Context, p UpsertAppParams, files []byte) (int64, error) {
+func (q *Queries) ImportScript(ctx context.Context, p UpsertAppParams, kind string, files []byte) (int64, error) {
 	var id int64
 	err := q.db.QueryRow(ctx, `WITH app AS (
 		INSERT INTO apps (slug,name,summary,kind,language,area,area_id,folder_path,owner_id,manifest,created_by)
-		VALUES ($1,$2,$3,'script',$4,$5,$6,$7,$8,$9,$8) RETURNING id
+		VALUES ($1,$2,$3,$11,$4,$5,$6,$7,$8,$9,$8) RETURNING id
 	), source AS (
 		INSERT INTO script_sources(app_id,files) SELECT id,$10 FROM app RETURNING app_id
-	) SELECT app_id FROM source`, p.Slug, p.Name, p.Summary, p.Language, p.Area, p.AreaID, p.FolderPath, p.OwnerID, p.Manifest, files).Scan(&id)
+	) SELECT app_id FROM source`, p.Slug, p.Name, p.Summary, p.Language, p.Area, p.AreaID, p.FolderPath, p.OwnerID, p.Manifest, files, kind).Scan(&id)
 	return id, err
 }
 
@@ -20,4 +20,23 @@ func (q *Queries) ScriptSources(ctx context.Context, id int64) (json.RawMessage,
 	var raw json.RawMessage
 	err := q.db.QueryRow(ctx, `SELECT files FROM script_sources WHERE app_id=$1`, id).Scan(&raw)
 	return raw, err
+}
+
+// ReplaceScriptSources stores a new set of sent files for an app.
+func (q *Queries) ReplaceScriptSources(ctx context.Context, appID int64, files []byte) error {
+	_, err := q.db.Exec(ctx, `UPDATE script_sources SET files=$2 WHERE app_id=$1`, appID, files)
+	return err
+}
+
+// SetAppFolder moves an app to another folder on the server (screen apps
+// imported through the Ziv keep their code in the shared-app code folder).
+func (q *Queries) SetAppFolder(ctx context.Context, appID int64, folder string) error {
+	_, err := q.db.Exec(ctx, `UPDATE apps SET folder_path=$2 WHERE id=$1`, appID, folder)
+	return err
+}
+
+// DeleteApp removes an app row (a screen-app import that failed half-way).
+func (q *Queries) DeleteApp(ctx context.Context, appID int64) (int64, error) {
+	tag, err := q.db.Exec(ctx, `DELETE FROM apps WHERE id=$1`, appID)
+	return tag.RowsAffected(), err
 }

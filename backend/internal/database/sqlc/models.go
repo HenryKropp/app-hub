@@ -92,6 +92,7 @@ type AppVersion struct {
 	Summary        []byte             `json:"summary"`
 	FilesChangedAt pgtype.Timestamptz `json:"files_changed_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	Channel        string             `json:"channel"`
 }
 
 type AppViewer struct {
@@ -260,6 +261,18 @@ type McpConnection struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	LastUsedAt       pgtype.Timestamptz `json:"last_used_at"`
 	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type McpUpload struct {
+	ID         int64              `json:"id"`
+	TokenHash  string             `json:"token_hash"`
+	PersonID   int64              `json:"person_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	ReceivedAt pgtype.Timestamptz `json:"received_at"`
+	UsedAt     pgtype.Timestamptz `json:"used_at"`
+	Size       int32              `json:"size"`
+	Content    []byte             `json:"content"`
 }
 
 type MembershipInvitation struct {

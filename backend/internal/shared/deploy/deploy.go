@@ -28,6 +28,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/shared/health"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/recipes"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/stage"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/tenant"
 	"github.com/HenryKropp/app-hub/backend/internal/vault"
 	"github.com/HenryKropp/app-hub/backend/internal/versions"
 )
@@ -39,13 +40,37 @@ var (
 	ErrNotShared  = errors.New("Este app ainda não é compartilhado.")
 	ErrStopped    = errors.New("O app está parado. Use Ligar para ligá-lo de novo.")
 	ErrBadSlug    = errors.New("O nome curto do app só pode ter letras minúsculas, números e hífens (sem dois hífens seguidos) para virar endereço.")
+	// ErrFolderOutside: outside principal, an app is built only from its code kept in the Ziv.
+	ErrFolderOutside = errors.New("Nesta empresa, um app com tela precisa ter o código guardado no Ziv. Suba o app pelo Claude Code (\"sobe esse programa para o Ziv\") e publique de novo.")
 )
+
+// LimitError is a company limit (apps published, memory per app) the action would pass.
+type LimitError struct{ Msg string }
+
+func (e *LimitError) Error() string { return e.Msg }
 
 type Options struct {
 	DataDir       string        // SHARED_DATA_DIR
 	Domain        string        // SHARED_APPS_DOMAIN, ex.: "localhost:8080"
 	Scheme        string        // "http" ou "https" (do BASE_URL do Ziv)
 	HealthTimeout time.Duration // 90 s; testes usam 1 s
+
+	Tenant      tenant.Tenant // the company; zero value = principal's names
+	FolderRoot  string        // "" = any folder (principal); else apps build only from inside it
+	MaxApps     int           // published apps in the company; 0 = no limit
+	MaxMemoryMB int           // memory per app; 0 = no limit
+	Slots       *Slots        // server-wide running limit, shared by every company; nil = none
+	// Enabled says whether the company's screen apps are on (the Ziv owner
+	// turns them on per company). nil = on. Off blocks building and starting;
+	// stopping, unsharing, copies and sleep keep working.
+	Enabled func(context.Context) bool
+}
+
+// ErrSharedOff: the company's screen apps are turned off.
+var ErrSharedOff = errors.New("Os apps com tela não estão ligados para esta empresa. Peça ao administrador do Ziv para ligá-los.")
+
+func (s *Service) enabled(ctx context.Context) bool {
+	return s.opt.Enabled == nil || s.opt.Enabled(ctx)
 }
 
 var slugRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
@@ -92,6 +117,28 @@ func (s *Service) Slug(appSlug string) (string, error) {
 		return "", ErrBadSlug
 	}
 	return appSlug, nil
+}
+
+// CodeDir is where the Ziv keeps an app's code on the server.
+func (s *Service) CodeDir(appID int64) string {
+	return filepath.Join(s.opt.DataDir, "code", strconv.FormatInt(appID, 10))
+}
+
+// CheckFolder refuses, outside principal, a folder that is not inside the
+// company's code folder (symlinks resolved), before anything reads it.
+func (s *Service) CheckFolder(path string) error {
+	if s.opt.FolderRoot == "" {
+		return nil
+	}
+	root, err := filepath.EvalSymlinks(s.opt.FolderRoot)
+	if err != nil {
+		return ErrFolderOutside
+	}
+	real, err := filepath.EvalSymlinks(path)
+	if err != nil || !strings.HasPrefix(real, root+string(filepath.Separator)) {
+		return ErrFolderOutside
+	}
+	return nil
 }
 
 func (s *Service) AppURL(slug string) string { return s.opt.Scheme + "://" + slug + "." + s.opt.Domain }
@@ -149,6 +196,10 @@ func (s *Service) Busy(appID int64) bool {
 	return s.busy[appID]
 }
 
+// Hold marks the app busy while its code is rewritten, so no test or
+// publish reads a half-written folder. The caller must call the returned func.
+func (s *Service) Hold(appID int64) (func(), error) { return s.lock(appID) }
+
 // lock marks the app busy; the caller must call the returned func when done.
 func (s *Service) lock(appID int64) (func(), error) {
 	s.mu.Lock()
@@ -171,7 +222,14 @@ func (s *Service) Configure(ctx context.Context, app sqlc.App, m manifest.Manife
 	if m.Shared != nil {
 		sh = *m.Shared
 	}
+	unset := sh.MemoryMB == 0
 	sh = sh.WithDefaults()
+	if unset && s.opt.MaxMemoryMB > 0 && sh.MemoryMB > s.opt.MaxMemoryMB { // the default fits the company's cap
+		sh.MemoryMB = s.opt.MaxMemoryMB
+	}
+	if s.opt.MaxMemoryMB > 0 && sh.MemoryMB > s.opt.MaxMemoryMB {
+		return sqlc.SharedApp{}, &LimitError{Msg: fmt.Sprintf("Nesta empresa cada app com tela pode usar até %d MB de memória. Diminua a memória do app e tente de novo.", s.opt.MaxMemoryMB)}
+	}
 	return s.q.UpsertSharedApp(ctx, sqlc.UpsertSharedAppParams{
 		AppID: app.ID, Slug: slug, AlwaysOn: sh.AlwaysOn, IdleMinutes: int32(sh.IdleMin), MemoryMb: int32(sh.MemoryMB),
 		Cpus: numeric(sh.CPUs), HealthPath: sh.HealthPath, Port: int32(sh.Port), WantsDb: sh.Database == "postgres",
@@ -186,6 +244,9 @@ type job struct {
 	rec  recipes.Recipe
 	by   int64
 	test bool
+	// replacing: the box replaces the app's own running one (update publish,
+	// rollback), so it never waits for a free slot.
+	replacing bool
 }
 
 func (s *Service) Publish(ctx context.Context, app sqlc.App, m manifest.Manifest, by int64) (sqlc.SharedDeployment, error) {
@@ -202,6 +263,9 @@ func (s *Service) Test(ctx context.Context, app sqlc.App, m manifest.Manifest, b
 func (s *Service) begin(ctx context.Context, app sqlc.App, m manifest.Manifest, by int64, test bool) (sqlc.SharedDeployment, error) {
 	if s.vault == nil {
 		return sqlc.SharedDeployment{}, ErrNoVault
+	}
+	if !s.enabled(ctx) {
+		return sqlc.SharedDeployment{}, ErrSharedOff
 	}
 	if err := s.eng.Available(ctx); err != nil {
 		return sqlc.SharedDeployment{}, err
@@ -239,9 +303,21 @@ func (s *Service) recoverJob(j job) {
 }
 
 func (s *Service) prepare(ctx context.Context, app sqlc.App, m manifest.Manifest, by int64, test bool) (sqlc.SharedDeployment, job, error) {
+	if err := s.CheckFolder(app.FolderPath); err != nil {
+		return sqlc.SharedDeployment{}, job{}, err
+	}
 	sa, err := s.Configure(ctx, app, m)
 	if err != nil {
 		return sqlc.SharedDeployment{}, job{}, err
+	}
+	if s.opt.MaxApps > 0 && !sa.CurrentDeploymentID.Valid {
+		n, err := s.q.CountPublishedSharedApps(ctx)
+		if err != nil {
+			return sqlc.SharedDeployment{}, job{}, err
+		}
+		if n >= int64(s.opt.MaxApps) {
+			return sqlc.SharedDeployment{}, job{}, &LimitError{Msg: fmt.Sprintf("Esta empresa já tem %d apps com tela publicados, o máximo do servidor. Deixe de compartilhar um deles para publicar outro.", s.opt.MaxApps)}
+		}
 	}
 	rec, err := recipes.Detect(versions.LocalFolder{Root: app.FolderPath}, m)
 	if err != nil {
@@ -286,8 +362,9 @@ func (s *Service) prepare(ctx context.Context, app sqlc.App, m manifest.Manifest
 
 // failure is what went wrong, in Portuguese, plus the log for "Ver detalhes".
 type failure struct {
-	msg string
-	log string
+	limit *LimitError // the server was full: nothing is wrong with the app
+	msg   string
+	log   string
 }
 
 func (s *Service) runJob(ctx context.Context, j job) {
@@ -348,7 +425,7 @@ func (s *Service) build(ctx context.Context, j job) (string, string, *failure) {
 	}
 	labels := map[string]string{engine.Label: strconv.FormatInt(j.app.ID, 10)}
 	img, log, err := s.eng.Build(ctx, engine.BuildSpec{ContextDir: dir, DockerfilePath: df,
-		Tag: fmt.Sprintf("%s%s:%d", engine.ImagePrefix, j.sa.Slug, j.dep.ID), Labels: labels})
+		Tag: s.opt.Tenant.ImageTag(j.sa.Slug, j.dep.ID), Labels: labels})
 	if err != nil {
 		full := log + "\n" + err.Error()
 		return "", log, &failure{msg: "Não foi possível montar o app. " + explainBuild(full), log: full}
@@ -364,18 +441,25 @@ func (s *Service) start(ctx context.Context, j job, img, dbName string) (string,
 		return "", 0, &failure{msg: "Não foi possível preparar as configurações do app.", log: err.Error()}
 	}
 	appDir := filepath.Join(s.opt.DataDir, "apps", strconv.FormatInt(j.app.ID, 10))
-	name := fmt.Sprintf("ziv-%s-%d", j.sa.Slug, j.dep.ID)
+	name := s.opt.Tenant.ContainerName(j.sa.Slug, j.dep.ID, j.test)
 	data := filepath.Join(appDir, "data")
 	if j.test {
-		name = fmt.Sprintf("ziv-%s-teste-%d", j.sa.Slug, j.dep.ID)
 		data = filepath.Join(appDir, "test-data")
 	}
 	if err := os.MkdirAll(data, 0o755); err != nil {
 		return "", 0, &failure{msg: "Não foi possível criar a pasta de dados do app no servidor.", log: err.Error()}
 	}
+	release, err := s.opt.Slots.Acquire(ctx, int(j.sa.MemoryMb), j.replacing)
+	if le := (*LimitError)(nil); errors.As(err, &le) {
+		return "", 0, &failure{msg: le.Msg, limit: le}
+	} else if err != nil {
+		return "", 0, &failure{msg: "Não foi possível ligar o app no servidor.", log: err.Error()}
+	}
+	defer release()
 	cid, err := s.eng.Start(ctx, engine.StartSpec{Name: name, Image: img, Env: env, Port: j.rec.Port,
-		MemoryMB: int(j.sa.MemoryMb), CPUs: toFloat(j.sa.Cpus), DataDir: data, Network: engine.AppNetwork(j.app.ID),
-		Labels: map[string]string{engine.Label: strconv.FormatInt(j.app.ID, 10), engine.DeploymentLabel: strconv.FormatInt(j.dep.ID, 10)}})
+		MemoryMB: int(j.sa.MemoryMb), CPUs: toFloat(j.sa.Cpus), DataDir: data, Network: engine.AppNetwork(s.opt.Tenant.Key, j.app.ID),
+		Labels: map[string]string{engine.Label: strconv.FormatInt(j.app.ID, 10), engine.DeploymentLabel: strconv.FormatInt(j.dep.ID, 10),
+			engine.MemoryLabel: strconv.Itoa(int(j.sa.MemoryMb))}})
 	if err != nil {
 		return "", 0, &failure{msg: "Não foi possível ligar o app no servidor.", log: err.Error()}
 	}
@@ -403,6 +487,7 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 		}
 	}
 	live := j.sa.CurrentDeploymentID.Valid
+	j.replacing = live
 	if live && j.sa.WantsDb && j.sa.DbName != "" {
 		depID := j.dep.ID
 		if _, err := s.Backup(ctx, j.app.ID, "pre_deploy", &depID, &j.by); err != nil {
@@ -462,9 +547,7 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 		}
 		// A box from the Ziv or App Hub era lived on an old network; once it is gone the
 		// network is an orphan (podman refuses while something still uses it).
-		for _, n := range engine.LegacyAppNetworks(j.app.ID) {
-			logErr(s.eng.RemoveNetwork(ctx, n), "remove legacy network", "app", j.app.ID)
-		}
+		s.removeLegacyNetworks(ctx, j.app.ID)
 		if j.sa.PreviousDeploymentID.Valid { // só a anterior guarda imagem
 			if older, err := s.q.GetDeployment(ctx, j.sa.PreviousDeploymentID.Int64); err == nil && older.ImageID != "" {
 				logErr(s.eng.RemoveImage(ctx, older.ImageID), "remove older image", "image", older.ImageID)
@@ -585,6 +668,9 @@ func (s *Service) EndTest(ctx context.Context, depID int64) error {
 // data from before the current version was published). If anything fails,
 // the current version is put back as it was.
 func (s *Service) Rollback(ctx context.Context, appID int64, withData bool, by int64) error {
+	if !s.enabled(ctx) {
+		return ErrSharedOff
+	}
 	unlock, err := s.lock(appID)
 	if err != nil {
 		return err
@@ -607,6 +693,11 @@ func (s *Service) Rollback(ctx context.Context, appID int64, withData bool, by i
 	}
 	if prev.ImageID == "" {
 		return ErrNoPrevious
+	}
+	if app, err := s.q.GetApp(ctx, appID); err != nil {
+		return err
+	} else if err := s.CheckFolder(app.FolderPath); err != nil {
+		return err
 	}
 	wasUp := sa.Status == "running" || sa.Status == "starting"
 	var before sqlc.SharedBackup // "antes de restaurar": the data of now
@@ -647,7 +738,7 @@ func (s *Service) Rollback(ctx context.Context, appID int64, withData bool, by i
 			port = int(sa.Port)
 		}
 	}
-	j := job{app: app, sa: sa, m: m, dep: prev, rec: recipes.Recipe{Port: port}, by: by}
+	j := job{app: app, sa: sa, m: m, dep: prev, rec: recipes.Recipe{Port: port}, by: by, replacing: true}
 	cid, hostPort, f := s.start(ctx, j, prev.ImageID, sa.DbName)
 	if f != nil {
 		slog.Warn("shared rollback failed", "app", appID, "deployment", prev.ID, "msg", f.msg, "log", lastLines(f.log, 10))
@@ -663,9 +754,7 @@ func (s *Service) Rollback(ctx context.Context, appID int64, withData bool, by i
 	if cur.ContainerID != "" {
 		logErr(s.eng.Remove(ctx, cur.ContainerID), "remove container", "container", cur.ContainerID)
 	}
-	for _, n := range engine.LegacyAppNetworks(appID) {
-		logErr(s.eng.RemoveNetwork(ctx, n), "remove legacy network", "app", appID)
-	}
+	s.removeLegacyNetworks(ctx, appID)
 	logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: cur.ID}), "clear container", "deployment", cur.ID)
 	logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: prev.ID, ContainerID: cid}), "set container", "deployment", prev.ID)
 	logErr(s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: prev.ID, Status: "live"}), "set live", "deployment", prev.ID)
@@ -782,5 +871,16 @@ func (s *Service) event(ctx context.Context, appID int64, by *int64, label strin
 	}
 	if err != nil {
 		slog.Warn("shared event", "app", appID, "err", err)
+	}
+}
+
+// removeLegacyNetworks drops the networks Kova and the App Hub gave the app.
+// Only principal ever had them.
+func (s *Service) removeLegacyNetworks(ctx context.Context, appID int64) {
+	if !s.opt.Tenant.Principal() {
+		return
+	}
+	for _, n := range engine.LegacyAppNetworks(appID) {
+		logErr(s.eng.RemoveNetwork(ctx, n), "remove legacy network", "app", appID)
 	}
 }

@@ -53,6 +53,7 @@ type Supervisor struct {
 
 	fails         map[int64]failedChecks // failed health checks in a row, per app
 	beforeRestart func(appID int64)      // tests: runs between the health check and the restart
+	beforeStep    func()                 // tests: runs at the start of Step
 }
 
 // failedChecks counts failed health checks in a row for one live container.
@@ -225,6 +226,51 @@ func (s *Supervisor) Tick(ctx context.Context) {
 		return
 	}
 	s.down = false
+	s.Step(ctx)
+}
+
+// HasApps says whether this company has any shared app at all; a company
+// without one needs no reconcile and no rounds. On error it says yes, so a
+// failing check never skips the work.
+func (s *Supervisor) HasApps(ctx context.Context) bool {
+	has, err := s.q.HasSharedApps(ctx)
+	return err != nil || has
+}
+
+// SleepAll puts every running (or crashed) app of the company to sleep and
+// ends its test boxes: its screen apps were turned off.
+func (s *Supervisor) SleepAll(ctx context.Context) {
+	if tests, err := s.q.ListAllOpenTests(ctx); err == nil {
+		for _, d := range tests {
+			if s.svc.Busy(d.AppID) {
+				continue
+			}
+			if err := s.svc.EndTest(ctx, d.ID); err != nil {
+				slog.Warn("supervisor end test (apps off)", "deployment", d.ID, "err", err)
+			}
+		}
+	}
+	apps, err := s.q.ListSharedApps(ctx)
+	if err != nil {
+		slog.Error("supervisor list", "err", err)
+		return
+	}
+	for _, a := range apps {
+		if (a.Status != "running" && a.Status != "crashed") || s.svc.Busy(a.AppID) {
+			continue
+		}
+		if err := s.svc.Sleep(ctx, a.AppID); err != nil {
+			slog.Warn("supervisor sleep (apps off)", "app", a.AppID, "err", err)
+		}
+	}
+}
+
+// Step is one round of the supervisor once the engine is known to be up:
+// restart, sleep, measure, daily copies, expired tests, cleanup.
+func (s *Supervisor) Step(ctx context.Context) {
+	if s.beforeStep != nil {
+		s.beforeStep()
+	}
 	now := s.now()
 	s.flushAccess(ctx)
 	apps, err := s.q.ListSharedApps(ctx)
@@ -372,7 +418,14 @@ func (s *Supervisor) restart(ctx context.Context, a sqlc.ListSharedAppsRow, now 
 		slog.Info("supervisor restarts app", "app", a.AppID, "try", count+1)
 		return nil
 	})
+	var full *deploy.LimitError
 	switch {
+	case errors.As(err, &full):
+		// The server was full: not the app's fault, so not a try. Put the count back.
+		if err := s.q.SetSharedRestarts(ctx, sqlc.SetSharedRestartsParams{AppID: a.AppID, RestartCount: a.RestartCount, RestartWindowStart: a.RestartWindowStart}); err != nil {
+			slog.Warn("supervisor restart count", "app", a.AppID, "err", err)
+		}
+		slog.Info("supervisor skips restart: the server is full", "app", a.AppID)
 	case err == nil, errors.Is(err, errGaveUp):
 	case errors.Is(err, errChanged), errors.Is(err, deploy.ErrBusy), errors.Is(err, deploy.ErrStopped):
 		slog.Info("supervisor skips restart: the app changed", "app", a.AppID, "err", err) // not a try

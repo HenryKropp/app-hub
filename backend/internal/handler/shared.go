@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -119,11 +120,16 @@ func (h *Handler) deploymentOutFull(r *http.Request, d sqlc.SharedDeployment, te
 // sharedError maps the deploy service's errors to answers in Portuguese.
 func sharedError(w http.ResponseWriter, err error) {
 	var miss deploy.MissingSettings
+	var limit *deploy.LimitError
 	switch {
 	case errors.Is(err, deploy.ErrBusy):
 		writeError(w, http.StatusConflict, busyMsg)
 	case errors.As(err, &miss):
 		writeError(w, http.StatusBadRequest, miss.Error())
+	case errors.Is(err, deploy.ErrFolderOutside):
+		writeJSON(w, http.StatusConflict, map[string]string{"error": err.Error(), "code": "shared_folder_outside"})
+	case errors.As(err, &limit):
+		writeError(w, http.StatusConflict, limit.Msg)
 	case errors.Is(err, engine.ErrUnavailable):
 		slog.Warn("shared: engine unavailable", "err", err)
 		writeError(w, http.StatusServiceUnavailable, engineDownMsg)
@@ -262,7 +268,14 @@ func (h *Handler) checkShared(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if err := h.hydrateForShared(r.Context(), a); err != nil {
+		slog.Warn("shared hydrate", "app", a.ID, "err", err)
+	}
 	rep, err := h.readiness(a, sa)
+	if errors.Is(err, deploy.ErrFolderOutside) {
+		sharedError(w, err)
+		return
+	}
 	if err != nil {
 		slog.Warn("shared check", "app", a.ID, "err", err)
 		writeError(w, http.StatusBadRequest, folderUnreadable)
@@ -273,6 +286,9 @@ func (h *Handler) checkShared(w http.ResponseWriter, r *http.Request) {
 
 // readiness reads the app folder and runs the checklist.
 func (h *Handler) readiness(a sqlc.App, sa *sqlc.SharedApp) (readiness.Report, error) {
+	if err := h.shared.Svc.CheckFolder(a.FolderPath); err != nil {
+		return readiness.Report{}, err
+	}
 	diag, err := scanner.Scan(a.FolderPath)
 	if err != nil {
 		return readiness.Report{}, err
@@ -290,12 +306,28 @@ func (h *Handler) startShared(w http.ResponseWriter, r *http.Request, test bool)
 	if !ok {
 		return
 	}
+	if !test { // publishing an unapproved version is refused, as running it is
+		if reason, err := h.executionBlock(r.Context(), a.ID); err != nil {
+			internalError(w, "approval", err)
+			return
+		} else if reason != "" {
+			writeError(w, http.StatusForbidden, reason)
+			return
+		}
+	}
+	if err := h.hydrateForShared(r.Context(), a); err != nil {
+		slog.Warn("shared hydrate", "app", a.ID, "err", err)
+	}
 	// The engine first, so "Podman desligado" shows as such.
 	if err := h.shared.Eng.Available(r.Context()); err != nil {
 		sharedError(w, err)
 		return
 	}
 	rep, err := h.readiness(a, sa)
+	if errors.Is(err, deploy.ErrFolderOutside) {
+		sharedError(w, err)
+		return
+	}
 	if err != nil {
 		slog.Warn("shared check", "app", a.ID, "err", err)
 		writeError(w, http.StatusBadRequest, folderUnreadable)
@@ -343,6 +375,9 @@ func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if err := h.hydrateForShared(r.Context(), a); err != nil {
+		slog.Warn("shared hydrate", "app", a.ID, "err", err)
+	}
 	var body SharedSettings
 	if !readJSON(w, r, &body) {
 		return
@@ -387,6 +422,10 @@ func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
 			sharedError(w, err)
 			return
 		}
+	}
+	if h.serverPath(a.FolderPath, a.ID) != nil {
+		writeNotOnServer(w)
+		return
 	}
 	if info, err := os.Stat(a.FolderPath); err != nil || !info.IsDir() {
 		writeError(w, http.StatusConflict, "Não consegui ler a pasta do app agora. Nada foi salvo. Confira se o OneDrive está sincronizado e tente de novo.")
@@ -632,4 +671,14 @@ func (h *Handler) sharedBriefOf(r *http.Request, appID int64) (*sharedBrief, err
 		return nil, nil
 	}
 	return &sharedBrief{Status: sa.Status, URL: h.shared.Svc.AppURL(sa.Slug), Slug: sa.Slug}, nil
+}
+
+// hydrateForShared rebuilds a stored-code app's folder (lost on a server
+// restart) before the shared-app screens read it. Apps whose code the Ziv
+// does not keep are left alone.
+func (h *Handler) hydrateForShared(ctx context.Context, a sqlc.App) error {
+	if h.serverPath(a.FolderPath, a.ID) != nil {
+		return nil
+	}
+	return h.hydrateImportedScript(ctx, a, manifestOf(a))
 }

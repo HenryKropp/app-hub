@@ -8,7 +8,7 @@ import { DescribeDialog } from "./DescribeDialog"
 afterEach(() => vi.restoreAllMocks())
 
 const version: VersionInfo = {
-  number: 2, origin: "folder", restored_from: null, author_name: "Ana", author_probable: false, description: "",
+  number: 2, origin: "folder", channel: "manual", restored_from: null, author_name: "Ana", author_probable: false, description: "",
   summary: { added: 0, removed: 0, modified: 1, binaries: [] }, files_changed_at: null, created_at: "2026-10-01T12:05:00Z", current: true,
 }
 

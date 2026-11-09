@@ -16,7 +16,8 @@ import (
 )
 
 const mcpInstructions = "O Ziv é o lugar da empresa onde ficam os apps, os scripts e os artifacts do time. " +
-	"Estas ferramentas agem como a pessoa que conectou o Claude: veem e fazem só o que ela pode ver e fazer no Ziv."
+	"Estas ferramentas agem como a pessoa que conectou o Claude: veem e fazem só o que ela pode ver e fazer no Ziv. " +
+	"Para registrar ou atualizar um app a partir de uma pasta do computador, chame formato_do_app primeiro e siga o protocolo que ele devolve."
 
 // mcpPersonFrom is the person a tool call acts for (0 outside MCP).
 func mcpPersonFrom(ctx context.Context) int64 {
@@ -92,6 +93,15 @@ var mcpRoutes = []string{
 	"POST /api/artifacts",
 	"POST /api/artifacts/{id}/versions",
 	"GET /api/areas",
+	"POST /api/scripts/import",
+	"POST /api/apps/{id}/sources",
+	// publicar_app_com_tela: the settings values (PUT …/shared/config) stay site-only
+	"GET /api/apps/{id}/shared",
+	"PUT /api/apps/{id}/shared",
+	"GET /api/apps/{id}/shared/check",
+	"GET /api/apps/{id}/shared/config",
+	"POST /api/apps/{id}/shared/publish",
+	"GET /api/apps/{id}/shared/deployments/{id}",
 }
 
 var errMCPRoute = errors.New("mcp: rota não liberada para o Claude")

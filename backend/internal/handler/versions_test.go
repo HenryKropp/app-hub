@@ -230,3 +230,24 @@ func TestCheckWithMissingFolder(t *testing.T) {
 		t.Fatalf("check %d %+v", code, chk)
 	}
 }
+
+func TestVersionChannelDefaultsManual(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	id := importTestScript(t, c)
+	var raw struct {
+		Items []struct {
+			Type    string         `json:"type"`
+			Version map[string]any `json:"version"`
+		} `json:"items"`
+	}
+	if code := c.do("GET", appPath(id, "/history?type=code"), nil, &raw); code != http.StatusOK || len(raw.Items) != 1 {
+		t.Fatalf("history %d %+v", code, raw)
+	}
+	if v := raw.Items[0].Version; v["channel"] != "manual" || v["origin"] != "original" {
+		t.Fatalf("%+v", v)
+	}
+	if _, err := testPool.Exec(context.Background(), "UPDATE app_versions SET origin='upload', channel='mcp' WHERE app_id=$1", id); err != nil {
+		t.Fatal(err)
+	}
+}
