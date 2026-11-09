@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -33,7 +32,6 @@ type runInputJSON struct {
 	Masked bool     `json:"masked"`
 }
 
-var secretLike = regexp.MustCompile(`(?i)senha|password|passwd|token|segredo|secret|api[ _-]?key|chave (de api|de acesso|secreta)`)
 
 // secretInput says an input should never have its value shown or kept: a
 // password or secret type (no such type exists yet, but a ficha may say so)

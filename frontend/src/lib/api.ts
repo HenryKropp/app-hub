@@ -577,6 +577,7 @@ export const api = {
     list: (id: number) => request<SettingsList>("GET", `/api/apps/${id}/settings`),
     set: (id: number, name: string, value: string) => request<{ ok: boolean; needs_restart?: boolean }>("PUT", `/api/apps/${id}/settings/${encodeURIComponent(name)}`, { value }),
     remove: (id: number, name: string) => request<{ ok: boolean; needs_restart?: boolean }>("DELETE", `/api/apps/${id}/settings/${encodeURIComponent(name)}`),
+    makeSecret: (id: number, name: string) => request<{ ok: boolean; needs_restart?: boolean }>("POST", `/api/apps/${id}/settings/${encodeURIComponent(name)}/secret`),
   },
   /** The text of one file of a run (the console log), brought from the computer where it ran. */
   runFileText: async (runId: number, fileId: number): Promise<string> => {

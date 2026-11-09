@@ -52,6 +52,11 @@ func plainDefs(m manifest.Manifest, rows []sqlc.AppConfig) []manifest.EnvVar {
 	for _, k := range declaredKeys(m) {
 		secret[k.Name] = true
 	}
+	for _, row := range rows { // a value made a password on the site stays one
+		if row.IsSecret || len(row.ValueCipher) > 0 || looksSecret(row.Name, "") {
+			secret[row.Name] = true
+		}
+	}
 	var out []manifest.EnvVar
 	seen := map[string]bool{}
 	if m.Shared != nil {
@@ -78,6 +83,9 @@ func (h *Handler) plainValues(ctx context.Context, a sqlc.App) (map[string]strin
 	if !manifest.HasVault(manifestOf(a).Kind) {
 		return out, nil
 	}
+	if err := h.sealLooseSecrets(ctx, a); err != nil {
+		return nil, err
+	}
 	rows, err := h.q.ListAppConfig(ctx, a.ID)
 	if err != nil {
 		return nil, err
@@ -102,6 +110,9 @@ func (h *Handler) appSettings(ctx context.Context, a sqlc.App) (settingsList, er
 	m := manifestOf(a)
 	if !manifest.HasVault(m.Kind) {
 		return out, nil
+	}
+	if err := h.sealLooseSecrets(ctx, a); err != nil {
+		return out, err
 	}
 	keys, err := h.appKeys(ctx, a)
 	if err != nil {
@@ -170,6 +181,7 @@ func (h *Handler) registerSettings(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/apps/{id}/settings", h.listSettings)
 	mux.HandleFunc("PUT /api/apps/{id}/settings/{name}", h.putSetting)
 	mux.HandleFunc("DELETE /api/apps/{id}/settings/{name}", h.deleteSetting)
+	mux.HandleFunc("POST /api/apps/{id}/settings/{name}/secret", h.makeSecret)
 }
 
 func (h *Handler) listSettings(w http.ResponseWriter, r *http.Request) {
@@ -236,7 +248,7 @@ func (h *Handler) putSetting(w http.ResponseWriter, r *http.Request) {
 	listed := slices.ContainsFunc(defs, func(d manifest.EnvVar) bool { return d.Name == name })
 	if !listed {
 		m := manifestOf(a)
-		secret := slices.ContainsFunc(declaredKeys(m), func(k manifest.Key) bool { return k.Name == name }) ||
+		secret := looksSecret(name, "") || slices.ContainsFunc(declaredKeys(m), func(k manifest.Key) bool { return k.Name == name }) ||
 			slices.ContainsFunc(rows, func(row sqlc.AppConfig) bool { return row.Name == name && (row.IsSecret || len(row.ValueCipher) > 0) })
 		added := 0
 		for _, d := range defs {

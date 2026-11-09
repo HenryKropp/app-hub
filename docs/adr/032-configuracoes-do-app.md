@@ -37,3 +37,14 @@ Na página do app, a face Cuidar tinha dois lugares para a mesma coisa: o item *
 - **Manter Cofre e mover Configurações para uma aba própria.** Rejeitada: continuariam dois lugares para valores do mesmo tipo.
 - **Tudo como senha.** Rejeitada: uma pasta ou um e-mail escondidos atrapalham quem confere o app.
 - **Juntar tudo numa rota nova, inclusive senhas.** Rejeitada por ora: as rotas de chaves já têm auditoria e são usadas pelo Agente e pelo MCP; mudar não traz ganho para quem usa.
+
+## Adendo (2026-11-09): senha pelo nome e "Tornar senha"
+
+Henry achou a "BTG senha" de um app aberta em Outros ajustes, porque a ficha não a marcava como senha. A correção:
+
+- **Regra pelo nome.** Um valor cujo nome ou rótulo tem cara de senha é sempre tratado como senha, diga a ficha o que disser. Contam como cara de senha: senha, password, pwd, token, segredo, secret, api key e chave de API, de acesso ou secreta.
+- **Valores que já estavam abertos.** São trancados na próxima vez que alguém abre as Configurações do app ou roda o app. Para isso o servidor precisa da chave dele.
+- **Ajustes novos.** Um ajuste comum novo com nome de senha é recusado.
+- **Botão "Tornar senha".** Cada ajuste comum ganhou esse botão, sem volta. O uso fica registrado no histórico de segurança (`app_setting.made_secret`).
+
+A mesma regra de nome é a que esconde valores nas execuções (ADR 033).
