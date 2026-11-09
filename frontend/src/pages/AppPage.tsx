@@ -12,6 +12,7 @@ import { MakeShared, SharedSection } from "@/components/ficha/shared/SharedSecti
 import { AppControlBar } from "@/components/ficha/AppControl"
 import { CareNav, FaceSwitch, Steps, TodoList, type Face, type MenuItem, type Step, type Todo } from "@/components/ficha/CareMenu"
 import { KeysSection, VAULT_KINDS } from "@/components/ficha/KeysSection"
+import { RunsPanel } from "@/components/ficha/RunsPanel"
 import { Tech } from "@/components/ficha/shared/Tech"
 import { FavoriteStar } from "@/components/FavoriteStar"
 import { ScheduleDialog } from "@/components/ScheduleDialog"
@@ -30,7 +31,7 @@ type PartKey = "sobre" | "pede" | "entrega" | "pessoas" | "notas" | "outros" | "
 type Draft = { manifest: Manifest; ownerId: number; backupId: number; updatedAt: string }
 type Lists = { areas: Area[]; people: PersonRow[]; apps: AppSummary[] }
 // The sections of the Cuidar face (ADR 029).
-type CareKey = "pendencias" | "ficha" | "servidor" | "cofre" | "acesso" | "codigo" | "historico"
+type CareKey = "pendencias" | "ficha" | "execucoes" | "servidor" | "cofre" | "acesso" | "codigo" | "historico"
 
 const RUNS_SHOWN = 5
 
@@ -255,6 +256,9 @@ export function AppPage() {
     { key: "pendencias", label: "Pendências", count: pendingCount, warn: true },
     { key: "ficha", label: "Ficha", group: "App" },
   ]
+  // Execuções (ADR 033): the same runs as the Usar face, with what is running on top.
+  const showRuns = app.can_run || (runs?.length ?? 0) > 0
+  if (showRuns) menu.push({ key: "execucoes", label: "Execuções", group: "App" })
   if (serverPart) menu.push({ key: "servidor", label: "Servidor", group: "App" })
   if (VAULT_KINDS.includes(m.kind)) menu.push({ key: "cofre", label: "Cofre", group: "Ajustes" })
   if (can.tech) {
@@ -395,6 +399,8 @@ export function AppPage() {
                 ), can.edit && can.access)}
               </div>
             ))}
+
+            {showRuns && panel("execucoes", <RunsPanel appId={app.id} everyone={can.runs} reloadKey={signal} />)}
 
             {serverPart && panel("servidor", (
               <div className="[&>section:first-child]:border-t-0 [&>section:first-child]:pt-0">

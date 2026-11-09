@@ -1,6 +1,6 @@
 -- name: CreateRun :one
-INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id, origin, schedule_id)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO runs (app_id, person_id, computer_id, output_folder, version_id, origin, schedule_id, inputs)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: CreateMissedRun :one
@@ -47,7 +47,8 @@ SELECT * FROM run_files WHERE run_id = $1 ORDER BY rel_path;
 SELECT * FROM run_files WHERE id = $1 AND run_id = $2;
 
 -- name: ListActiveRuns :many
-SELECT r.id, r.app_id, a.name AS app_name, a.folder_path AS app_folder_path, r.status, r.error_message, r.output_folder, r.created_at, r.finished_at,
+SELECT r.id, r.app_id, a.name AS app_name, a.folder_path AS app_folder_path, r.status, r.error_message, r.output_folder, r.created_at, r.started_at, r.finished_at,
+       c.name AS computer_name,
        (SELECT count(*) FROM run_files f WHERE f.run_id = r.id) AS file_count,
        (SELECT count(*) FROM run_files f WHERE f.run_id = r.id AND f.rel_path ~ '(^|/)\.apphub-console\.txt$') AS console_count,
        c.can_stop AS computer_can_stop

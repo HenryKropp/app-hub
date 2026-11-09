@@ -2,13 +2,15 @@ import { useEffect, useState } from "react"
 import { Link } from "react-router-dom"
 import { AppWindow, PanelsTopLeft, TriangleAlert, X } from "lucide-react"
 import { FavoriteStar } from "@/components/FavoriteStar"
-import { LoadError, RunState } from "@/components/bits"
+import { LoadError, Playing, RunState } from "@/components/bits"
+import { Elapsed } from "@/components/Elapsed"
 import { Badge } from "@/components/ui/badge"
 import { api, type Home, type HomeItem, type HomeWarning, type TeamHome } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useComputerStatus } from "@/lib/computer-status"
 import { has } from "@/lib/permissions"
-import { relativeTime } from "@/lib/runs"
+import { isLive, relativeTime } from "@/lib/runs"
+import { useRunsMaybe } from "@/lib/runs-context"
 import { cn } from "@/lib/utils"
 
 function greeting(name: string, hour = new Date().getHours()) {
@@ -202,6 +204,30 @@ function Team({ t }: { t: TeamHome }) {
   )
 }
 
+/** Rodando agora: one compact line per live run, linking to it, while something runs. */
+function LiveNow() {
+  const live = (useRunsMaybe()?.active ?? []).filter((r) => isLive(r.status))
+  if (live.length === 0) return null
+  return (
+    <ul aria-label="Rodando agora" className="mt-6 flex flex-col gap-1.5">
+      {live.map((r) => (
+        <li key={r.id} className="flex items-center gap-2 text-sm">
+          <Playing />
+          <span className="min-w-0 truncate">
+            <span className="text-muted-foreground">Rodando agora:</span>{" "}
+            <Link to={`/execucoes/${r.id}`} className="font-medium hover:underline">{r.app_name}</Link>{" "}
+            {r.status === "waiting" ? (
+              <span className="text-muted-foreground">esperando o computador</span>
+            ) : (
+              <span className="text-muted-foreground">há <Elapsed from={r.started_at ?? r.created_at} className="text-[0.8rem]" /></span>
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export function HomePage() {
   const { person } = useAuth()
   const { connected } = useComputerStatus()
@@ -247,6 +273,7 @@ export function HomePage() {
         <h1 className="font-heading text-2xl">{greeting(person?.name ?? "")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{today()}</p>
       </header>
+      <LiveNow />
       {error && <div className="mt-6"><LoadError message={error} onRetry={() => { setError(""); setTries((n) => n + 1) }} /></div>}
       {home === null && !error && <p className="mt-6 text-sm text-muted-foreground">Carregando…</p>}
 

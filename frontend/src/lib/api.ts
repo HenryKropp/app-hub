@@ -207,10 +207,19 @@ export type Run = {
   can_stop: boolean
   /** "mcp" when Claude started it through the Ziv connector; "schedule" when a schedule did. */
   origin?: "manual" | "mcp" | "schedule"
+  /** What was filled in the form (ADR 033), in the order of the ficha. */
+  inputs?: RunInput[]
+  /** False for runs older than the record of the form. */
+  inputs_recorded?: boolean
+  /** The file with what a script printed, when the run kept one. */
+  console?: { file_id: number; size: number } | null
 }
+/** One filled input of a run. A file shows only its name; a password-like input comes masked, without the value. */
+export type RunInput = { id: string; label: string; type: string; values: string[]; file?: string; masked: boolean }
 export type ActiveRun = {
   id: number; app_id: number; app_name: string; app_folder_display: string; status: RunStatus; error_message: string
   output_folder: string; file_count: number; created_at: string; finished_at: string | null; can_stop: boolean
+  started_at?: string | null; computer_name?: string
   /** Files the Baixar button brings: the console log is left out when the app made files of its own. */
   result_count?: number
 }
@@ -539,6 +548,21 @@ export const api = {
   restorePreview: (appId: number, n: number) => request<{ plan: RestorePlan; current: number }>("GET", `/api/apps/${appId}/versions/${n}/restore-preview`),
   restore: (appId: number, n: number) => request<RestoreResult>("POST", `/api/apps/${appId}/versions/${n}/restore`),
   run: (id: number | string) => request<Run>("GET", `/api/runs/${id}`),
+  /** The text of one file of a run (the console log), brought from the computer where it ran. */
+  runFileText: async (runId: number, fileId: number): Promise<string> => {
+    let res: Response
+    try {
+      res = await fetch(fileUrl(runId, fileId), { credentials: "same-origin" })
+    } catch {
+      throw new ApiError(0, OFFLINE)
+    }
+    const text = await res.text().catch(() => "")
+    if (!res.ok) {
+      const data = (() => { try { return JSON.parse(text) } catch { return {} } })()
+      throw new ApiError(res.status, data?.error || (res.status >= 500 ? DOWN : "Não consegui trazer o registro."), data)
+    }
+    return text
+  },
   keys: {
     list: (id: number) => request<KeysList>("GET", `/api/apps/${id}/keys`),
     set: (id: number, name: string, value: string) => request<{ ok: boolean; needs_restart?: boolean }>("PUT", `/api/apps/${id}/keys/${encodeURIComponent(name)}`, { value }),
