@@ -85,6 +85,15 @@ func (a *Agent) handle(ctx context.Context, job agentproto.Job) {
 			a.report(ctx, job.ID, failed("Pedido inválido."))
 			return
 		}
+		if p.Keys {
+			keys, err := a.Client.Keys(ctx, job.ID)
+			if err != nil {
+				slog.Error("fetch app keys", "job", job.ID, "err", err)
+				a.report(ctx, job.ID, failed("Não consegui pegar as chaves do cofre do app. Tente rodar de novo."))
+				return
+			}
+			p.KeyValues = keys
+		}
 		res := a.Runner.Run(ctx, p, func(r agentproto.Result) { a.report(ctx, job.ID, r) })
 		a.report(ctx, job.ID, res)
 	case agentproto.KindChooseFolder:

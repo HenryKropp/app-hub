@@ -525,14 +525,14 @@ func TestPublicarTelaSharedOff(t *testing.T) {
 	}
 }
 
-// A script has nowhere to keep keys in the Ziv: the text must not send the person there.
+// A dropped .env points the script's keys to the app's vault, never the conversation.
 func TestRegistrarScriptKeysHonest(t *testing.T) {
 	c, h := newPoolClient(t)
 	setupAdmin(t, c)
 	s := toolSession(t, c)
 	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print(1)\n", ".env": "SENHA=x\n"})
 	res, text, out := registrar(t, s, map[string]any{"envio": envio, "manifesto": scriptManifesto()})
-	if res.IsError || strings.Contains(text, "a pessoa preenche no Ziv") || !strings.Contains(text, "ainda não guarda chaves de scripts") {
+	if res.IsError || !strings.Contains(text, "cofre do app") || !strings.Contains(text, "keys") || !strings.Contains(text, "nunca mande os valores") {
 		t.Fatalf("%q", text)
 	}
 	t.Cleanup(func() { cleanupAppFolder(t, int64(out["app_id"].(float64))) })
@@ -572,5 +572,40 @@ func TestSentFailureBlockedSaysWhere(t *testing.T) {
 	text := sentFailure(http.StatusUnprocessableEntity, raw, "x")
 	if !strings.Contains(text, "não permite ignorar") || !strings.Contains(text, "baixar/config.py, linha 3 (API_KEY)") || !strings.Contains(text, "os.environ") {
 		t.Fatalf("%q", text)
+	}
+}
+
+func TestRegistrarScriptKeysGoToVault(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withKeyVault(t, h)
+	s := toolSession(t, c)
+	m := scriptManifesto()
+	m["keys"] = []any{map[string]any{"name": "BTG_SENHA", "label": "Senha do BTG", "required": true}}
+	envio := sendEnvio(t, h, s, map[string]string{"main.py": "import os\nprint(len(os.environ['BTG_SENHA']))\n"})
+	res, text, out := registrar(t, s, map[string]any{"envio": envio, "manifesto": m})
+	if res.IsError {
+		t.Fatalf("registrar: %s", text)
+	}
+	id := int64(out["app_id"].(float64))
+	t.Cleanup(func() { cleanupAppFolder(t, id) })
+	link := "http://hub.test/apps/" + itoa(id) + "#chaves"
+	if !strings.Contains(text, "cofre") || !strings.Contains(text, "BTG_SENHA") || !strings.Contains(text, link) || !strings.Contains(text, "nunca pela conversa") {
+		t.Fatalf("text %q", text)
+	}
+	if f, _ := out["chaves_faltando"].([]any); len(f) != 1 || f[0] != "BTG_SENHA" {
+		t.Fatalf("structured %+v", out)
+	}
+	// A new version may add a key.
+	m["keys"] = []any{map[string]any{"name": "BTG_SENHA", "label": "Senha do BTG", "required": true}, map[string]any{"name": "EMAIL", "label": "E-mail"}}
+	envio = sendEnvio(t, h, s, map[string]string{"main.py": "import os\nprint(os.environ.get('EMAIL'))\n"})
+	res, text, _ = registrar(t, s, map[string]any{"envio": envio, "app_id": id, "manifesto": m})
+	if res.IsError || !strings.Contains(text, "chaves do cofre") {
+		t.Fatalf("update %q", text)
+	}
+	var got keysOut
+	c.do("GET", "/api/apps/"+itoa(id)+"/keys", nil, &got)
+	if len(got.Keys) != 2 {
+		t.Fatalf("keys after update %+v", got)
 	}
 }

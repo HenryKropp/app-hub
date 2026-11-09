@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
@@ -61,6 +62,18 @@ func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *
 		if req.Computer.AgentVersion != agentproto.Version {
 			return sqlc.Run{}, refuse(409, "agent_outdated", "Atualize o Agente em Configurações › Meu computador para rodar scripts."), nil
 		}
+		if len(m.Keys) > 0 {
+			keys, err := h.appKeys(ctx, a)
+			if err != nil {
+				return sqlc.Run{}, nil, err
+			}
+			if keys.Locked {
+				return sqlc.Run{}, refuse(503, "keys_locked", msgKeysLocked), nil
+			}
+			if len(keys.Missing) > 0 {
+				return sqlc.Run{}, refuse(409, "keys_missing", "Falta preencher no cofre do app: "+strings.Join(keys.Missing, ", ")+". O dono do app ou um administrador preenche na página do app, parte Cofre."), nil
+			}
+		}
 	}
 	if msg, err := h.folderInUse(ctx, req.Computer.ID, req.OutputFolder, script); err != nil {
 		return sqlc.Run{}, nil, err
@@ -114,6 +127,7 @@ func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *
 	payload := agentproto.RunPayload{RunID: run.ID, AppFolder: hostpath.ToDisplay(a.FolderPath), Exe: m.Entrypoint, OutputFolder: req.OutputFolder, AppName: a.Name}
 	if script {
 		payload.Script = &agentproto.ScriptPayload{Manifest: m, Inputs: req.Inputs, Files: req.Files, Sources: sources}
+		payload.Keys = len(m.Keys) > 0
 	}
 	if _, err = h.enqueue(ctx, req.Computer.ID, &run.ID, agentproto.KindRun, payload); err != nil {
 		return sqlc.Run{}, nil, err

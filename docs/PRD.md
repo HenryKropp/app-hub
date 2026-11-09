@@ -195,6 +195,11 @@ O Henry pediu isto em 2026-09-30 e redesenhou em 2026-11-04. A pessoa usa o Ziv 
   - Versão nova só para apps com o código guardado no Ziv. Ela pode mudar o código, o resumo, as entradas, as saídas e (nos scripts) o arquivo de início e as dependências. Nome, área, responsável, reserva e acesso só mudam pelo site.
   - Apps com tela vão ao ar com `publicar_app_com_tela`, com a mesma checagem, os mesmos avisos e a mesma aprovação do botão Publicar. As chaves são preenchidas só no site.
   - As versões ficam marcadas "Código enviado · pelo Claude".
+  - **Cofre do app** (2026-11-09, ADR 027): as senhas de um script ficam no cofre do próprio app, nunca no código nem na conversa.
+    - O Claude troca a senha no código por `os.environ["NOME"]`, declara o nome em `keys` e devolve o link da parte "Cofre".
+    - O dono do app ou um administrador preenche, mostra (cada visualização é registrada), troca e apaga.
+    - O Agente entrega as chaves só ao script, na hora de rodar.
+    - Se o Ziv recusa um envio por senha no código, diz o arquivo e a linha de cada trecho.
 - **Etapa 3: criar apps para o Ziv.** O Claude recebe o formato do manifesto, as regras e exemplos, e entrega o app com o `ziv.yaml` pronto.
 - **Etapa 4: agendar.** Primeiro o Ziv aprende a agendar; depois o Claude ganha agendar, ver agendamentos e cancelar.
 

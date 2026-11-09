@@ -143,11 +143,11 @@ func sentFailure(status int, raw []byte, msg string) string {
 	switch {
 	case status == http.StatusConflict && e.Code == "script_secrets_confirmation_required":
 		return fmt.Sprintf("O Ziv achou %d trecho(s) no código que parecem senhas ou chaves:", e.SecretCount) + spotLines(e.Findings) +
-			"\nNada foi mandado. Veja cada linha: se for uma senha ou chave de verdade, troque o valor pela leitura de uma variável de ambiente (os.environ) e prepare um envio novo; " +
+			"\nNada foi mandado. Veja cada linha: se for uma senha ou chave de verdade, troque o valor pela leitura do ambiente (os.environ[\"NOME\"]), liste o NOME em keys na ficha (a pessoa preenche o valor no cofre do app, nunca pela conversa) e prepare um envio novo; " +
 			"se não for (por exemplo, o nome de um campo), pergunte à pessoa se quer mandar mesmo assim; só se ela confirmar, chame registrar_app de novo com o mesmo envio e confirmar_segredos: true. Nunca mostre os valores na conversa."
 	case status == http.StatusUnprocessableEntity && e.Code == "script_secrets_blocked":
 		return e.Error + spotLines(e.Findings) +
-			"\nVeja cada linha: troque cada senha ou chave pela leitura de uma variável de ambiente (os.environ); se a linha não tem senha, reescreva para não parecer uma (por exemplo, sem atribuir a uma variável chamada token ou senha). Depois prepare um envio novo. Nunca mostre os valores na conversa."
+			"\nVeja cada linha: troque cada senha ou chave pela leitura do ambiente (os.environ[\"NOME\"]) e liste o NOME em keys na ficha (a pessoa preenche o valor no cofre do app, nunca pela conversa); se a linha não tem senha, reescreva para não parecer uma (por exemplo, sem atribuir a uma variável chamada token ou senha). Depois prepare um envio novo. Nunca mostre os valores na conversa."
 	case status == http.StatusConflict && e.Code == "no_stored_code":
 		return e.Error
 	case status == http.StatusBadRequest:
@@ -182,6 +182,10 @@ func fichaChanges(cur manifest.Manifest, sent map[string]any, next manifest.Mani
 		if has("runtime") && !reflect.DeepEqual(normJSON(next.Runtime), normJSON(cur.Runtime)) {
 			f.Runtime = &next.Runtime
 			changed = append(changed, "dependências")
+		}
+		if has("keys") && !reflect.DeepEqual(normJSON(next.Keys), normJSON(cur.Keys)) {
+			f.Keys = &next.Keys
+			changed = append(changed, "chaves do cofre")
 		}
 	}
 	if has("name") && strings.TrimSpace(next.Name) != cur.Name {
@@ -353,7 +357,7 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 				if web {
 					b.WriteString(" Se o app precisa dessas chaves, a pessoa preenche no Ziv; nunca mande os valores pela conversa.")
 				} else {
-					b.WriteString(" O Ziv ainda não guarda chaves de scripts: avise a pessoa que o script pode falhar ao rodar se precisar delas; nunca mande os valores pela conversa.")
+					b.WriteString(" Se o script precisa dessas chaves, ele deve ler cada uma do ambiente (os.environ[\"NOME\"]) e a ficha deve listar os nomes em keys: a pessoa preenche os valores no cofre do app; nunca mande os valores pela conversa.")
 				}
 				break
 			}
@@ -370,9 +374,25 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 	if web && (in.AppID == 0 || mudou) {
 		fmt.Fprintf(&b, "\nAgora chame publicar_app_com_tela com app_id %d.", ans.ID)
 	}
+	missing := []string{}
+	if a, err := h.q.GetApp(ctx, ans.ID); err == nil && len(manifestOf(a).Keys) > 0 {
+		keys, err := h.appKeys(ctx, a)
+		if err == nil {
+			missing = keys.Missing
+			var names []string
+			for _, k := range keys.Keys {
+				names = append(names, k.Name)
+			}
+			fmt.Fprintf(&b, "\nO script lê do cofre do app: %s.", strings.Join(names, ", "))
+			if len(missing) > 0 {
+				fmt.Fprintf(&b, " Falta preencher: %s. O dono do app ou um administrador preenche em %s, nunca pela conversa; até lá o script não roda.",
+					strings.Join(missing, ", "), h.mcpLink("/apps/%d#chaves", ans.ID))
+			}
+		}
+	}
 	return toolOK(b.String(), map[string]any{
 		"app_id": ans.ID, "versao": ans.Version, "mudou": mudou, "link": link,
-		"esperando_aprovacao": waiting, "deixados_de_fora": dropped,
+		"esperando_aprovacao": waiting, "deixados_de_fora": dropped, "chaves_faltando": missing,
 	})
 }
 

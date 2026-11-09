@@ -156,6 +156,7 @@ type fichaUpdate struct {
 	Outputs    *[]manifest.Output `json:"outputs"`
 	Entrypoint *string            `json:"entrypoint"` // scripts only; ignored for web
 	Runtime    *manifest.Runtime  `json:"runtime"`    // scripts only; ignored for web
+	Keys       *[]manifest.Key    `json:"keys"`       // scripts only: the vault's key names
 }
 
 // applyFicha returns m with f's set fields; nil fields keep m's value.
@@ -178,6 +179,9 @@ func applyFicha(m manifest.Manifest, f *fichaUpdate) manifest.Manifest {
 		}
 		if f.Runtime != nil {
 			m.Runtime = *f.Runtime
+		}
+		if f.Keys != nil {
+			m.Keys = *f.Keys
 		}
 	}
 	return m

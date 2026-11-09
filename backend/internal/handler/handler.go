@@ -102,6 +102,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/security/export", h.securityExport)
 	mux.HandleFunc("POST /api/security/purge", h.securityPurge)
 	h.registerCredentials(mux)
+	h.registerKeys(mux)
 
 	mux.HandleFunc("GET /api/auth/status", h.authStatus)
 	mux.HandleFunc("POST /api/auth/setup", h.setup)

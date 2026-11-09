@@ -86,6 +86,50 @@ type Manifest struct {
 	Build           *Build      `yaml:"build,omitempty" json:"build"`
 	Notes           []string    `yaml:"notes,omitempty" json:"notes"`
 	Shared          *Shared     `yaml:"shared,omitempty" json:"shared"`
+	// Keys names the secrets a script reads from its environment. The values
+	// live in the app's vault (cofre), never in the ficha.
+	Keys []Key `yaml:"keys,omitempty" json:"keys"`
+}
+
+// Key declares one secret of a script's vault. It never holds the value.
+type Key struct {
+	Name     string `yaml:"name" json:"name"`
+	Label    string `yaml:"label,omitempty" json:"label"`
+	Required bool   `yaml:"required,omitempty" json:"required"`
+}
+
+// MaxKeys caps the keys of one app's vault.
+const MaxKeys = 20
+
+// reservedKeyPrefixes are environment names the Agente or the language
+// runtime set, so a key cannot take them.
+var reservedKeyPrefixes = []string{"APP_HUB_", "APPHUB_", "PYTHON", "NODE_", "NPM_", "PATH", "PIP_"}
+
+func (m Manifest) keyProblems() []string {
+	if len(m.Keys) == 0 {
+		return nil
+	}
+	if m.Kind != KindScript {
+		return []string{"Só scripts têm cofre de chaves; apps com tela usam Configurações."}
+	}
+	var out []string
+	if len(m.Keys) > MaxKeys {
+		out = append(out, fmt.Sprintf("O cofre do app guarda no máximo %d chaves.", MaxKeys))
+	}
+	seen := map[string]bool{}
+	for _, k := range m.Keys {
+		reserved := slices.ContainsFunc(reservedKeyPrefixes, func(p string) bool { return strings.HasPrefix(k.Name, p) })
+		switch {
+		case !envName.MatchString(k.Name):
+			out = append(out, fmt.Sprintf("O nome da chave %q só pode ter letras maiúsculas, números e _, começando por letra.", k.Name))
+		case reserved:
+			out = append(out, k.Name+" é um nome usado pelo Ziv ou pelo Python; escolha outro nome para a chave.")
+		case seen[k.Name]:
+			out = append(out, "A chave "+k.Name+" aparece duas vezes.")
+		}
+		seen[k.Name] = true
+	}
+	return out
 }
 
 type Run struct {
@@ -237,6 +281,7 @@ func (m Manifest) Validate() []string {
 		errs = append(errs, "Informe onde está o código usado para gerar o app.")
 	}
 	errs = append(errs, m.sharedProblems()...)
+	errs = append(errs, m.keyProblems()...)
 	return errs
 }
 
