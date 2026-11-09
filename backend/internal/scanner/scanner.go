@@ -472,7 +472,7 @@ func Scan(dir string) (Diagnosis, error) {
 			files = append(files, f)
 		}
 		sort.Strings(files)
-		notes = append(notes, "Há chave ou senha escrita em: "+strings.Join(files, ", ")+". O ideal é guardar no cofre do Ziv.")
+		notes = append(notes, "Há chave ou senha escrita em: "+strings.Join(files, ", ")+". O ideal é guardar nas Configurações do app, no Ziv.")
 	}
 
 	if m.Summary == "" {

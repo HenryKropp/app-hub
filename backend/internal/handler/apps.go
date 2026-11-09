@@ -203,9 +203,10 @@ type appDetail struct {
 	Shared           *sharedBrief       `json:"shared"`
 	Favorite         bool               `json:"favorite"`
 	Control          *appControl        `json:"control"`
-	NeedsRestart     bool               `json:"needs_restart,omitempty"` // PUT /shared: the running app must be turned on again
-	NeedsPublish     bool               `json:"needs_publish,omitempty"` // PUT /shared: a new port only counts after a new publish
-	StoredCode       bool               `json:"stored_code"`             // the Ziv keeps the code: new versions can be sent (Claude)
+	NeedsRestart     bool               `json:"needs_restart,omitempty"`    // PUT /shared: the running app must be turned on again
+	NeedsPublish     bool               `json:"needs_publish,omitempty"`    // PUT /shared: a new port only counts after a new publish
+	StoredCode       bool               `json:"stored_code"`                // the Ziv keeps the code: new versions can be sent (Claude)
+	MissingSettings  []string           `json:"missing_settings,omitempty"` // required values still empty in Configurações (ADR 032)
 }
 
 type appLink struct {
@@ -294,6 +295,16 @@ func (h *Handler) writeDetailWith(w http.ResponseWriter, r *http.Request, me sql
 	if d.Control, err = h.appControlOf(r.Context(), a.ID, acc.Has(access.ManageRoles)); err != nil {
 		internalError(w, "app control", err)
 		return
+	}
+	if manifest.HasVault(d.Manifest.Kind) {
+		s, err := h.appSettings(r.Context(), a)
+		if err != nil {
+			internalError(w, "app settings", err)
+			return
+		}
+		if len(s.Missing) > 0 {
+			d.MissingSettings = s.Missing
+		}
 	}
 	if d.Can.Tech {
 		if d.DependsOn, d.UsedBy, err = h.appLinks(r.Context(), acc, a, d.Manifest); err != nil {

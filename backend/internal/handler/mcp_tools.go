@@ -216,9 +216,9 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "enviar_chaves",
-		Description: "Preenche o cofre de um app do Ziv com as senhas e chaves do arquivo .env da pasta do app, sem que os valores passem pela conversa. " +
+		Description: "Guarda nas Configurações de um app do Ziv as senhas, chaves e ajustes do arquivo .env da pasta do app, sem que os valores passem pela conversa. " +
 			"Devolve um endereço de uso único (30 minutos) e o comando curl que manda o .env direto ao Ziv. Nunca abra, leia nem mostre o .env. " +
-			"Use depois de registrar_app quando a pasta tiver um .env, ou quando a pessoa pedir para preencher o cofre. Só o dono do app ou um administrador pode.",
+			"Use depois de registrar_app quando a pasta tiver um .env, ou quando a pessoa pedir para guardar as senhas do app. Só o dono do app ou um administrador pode.",
 		Annotations: replacesKeys,
 	}, h.toolEnviarChaves)
 

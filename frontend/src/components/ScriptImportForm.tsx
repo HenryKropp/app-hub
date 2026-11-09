@@ -246,7 +246,7 @@ export function ScriptImportForm() {
       {secretCount > 0 && <div role="alert" className="rounded-lg border border-warn/30 bg-warn-soft/60 p-3 text-sm">
         <p className="font-semibold">Possíveis senhas ou chaves no código: {secretCount} ocorrência(s).</p>
         <p className="mt-1">Nada foi registrado. A detecção pode gerar falsos positivos e não garante encontrar todos os segredos. Recomendamos remover as credenciais dos arquivos originais e selecioná-los novamente. Os valores não são exibidos neste aviso.</p>
-        <p className="mt-1">Se continuar, o código será salvo sem alterações no Ziv e enviado ao computador que executar o script. O Ziv não tira as senhas sozinho: depois de importar, guarde cada uma no Cofre, na página do script, e troque no código pela leitura do nome.</p>
+        <p className="mt-1">Se continuar, o código será salvo sem alterações no Ziv e enviado ao computador que executar o script. O Ziv não tira as senhas sozinho: depois de importar, guarde cada uma em Configurações, na página do script, e troque no código pela leitura do nome.</p>
         <label htmlFor="script-confirm-secrets" className="mt-3 flex items-start gap-2">
           <input id="script-confirm-secrets" type="checkbox" checked={confirmSecrets} disabled={busy} onChange={(event) => setConfirmSecrets(event.target.checked)} />
           Revisei os arquivos e aceito enviar o código sem alterações, mesmo com este aviso.

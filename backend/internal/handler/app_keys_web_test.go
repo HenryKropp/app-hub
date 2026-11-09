@@ -47,7 +47,7 @@ func TestWebAppVault(t *testing.T) {
 		t.Fatalf("list %d %+v", code, got)
 	}
 	var e map[string]string
-	if code := c.do("PUT", base+"/MODO", map[string]string{"value": "rapido"}, &e); code != http.StatusBadRequest || !strings.Contains(e["error"], "Configurações") {
+	if code := c.do("PUT", base+"/MODO", map[string]string{"value": "rapido"}, &e); code != http.StatusBadRequest || !strings.Contains(e["error"], "Outros ajustes") {
 		t.Fatalf("plain setting %d %v", code, e)
 	}
 	for _, name := range []string{"SENHA_EMAIL", "API_TOKEN"} {
@@ -181,7 +181,7 @@ func TestEnviarChaves(t *testing.T) {
 	}
 	a, _ := h.q.GetApp(context.Background(), id)
 	values, err := h.keyValues(context.Background(), a)
-	if err != nil || values["SENHA_EMAIL"] != "s3 gredo" || values["API_TOKEN"] != "def" || len(values) != 2 {
+	if err != nil || values["SENHA_EMAIL"] != "s3 gredo" || values["API_TOKEN"] != "def" || values["MODO"] != "rapido" || len(values) != 3 {
 		t.Fatalf("vault %v %v", values, err)
 	}
 	var plain string

@@ -36,7 +36,7 @@ const mockApp = (d: AppDetail) => {
   vi.spyOn(api, "people").mockResolvedValue([])
   vi.spyOn(api, "apps").mockResolvedValue([])
   vi.spyOn(api, "appAccess").mockResolvedValue({ restricted: false, areas: [], people: [], grants: [], area_grants: [] })
-  vi.spyOn(api.keys, "list").mockResolvedValue({ keys: [], can_manage: true, ready: true, missing: [], locked: false })
+  vi.spyOn(api.settings, "list").mockResolvedValue({ items: [], can_manage: true, missing: [], locked: false })
 }
 const base = mockApp
 
@@ -439,7 +439,6 @@ it("Tornar compartilhado saves the defaults and shows the shared part", async ()
   const save = vi.spyOn(api.shared, "save").mockResolvedValue(shared)
   vi.spyOn(api.shared, "get").mockResolvedValue({ shared: { status: "draft", status_message: "", stopped_by: "", always_on: false, idle_minutes: 30, memory_mb: 512, cpus: 1, wants_db: false, url: "", acks: [], has_previous: false }, deployments: [] })
   const check = vi.spyOn(api.shared, "check").mockResolvedValue({ ready: true, recipe: { kind: "flask", command: "", dockerfile: "", port: 0, needs_confirm: false, requirements: null }, wants_db: false, suggest_env: [], items: [] })
-  vi.spyOn(api.shared, "config").mockResolvedValue([])
   renderPage()
   await openCare("Servidor")
   await user.click(await screen.findByRole("button", { name: "Tornar compartilhado" }))
@@ -464,7 +463,6 @@ it("says what to do when the ficha does not reload after a shared change", async
   vi.spyOn(api, "app").mockResolvedValueOnce(shared).mockRejectedValue(new Error("boom"))
   vi.spyOn(api.shared, "get").mockResolvedValue({ shared: { status: "running", status_message: "", stopped_by: "", always_on: false, idle_minutes: 30, memory_mb: 512, cpus: 1, wants_db: false, url: "", acks: [], has_previous: false }, live_version: 2, latest_version: 2, deployments: [] })
   vi.spyOn(api.shared, "check").mockResolvedValue({ ready: true, recipe: { kind: "flask", command: "", dockerfile: "", port: 0, needs_confirm: false, requirements: null }, wants_db: false, suggest_env: [], items: [] })
-  vi.spyOn(api.shared, "config").mockResolvedValue([])
   vi.spyOn(api.shared, "stop").mockResolvedValue({})
   const err = vi.spyOn(toast, "error")
   renderPage()
@@ -482,13 +480,27 @@ test("the back link goes to /apps and the title has a star", async () => {
   expect(screen.getByRole("button", { name: "Tirar Eq. Research Files Prep dos favoritos" })).toHaveAttribute("aria-pressed", "true")
 })
 
-test("a screen app has the Cofre and opens on the computer", async () => {
+test("a screen app has Configurações right below Ficha and opens on the computer", async () => {
   base(detail({ manifest: manifest({ kind: "web", name: "Notícias" }) }))
   renderAt()
   expect(await screen.findByRole("button", { name: "Abrir no computador" })).toBeInTheDocument()
-  await openCare("Cofre")
-  expect(await screen.findByRole("heading", { name: "Cofre" })).toBeInTheDocument()
-  expect(screen.getByText(/no lugar do .env/)).toBeInTheDocument()
+  const nav = await screen.findByRole("navigation", { name: "Seções de cuidado" })
+  const labels = within(nav).getAllByRole("button").map((b) => b.textContent)
+  expect(labels.indexOf("Configurações")).toBe(labels.indexOf("Ficha") + 1)
+  expect(within(nav).queryByRole("button", { name: /Cofre/ })).not.toBeInTheDocument()
+  await openCare("Configurações")
+  expect(await screen.findByRole("heading", { name: "Chaves e senhas" })).toBeInTheDocument()
+  expect(screen.getByRole("heading", { name: "Outros ajustes" })).toBeInTheDocument()
+  expect(screen.getByText(/no seu computador e na versão ligada no servidor/)).toBeInTheDocument()
+})
+
+test("Pendências points to Configurações when a required value is empty", async () => {
+  base(detail({ manifest: manifest({ kind: "script" }), missing_settings: ["Senha do BTG"] }))
+  renderAt()
+  expect(await screen.findByText("Preencher as configurações")).toBeInTheDocument()
+  expect(screen.getByText(/falta: Senha do BTG/)).toBeInTheDocument()
+  await userEvent.click(screen.getByRole("button", { name: "Ir para Configurações" }))
+  expect(await screen.findByRole("heading", { name: "Chaves e senhas" })).toBeInTheDocument()
 })
 
 test("a screen app on the server opens there, and also on the computer", async () => {

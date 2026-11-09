@@ -17,7 +17,8 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 )
 
-// The app's vault (cofre): the secrets an app reads from its environment.
+// The app's vault: the secrets an app reads from its environment, shown on
+// the site as "Chaves e senhas" in the app's Configurações (ADR 032).
 // The ficha names them (manifest.Keys, plus a shared app's secret settings),
 // and the owner can also add keys on the site: every sealed app_config row is
 // a vault key, except the Ziv's own "_" rows. One value serves the computer
@@ -27,10 +28,10 @@ import (
 // and whether each one is filled. The Agente gets them per run (agent_keys.go).
 
 const (
-	msgKeysLocked   = "O cofre está fechado neste servidor (falta a chave do servidor). Fale com o responsável pelo Ziv."
-	msgKeysManage   = "Só o dono do app ou um administrador mexe no cofre."
-	msgKeyNotListed = "Essa chave não está no cofre do app."
-	msgKeysNoVault  = "Este tipo de app não roda, então não tem cofre de chaves."
+	msgKeysLocked   = "As senhas do app estão trancadas neste servidor (falta a chave do servidor). Fale com o responsável pelo Ziv."
+	msgKeysManage   = "Só o dono do app ou um administrador muda as configurações."
+	msgKeyNotListed = "Essa chave não está nas configurações do app."
+	msgKeysNoVault  = "Este tipo de app não roda, então não tem configurações."
 	msgKeyBadValue  = "O valor pode ter até 4.096 caracteres, numa linha só."
 	maxKeyValue     = 4096
 )
@@ -210,13 +211,13 @@ func (h *Handler) keyFor(w http.ResponseWriter, r *http.Request, adding bool) (s
 		writeError(w, http.StatusNotFound, msgKeyNotListed)
 		return a, me, "", false
 	case plainSetting(m, name):
-		writeError(w, http.StatusBadRequest, name+" é uma configuração do app que não é segredo; preencha na parte Configurações.")
+		writeError(w, http.StatusBadRequest, name+" é um ajuste comum do app, não uma senha; preencha no bloco Outros ajustes.")
 		return a, me, "", false
 	case manifest.KeyNameProblem(name) != "":
 		writeError(w, http.StatusBadRequest, manifest.KeyNameProblem(name))
 		return a, me, "", false
 	case len(keys) >= manifest.MaxKeys:
-		writeError(w, http.StatusBadRequest, "O cofre do app guarda no máximo "+strconv.Itoa(manifest.MaxKeys)+" chaves.")
+		writeError(w, http.StatusBadRequest, "O app guarda no máximo "+strconv.Itoa(manifest.MaxKeys)+" chaves e senhas.")
 		return a, me, "", false
 	}
 	if h.shared.Vault == nil {
@@ -332,9 +333,14 @@ func (h *Handler) openKey(ctx context.Context, appID int64, name string) (string
 	return "", errKeyEmpty
 }
 
-// keyValues opens every filled key of an app's vault, for one run.
+// keyValues opens every filled key of an app's vault, plus its filled plain
+// values (Outros ajustes), for one run: the computer gets the same values as
+// the 24h version (ADR 032).
 func (h *Handler) keyValues(ctx context.Context, a sqlc.App) (map[string]string, error) {
-	out := map[string]string{}
+	out, err := h.plainValues(ctx, a)
+	if err != nil {
+		return nil, err
+	}
 	_, have, err := h.vaultKeys(ctx, a)
 	if err != nil || len(have) == 0 {
 		return out, err

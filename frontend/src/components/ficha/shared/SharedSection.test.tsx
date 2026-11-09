@@ -13,7 +13,6 @@ const can: Can = { view: true, edit: false, restore: false, tech: false, runs: f
 const mocks = () => {
   vi.spyOn(api.shared, "get").mockResolvedValue({ shared: running, live_version: 2, latest_version: 2, deployments: [] })
   vi.spyOn(api.shared, "check").mockResolvedValue({ ready: true, recipe: { kind: "streamlit", command: "", dockerfile: "", port: 0, needs_confirm: false, requirements: null }, wants_db: false, suggest_env: [], items: [] })
-  vi.spyOn(api.shared, "config").mockResolvedValue([])
   vi.spyOn(api.shared, "backups").mockResolvedValue([])
 }
 
@@ -29,6 +28,12 @@ it("shows the whole part to who takes care, only the line to others", async () =
   expect(screen.queryByRole("button", { name: "Parar" })).not.toBeInTheDocument()
   expect(screen.getByText("No ar · versão 2")).toBeInTheDocument()
   expect(screen.getByRole("link", { name: /Abrir/ })).toHaveAttribute("href", "/api/shared/authorize?app=notas&volta=%2F")
+})
+
+it("leaves the app's values to Configurações", async () => {
+  render(<SharedSection app={detail} can={{ ...can, restore: true }} onChanged={() => {}} />)
+  expect(await screen.findByRole("button", { name: "Parar" })).toBeInTheDocument()
+  expect(screen.queryByRole("heading", { name: "Configurações" })).not.toBeInTheDocument()
 })
 
 it("does not run the check for who only opens the app", async () => {
@@ -76,22 +81,6 @@ it("marking 'estou ciente' saves the marks and checks again", async () => {
   await userEvent.click(await screen.findByRole("checkbox", { name: /estou ciente/i }))
   expect(save).toHaveBeenCalledWith(detail.id, expect.objectContaining({ enabled: true, acks: ["file_data"], updated_at: detail.updated_at }))
   await vi.waitFor(() => expect(check).toHaveBeenCalledTimes(2))
-})
-
-it("a setting added after 'estou ciente' keeps the mark", async () => {
-  vi.spyOn(api.shared, "get").mockResolvedValue({ shared: { ...running, status: "draft" }, deployments: [] })
-  vi.spyOn(api.shared, "check").mockResolvedValue({ ready: false, recipe: { kind: "flask", command: "", dockerfile: "", port: 0, needs_confirm: false, requirements: null }, wants_db: false, suggest_env: [], items: [
-    { key: "file_data", status: "warn", title: "Dados em arquivo", detail: "Grava notas.json.", claude_text: "Use APPHUB_DATA_DIR.", acked: false },
-  ] })
-  const save = vi.spyOn(api.shared, "save").mockResolvedValue(detail)
-  render(<SharedSection app={detail} can={{ ...can, restore: true }} onChanged={() => {}} />)
-  await userEvent.click(await screen.findByRole("checkbox", { name: /estou ciente/i }))
-  await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1))
-  await userEvent.click(await screen.findByRole("button", { name: "Adicionar configuração" }))
-  await userEvent.type(screen.getByLabelText("Nome no código"), "API_KEY")
-  await userEvent.click(screen.getByRole("button", { name: "Adicionar" }))
-  await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(2))
-  expect(save.mock.calls[1][1]).toMatchObject({ acks: ["file_data"], env: [{ name: "API_KEY" }] })
 })
 
 it("says so when the shared part does not load, and tries again", async () => {

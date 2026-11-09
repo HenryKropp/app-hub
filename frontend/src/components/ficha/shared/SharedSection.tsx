@@ -4,11 +4,10 @@ import { toast } from "sonner"
 import { Section } from "@/components/ficha/Part"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { api, type AppDetail, type Can, type EnvVar, type Readiness, type SharedInfo } from "@/lib/api"
+import { api, type AppDetail, type Can, type Readiness, type SharedInfo } from "@/lib/api"
 import { Backups } from "./Backups"
 import { PublishBar } from "./Publish"
 import { ReadinessList } from "./Readiness"
-import { SharedSettingsForm } from "./SharedSettingsForm"
 import { SharedLine } from "./SharedLine"
 import { errText, settingsOf } from "./settings"
 
@@ -139,13 +138,6 @@ export function SharedSection({ app, can, onChanged }: { app: AppDetail; can: Ca
       toast.error(errText(e, "Não consegui salvar."))
     }
   }
-  const addEnv = async (e: EnvVar) => {
-    // acks: the marks on screen (the saved ones), never an older copy.
-    const s = settingsOf(app, state, { acks })
-    if (s.env.some((x) => x.name === e.name)) throw new Error(`${e.name} já está na lista.`)
-    const saved = await api.shared.save(id, { ...s, env: [...s.env, e] })
-    onChanged(saved)
-  }
 
   const live = info.live_version != null
   const ready = !!check?.ready
@@ -195,10 +187,6 @@ export function SharedSection({ app, can, onChanged }: { app: AppDetail; can: Ca
             <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => setConfirm("unshare")} disabled={busy}>Deixar de compartilhar</Button>
           </div>
         </div>
-      </Section>
-
-      <Section title="Configurações">
-        <SharedSettingsForm appId={id} onAdd={addEnv} />
       </Section>
 
       {state.wants_db && (

@@ -163,7 +163,7 @@ func TestAppKeysNoVault(t *testing.T) {
 	setupAdmin(t, c)
 	id := importKeyScript(t, c)
 	var out map[string]string
-	if code := c.do("PUT", "/api/apps/"+itoa(id)+"/keys/BTG_SENHA", map[string]string{"value": keyValue}, &out); code != http.StatusServiceUnavailable || !strings.Contains(out["error"], "cofre") {
+	if code := c.do("PUT", "/api/apps/"+itoa(id)+"/keys/BTG_SENHA", map[string]string{"value": keyValue}, &out); code != http.StatusServiceUnavailable || !strings.Contains(out["error"], "trancadas") {
 		t.Fatalf("no vault %d %v", code, out)
 	}
 }

@@ -23,7 +23,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 )
 
-// Cofre pelo Claude: Claude sends an app's .env from the person's computer
+// Chaves pelo Claude: Claude sends an app's .env from the person's computer
 // straight to a one-time address, so the values fill the app's vault without
 // ever entering the conversation. The address is the only credential (like
 // preparar_envio): a 256-bit token stored as its hash, valid 30 minutes and
@@ -178,10 +178,19 @@ func (h *Handler) fillVault(ctx context.Context, a sqlc.App, me sqlc.Person, lin
 	for _, k := range keys {
 		inVault[k.Name] = true
 	}
+	// A name already kept as a plain value (Outros ajustes) stays plain.
+	rows, err := h.q.ListAppConfig(ctx, a.ID)
+	if err != nil {
+		return res, err
+	}
+	plain := map[string]bool{}
+	for _, d := range plainDefs(m, rows) {
+		plain[d.Name] = true
+	}
 	who := pgtype.Int8{Int64: me.ID, Valid: true}
 	for _, l := range lines {
 		switch {
-		case plainSetting(m, l.name):
+		case plain[l.name]:
 			if l.value == "" || len(l.value) > maxKeyValue || strings.ContainsAny(l.value, "\r\n\x00") {
 				res.Ignoradas = append(res.Ignoradas, ignoredKey{l.name, "valor vazio ou inválido"})
 				continue
@@ -201,7 +210,7 @@ func (h *Handler) fillVault(ctx context.Context, a sqlc.App, me sqlc.Person, lin
 			res.Ignoradas = append(res.Ignoradas, ignoredKey{l.name, msgKeyBadValue})
 			continue
 		case !inVault[l.name] && len(inVault) >= manifest.MaxKeys:
-			res.Ignoradas = append(res.Ignoradas, ignoredKey{l.name, fmt.Sprintf("o cofre já tem %d chaves, o máximo", manifest.MaxKeys)})
+			res.Ignoradas = append(res.Ignoradas, ignoredKey{l.name, fmt.Sprintf("o app já tem %d chaves e senhas, o máximo", manifest.MaxKeys)})
 			continue
 		}
 		sealed, err := h.shared.Vault.Seal(l.value)
@@ -271,11 +280,11 @@ func (h *Handler) toolEnviarChaves(ctx context.Context, _ *mcp.CallToolRequest, 
 		"comando_git_bash":  fmt.Sprintf(`curl -sS --fail-with-body -T "<ARQUIVO_ENV>" "%s"`, endereco),
 		"comando_mac_linux": fmt.Sprintf(`curl -sS --fail-with-body -T "<ARQUIVO_ENV>" "%s"`, endereco),
 	}
-	text := fmt.Sprintf("Endereço pronto para o cofre do app %s. Vale uma vez, até %s (30 minutos).\n"+
+	text := fmt.Sprintf("Endereço pronto para guardar as chaves e senhas do app %s. Vale uma vez, até %s (30 minutos).\n"+
 		"Troque <ARQUIVO_ENV> pelo caminho completo do arquivo .env na pasta do app e rode o comando do sistema da pessoa. "+
 		"NÃO abra, leia, mostre nem copie o .env: o curl manda o arquivo direto ao Ziv, e os valores nunca entram na conversa.\n"+
-		"A resposta lista só os nomes: guardadas (no cofre), configuracoes (ajustes comuns do app) e ignoradas (com o motivo). "+
-		"Diga à pessoa quais chaves foram guardadas e mande o link %s para conferir. O .env pode continuar na pasta: quando o app abre pelo Ziv, o valor do cofre já está no ambiente, e o load_dotenv (Python) ou o dotenv (Node) não o troca.",
+		"A resposta lista só os nomes: guardadas (chaves e senhas, escondidas), configuracoes (outros ajustes do app) e ignoradas (com o motivo). "+
+		"Diga à pessoa quais chaves foram guardadas e mande o link %s para conferir na parte Configurações do app. O .env pode continuar na pasta: quando o app abre pelo Ziv, o valor guardado já está no ambiente, e o load_dotenv (Python) ou o dotenv (Node) não o troca.",
 		a.Name, until.Local().Format("15:04"), h.mcpLink("/apps/%d#chaves", a.ID))
 	return toolOK(text, out)
 }

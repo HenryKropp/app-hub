@@ -111,7 +111,7 @@ export function RunDialog({ target, onCancel, onConfirm }: { target: RunTarget |
           <DialogDescription>{target?.kind === "script"
             ? "Preencha os dados pedidos pelo app e escolha onde salvar os resultados. A preparação das dependências pode levar até 5 minutos; a execução, até 15 minutos."
             : web
-              ? "O app vai ligar no seu computador, com as senhas do Cofre, e abrir no navegador. Na primeira vez, preparar as bibliotecas pode levar alguns minutos. Para desligar, use Parar."
+              ? "O app vai ligar no seu computador, com as senhas guardadas em Configurações, e abrir no navegador. Na primeira vez, preparar as bibliotecas pode levar alguns minutos. Para desligar, use Parar."
               : "O app vai abrir no seu computador. Use a janela normalmente e feche quando terminar. O Ziv mostra os arquivos que ele gerou."}</DialogDescription>
         </DialogHeader>
         {target?.kind === "script" && loadingManifest && <div className="space-y-3" aria-label="Carregando formulário"><div className="h-4 w-2/3 animate-pulse rounded bg-muted" /><div className="h-10 animate-pulse rounded bg-muted" /><div className="h-10 animate-pulse rounded bg-muted" /></div>}

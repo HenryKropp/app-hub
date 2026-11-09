@@ -39,19 +39,24 @@ export type SharedSpec = {
   python?: string; node?: string; command?: string; env?: EnvVar[] | null
 }
 
-/** A key of the script's vault (cofre): the name only, never the value. */
+/** A key the app reads from Configurações (Chaves e senhas): the name only, never the value. */
 export type AppKey = { name: string; label?: string; required?: boolean }
 
-export type KeyItem = {
+/** One value of the app's Configurações (ADR 032): a secret (never sent back) or a plain value. */
+export type SettingItem = {
   name: string
   label: string
+  secret: boolean
   required: boolean
   has_value: boolean
+  /** Only plain values, only for who manages the app. */
+  value?: string
+  default?: string
   updated_by: string
   updated_at: string | null
 }
 
-export type KeysList = { keys: KeyItem[]; can_manage: boolean; ready: boolean; missing: string[]; locked: boolean }
+export type SettingsList = { items: SettingItem[]; can_manage: boolean; locked: boolean; missing: string[] }
 
 export type Manifest = {
   manifest_version: number
@@ -121,7 +126,6 @@ export type SharedSettings = {
   enabled: boolean; always_on: boolean; idle_minutes: number; memory_mb: number; cpus: number; port: number
   health_path: string; database: "" | "postgres"; command: string; env: EnvVar[]; acks: string[]; updated_at: string
 }
-export type ConfigItem = EnvVar & { has_value: boolean; value: string }
 export type SharedBackup = { id: number; kind: "daily" | "manual" | "pre_deploy" | "pre_restore"; size_bytes: number; created_at: string; expires_at: string | null; created_by_name: string; version_number: number | null }
 export type UsagePoint = { at: string; mem_mb: number; cpu: number }
 export type ServerApp = {
@@ -187,6 +191,8 @@ export type AppDetail = {
   needs_publish?: boolean
   depends_on_apps?: AppLink[]
   used_by?: AppLink[]
+  /** Labels of the required values still empty in Configurações (ADR 032). */
+  missing_settings?: string[]
 }
 
 export type UpdateState = "" | "updating" | "updated" | "gave_up"
@@ -539,8 +545,12 @@ export const api = {
   restorePreview: (appId: number, n: number) => request<{ plan: RestorePlan; current: number }>("GET", `/api/apps/${appId}/versions/${n}/restore-preview`),
   restore: (appId: number, n: number) => request<RestoreResult>("POST", `/api/apps/${appId}/versions/${n}/restore`),
   run: (id: number | string) => request<Run>("GET", `/api/runs/${id}`),
+  settings: {
+    list: (id: number) => request<SettingsList>("GET", `/api/apps/${id}/settings`),
+    set: (id: number, name: string, value: string) => request<{ ok: boolean; needs_restart?: boolean }>("PUT", `/api/apps/${id}/settings/${encodeURIComponent(name)}`, { value }),
+    remove: (id: number, name: string) => request<{ ok: boolean; needs_restart?: boolean }>("DELETE", `/api/apps/${id}/settings/${encodeURIComponent(name)}`),
+  },
   keys: {
-    list: (id: number) => request<KeysList>("GET", `/api/apps/${id}/keys`),
     set: (id: number, name: string, value: string) => request<{ ok: boolean; needs_restart?: boolean }>("PUT", `/api/apps/${id}/keys/${encodeURIComponent(name)}`, { value }),
     remove: (id: number, name: string) => request<{ ok: boolean; needs_restart?: boolean }>("DELETE", `/api/apps/${id}/keys/${encodeURIComponent(name)}`),
     reveal: (id: number, name: string) => request<{ value: string }>("POST", `/api/apps/${id}/keys/${encodeURIComponent(name)}/reveal`),
@@ -558,8 +568,6 @@ export const api = {
     unshare: (id: number) => request<object>("POST", `/api/apps/${id}/shared/unshare`),
     logs: (id: number) => request<{ text: string }>("GET", `/api/apps/${id}/shared/logs`),
     usage: (id: number) => request<UsagePoint[]>("GET", `/api/apps/${id}/shared/usage`),
-    config: (id: number) => request<ConfigItem[]>("GET", `/api/apps/${id}/shared/config`),
-    setConfig: (id: number, name: string, value: string) => request<{ needs_restart: boolean }>("PUT", `/api/apps/${id}/shared/config`, { name, value }),
     backups: (id: number) => request<SharedBackup[]>("GET", `/api/apps/${id}/shared/backups`),
     backup: (id: number) => request<SharedBackup>("POST", `/api/apps/${id}/shared/backups`),
     restore: (id: number, bid: number) => request<object>("POST", `/api/apps/${id}/shared/backups/${bid}/restore`),

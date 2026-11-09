@@ -265,7 +265,7 @@ const steps: { title: string; text: string; mono?: boolean; picture: ReactNode }
     title: "Pede para subir",
     text: "O Claude envia, escreve a ficha e guarda as chaves.",
     mono: true,
-    picture: <Terminal prompt="sobe no Ziv, área Finanças" lines={["Escrevendo a ficha: para que serve, como usar,", "o que pede e o que entrega.", "Guardando 1 chave no cofre do app."]} result="Fechamento mensal publicado · 2 min" />,
+    picture: <Terminal prompt="sobe no Ziv, área Finanças" lines={["Escrevendo a ficha: para que serve, como usar,", "o que pede e o que entrega.", "Guardando 1 senha nas configurações do app."]} result="Fechamento mensal publicado · 2 min" />,
   },
   {
     title: "Você define quem cuida",

@@ -2,6 +2,8 @@
 
 **Status:** Accepted
 
+> A tela do Cofre (item "Cofre" no menu e "Configurações" dentro de Servidor) foi substituída pela aba Configurações do ADR 032.
+
 ## Context
 O Cofre do app (ADR 027) só existia para scripts. Os dois apps reais do Henry são do tipo Navegador (app com tela), então ele nunca viu o Cofre. Apps com tela compartilhados já tinham "Configurações" (`app_config`, com segredos selados), que chegam ao contêiner da versão 24h. Um app com tela ainda não abria pelo Agente: rodava só da pasta, com o `.env` da pasta.
 

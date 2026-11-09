@@ -11,7 +11,7 @@ import { BuildView, InputList, Notes, OtherApps, OutputList, People, RunList } f
 import { MakeShared, SharedSection } from "@/components/ficha/shared/SharedSection"
 import { AppControlBar } from "@/components/ficha/AppControl"
 import { CareNav, FaceSwitch, Steps, TodoList, type Face, type MenuItem, type Step, type Todo } from "@/components/ficha/CareMenu"
-import { KeysSection, VAULT_KINDS } from "@/components/ficha/KeysSection"
+import { SettingsSection, VAULT_KINDS } from "@/components/ficha/SettingsSection"
 import { Tech } from "@/components/ficha/shared/Tech"
 import { FavoriteStar } from "@/components/FavoriteStar"
 import { ScheduleDialog } from "@/components/ScheduleDialog"
@@ -30,7 +30,7 @@ type PartKey = "sobre" | "pede" | "entrega" | "pessoas" | "notas" | "outros" | "
 type Draft = { manifest: Manifest; ownerId: number; backupId: number; updatedAt: string }
 type Lists = { areas: Area[]; people: PersonRow[]; apps: AppSummary[] }
 // The sections of the Cuidar face (ADR 029).
-type CareKey = "pendencias" | "ficha" | "servidor" | "cofre" | "acesso" | "codigo" | "historico"
+type CareKey = "pendencias" | "ficha" | "servidor" | "configuracoes" | "acesso" | "codigo" | "historico"
 
 const RUNS_SHOWN = 5
 
@@ -95,6 +95,15 @@ export function AppPage() {
     setSection("pendencias")
     setVisited(new Set(["pendencias"]))
   }, [id])
+
+  // The link Claude gives (…/apps/N#chaves) opens straight on Configurações.
+  const appId = app?.id
+  useEffect(() => {
+    if (appId == null || !["#chaves", "#configuracoes"].includes(window.location.hash)) return
+    setFace("cuidar")
+    setSection("configuracoes")
+    setVisited((v) => new Set(v).add("configuracoes"))
+  }, [appId])
 
   // Runs reload when one of this app's runs changes situation in the strip.
   const signal = active.filter((r) => String(r.app_id) === id).map((r) => `${r.id}:${r.status}`).join(",")
@@ -235,6 +244,17 @@ export function AppPage() {
   if ((m.outputs ?? []).length === 0 && can.edit) {
     todos.push({ key: "entrega", title: "Dizer o que ele entrega", detail: "quem usa sabe o que esperar", action: <Button size="sm" variant="outline" onClick={() => editIn("ficha", "entrega")}>Descrever</Button> })
   }
+  // Configurações: every app that runs (ADR 032).
+  const hasSettings = VAULT_KINDS.includes(m.kind) || !!app.shared
+  const missing = app.missing_settings ?? []
+  if (hasSettings && missing.length > 0) {
+    todos.push({
+      key: "configuracoes",
+      title: "Preencher as configurações",
+      detail: `falta: ${missing.join(", ")}`,
+      action: <Button size="sm" variant="outline" onClick={() => go("configuracoes")}>Ir para Configurações</Button>,
+    })
+  }
   const pendingCount = todos.length + (blocked ? 1 : 0)
 
   const steps: Step[] = [{ label: "Registrado", done: true, state: "feito" }]
@@ -255,8 +275,8 @@ export function AppPage() {
     { key: "pendencias", label: "Pendências", count: pendingCount, warn: true },
     { key: "ficha", label: "Ficha", group: "App" },
   ]
+  if (hasSettings) menu.push({ key: "configuracoes", label: "Configurações", group: "App" })
   if (serverPart) menu.push({ key: "servidor", label: "Servidor", group: "App" })
-  if (VAULT_KINDS.includes(m.kind)) menu.push({ key: "cofre", label: "Cofre", group: "Ajustes" })
   if (can.tech) {
     menu.push({ key: "acesso", label: "Acesso", group: "Ajustes" })
     menu.push({ key: "codigo", label: "Código", group: "Técnico", count: notes.length })
@@ -403,10 +423,8 @@ export function AppPage() {
               </div>
             ))}
 
-            {VAULT_KINDS.includes(m.kind) && panel("cofre", (
-              <div className="[&>section:first-child]:border-t-0 [&>section:first-child]:pt-0">
-                <KeysSection appId={app.id} kind={m.kind} />
-              </div>
+            {hasSettings && panel("configuracoes", (
+              <SettingsSection appId={app.id} kind={m.kind} onChanged={() => sharedChanged()} />
             ))}
 
             {can.tech && person && panel("acesso", (
@@ -430,7 +448,7 @@ export function AppPage() {
                   <Section title="Chaves no código">
                     <p className="flex gap-2 text-sm">
                       <KeyRound className="mt-0.5 size-4 shrink-0 text-destructive" />
-                      Usa {m.secrets!.length} chave(s) ou senha(s) escritas no código. Os valores nunca aparecem no Ziv. Guarde-as no Cofre.
+                      Usa {m.secrets!.length} chave(s) ou senha(s) escritas no código. Os valores nunca aparecem no Ziv. Guarde cada uma em Configurações.
                     </p>
                   </Section>
                 )}
