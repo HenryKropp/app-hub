@@ -343,7 +343,7 @@ func (h *Handler) agentNext(w http.ResponseWriter, r *http.Request) {
 	for {
 		j, err := h.q.ClaimJob(ctx, c.ID)
 		if err == nil {
-			if h.workspace != nil && j.Kind == agentproto.KindRun && j.RunID.Valid {
+			if j.Kind == agentproto.KindRun && j.RunID.Valid {
 				run, e := h.q.GetRun(ctx, j.RunID.Int64)
 				if e != nil {
 					internalError(w, "queued run policy", e)
