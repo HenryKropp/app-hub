@@ -1,0 +1,98 @@
+/*
+  Só a landing pública (/boas-vindas) usa este arquivo. ADR 030.
+  Poppins com um destaque em Instrument Serif itálico e a escala de tamanhos da Pluggy.
+  Aqui o laranja aparece como cor de destaque (título, rótulos, sublinhados), o que o
+  app não faz. O app continua em Geist, com as regras do index.css.
+*/
+.lp {
+  --lp-ink: var(--foreground);
+  --lp-quiet: var(--muted-foreground);
+  --lp-line: var(--border);
+  --lp-mist: var(--sidebar);
+  --lp-coral: var(--brand);
+  --lp-coral-text: #D23F1E;
+  --lp-accent: #F0562F;
+  --lp-logo-gray: #8C9196;
+  --lp-petrol: var(--logo-square);
+  font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(15px, 1.3vw, 19.2px);
+  line-height: 1.6;
+  font-feature-settings: normal;
+}
+.dark .lp {
+  --lp-coral-text: #FF8A6E;
+  --lp-accent: #FF7A5C;
+  --lp-logo-gray: #7B848B;
+}
+
+.lp-display {
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+.lp-h1 { font-size: clamp(34px, 4.5vw, 80px); line-height: 1.05; }
+.lp-h2 { font-size: clamp(28px, 4vw, 64px); line-height: 1.08; }
+
+.lp-accent {
+  font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0;
+  font-size: 1.12em;
+  color: var(--lp-accent);
+}
+
+.lp-eyebrow {
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--lp-coral-text);
+}
+
+/* Linhas tracejadas que andam no desenho do topo. */
+.lp-flow {
+  stroke-dasharray: 5 7;
+  animation: lp-flow 1.4s linear infinite;
+}
+@keyframes lp-flow {
+  to { stroke-dashoffset: -24; }
+}
+
+/* Faixa de logos que roda numa linha só. A lista vem duplicada para o laço não ter emenda. */
+.lp-marquee {
+  overflow: hidden;
+  -webkit-mask: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+  mask: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent);
+}
+.lp-track {
+  display: flex;
+  gap: 56px;
+  width: max-content;
+  animation: lp-scroll 30s linear infinite;
+}
+.lp-marquee:hover .lp-track { animation-play-state: paused; }
+@keyframes lp-scroll {
+  to { transform: translateX(-50%); }
+}
+.lp-logo {
+  display: block;
+  width: 24px;
+  height: 24px;
+  background: var(--lp-logo-gray);
+  -webkit-mask: var(--lp-logo) center / contain no-repeat;
+  mask: var(--lp-logo) center / contain no-repeat;
+}
+
+/* Troca suave das imagens do "Como funciona". */
+.lp-pic {
+  opacity: 0;
+  transition: opacity 0.35s;
+}
+.lp-pic[data-on="true"] { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-flow, .lp-track { animation: none; }
+  .lp-pic { transition: none; }
+}

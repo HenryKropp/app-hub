@@ -222,6 +222,8 @@ A grayscale world with a single coral and three small status hues. Values live a
 
 **The No Kicker Rule.** No eyebrow or kicker labels above titles. A page opens with its h1; small gray labels exist only as field captions directly above their value.
 
+**The Landing Exception.** The public landing (`/boas-vindas`) has its own type and accent rules (ADR 030): Poppins with one Instrument Serif italic accent word, a fluid scale up to 80px, orange eyebrows above section titles and orange text accents. Those rules live in `frontend/src/pages/landing.css` and never leak into the app.
+
 ## Layout
 
 A two-zone shell. On desktop (md, 768px and up) a 240px sticky sidebar runs full height on the left: the wordmark at top, nav, then a Configurações link and the account row pinned to the bottom, the account behind a hairline. The theme choice (Claro, Escuro, Igual ao sistema) lives on the Configurações page, below Meu computador; on phones, Configurações is in the avatar menu. Main content sits right with 48px side padding (32px at sm, 16px on phones), 40px top padding, and a centered max width of 72rem. Bottom padding is generous (160px) so the run strip never covers the last row.

@@ -411,3 +411,16 @@ Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mc
 | Testes da página atualizados e novos (faces, pendências, aprovação) | Done | |
 | Publicado em zivapp.duckdns.org | Done | 2026-11-09 |
 | Teste do Henry na página de um app real | Pending | Script e app de navegador |
+
+## Landing nova no estilo da Pluggy (2026-11-09, ADR 030)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Prévias A, B, C e variações até a B5 | Done | Henry escolheu B5: Poppins + destaque em Instrument Serif, escala de tamanhos da Pluggy |
+| Topo: título curto e desenho animado (apps espalhados → Ziv → áreas) | Done | Versão em pé no celular; animação desliga com "reduzir movimento" |
+| Faixa de ferramentas rodando numa linha (Claude, ChatGPT, Gemini, Python…) | Done | Logos do simple-icons guardados no app |
+| Blocos Catalogado e Documentado com telas de exemplo | Done | Marcadas como exemplo ilustrativo |
+| Como funciona em 4 passos verticais, com uma imagem que acompanha o passo | Done | Avança sozinho a cada 3,5 s; clicar escolhe o passo |
+| Fontes servidas pelo próprio app (sem Google Fonts) | Done | `@fontsource/poppins`, `@fontsource/instrument-serif` |
+| Publicado em zivapp.duckdns.org | Pending | |
+| Logos de Excel e Windows na faixa | Pending | Não existem no simple-icons; precisariam de outra fonte |
