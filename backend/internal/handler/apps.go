@@ -32,6 +32,7 @@ type scanItem struct {
 	scanner.Diagnosis
 	FolderDisplay   string       `json:"folder_display"`
 	RegisteredAppID int64        `json:"registered_app_id"`
+	ArchivedAppID   int64        `json:"archived_app_id,omitempty"` // the folder belongs to an archived app (ADR 031)
 	Similar         []similarApp `json:"similar"`
 }
 
@@ -108,7 +109,9 @@ func (h *Handler) scan(w http.ResponseWriter, r *http.Request) {
 		item := scanItem{Diagnosis: d, FolderDisplay: hostpath.ToDisplay(d.FolderPath), Similar: []similarApp{}}
 		for _, a := range existing {
 			if a.FolderPath == d.FolderPath {
-				if visible[a.ID] {
+				if a.ArchivedAt.Valid {
+					item.ArchivedAppID = a.ID
+				} else if visible[a.ID] {
 					item.RegisteredAppID = a.ID
 				}
 				continue
@@ -396,6 +399,10 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 	old, oldErr := h.q.GetAppByFolder(r.Context(), folder)
 	if oldErr != nil && !errors.Is(oldErr, pgx.ErrNoRows) {
 		internalError(w, "get app by folder", oldErr)
+		return
+	}
+	if oldErr == nil && old.ArchivedAt.Valid {
+		writeJSON(w, http.StatusConflict, map[string]any{"error": msgArchivedFolder, "code": "app_archived"})
 		return
 	}
 	if oldErr == nil {

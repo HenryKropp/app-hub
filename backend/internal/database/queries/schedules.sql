@@ -31,7 +31,7 @@ JOIN people p ON p.id = s.person_id
 JOIN computers c ON c.id = s.computer_id
 JOIN apps a ON a.id = s.app_id
 LEFT JOIN runs r ON r.id = s.last_run_id
-WHERE s.person_id = $1
+WHERE s.person_id = $1 AND a.archived_at IS NULL
 ORDER BY s.created_at;
 
 -- name: DeleteSchedule :exec
@@ -65,7 +65,7 @@ RETURNING failures, active;
 -- name: ListMyPausedSchedules :many
 SELECT s.id, s.app_id, a.name AS app_name, s.paused_reason, s.updated_at
 FROM schedules s JOIN apps a ON a.id = s.app_id
-WHERE s.person_id = $1 AND NOT s.active AND s.paused_reason <> ''
+WHERE s.person_id = $1 AND NOT s.active AND s.paused_reason <> '' AND a.archived_at IS NULL
 ORDER BY s.updated_at DESC
 LIMIT 10;
 
@@ -81,3 +81,6 @@ JOIN computers c ON c.id = s.computer_id
 JOIN apps a ON a.id = s.app_id
 LEFT JOIN runs r ON r.id = s.last_run_id
 WHERE s.id = $1;
+
+-- name: PauseAppSchedules :execrows
+UPDATE schedules SET active = false, paused_reason = $2, updated_at = now() WHERE app_id = $1 AND active;

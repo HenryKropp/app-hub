@@ -192,6 +192,7 @@ func (p *Portal) attach(e *entry) {
 	h.Register(mux)
 	e.http = h.Secure(mux)
 	h.StartScheduler(p.clock)
+	h.StartArchiveCleanup(p.clock)
 }
 
 // SharedEnabled says whether the company's screen apps are on. The principal

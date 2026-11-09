@@ -39,6 +39,8 @@ type App struct {
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 	AreaID     int64              `json:"area_id"`
 	Restricted bool               `json:"restricted"`
+	ArchivedAt pgtype.Timestamptz `json:"archived_at"`
+	ArchivedBy pgtype.Int8        `json:"archived_by"`
 }
 
 type AppChange struct {

@@ -7,7 +7,7 @@ SELECT * FROM shared_apps WHERE slug = $1 AND unshared_at IS NULL;
 -- name: ListSharedApps :many
 SELECT s.*, a.name AS app_name, a.owner_id, a.backup_id
 FROM shared_apps s JOIN apps a ON a.id = s.app_id
-WHERE s.unshared_at IS NULL
+WHERE s.unshared_at IS NULL AND a.archived_at IS NULL
 ORDER BY a.name;
 
 -- name: UpsertSharedApp :one
@@ -199,7 +199,8 @@ INSERT INTO app_changes (app_id, person_id, changes) VALUES ($1, NULL, $2);
 SELECT * FROM shared_deployments WHERE status = 'building';
 
 -- name: CountPublishedSharedApps :one
-SELECT count(*) FROM shared_apps WHERE unshared_at IS NULL AND current_deployment_id IS NOT NULL;
+SELECT count(*) FROM shared_apps s JOIN apps a ON a.id = s.app_id
+WHERE s.unshared_at IS NULL AND s.current_deployment_id IS NOT NULL AND a.archived_at IS NULL;
 
 -- name: HasSharedApps :one
 SELECT EXISTS(SELECT 1 FROM shared_apps);

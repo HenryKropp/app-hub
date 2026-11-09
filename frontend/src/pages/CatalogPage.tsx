@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { FavoriteStar } from "@/components/FavoriteStar"
-import { ArrowRight, ExternalLink, Lock, Play, Plus, Search, X } from "lucide-react"
+import { Archive, ArrowRight, ExternalLink, Lock, Play, Plus, Search, X } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { SharedStatusDot } from "@/components/SharedStatus"
 import { Input } from "@/components/ui/input"
@@ -23,10 +23,13 @@ export function CatalogPage() {
   const [q, setQ] = useState("")
   const [tries, setTries] = useState(0)
   const [onboarding, setOnboarding] = useState<Onboarding | null>(null)
+  // Archived apps the person could bring back (ADR 031); the link shows only when there are some.
+  const [archived, setArchived] = useState(0)
 
   useEffect(() => {
     api.apps().then(setApps, (e: Error) => setError(e.message))
     api.onboarding().then(setOnboarding, () => {})
+    api.archivedApps().then((l) => setArchived(l.length), () => setArchived(0))
   }, [tries])
   const retry = () => {
     setError("")
@@ -179,6 +182,14 @@ export function CatalogPage() {
           )
         })}
       </ul>
+
+      {archived > 0 && (
+        <p className="mt-8 text-sm">
+          <Link to="/apps/arquivados" className="inline-flex items-center gap-1.5 text-muted-foreground hover:text-foreground">
+            <Archive className="size-3.5" /> Arquivados ({archived})
+          </Link>
+        </p>
+      )}
     </>
   )
 }

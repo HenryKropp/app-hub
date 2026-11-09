@@ -189,5 +189,10 @@ func (h *Handler) appFor(w http.ResponseWriter, r *http.Request) (sqlc.App, sqlc
 		writeError(w, http.StatusNotFound, "App não encontrado.")
 		return sqlc.App{}, me, nil, access.Can{}, false
 	}
+	if a.ArchivedAt.Valid {
+		// Archived apps answer only to the archive routes (ADR 031).
+		writeError(w, http.StatusGone, msgArchived)
+		return sqlc.App{}, me, nil, access.Can{}, false
+	}
 	return a, me, acc, can, true
 }

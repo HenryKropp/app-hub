@@ -49,7 +49,7 @@ func (h *Handler) canViewItem(ctx context.Context, acc *access.Person, kind stri
 		if err != nil {
 			return false, err
 		}
-		return acc.For(appRef(a)).View, nil
+		return acc.For(appRef(a)).View && !a.ArchivedAt.Valid, nil
 	}
 	a, err := h.q.GetArtifact(ctx, id)
 	if errors.Is(err, pgx.ErrNoRows) {
