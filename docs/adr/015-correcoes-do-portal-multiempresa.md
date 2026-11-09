@@ -15,6 +15,7 @@ Entre 29/10 e 02/11, o Ziv virou um portal com várias empresas (`/w/<empresa>`)
 
 ## Decisão
 1. **Apps compartilhados só na empresa principal.** Eles voltam a ligar com `workspace.WithPrincipal`. As outras empresas seguem com a resposta "desativada para esta empresa" até os containers, bancos e endereços passarem a ser por empresa.
+   - **Substituída pela ADR 025** (2026-11-09): apps com tela em todas as empresas, ligados por empresa.
 2. **Limite de login por conta.** 10 senhas erradas por e-mail. O endereço de rede ganha um teto alto (300 por 15 min). Login certo não conta, e só POST conta. Com a tabela cheia, sai a janela mais antiga.
 3. **Cadastro com reservas e cota.**
    - Endereços reservados: os fixos no código mais `RESERVED_COMPANY_SLUGS` (`alis` e `alis-investimentos` no `.replit`).
