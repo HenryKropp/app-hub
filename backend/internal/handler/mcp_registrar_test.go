@@ -554,3 +554,23 @@ func TestPublicarTelaEmpresaComLimite(t *testing.T) {
 		t.Fatalf("memory %d", mb)
 	}
 }
+
+func TestRegistrarSecretsSaysWhere(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	s := toolSession(t, c)
+	const value = "sk-proj-abcdefghijklmnopqrstuvwxyz0123456789ABCD"
+	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print(1)\n", "baixar/config.py": "import os\n\nAPI_KEY = \"" + value + "\"\n"})
+	res, text, _ := registrar(t, s, map[string]any{"envio": envio, "manifesto": scriptManifesto()})
+	if !res.IsError || !strings.Contains(text, "baixar/config.py, linha 3 (API_KEY)") || strings.Contains(text, value) {
+		t.Fatalf("confirm %q", text)
+	}
+}
+
+func TestSentFailureBlockedSaysWhere(t *testing.T) {
+	raw := []byte(`{"code":"script_secrets_blocked","error":"Possíveis senhas ou chaves no código. Retire as credenciais antes de importar; a política da empresa não permite ignorar este bloqueio.","secret_count":1,"findings":[{"file":"baixar/config.py","line":3,"name":"API_KEY"}]}`)
+	text := sentFailure(http.StatusUnprocessableEntity, raw, "x")
+	if !strings.Contains(text, "não permite ignorar") || !strings.Contains(text, "baixar/config.py, linha 3 (API_KEY)") || !strings.Contains(text, "os.environ") {
+		t.Fatalf("%q", text)
+	}
+}

@@ -232,7 +232,10 @@ func TestPortalIsolationSecurityLifecycle(t *testing.T) {
 	b.want("POST", prefix+"/api/apps", map[string]string{}, 403)
 	secretBody := scriptBody("Unsafe code", "PASSWORD = 'this-is-a-test-only-password'\n")
 	secretBody["confirm_secrets"] = true
-	b.want("POST", prefix+"/api/scripts/import", secretBody, 422)
+	raw = b.want("POST", prefix+"/api/scripts/import", secretBody, 422)
+	if !bytes.Contains(raw, []byte(`"line":1,"name":"PASSWORD"`)) || bytes.Contains(raw, []byte("this-is-a-test-only-password")) {
+		t.Fatalf("blocked secrets must say where, never the value: %s", raw)
+	}
 	// Execution approval is mandatory by default and tied to the reviewed source.
 	b.want("POST", prefix+"/api/apps/1/runs", map[string]any{"output_folder": `C:\Results`}, 403)
 	profile := map[string]any{"classification": "confidential", "purpose": "Internal test processing", "external_domains": []string{"api.example.test"}, "approved": true, "suspended": false}

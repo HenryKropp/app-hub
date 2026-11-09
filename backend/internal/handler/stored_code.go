@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -68,13 +69,16 @@ func (h *Handler) checkSentFiles(w http.ResponseWriter, r *http.Request, m manif
 		}
 		decoded[name] = data
 	}
-	// Scan every file before any filesystem or database persistence. Only a count
-	// leaves this handler: filenames, variable names and source excerpts can also
-	// contain sensitive values. Confirmation never changes the executable sources.
-	secretCount := 0
+	// Scan every file before any filesystem or database persistence. Only where
+	// each probable secret sits leaves this handler (file, line, variable name),
+	// so the person can fix it; values and source text never do. Confirmation
+	// never changes the executable sources.
+	var found []scanner.SecretFinding
 	for name, data := range decoded {
-		secretCount += len(scanner.FindSecrets(name, string(data)))
+		found = append(found, scanner.FindSecrets(name, string(data))...)
 	}
+	secretCount := len(found)
+	spots := secretSpots(found)
 	if secretCount > 0 && h.workspace != nil {
 		settings, err := h.securityConfig(r.Context())
 		if err != nil {
@@ -82,7 +86,7 @@ func (h *Handler) checkSentFiles(w http.ResponseWriter, r *http.Request, m manif
 			return nil, false
 		}
 		if settings.BlockSecrets {
-			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"code": "script_secrets_blocked", "error": "Possíveis senhas ou chaves no código. Retire as credenciais antes de importar; a política da empresa não permite ignorar este bloqueio.", "secret_count": secretCount})
+			writeJSON(w, http.StatusUnprocessableEntity, map[string]any{"code": "script_secrets_blocked", "error": "Possíveis senhas ou chaves no código. Retire as credenciais antes de importar; a política da empresa não permite ignorar este bloqueio.", "secret_count": secretCount, "findings": spots})
 			return nil, false
 		}
 	}
@@ -91,6 +95,7 @@ func (h *Handler) checkSentFiles(w http.ResponseWriter, r *http.Request, m manif
 			"code":         "script_secrets_confirmation_required",
 			"error":        "Possíveis senhas ou chaves no código. Revise os arquivos ou confirme o envio sem alterações.",
 			"secret_count": secretCount,
+			"findings":     spots,
 		})
 		return nil, false
 	}
@@ -339,4 +344,30 @@ func (h *Handler) syncSourcesFromFolder(ctx context.Context, a sqlc.App, snap ve
 		return err
 	}
 	return h.q.ReplaceScriptSources(ctx, a.ID, raw)
+}
+
+// secretSpot is where a probable secret sits: the file, the line and the
+// variable (or kind) name. The value never leaves the handler; the person's
+// own Claude has the code and needs the place to fix it.
+type secretSpot struct {
+	File string `json:"file"`
+	Line int    `json:"line"`
+	Name string `json:"name"`
+}
+
+func secretSpots(found []scanner.SecretFinding) []secretSpot {
+	slices.SortFunc(found, func(a, b scanner.SecretFinding) int {
+		if c := strings.Compare(a.File, b.File); c != 0 {
+			return c
+		}
+		return a.Line - b.Line
+	})
+	out := []secretSpot{}
+	for _, f := range found {
+		if len(out) == 20 {
+			break
+		}
+		out = append(out, secretSpot{File: f.File, Line: f.Line, Name: f.Name})
+	}
+	return out
 }
