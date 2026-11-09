@@ -424,3 +424,16 @@ Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mc
 | Fontes servidas pelo próprio app (sem Google Fonts) | Done | `@fontsource/poppins`, `@fontsource/instrument-serif` |
 | Publicado em zivapp.duckdns.org | Done | 2026-11-09 |
 | Logos de Excel e Windows na faixa | Pending | Não existem no simple-icons; precisariam de outra fonte |
+
+## Arquivar, Configurações e Execuções (2026-11-09, ADRs 031, 032, 033)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Arquivar app: botão no pé da página do app, para quem controla o acesso (responsável, reserva, líder da área) | Done | Some do catálogo, da Home, da busca e do Claude; não roda; agendamentos pausados; versão no servidor parada |
+| Apps › Arquivados com "Trazer de volta"; apagado de vez depois de 30 dias | Done | Limpeza de hora em hora; a pasta no computador nunca é mexida |
+| Aba Configurações (junta o Cofre e as configurações do servidor) | Done | Blocos "Chaves e senhas" e "Outros ajustes"; os mesmos valores valem no computador e no servidor |
+| Pendência "Preencher as configurações" quando falta valor obrigatório | Done | |
+| Aba Execuções na face Cuidar, com "Rodando agora" e relógio | Done | |
+| "Rodando agora" em Minhas execuções e na Home | Done | Só as execuções da própria pessoa |
+| Página da execução: o que foi preenchido, tempo correndo e registro do app | Done | Valores com cara de senha não são guardados |
+| Teste do Henry no Ziv publicado | Pending | |
