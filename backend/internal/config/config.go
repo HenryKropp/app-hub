@@ -89,7 +89,7 @@ func Load() (Config, error) {
 	cfg.SharedDataDir = envOr("SHARED_DATA_DIR", filepath.Join(home, ".local", "share", "ziv", "shared"))
 	cfg.SharedDataDirExplicit = os.Getenv("SHARED_DATA_DIR") != ""
 	cfg.ContainerEngine = envOr("CONTAINER_ENGINE", "podman")
-	cfg.SharedAppsPerCompany = envInt("SHARED_APPS_PER_COMPANY", 2)
+	cfg.SharedAppsPerCompany = envInt("SHARED_APPS_PER_COMPANY", 5)
 	cfg.SharedAppMaxMemoryMB = envInt("SHARED_APP_MAX_MEMORY_MB", 256)
 	cfg.SharedAppsMaxRunning = envInt("SHARED_APPS_MAX_RUNNING", 2)
 	cfg.SharedAppsMemoryBudgetMB = envInt("SHARED_APPS_MEMORY_BUDGET_MB", 512)

@@ -37,7 +37,7 @@ Desenho: `docs/superpowers/specs/2026-11-06-mcp-registrar-apps-design.md` (§2, 
   - Desligada, a empresa não testa, não publica, não liga nem volta versão. As caixas abertas dormem, e a API responde 503 `shared_runtime_unavailable` com "peça ao responsável pelo Ziv".
   - Se a leitura da chave falha, a empresa conta como desligada.
 - **Limites.** O que cabe numa VM de 1 GB:
-  - Por empresa: até 2 apps com tela (`SHARED_APPS_PER_COMPANY`), cada um com até 256 MB (`SHARED_APP_MAX_MEMORY_MB`). Um app sem memória escolhida recebe o limite da empresa, e não o padrão de 512 MB.
+  - Por empresa: até 5 apps com tela publicados (`SHARED_APPS_PER_COMPANY`; era 2 até 2026-11-11, quando travou o teste do MCP com os 2 apps da Teste dormindo — quem protege a memória é o limite de ligados ao mesmo tempo, e app publicado dormindo só ocupa disco), cada um com até 256 MB (`SHARED_APP_MAX_MEMORY_MB`). Um app sem memória escolhida recebe o limite da empresa, e não o padrão de 512 MB.
   - No servidor inteiro: até 2 apps ligados ao mesmo tempo (`SHARED_APPS_MAX_RUNNING`), com 512 MB para eles (`SHARED_APPS_MEMORY_BUDGET_MB`).
   - A conta: 2 × 256 MB = 512 MB, que cabe nos cerca de 553 MB livres medidos.
   - Medição em 2026-11-09, sem app ligado:
