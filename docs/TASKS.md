@@ -139,6 +139,12 @@ Pedido do Henry: o objetivo é as pessoas pararem de rodar apps no PC e usarem p
 | Publicar e testar de verdade | Pending | Precisa da 8080 livre (o alis-research-hub-v2 usa a mesma porta) e do Podman respondendo (em 2026-10-28 `podman version` estava sendo morto) |
 | Henry desliga a tarefa agendada do PC | Pending | Depois de o app estar no ar |
 
+## Teste combinado do MCP (2026-11-11)
+- [x] Passo 1 "problemas": achou os 3 erros em linguagem simples. Ajuste: conferir em qual PC a execução rodou antes de dizer que a pasta foi digitada errada (C:\Users\hkrop era outro PC).
+- [x] Passo 2 (E): sessão nova criou "Mostra as notícias do dia de uma empresa" (app 14 da Teste) do jeito Ziv sozinho, mensagem no padrão.
+- [x] Passo 3: rodou pelo site, página boa. Passo 4: Claude rodou e conferiu sozinho.
+- [ ] Passo 5: publicar app com tela. Travou no limite de 2 apps publicados por empresa; subido para 5 (prod `SHARED_APPS_PER_COMPANY=5` e padrão no código, ADR 025). Repetir.
+
 ## Rodar pelo celular ou de outro PC (decidido 2026-11-11, depois do teste do MCP)
 
 Decisões do Henry (ainda sem documento de projeto escrito):
