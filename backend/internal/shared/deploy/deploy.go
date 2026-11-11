@@ -514,13 +514,13 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 			err = s.q.SetSharedDBName(ctx, sqlc.SetSharedDBNameParams{AppID: j.app.ID, DbName: dbName})
 		}
 		if err != nil {
-			s.discard(ctx, "", img)
+			s.discard(ctx, j, "", img)
 			return &failure{msg: "Não foi possível preparar o banco do app.", log: log + "\n" + err.Error()}
 		}
 	}
 	cid, port, f := s.start(ctx, j, img, dbName)
 	if f != nil {
-		s.discard(ctx, "", img)
+		s.discard(ctx, j, "", img)
 		f.log = log + "\n" + f.log
 		return f
 	}
@@ -530,13 +530,13 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 	// stays in the air and the new one is thrown away.
 	if err := s.Finish(ctx, sqlc.FinishDeploymentParams{ID: j.dep.ID, Status: "live", ImageID: img, ContainerID: cid,
 		Port: int32(j.rec.Port), BuildLog: lastLines(log, 40)}); err != nil {
-		s.discard(ctx, cid, img)
+		s.discard(ctx, j, cid, img)
 		return &failure{msg: msgRecord, log: log + "\n" + err.Error()}
 	}
 	prev := j.sa.CurrentDeploymentID
 	if err := s.q.SetSharedDeployments(ctx, sqlc.SetSharedDeploymentsParams{AppID: j.app.ID,
 		CurrentID: pgtype.Int8{Int64: j.dep.ID, Valid: true}, PreviousID: prev}); err != nil {
-		s.discard(ctx, cid, img)
+		s.discard(ctx, j, cid, img)
 		return &failure{msg: msgRecord, log: log + "\n" + err.Error()}
 	}
 	// Troca: o porteiro passa a mandar para a nova, depois a antiga para.
@@ -556,7 +556,7 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 		s.removeLegacyNetworks(ctx, j.app.ID)
 		if j.sa.PreviousDeploymentID.Valid { // só a anterior guarda imagem
 			if older, err := s.q.GetDeployment(ctx, j.sa.PreviousDeploymentID.Int64); err == nil && older.ImageID != "" {
-				logErr(s.eng.RemoveImage(ctx, older.ImageID), "remove older image", "image", older.ImageID)
+				s.removeImage(ctx, j.sa.Slug, older.ID, older.ImageID)
 			}
 		}
 	}
@@ -593,7 +593,7 @@ func (s *Service) runTest(ctx context.Context, j job) *failure {
 			err = s.q.SetDeploymentTestDB(ctx, sqlc.SetDeploymentTestDBParams{ID: j.dep.ID, TestDbName: dbName})
 		}
 		if err != nil {
-			s.discard(ctx, "", img)
+			s.discard(ctx, j, "", img)
 			dropDB()
 			return &failure{msg: "Não foi possível preparar o banco de teste.", log: log + "\n" + err.Error()}
 		}
@@ -601,14 +601,14 @@ func (s *Service) runTest(ctx context.Context, j job) *failure {
 	}
 	cid, port, f := s.start(ctx, j, img, dbName)
 	if f != nil {
-		s.discard(ctx, "", img)
+		s.discard(ctx, j, "", img)
 		dropDB()
 		f.log = log + "\n" + f.log
 		return f
 	}
 	if err := s.Finish(ctx, sqlc.FinishDeploymentParams{ID: j.dep.ID, Status: "ready", ImageID: img, ContainerID: cid,
 		Port: int32(j.rec.Port), BuildLog: lastLines(log, 40)}); err != nil {
-		s.discard(ctx, cid, img)
+		s.discard(ctx, j, cid, img)
 		dropDB()
 		return &failure{msg: "Não foi possível registrar o teste no Ziv. Tente de novo em alguns minutos.", log: log + "\n" + err.Error()}
 	}
@@ -647,7 +647,11 @@ func (s *Service) EndTest(ctx context.Context, depID int64) error {
 		logErr(s.eng.Remove(ctx, d.ContainerID), "remove test container", "container", d.ContainerID)
 	}
 	if d.ImageID != "" {
-		logErr(s.eng.RemoveImage(ctx, d.ImageID), "remove test image", "image", d.ImageID)
+		slug := ""
+		if sa, err := s.q.GetSharedApp(ctx, d.AppID); err == nil {
+			slug = sa.Slug
+		}
+		s.removeImage(ctx, slug, d.ID, d.ImageID)
 	}
 	var dropErr error
 	if d.TestDbName != "" {
@@ -775,12 +779,29 @@ func (s *Service) Rollback(ctx context.Context, appID int64, withData bool, by i
 }
 
 // discard removes a container and an image that never went live.
-func (s *Service) discard(ctx context.Context, cid, img string) {
+func (s *Service) discard(ctx context.Context, j job, cid, img string) {
 	if cid != "" {
 		logErr(s.eng.Remove(ctx, cid), "discard container", "container", cid)
 	}
 	if img != "" {
-		logErr(s.eng.RemoveImage(ctx, img), "discard image", "image", img)
+		s.removeImage(ctx, j.sa.Slug, j.dep.ID, img)
+	}
+}
+
+// removeImage drops a deployment's image. Two builds of the same code share
+// one image under two tags, and podman refuses to remove an image by ID while
+// it has more than one: so the deployment's own tag goes first (the image
+// itself goes with its last tag), then the ID, for images that lost their
+// tag. An ID still tagged by another deployment stays, quietly.
+func (s *Service) removeImage(ctx context.Context, slug string, depID int64, img string) {
+	if slug != "" {
+		tag := s.opt.Tenant.ImageTag(slug, depID)
+		logErr(s.eng.RemoveImage(ctx, tag), "remove image tag", "tag", tag)
+	}
+	if img != "" {
+		if err := s.eng.RemoveImage(ctx, img); err != nil {
+			slog.Debug("shared deploy: image kept (still tagged or in use)", "image", img, "err", err)
+		}
 	}
 }
 
