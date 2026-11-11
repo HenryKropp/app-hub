@@ -30,3 +30,34 @@ Status: aprovado pelo Henry em conversa, a construir numa sessão nova.
 
 ## Ordem sugerida
 A + B → D → C → E. Pouco código: mais texto, uma ferramenta nova, um teste de vocabulário. Precisa de ADR e atualizar PRD 3.11 / TASKS Fase 2b.
+
+---
+
+## Adendo 2026-11-11 — feedback do Claude ao publicar um app com tela pelo MCP
+
+Uma mudança já pronta levou 6 versões (3→8) e ~20 chamadas para entrar no ar. Meta: 1 versão e ~3 passos. Estas frentes entram **antes** de A+B, porque custam tempo real hoje.
+
+**F0. Estabilidade (investigar primeiro).** ECONNREFUSED intermitente em ver_app, preparar_envio, enviar_chaves e no curl; conexão MCP caiu 2x. Hipótese: a VM e2-micro (1 GB) roda o Ziv e o app com tela (Chromium + Xvfb) juntos → falta de memória reinicia o Ziv. Conferir memória/OOM/reinícios na VM; limitar memória dos apps ou separar.
+
+**F1. Publicar sem ficar no escuro.**
+- `publicar_app_com_tela` devolve as últimas ~50 linhas do log quando o app não sobe (traceback). Ferramenta `ver_log_app(app_id)` para quando cai depois.
+- Erro sem chutar a causa: "o processo terminou com código 1 após 2 s" ≠ "o processo está vivo, mas a porta não abriu". A dica do 0.0.0.0 só na segunda.
+- Progresso: `etapa` (montando imagem, instalando, iniciando, checando porta) + tempo decorrido.
+- `ver_app` com `no_ar: true/false`, última resposta e a versão que roda de fato. Não dizer "a anterior continua no ar" quando ela nunca subiu.
+- Conferir o app no ar: `ver_app_no_ar(app_id, caminho)` faz um GET como a pessoa e devolve status + trecho curto. (Revisar segurança: só leitura, só apps que a pessoa vê.)
+
+**F2. Chaves sem falso positivo.**
+- `os.environ.get("X", padrão)` com padrão não é obrigatória. Nome de constante (VAR_DEMO) não é chave.
+- A lista de chaves é refeita a cada versão, não acumula.
+- `keys` da ficha numa versão nova é a fonte da verdade (hoje é ignorada, `mudou: false`).
+- No cofre, mostrar as chaves que o Ziv acha obrigatórias com "não é chave, ignorar".
+- Apagar chave pelo Claude, com confirmação (hoje só preenche e deixou lixo no cofre).
+
+**Entra nas frentes que já existiam:**
+- B (receita): documentar o ambiente do servidor: Python 3.12, código em /app, `python -m <pacote>`, porta em PORT, gunicorn disponível, sem OneDrive. Dica: testar copiando para uma pasta rasa antes de publicar.
+- C (adaptar): avisar sobre `Path(__file__).parents[N]` com N grande e caminhos `C:\` (o aviso windows_paths não pegou esse caso). Ler config de demonstração por atributo do pacote, não variável de ambiente.
+- C (protocolo): na primeira falha "não respondeu", pedir/ler o log em vez de tentar de novo; não mandar versões por chute.
+- D (falar): explicar "rodar" num app com tela — `pode_rodar: false` + execuções no PC confundiram. App com tela = fica no ar; rodar = só script ou app no PC.
+
+## Ordem nova
+F0 → F1 → F2 → A+B → D → C → E.
