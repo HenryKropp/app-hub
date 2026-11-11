@@ -224,6 +224,14 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 	}, h.toolEnviarChaves)
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name: "apagar_chave",
+		Description: "Apaga uma chave ou senha das Configurações de um app do Ziv (por exemplo, uma que entrou por engano). " +
+			"Sem confirmado, só pergunta: confirme com a pessoa e chame de novo com confirmado true. O valor apagado não volta. " +
+			"Só o dono do app ou um administrador pode.",
+		Annotations: replacesKeys,
+	}, h.toolApagarChave)
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name: "formato_do_app",
 		Description: "Devolve o protocolo para registrar ou atualizar um app no Ziv a partir de uma pasta do computador: como ler a pasta, " +
 			"o formato do manifesto, as áreas da empresa e os limites. Leia antes de registrar_app.",

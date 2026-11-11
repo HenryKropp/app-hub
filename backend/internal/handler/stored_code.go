@@ -180,9 +180,9 @@ func applyFicha(m manifest.Manifest, f *fichaUpdate) manifest.Manifest {
 		if f.Runtime != nil {
 			m.Runtime = *f.Runtime
 		}
-		if f.Keys != nil {
-			m.Keys = *f.Keys
-		}
+	}
+	if f.Keys != nil { // every kind with a vault (MCP F2)
+		m.Keys = *f.Keys
 	}
 	return m
 }

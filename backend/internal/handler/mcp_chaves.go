@@ -9,6 +9,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"slices"
 	"sort"
 	"strconv"
@@ -21,6 +22,8 @@ import (
 
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/readiness"
+	"github.com/HenryKropp/app-hub/backend/internal/versions"
 )
 
 // Chaves pelo Claude: Claude sends an app's .env from the person's computer
@@ -188,8 +191,12 @@ func (h *Handler) fillVault(ctx context.Context, a sqlc.App, me sqlc.Person, lin
 		plain[d.Name] = true
 	}
 	who := pgtype.Int8{Int64: me.ID, Valid: true}
+	unused := h.unusedEnv(a, m, inVault, plain)
 	for _, l := range lines {
 		switch {
+		case unused(l.name):
+			res.Ignoradas = append(res.Ignoradas, ignoredKey{l.name, msgKeyNotRead})
+			continue
 		case plain[l.name]:
 			if l.value == "" || len(l.value) > maxKeyValue || strings.ContainsAny(l.value, "\r\n\x00") {
 				res.Ignoradas = append(res.Ignoradas, ignoredKey{l.name, "valor vazio ou inválido"})
@@ -226,6 +233,31 @@ func (h *Handler) fillVault(ctx context.Context, a sqlc.App, me sqlc.Person, lin
 	sort.Strings(res.Guardadas)
 	sort.Strings(res.Configuracoes)
 	return res, nil
+}
+
+const msgKeyNotRead = "o código do app não lê esse nome"
+
+// unusedEnv (MCP F2): a .env line whose name the app's code never reads, that
+// the app does not declare and that is not kept yet is left out, so a .env
+// shared by several programs does not fill the vault with others' keys.
+// When the code cannot be read, or reads no setting by name, nothing is left out.
+func (h *Handler) unusedEnv(a sqlc.App, m manifest.Manifest, inVault, plain map[string]bool) func(string) bool {
+	none := func(string) bool { return false }
+	if a.FolderPath == "" {
+		return none
+	}
+	reads, err := readiness.EnvReads(versions.LocalFolder{Root: a.FolderPath})
+	if err != nil || len(reads) == 0 {
+		return none
+	}
+	declared := map[string]bool{}
+	for _, k := range m.Keys {
+		declared[k.Name] = true
+	}
+	return func(name string) bool {
+		_, read := reads[name]
+		return !read && !declared[name] && !inVault[name] && !plain[name]
+	}
 }
 
 type enviarChavesIn struct {
@@ -287,4 +319,50 @@ func (h *Handler) toolEnviarChaves(ctx context.Context, _ *mcp.CallToolRequest, 
 		"Diga à pessoa quais chaves foram guardadas e mande o link %s para conferir na parte Configurações do app. O .env pode continuar na pasta: quando o app abre pelo Ziv, o valor guardado já está no ambiente, e o load_dotenv (Python) ou o dotenv (Node) não o troca.",
 		a.Name, until.Local().Format("15:04"), h.mcpLink("/apps/%d#chaves", a.ID))
 	return toolOK(text, out)
+}
+
+// ---- apagar_chave (MCP F2) ----
+
+type apagarChaveIn struct {
+	AppID      int64  `json:"app_id" jsonschema:"o número do app no Ziv"`
+	Nome       string `json:"nome" jsonschema:"o nome da chave, como aparece em Configurações (ex.: OPENAI_API_KEY)"`
+	Confirmado bool   `json:"confirmado,omitempty" jsonschema:"true só depois que a pessoa confirmou que quer apagar"`
+}
+
+func (h *Handler) toolApagarChave(ctx context.Context, _ *mcp.CallToolRequest, in apagarChaveIn) (*mcp.CallToolResult, any, error) {
+	name := strings.TrimSpace(in.Nome)
+	if in.AppID == 0 || name == "" {
+		return toolFail("Mande em app_id o número do app e em nome o nome da chave.")
+	}
+	base := fmt.Sprintf("/api/apps/%d/keys", in.AppID)
+	var keys keysList
+	if _, _, msg := h.toolAPI(ctx, "GET", base, nil, &keys); msg != "" {
+		return toolFail(msg)
+	}
+	if !keys.CanManage {
+		return toolFail(msgKeysManage)
+	}
+	found := false
+	for _, k := range keys.Keys {
+		found = found || k.Name == name
+	}
+	if !found {
+		return toolFail(fmt.Sprintf("O app não tem a chave %s nas Configurações. Os nomes que ele tem aparecem em ver_app.", name))
+	}
+	if !in.Confirmado {
+		return toolOK(fmt.Sprintf("Antes de apagar, confirme com a pessoa: apagar a chave %s do app? O valor guardado some e não volta; "+
+			"se o código ainda ler esse nome, o app passa a rodar sem ele. Se a pessoa disser que sim, chame de novo com confirmado true.", name),
+			map[string]any{"app_id": in.AppID, "nome": name, "apagada": false, "precisa_confirmar": true})
+	}
+	var res struct {
+		NeedsRestart bool `json:"needs_restart"`
+	}
+	if _, _, msg := h.auditedAPI(ctx, "DELETE", base+"/"+url.PathEscape(name), "DELETE /api/apps/{id}/keys/{name}", nil, &res); msg != "" {
+		return toolFail(msg)
+	}
+	text := fmt.Sprintf("A chave %s foi apagada do app.", name)
+	if res.NeedsRestart {
+		text += " O app com tela está no ar com o valor antigo: ele só deixa de ver a chave quando for reiniciado ou publicado de novo."
+	}
+	return toolOK(text, map[string]any{"app_id": in.AppID, "nome": name, "apagada": true, "precisa_reiniciar": res.NeedsRestart})
 }

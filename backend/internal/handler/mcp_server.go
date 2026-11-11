@@ -106,6 +106,8 @@ var mcpRoutes = []string{
 	"GET /api/apps/{id}/shared/deployments/{id}",
 	// ver_log_app (MCP F1): read only, passwords masked, only for who sees the technical part
 	"GET /api/apps/{id}/shared/logs",
+	// apagar_chave (MCP F2): only after the person confirms; the value is never read
+	"DELETE /api/apps/{id}/keys/{name}",
 }
 
 var errMCPRoute = errors.New("mcp: rota não liberada para o Claude")
@@ -122,6 +124,8 @@ func mcpRouteAllowed(method, path string) bool {
 		for i, seg := range want {
 			if seg == "{id}" {
 				ok = got[i] != "" && strings.Trim(got[i], "0123456789") == ""
+			} else if seg == "{name}" { // a key name: letters, digits and _
+				ok = got[i] != "" && strings.Trim(got[i], "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_") == ""
 			} else {
 				ok = seg == got[i]
 			}

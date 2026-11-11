@@ -266,7 +266,7 @@ func TestToolAnnotations(t *testing.T) {
 	}
 	want := map[string]bool{"buscar": true, "ver_app": true, "ver_artifact": true, "rodar_app": false, "ver_execucao": true,
 		"minhas_execucoes": true, "publicar_artifact": false, "guia_visual": true, "preparar_envio": false, "formato_do_app": true, "registrar_app": false,
-		"publicar_app_com_tela": false, "enviar_chaves": false, "ver_log_app": true}
+		"publicar_app_com_tela": false, "enviar_chaves": false, "ver_log_app": true, "apagar_chave": false}
 	if len(list.Tools) != len(want) {
 		t.Fatalf("tools = %d", len(list.Tools))
 	}
@@ -275,9 +275,9 @@ func TestToolAnnotations(t *testing.T) {
 		if !ok || tool.Annotations == nil || tool.Annotations.ReadOnlyHint != ro {
 			t.Fatalf("%s: annotations %+v", tool.Name, tool.Annotations)
 		}
-		if tool.Name == "enviar_chaves" {
+		if tool.Name == "enviar_chaves" || tool.Name == "apagar_chave" {
 			if tool.Annotations.DestructiveHint == nil || !*tool.Annotations.DestructiveHint {
-				t.Fatalf("enviar_chaves replaces keys: destructiveHint must be true")
+				t.Fatalf("%s replaces or deletes keys: destructiveHint must be true", tool.Name)
 			}
 			continue
 		}

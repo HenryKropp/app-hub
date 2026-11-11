@@ -183,10 +183,11 @@ func fichaChanges(cur manifest.Manifest, sent map[string]any, next manifest.Mani
 			f.Runtime = &next.Runtime
 			changed = append(changed, "dependências")
 		}
-		if has("keys") && !reflect.DeepEqual(normJSON(next.Keys), normJSON(cur.Keys)) {
-			f.Keys = &next.Keys
-			changed = append(changed, "chaves e senhas")
-		}
+	}
+	// MCP F2: the version's keys are the truth for screen apps too.
+	if has("keys") && !reflect.DeepEqual(normJSON(next.Keys), normJSON(cur.Keys)) {
+		f.Keys = &next.Keys
+		changed = append(changed, "chaves e senhas")
 	}
 	if has("name") && strings.TrimSpace(next.Name) != cur.Name {
 		ignored = append(ignored, "nome")
