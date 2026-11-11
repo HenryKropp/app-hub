@@ -232,6 +232,14 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 	}, h.toolApagarChave)
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name: "problemas",
+		Description: "Lista numa só resposta o que deu errado nos apps que a pessoa cuida: execução com erro, app com tela fora do ar, " +
+			"publicação que falhou, agenda pausada ou pulada e chave ou ajuste faltando, com quando, versão, trecho do log e link. " +
+			"Chame antes de mexer num app e depois de publicar ou rodar. Com app_id, só aquele app.",
+		Annotations: readOnly,
+	}, h.toolProblemas)
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name: "formato_do_app",
 		Description: "Devolve o protocolo para registrar ou atualizar um app no Ziv a partir de uma pasta do computador: como ler a pasta, " +
 			"o formato do manifesto, as áreas da empresa e os limites. Leia antes de registrar_app.",
