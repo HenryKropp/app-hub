@@ -156,7 +156,8 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "ver_app",
 		Description: "Mostra a ficha de um app do Ziv: o que ele pede (entradas), o que entrega, quem cuida, a versão, " +
-			"se fica aberto no servidor e se a pessoa pode rodar pelo Claude. Use antes de rodar_app.",
+			"se fica aberto no servidor e se a pessoa pode rodar pelo Claude. Use antes de rodar_app. " +
+			"Num app com tela, diz se está no ar de verdade (no_ar), qual versão roda e como foi a última publicação.",
 		Annotations: readOnly,
 	}, h.toolVerApp)
 
@@ -241,9 +242,18 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 		Name: "publicar_app_com_tela",
 		Description: "Põe no ar (ou atualiza) um app com tela do Ziv, no endereço próprio dele, como o botão Publicar do site. Chame depois de registrar_app de um app com tela. " +
 			"Se a checagem do Ziv trouxer avisos, mostre cada um à pessoa e só chame de novo com ciente depois que ela disser que está ciente. " +
-			"Se faltar preencher chaves, a pessoa preenche no Ziv, nunca pela conversa. Enquanto estiver publicando, chame de novo com esperar 30.",
+			"Se faltar preencher chaves, a pessoa preenche no Ziv, nunca pela conversa. Enquanto estiver publicando, chame de novo com esperar 30 (a resposta diz a etapa). " +
+			"Se falhar, a resposta traz o motivo e o fim do log do app: leia e corrija a causa no código antes de mandar outra versão; nunca reenvie a mesma versão no chute.",
 		Annotations: changes,
 	}, h.toolPublicarTela)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "ver_log_app",
+		Description: "Mostra o fim do log de um app com tela do Ziv (o que o programa escreveu no servidor), com as senhas apagadas, " +
+			"e se ele está no ar. Se a última publicação falhou, traz também o log dela. Use quando o app não abrir, cair ou der erro, antes de mudar o código. " +
+			"Só para quem cuida do app ou um administrador.",
+		Annotations: readOnly,
+	}, h.toolVerLogApp)
 }
 
 // ---- buscar ----
@@ -407,6 +417,9 @@ func (h *Handler) toolVerApp(ctx context.Context, _ *mcp.CallToolRequest, in idI
 	}
 	if d.Shared != nil {
 		out["endereco"] = d.Shared.URL
+	}
+	if m.Kind == manifest.KindWeb {
+		h.verAppTela(ctx, d.ID, out)
 	}
 	if d.RememberedFolder != "" {
 		out["pasta_de_sempre"] = d.RememberedFolder

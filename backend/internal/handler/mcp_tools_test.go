@@ -266,7 +266,7 @@ func TestToolAnnotations(t *testing.T) {
 	}
 	want := map[string]bool{"buscar": true, "ver_app": true, "ver_artifact": true, "rodar_app": false, "ver_execucao": true,
 		"minhas_execucoes": true, "publicar_artifact": false, "guia_visual": true, "preparar_envio": false, "formato_do_app": true, "registrar_app": false,
-		"publicar_app_com_tela": false, "enviar_chaves": false}
+		"publicar_app_com_tela": false, "enviar_chaves": false, "ver_log_app": true}
 	if len(list.Tools) != len(want) {
 		t.Fatalf("tools = %d", len(list.Tools))
 	}

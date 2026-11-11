@@ -104,6 +104,8 @@ var mcpRoutes = []string{
 	"GET /api/apps/{id}/shared/config",
 	"POST /api/apps/{id}/shared/publish",
 	"GET /api/apps/{id}/shared/deployments/{id}",
+	// ver_log_app (MCP F1): read only, passwords masked, only for who sees the technical part
+	"GET /api/apps/{id}/shared/logs",
 }
 
 var errMCPRoute = errors.New("mcp: rota não liberada para o Claude")

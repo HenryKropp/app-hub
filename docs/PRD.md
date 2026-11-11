@@ -195,6 +195,12 @@ O Henry pediu isto em 2026-09-30 e redesenhou em 2026-11-04. A pessoa usa o Ziv 
   - Vale para scripts e apps com tela, um por vez ou vários.
   - Versão nova só para apps com o código guardado no Ziv. Ela pode mudar o código, o resumo, as entradas, as saídas e (nos scripts) o arquivo de início e as dependências. Nome, área, responsável, reserva e acesso só mudam pelo site.
   - Apps com tela vão ao ar com `publicar_app_com_tela`, com a mesma checagem, os mesmos avisos e a mesma aprovação do botão Publicar. As chaves são preenchidas só no site.
+  - **Publicar sem ficar no escuro** (2026-11-11, ADR 034):
+    - Se o app não sobe, o Claude recebe o motivo, o fim do log (com as senhas apagadas) e se a versão anterior continua de fato no ar.
+    - Quando o programa morre logo ao ligar, o Ziv avisa em segundos.
+    - Enquanto publica, mostra a etapa e o tempo.
+    - `ver_app` diz se o app está no ar e qual versão roda.
+    - `ver_log_app` mostra o log para quem cuida do app.
   - As versões ficam marcadas "Código enviado · pelo Claude".
   - **Cofre do app** (2026-11-09, ADR 027): as senhas de um script ficam no cofre do próprio app, nunca no código nem na conversa.
     - O Claude troca a senha no código por `os.environ["NOME"]`, declara o nome em `keys` e devolve o link da parte "Cofre".

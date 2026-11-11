@@ -88,6 +88,24 @@ type deploymentOut struct {
 	ExpiresAt     pgtype.Timestamptz `json:"expires_at"`
 	BuildLog      *string            `json:"build_log,omitempty"`
 	Port          *int32             `json:"port,omitempty"`
+	// While building: the stage now, how long in it and since the start (MCP F1).
+	Stage        string `json:"stage,omitempty"`
+	StageSeconds int    `json:"stage_seconds,omitempty"`
+	Seconds      int    `json:"seconds,omitempty"`
+}
+
+// withStage adds where a building deployment is now.
+func (h *Handler) withStage(o *deploymentOut) {
+	if o.Status != "building" || h.shared.Svc == nil {
+		return
+	}
+	now := time.Now()
+	if o.CreatedAt.Valid {
+		o.Seconds = int(now.Sub(o.CreatedAt.Time).Seconds())
+	}
+	if st, ok := h.shared.Svc.StageOf(o.ID); ok {
+		o.Stage, o.StageSeconds = st.Name, int(now.Sub(st.Since).Seconds())
+	}
 }
 
 func toDeploymentOut(d sqlc.SharedDeployment, tech bool) deploymentOut {
@@ -103,6 +121,7 @@ func toDeploymentOut(d sqlc.SharedDeployment, tech bool) deploymentOut {
 // who started it, looked up (the list endpoint gets them from its join).
 func (h *Handler) deploymentOutFull(r *http.Request, d sqlc.SharedDeployment, tech bool) deploymentOut {
 	out := toDeploymentOut(d, tech)
+	h.withStage(&out)
 	if d.VersionID.Valid {
 		if v, err := h.q.GetAppVersionByID(r.Context(), d.VersionID.Int64); err == nil {
 			n := v.Number
@@ -255,6 +274,7 @@ func (h *Handler) getShared(w http.ResponseWriter, r *http.Request) {
 					o.VersionNumber = &n
 				}
 				o.CreatedByName = d.CreatedByName.String
+				h.withStage(&o)
 				list = append(list, o)
 			}
 			out["deployments"] = list
@@ -595,7 +615,7 @@ func (h *Handler) sharedLogs(w http.ResponseWriter, r *http.Request) {
 				}
 				slog.Warn("shared logs", "app", a.ID, "err", err)
 			}
-			text = maskLogSecrets(scanner.MaskSecrets(logs))
+			text = maskLogSecrets(scanner.MaskSecrets(h.shared.Svc.MaskSecrets(r.Context(), a.ID, logs)))
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"text": text})

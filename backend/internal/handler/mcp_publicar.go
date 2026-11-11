@@ -22,6 +22,8 @@ import (
 const (
 	msgTelaAprovacao    = "Esperando a aprovação de um administrador; publico depois que aprovarem."
 	msgTelaPublicando   = "Ainda publicando; chame de novo com esperar 30."
+	// msgTelaLerLog: after a failure, read the log before sending anything again.
+	msgTelaLerLog = "Antes de mandar outra versão, leia o log acima e corrija a causa no código. Não publique de novo sem mudar nada: o resultado seria o mesmo."
 	msgTelaSemPermissao = "Você não tem permissão para publicar este app no Ziv. Quem cuida dele (ou um administrador) publica."
 )
 
@@ -39,6 +41,13 @@ type telaOut struct {
 	Faltam   []string `json:"faltam"`
 	Avisos   []string `json:"avisos"`
 	Erro     string   `json:"erro"`
+	// MCP F1: whether it is really in the air, which version runs, the stage
+	// while publishing and the end of the log when it fails.
+	NoAr       bool   `json:"no_ar"`
+	VersaoNoAr *int32 `json:"versao_no_ar,omitempty"`
+	Etapa      string `json:"etapa,omitempty"`
+	Segundos   int    `json:"segundos,omitempty"`
+	Log        string `json:"log,omitempty"`
 }
 
 type sharedGet struct {
@@ -241,10 +250,19 @@ func (h *Handler) waitPublish(ctx context.Context, base string, dep deploymentOu
 		}
 		dep = next
 	}
+	var st sharedGet
+	stOK := false
+	if dep.Status != "building" {
+		_, _, msg := h.toolAPI(ctx, "GET", base+"/shared", nil, &st)
+		stOK = msg == ""
+		if stOK {
+			out.NoAr, _ = telaNoAr(st)
+			out.VersaoNoAr = st.LiveVersion
+		}
+	}
 	switch dep.Status {
 	case "live":
-		var st sharedGet
-		if _, _, msg := h.toolAPI(ctx, "GET", base+"/shared", nil, &st); msg != "" || st.Shared == nil {
+		if !stOK || st.Shared == nil {
 			return toolFail(msgMCPAPIDown)
 		}
 		out.Situacao, out.Endereco = "no_ar", st.Shared.URL
@@ -255,15 +273,37 @@ func (h *Handler) waitPublish(ctx context.Context, base string, dep deploymentOu
 		return toolOK(text+".", out)
 	case "failed":
 		out.Situacao, out.Erro = "erro", dep.ErrorMessage
-		erro := " Erro: " + strings.TrimSuffix(dep.ErrorMessage, ".") + "."
-		var st sharedGet
-		if _, _, msg := h.toolAPI(ctx, "GET", base+"/shared", nil, &st); msg == "" && st.LiveVersion != nil {
-			return toolFailWith("A versão nova não abriu; a anterior continua no ar."+erro, out)
+		what := "A publicação falhou"
+		if dep.VersionNumber != nil {
+			what = fmt.Sprintf("A publicação da versão %d falhou", *dep.VersionNumber)
 		}
-		return toolFailWith("O app não abriu, então não está no ar."+erro, out)
+		parts := []string{what + ": " + strings.TrimSuffix(strings.TrimSpace(dep.ErrorMessage), ".") + "."}
+		switch {
+		case !stOK:
+		case out.NoAr && st.LiveVersion != nil:
+			parts = append(parts, fmt.Sprintf("Nada mudou para quem usa: a versão %d continua no ar.", *st.LiveVersion))
+		default:
+			_, frase := telaNoAr(st)
+			parts = append(parts, "O app não está no ar. "+frase)
+		}
+		if dep.BuildLog != nil {
+			if t := tailLines(*dep.BuildLog, logLinesMCP); t != "" {
+				out.Log = t
+				parts = append(parts, "Fim do log:\n"+fenced(t))
+			}
+		}
+		parts = append(parts, msgTelaLerLog)
+		return toolFailWith(strings.Join(parts, "\n\n"), out)
 	case "building":
-		out.Situacao = "publicando"
-		return toolOK(msgTelaPublicando, out)
+		out.Situacao, out.Etapa, out.Segundos = "publicando", dep.Stage, dep.Seconds
+		text := "Ainda publicando"
+		if dep.Stage != "" {
+			text += ": " + dep.Stage
+		}
+		if dep.Seconds > 0 {
+			text += fmt.Sprintf(" (%d s desde o início)", dep.Seconds)
+		}
+		return toolOK(text+". Chame de novo com esperar 30.", out)
 	}
 	return toolFail(fmt.Sprintf("A publicação terminou com a situação %q.", dep.Status))
 }
