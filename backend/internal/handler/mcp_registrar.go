@@ -55,6 +55,14 @@ func kindRefusal(kind, entrypoint string) string {
 
 // ---- formato_do_app ----
 
+//go:embed mcp_receita.md
+var mcpReceita string
+
+// toolReceitaAppZiv is how to write (or adapt) a program the Ziv way (MCP B).
+func (h *Handler) toolReceitaAppZiv(context.Context, *mcp.CallToolRequest, emptyIn) (*mcp.CallToolResult, any, error) {
+	return toolOK(mcpReceita, map[string]any{"receita": mcpReceita})
+}
+
 func (h *Handler) toolFormatoDoApp(ctx context.Context, _ *mcp.CallToolRequest, _ emptyIn) (*mcp.CallToolResult, any, error) {
 	var areas []areaJSON
 	if _, _, msg := h.toolAPI(ctx, "GET", "/api/areas", nil, &areas); msg != "" {
@@ -387,9 +395,20 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 			}
 		}
 	}
+	pessoa := ""
+	if a, err := h.q.GetApp(ctx, ans.ID); err == nil {
+		pessoa = msgPessoaApp(manifestOf(a), int32(ans.Version), in.AppID == 0, mudou, web, link)
+		if waiting {
+			pessoa += " Antes de rodar, ele espera a aprovação de um administrador."
+		}
+		if len(missing) > 0 {
+			pessoa += fmt.Sprintf(" Falta guardar no cofre do app: %s (%s).", strings.Join(missing, ", "), h.mcpLink("/apps/%d#chaves", ans.ID))
+		}
+	}
 	return toolOK(b.String(), map[string]any{
 		"app_id": ans.ID, "versao": ans.Version, "mudou": mudou, "link": link,
 		"esperando_aprovacao": waiting, "deixados_de_fora": dropped, "chaves_faltando": missing,
+		"mensagem_para_pessoa": pessoa,
 	})
 }
 

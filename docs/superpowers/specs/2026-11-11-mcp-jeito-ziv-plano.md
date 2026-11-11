@@ -29,7 +29,9 @@ Status: aprovado pelo Henry em conversa, a construir numa sessão nova.
 **E. Teste de verdade**: sessão nova, sem dica, pedir o mesmo programinha. Passa se o Claude fizer do jeito Ziv sozinho e a resposta seguir o padrão.
 
 ## Ordem sugerida
-A + B → D → C → E. Pouco código: mais texto, uma ferramenta nova, um teste de vocabulário. Precisa de ADR e atualizar PRD 3.11 / TASKS Fase 2b.
+A + B → D → C → E.
+
+*2026-11-11: A, B, C e D feitos (ADR 037). E fica no teste final com o Henry.* Pouco código: mais texto, uma ferramenta nova, um teste de vocabulário. Precisa de ADR e atualizar PRD 3.11 / TASKS Fase 2b.
 
 ---
 

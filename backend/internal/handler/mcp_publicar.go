@@ -48,6 +48,8 @@ type telaOut struct {
 	Etapa      string `json:"etapa,omitempty"`
 	Segundos   int    `json:"segundos,omitempty"`
 	Log        string `json:"log,omitempty"`
+	// MCP D: a ready sentence for the person when the publish ends.
+	MensagemParaPessoa string `json:"mensagem_para_pessoa,omitempty"`
 }
 
 type sharedGet struct {
@@ -269,6 +271,7 @@ func (h *Handler) waitPublish(ctx context.Context, base string, dep deploymentOu
 			return toolFail(msgMCPAPIDown)
 		}
 		out.Situacao, out.Endereco = "no_ar", st.Shared.URL
+		out.MensagemParaPessoa = msgPessoaTela(true, st.Shared.URL, nil)
 		text := "No ar: " + st.Shared.URL
 		if dep.VersionNumber != nil {
 			text += fmt.Sprintf(" (versão %d)", *dep.VersionNumber)
@@ -294,6 +297,11 @@ func (h *Handler) waitPublish(ctx context.Context, base string, dep deploymentOu
 				out.Log = t
 				parts = append(parts, "Fim do log:\n"+fenced(t))
 			}
+		}
+		if stOK && out.NoAr {
+			out.MensagemParaPessoa = msgPessoaTela(false, "", st.LiveVersion)
+		} else {
+			out.MensagemParaPessoa = msgPessoaTela(false, "", nil)
 		}
 		parts = append(parts, msgTelaLerLog)
 		return toolFailWith(strings.Join(parts, "\n\n"), out)

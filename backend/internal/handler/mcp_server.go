@@ -15,9 +15,22 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-const mcpInstructions = "O Ziv é o lugar da empresa onde ficam os apps, os scripts e os artifacts do time. " +
-	"Estas ferramentas agem como a pessoa que conectou o Claude: veem e fazem só o que ela pode ver e fazer no Ziv. " +
-	"Para registrar ou atualizar um app a partir de uma pasta do computador, chame formato_do_app primeiro e siga o protocolo que ele devolve."
+// mcpInstructions is what Claude always reads about the Ziv (MCP A).
+const mcpInstructions = `O Ziv é o lugar da empresa onde ficam os apps e os artifacts do time. Estas ferramentas agem como a pessoa que conectou o Claude: veem e fazem só o que ela pode no Ziv.
+
+O Ziv já dá pronto:
+- app: a pessoa aperta Rodar, preenche a tela de entradas e recebe os arquivos na pasta de saída;
+- app com tela: fica no ar 24h num endereço próprio, para o time;
+- artifact: uma página para ler (relatório, painel);
+- cofre: as senhas e chaves de cada app, fora do código;
+- agenda: rodar um app sozinho em dia e hora marcados.
+
+Regras:
+1. Programa para a empresa é feito para o Ziv desde o começo. Antes de escrever ou adaptar um, chame receita_app_ziv e siga.
+2. Para registrar ou atualizar um app a partir de uma pasta, chame formato_do_app e siga o protocolo.
+3. Antes de mexer num app, chame problemas com o app_id e conte à pessoa o que achar. Depois de publicar ou rodar, confira o resultado sozinho.
+4. Se algo falhou, leia o log antes de mandar outra versão.
+5. Fale com a pessoa nas palavras do Ziv (app, app com tela, artifact, execução, cofre, agenda, ficha), sem termos técnicos, e termine com o link. Quando a resposta de uma ferramenta trouxer mensagem_para_pessoa, use essa frase.`
 
 // mcpPersonFrom is the person a tool call acts for (0 outside MCP).
 func mcpPersonFrom(ctx context.Context) int64 {

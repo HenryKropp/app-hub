@@ -1,10 +1,10 @@
 # Como registrar um app no Ziv pelo Claude
 
-Você lê a pasta do app no computador da pessoa, monta a ficha (o manifesto), mostra para ela conferir e só registra depois que ela disser "pode registrar". O código vai para o Ziv num .zip, por um endereço de uso único.
+Você lê a pasta do app no computador da pessoa, monta a ficha (o manifesto), mostra para ela conferir e só registra depois que ela disser "pode registrar". Com a pessoa, diga sempre "ficha", nunca "manifesto". O código vai para o Ziv num .zip, por um endereço de uso único.
 
 ## 1. Regras que nunca mudam
 
-1. **Só leitura.** Você lê a pasta no disco e não altera, move, apaga nem roda nenhum arquivo do app. O .zip vai para a pasta temporária do computador, nunca para a pasta do app.
+1. **Nada muda sem o OK.** Você lê a pasta no disco e não altera, move nem apaga nenhum arquivo do app sem o OK da pessoa (adaptar ao jeito Ziv, Passo 2b, só depois do OK). Para testar, copie a pasta para uma pasta temporária e rode lá, nunca na pasta original. O .zip também vai para a pasta temporária do computador, nunca para a pasta do app.
 2. **Nunca o valor de um segredo.** Chaves, senhas e tokens aparecem só como nome + arquivo + linha. O valor nunca vai para a ficha, para a conversa nem para o Ziv, nem em parte (nada de "começa com sk-…"). Não abra o .env: basta saber que ele existe e os nomes das chaves que o código usa. Para levar os valores do .env ao cofre, use `enviar_chaves` (Passo 7): o curl manda o arquivo direto ao Ziv, sem você ler.
 3. **Nada inventado.** Todo campo preenchido tem uma evidência no código ou na documentação. O que não tem evidência vira pergunta, não palpite.
 4. **Pessoas não se deduzem do código.** O responsável é sempre quem está registrando (o Ziv coloca sozinho), então não pergunte responsável nem reserva. O nome que aparece num caminho (`C:\Users\fulano`) não diz nada sobre quem cuida do app.
@@ -32,6 +32,18 @@ Você lê a pasta do app no computador da pessoa, monta a ficha (o manifesto), m
 5. Configuração: só quais chaves e caminhos existem, nunca os valores.
 6. Dependências.
 7. Arquivos de fora da pasta que o app usa: só leitura, e viram ponto de atenção.
+
+### Passo 2b — Adaptar ao jeito Ziv
+Compare o que leu com a receita (`receita_app_ziv`). Procure, em especial:
+- `input()` no terminal, janela de escolher arquivo ou caminho de entrada escrito no código → entrada declarada, lida por argumento;
+- resultado gravado em `C:\`, na pasta pessoal, na Área de Trabalho ou no OneDrive → caminho relativo na pasta do app;
+- `Path(__file__).parents[N]` com N maior que 1, ou qualquer caminho que sai da pasta do app → caminho dentro da pasta;
+- senha ou chave no código → `os.environ["NOME"]` + `keys` (Passo 7);
+- `webbrowser.open`, servidor em `localhost` ou `127.0.0.1` → app com tela, ouvindo em `0.0.0.0` na porta `PORT`;
+- loop com `sleep` para repetir → rodar uma vez e terminar; a pessoa agenda na ficha;
+- configuração de demonstração lida de variável de ambiente → constante no código.
+
+Mostre à pessoa o que achou, em linguagem simples, e proponha a troca. Só mude o código com o OK dela; sem o OK, registre como está e anote cada ponto nos pontos de atenção. Depois de mudar, teste numa cópia limpa da pasta (receita, seção 4) antes de registrar.
 
 ### Passo 3 — Que tipo de app é
 | Sinal no código | Tipo (`kind`) |
@@ -81,9 +93,10 @@ Quando alguém roda o app, o Agente entrega as chaves só àquela execução: ao
 ### Passo 8 — Agenda
 Só com evidência (`schtasks`, cron, README dizendo "roda todo dia às 8h"). Vai nos pontos de atenção; o agendamento é feito no Ziv.
 
-### Passo 9 — Nome e resumo
-- `name`: curto, sem data e sem "Python".
-- `summary`: uma ou duas frases sobre o que o app faz para quem usa. Modelo: "Recebe X e entrega Y, para Z."
+### Passo 9 — Nome e resumo (ficha padrão)
+- `name`: o que o app faz, verbo + objeto ("Calcula a rentabilidade dos fundos"), curto, sem data e sem "Python".
+- `summary`: uma frase, para quem e para quê. Modelo: "Recebe X e entrega Y, para Z."
+- Entradas e saídas com `label` que a pessoa entende; os pontos de atenção (Passo 11) dizem o que alguém precisa saber antes de usar.
 - `tags`: 2 a 5 palavras úteis para busca.
 
 ### Passo 10 — Área
@@ -93,7 +106,7 @@ Uma das áreas do Ziv (a lista vem logo abaixo deste texto). Pode ser sugerida p
 Frases curtas sobre o que alguém precisa saber antes de rodar ou manter o app: caminhos fixos para a pasta pessoal de alguém, site externo, VPN, Excel aberto, chave no código, falta do arquivo de dependências, versões paralelas na mesma pasta (`main_v2.py`), tempo longo de execução. Se o app usa outro app da empresa, o id dele vai em `depends_on`.
 
 ### Passo 12 — Conferir se o app roda de verdade
-Para cada caminho que o código usa, confira se ele existe a partir da pasta do app. O que não existe vira ponto de atenção. Você confere, mas nunca roda nada.
+Para cada caminho que o código usa, confira se ele existe a partir da pasta do app. O que não existe vira ponto de atenção. Você confere lendo; rodar, só na cópia de teste (Passo 2b).
 
 ### Passo 13 — Validar
 O Ziv valida a ficha quando você chama `registrar_app` e devolve os problemas em português. Se voltar um problema, corrija e chame de novo com o mesmo envio.
@@ -104,7 +117,7 @@ O Ziv valida a ficha quando você chama `registrar_app` e devolve os problemas e
 2. Espere "pode registrar". Sem isso, não prepare envio.
 3. Chame `preparar_envio`, troque `<PASTA>` pela pasta do app e rode os comandos do sistema da pessoa.
 4. Quando o curl responder `"recebido": true`, chame `registrar_app` com o `envio` e o `manifesto`. Depois apague o .zip temporário.
-5. Diga o resultado com o link. Se o app ficou esperando aprovação, diga isso também. Num app com tela, siga a seção 5.
+5. Diga o resultado com o link, usando a `mensagem_para_pessoa` da resposta. Se o app ficou esperando aprovação, diga isso também. Num app com tela, siga a seção 5.
 
 **Vários de uma vez:** um resumo e uma confirmação por app, e um `preparar_envio` por app.
 
@@ -127,9 +140,10 @@ Um app `web` não roda no computador da pessoa: ele fica no ar num endereço pr�
 1. **Avisos.** Se a checagem do Ziv trouxer avisos (dados gravados em arquivo, pastas do Windows, senha no código, recurso que não vem na receita), mostre cada um à pessoa com o que significa. Só depois que ela disser que está ciente, chame de novo com `ciente` (as chaves dos avisos: `file_data`, `windows_paths`, `secrets`, `container_limits`). Pendências que bloqueiam vêm com o que mudar no código: proponha a mudança e, se a pessoa aceitar, mande uma versão nova.
 2. **Comando de início.** Se a checagem pedir o comando de início, sugira um a partir do código, confirme com a pessoa e mande em `comando`.
 3. **Chaves que faltam.** Se faltar preencher chaves e a pasta tem um `.env`, use `enviar_chaves`. O resto, diga quais e mande o link: a pessoa preenche no Ziv (parte Cofre ou Compartilhar › Configurações), nunca pela conversa. Quando ela avisar, chame de novo.
-4. **Esperar.** Enquanto estiver publicando, chame de novo com `esperar` 30. No fim, diga o endereço. Se a versão nova não abrir, a anterior continua no ar: diga o erro.
-5. **Aprovação.** Se a empresa exigir aprovação, o app só vai ao ar depois que um administrador aprovar: diga isso à pessoa.
-6. O endereço vem sempre do Ziv; nunca monte um endereço sozinho.
+4. **Esperar.** Enquanto estiver publicando, chame de novo com `esperar` 30. No fim, diga o endereço. Se a versão nova não abrir, a resposta diz se a anterior continua no ar e traz o fim do log.
+5. **Se falhar.** Leia o log da resposta (ou `ver_log_app`), ache a causa no código, mostre à pessoa e só então mande uma versão nova. Nunca mande a mesma versão de novo por tentativa.
+6. **Aprovação.** Se a empresa exigir aprovação, o app só vai ao ar depois que um administrador aprovar: diga isso à pessoa.
+7. O endereço vem sempre do Ziv; nunca monte um endereço sozinho.
 
 ## 6. Formato do manifesto
 

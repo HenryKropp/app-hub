@@ -207,6 +207,10 @@ O Henry pediu isto em 2026-09-30 e redesenhou em 2026-11-04. A pessoa usa o Ziv 
     - `enviar_chaves` deixa de fora os nomes do .env que o app não usa.
     - `apagar_chave` apaga uma chave, só depois que a pessoa confirma.
   - **`problemas`** (2026-11-11, ADR 036): numa chamada, o Claude vê o que deu errado nos apps que a pessoa cuida (execução com erro, agenda pulada, app com tela fora do ar, publicação que falhou, ajuste faltando), com o trecho do log e o link.
+  - **Jeito Ziv** (2026-11-11, ADR 037):
+    - O Claude sabe desde o começo o que o Ziv dá pronto e lê a receita antes de escrever um programa para a empresa.
+    - Ao registrar, propõe adaptar o que não está do jeito Ziv (entradas, resultado, senhas, tela), só com o OK da pessoa.
+    - As respostas para a pessoa vêm prontas e em palavras simples.
   - As versões ficam marcadas "Código enviado · pelo Claude".
   - **Cofre do app** (2026-11-09, ADR 027): as senhas de um script ficam no cofre do próprio app, nunca no código nem na conversa.
     - O Claude troca a senha no código por `os.environ["NOME"]`, declara o nome em `keys` e devolve o link da parte "Cofre".
