@@ -152,7 +152,7 @@ Henry achou a página do app confusa ("abrir ou no meu computador"). Revisão e 
 | Tarefa | Status | Notas |
 |---|---|---|
 | Trocar Usar · Cuidar por abas (Início, Execuções, Documentação, Configurações, Servidor, Histórico) | Done | Selo de estado ao lado do nome; um botão principal; "Testar no meu computador" em Mais, explicado |
-| Teste do Henry em apps reais (script e app com tela no servidor) | Pending | Depois do deploy |
+| Teste do Henry em apps reais (script e app com tela no servidor) | Done | 2026-11-11 no zivapp: Início, Documentação (editou Pontos de atenção), Mais → Testar no meu computador e selo, tudo OK |
 | Ilustração da landing ainda mostra "Usar · Cuidar" | Pending | Desenho de marketing em `LandingPage.tsx`; trocar quando mexer na landing |
 
 ## Rodar pelo celular ou de outro PC (decidido 2026-11-11, depois do teste do MCP)
