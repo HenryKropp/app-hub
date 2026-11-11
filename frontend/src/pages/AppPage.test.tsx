@@ -514,7 +514,7 @@ test("a screen app on the server opens there; testing on the computer is under M
 })
 
 test("with nothing to resolve, the pill next to the name says the app is up and leads to Servidor", async () => {
-  const m = manifest({ kind: "web", name: "Notícias", summary: "Lê as notícias.", backup: { id: 2, name: "Bia", email: "bia@x.com" }, outputs: [{ label: "Resumo", pattern: "*.pdf" }] })
+  const m = manifest({ kind: "web", name: "Notícias", summary: "Lê as notícias.", backup: { name: "Bia", email: "bia@x.com" }, outputs: [{ label: "Resumo", pattern: "*.pdf" }] })
   base(detail({ backup_id: 2, manifest: m, shared: { status: "running", url: "http://noticias.localhost", slug: "noticias" } as AppDetail["shared"] }))
   vi.spyOn(api.shared, "get").mockReturnValue(new Promise(() => {}))
   renderAt()
