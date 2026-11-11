@@ -139,6 +139,19 @@ Pedido do Henry: o objetivo é as pessoas pararem de rodar apps no PC e usarem p
 | Publicar e testar de verdade | Pending | Precisa da 8080 livre (o alis-research-hub-v2 usa a mesma porta) e do Podman respondendo (em 2026-10-28 `podman version` estava sendo morto) |
 | Henry desliga a tarefa agendada do PC | Pending | Depois de o app estar no ar |
 
+## Rodar pelo celular ou de outro PC (decidido 2026-11-11, depois do teste do MCP)
+
+Decisões do Henry (ainda sem documento de projeto escrito):
+- Por padrão o app roda no **servidor** (do celular, sem Agente). Só vai para o PC se marcado **"precisa do PC"**: usa pasta do PC/rede, controla o programa Excel (macros, COM, Bloomberg), outro programa do Windows/sistema interno, ou login com pessoa na tela. Excel só com .xlsx (openpyxl/pandas) roda no servidor. O Claude marca pela receita do Ziv; o Henry muda na página do app.
+- App "precisa do PC": roda no **PC fixo do app** (escolhido uma vez, como no agendamento, ADR 024). PC desligado → avisa e não roda (sem fila).
+- App de outra pessoa: mesma regra; "precisa do PC" roda no PC fixo do dono, resultado na pasta do dono; quem clicou vê avisos e resultado no Ziv.
+- Resultado no celular: certo/errado + texto do app; execução no servidor que gerou arquivo → botão baixar; no PC o arquivo fica na pasta e o Ziv mostra onde (não sobe ao servidor).
+- Decisão do cofundador: limite por execução no servidor (palpite 5 min, 256 MB), uma por vez; se não der, aumentar a máquina.
+- [ ] 1. Rodar no servidor pelo celular (marca "precisa do PC" + execução no servidor + resultado) — resolve "ver notícias"
+- [ ] 2. PC fixo por app + Rodar à distância pelo Agente — resolve "baixar relatórios"
+- [ ] 3. Baixar o arquivo gerado no servidor
+- Próximo passo: escrever o design do projeto 1 em docs/superpowers/specs/, revisor, aprovação, plano.
+
 ## Fase 2b — Claude conectado ao Ziv (MCP, 3.11)
 
 Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mcp-design.md`). A ordem mudou: primeiro conectar, achar, rodar e publicar; depois registrar, criar e agendar.
