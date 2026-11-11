@@ -247,6 +247,10 @@ type job struct {
 	// replacing: the box replaces the app's own running one (update publish,
 	// rollback), so it never waits for a free slot.
 	replacing bool
+	// checkText: a new version (test or publish) must show this text at the
+	// health path before it takes the place of the one in the air (MCP F4).
+	// Turning on an already known version (wake, rollback) does not check it.
+	checkText string
 }
 
 func (s *Service) Publish(ctx context.Context, app sqlc.App, m manifest.Manifest, by int64) (sqlc.SharedDeployment, error) {
@@ -358,7 +362,11 @@ func (s *Service) prepare(ctx context.Context, app sqlc.App, m manifest.Manifest
 	if !test && !sa.CurrentDeploymentID.Valid {
 		logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: app.ID, Status: "starting"}), "set status", "app", app.ID)
 	}
-	return dep, job{app: app, sa: sa, m: m, dep: dep, rec: rec, by: by, test: test}, nil
+	j := job{app: app, sa: sa, m: m, dep: dep, rec: rec, by: by, test: test}
+	if m.Shared != nil {
+		j.checkText = strings.TrimSpace(m.Shared.CheckText)
+	}
+	return dep, j, nil
 }
 
 // failure is what went wrong, in Portuguese, plus the log for "Ver detalhes".
@@ -468,7 +476,7 @@ func (s *Service) start(ctx context.Context, j job, img, dbName string) (string,
 		return "", 0, &failure{msg: "Não foi possível ligar o app no servidor.", log: err.Error()}
 	}
 	s.setStage(j.dep.ID, StageWaiting)
-	if f := s.waitUp(ctx, cid, j.rec.Port, j.sa.HealthPath); f != nil {
+	if f := s.waitUp(ctx, cid, j.rec.Port, j.sa.HealthPath, j.checkText); f != nil {
 		logErr(s.eng.Remove(ctx, cid), "remove container", "container", cid)
 		return "", 0, f
 	}

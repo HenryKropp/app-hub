@@ -138,12 +138,13 @@ O Ziv valida a ficha quando você chama `registrar_app` e devolve os problemas e
 Um app `web` não roda no computador da pessoa: ele fica no ar num endereço próprio, para quem tem acesso. Depois de `registrar_app` (app novo ou versão nova), chame `publicar_app_com_tela` com o `app_id`.
 
 1. **Avisos.** Se a checagem do Ziv trouxer avisos (dados gravados em arquivo, pastas do Windows, senha no código, recurso que não vem na receita), mostre cada um à pessoa com o que significa. Só depois que ela disser que está ciente, chame de novo com `ciente` (as chaves dos avisos: `file_data`, `windows_paths`, `secrets`, `container_limits`). Pendências que bloqueiam vêm com o que mudar no código: proponha a mudança e, se a pessoa aceitar, mande uma versão nova.
-2. **Comando de início.** Se a checagem pedir o comando de início, sugira um a partir do código, confirme com a pessoa e mande em `comando`.
-3. **Chaves que faltam.** Se faltar preencher chaves e a pasta tem um `.env`, use `enviar_chaves`. O resto, diga quais e mande o link: a pessoa preenche no Ziv (parte Cofre ou Compartilhar › Configurações), nunca pela conversa. Quando ela avisar, chame de novo.
-4. **Esperar.** Enquanto estiver publicando, chame de novo com `esperar` 30. No fim, diga o endereço. Se a versão nova não abrir, a resposta diz se a anterior continua no ar e traz o fim do log.
-5. **Se falhar.** Leia o log da resposta (ou `ver_log_app`), ache a causa no código, mostre à pessoa e só então mande uma versão nova. Nunca mande a mesma versão de novo por tentativa.
-6. **Aprovação.** Se a empresa exigir aprovação, o app só vai ao ar depois que um administrador aprovar: diga isso à pessoa.
-7. O endereço vem sempre do Ziv; nunca monte um endereço sozinho.
+2. **Como conferir.** Na primeira publicação, combine com a pessoa um texto que a página do app sempre mostra quando está funcionando (um título, por exemplo) e mande em `conferir_texto` (e a página em `conferir_caminho`, se não for a inicial). O Ziv só troca para uma versão nova se ela mostrar esse texto; senão, a anterior segue no ar. Não serve para Streamlit: a página dele só aparece com JavaScript, e o Ziv lê a página sem rodar JavaScript.
+3. **Comando de início.** Se a checagem pedir o comando de início, sugira um a partir do código, confirme com a pessoa e mande em `comando`.
+4. **Chaves que faltam.** Se faltar preencher chaves e a pasta tem um `.env`, use `enviar_chaves`. O resto, diga quais e mande o link: a pessoa preenche no Ziv (parte Cofre ou Compartilhar › Configurações), nunca pela conversa. Quando ela avisar, chame de novo.
+5. **Esperar.** Enquanto estiver publicando, chame de novo com `esperar` 30. No fim, diga o endereço. Se a versão nova não abrir, a resposta diz se a anterior continua no ar e traz o fim do log.
+6. **Se falhar.** Leia o log da resposta (ou `ver_log_app`), ache a causa no código, mostre à pessoa e só então mande uma versão nova. Nunca mande a mesma versão de novo por tentativa.
+7. **Aprovação.** Se a empresa exigir aprovação, o app só vai ao ar depois que um administrador aprovar: diga isso à pessoa.
+8. O endereço vem sempre do Ziv; nunca monte um endereço sozinho.
 
 ## 6. Formato do manifesto
 

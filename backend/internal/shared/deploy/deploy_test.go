@@ -1141,3 +1141,28 @@ func TestStageWhileBuilding(t *testing.T) {
 	}
 	e.Eng.Close()
 }
+
+// MCP F4: with a text to check, a new version only takes the place of the
+// one in the air when its page shows that text.
+func TestCheckTextBeforeSwap(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	e.M.Shared.CheckText = "ok "
+	first := e.Publish(t)
+	if first.Status != "live" {
+		t.Fatalf("first %s %q", first.Status, first.ErrorMessage)
+	}
+	e.M.Shared.CheckText = "Painel do mês"
+	second := e.Publish(t)
+	if second.Status != "failed" || !strings.Contains(second.ErrorMessage, `não mostra o texto esperado "Painel do mês"`) {
+		t.Fatalf("second %s %q", second.Status, second.ErrorMessage)
+	}
+	sa, err := e.Q.GetSharedApp(ctx, e.App.ID)
+	if err != nil || sa.CurrentDeploymentID.Int64 != first.ID {
+		t.Fatalf("the first should stay in the air: %+v %v", sa.CurrentDeploymentID, err)
+	}
+	e.Eng.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("<h1>Painel do mês</h1>")) })
+	if third := e.Publish(t); third.Status != "live" {
+		t.Fatalf("third %s %q", third.Status, third.ErrorMessage)
+	}
+}

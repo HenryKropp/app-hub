@@ -19,6 +19,7 @@ export function settingsOf(app: AppDetail, state?: SharedState | null, patch: Pa
     database: m?.database ?? "",
     command: m?.command ?? "",
     env: m?.env ?? [],
+    check_text: m?.check_text ?? "", // set by Claude (conferir_texto); kept on every save
     acks: state?.acks ?? [],
     updated_at: app.updated_at,
     ...patch,

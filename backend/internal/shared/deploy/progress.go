@@ -54,19 +54,39 @@ var pollEvery = 500 * time.Millisecond
 // waitUp waits for the app to answer its health path. It stops early when the
 // program ends, so a crash at start is reported in seconds, not after the
 // whole health timeout.
-func (s *Service) waitUp(ctx context.Context, cid string, port int, healthPath string) *failure {
+//
+// With checkText, answering is not enough: the page at healthPath must also
+// show that text (MCP F4: a quick check of the new version before the swap).
+func (s *Service) waitUp(ctx context.Context, cid string, port int, healthPath, checkText string) *failure {
 	start := s.now()
 	deadline := time.Now().Add(s.opt.HealthTimeout)
+	answered := false
 	for {
 		st, err := s.eng.Inspect(ctx, cid)
 		if err == nil && st.Exists && !st.Running {
 			return s.exitedFailure(ctx, cid, port, st.ExitCode, s.now().Sub(start))
 		}
-		if err == nil && st.HostPort != 0 && health.Check(ctx, fmt.Sprintf("http://127.0.0.1:%d%s", st.HostPort, healthPath)) {
-			return nil
+		if err == nil && st.HostPort != 0 {
+			url := fmt.Sprintf("http://127.0.0.1:%d%s", st.HostPort, healthPath)
+			if checkText == "" && health.Check(ctx, url) {
+				return nil
+			}
+			if checkText != "" {
+				if body, ok := health.Page(ctx, url); ok {
+					answered = true
+					if strings.Contains(body, checkText) {
+						return nil
+					}
+				}
+			}
 		}
 		if time.Now().After(deadline) {
 			logs, _ := s.eng.Logs(ctx, cid, 60)
+			if answered {
+				return &failure{msg: fmt.Sprintf("A versão nova abriu, mas a página %s não mostra o texto esperado %q. "+
+					"Confira o texto a conferir na ficha ou o que a página mostra (o Ziv lê a página sem rodar o JavaScript).",
+					healthPath, checkText), log: logs}
+			}
 			return &failure{msg: fmt.Sprintf("O programa está ligado há %s, mas não respondeu na porta %d. "+
 				"Confira se ele escuta em 0.0.0.0 na porta da variável PORT (e não em 127.0.0.1 ou numa porta fixa).",
 				seconds(s.opt.HealthTimeout), port), log: logs}

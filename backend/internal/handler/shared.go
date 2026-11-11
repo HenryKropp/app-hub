@@ -49,6 +49,7 @@ type SharedSettings struct {
 	Database   string            `json:"database"`
 	Command    string            `json:"command"`
 	Env        []manifest.EnvVar `json:"env"`
+	CheckText  string            `json:"check_text"`
 	Acks       []string          `json:"acks"`
 	UpdatedAt  time.Time         `json:"updated_at"` // the same guard against a stale save as the ficha
 }
@@ -421,7 +422,7 @@ func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
 	if body.Enabled {
 		sh := manifest.Shared{Enabled: true, AlwaysOn: body.AlwaysOn, IdleMin: body.IdleMin, MemoryMB: body.MemoryMB,
 			CPUs: body.CPUs, Port: body.Port, HealthPath: strings.TrimSpace(body.HealthPath), Database: body.Database,
-			Command: strings.TrimSpace(body.Command), Env: body.Env}
+			Command: strings.TrimSpace(body.Command), Env: body.Env, CheckText: strings.TrimSpace(body.CheckText)}
 		if m.Shared != nil { // fields this screen does not edit
 			sh.Python, sh.Node = m.Shared.Python, m.Shared.Node
 			if sh.Database == "" { // a save never turns the database off
