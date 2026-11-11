@@ -143,7 +143,8 @@ Pedido do Henry: o objetivo é as pessoas pararem de rodar apps no PC e usarem p
 - [x] Passo 1 "problemas": achou os 3 erros em linguagem simples. Ajuste: conferir em qual PC a execução rodou antes de dizer que a pasta foi digitada errada (C:\Users\hkrop era outro PC).
 - [x] Passo 2 (E): sessão nova criou "Mostra as notícias do dia de uma empresa" (app 14 da Teste) do jeito Ziv sozinho, mensagem no padrão.
 - [x] Passo 3: rodou pelo site, página boa. Passo 4: Claude rodou e conferiu sozinho.
-- [ ] Passo 5: publicar app com tela. Travou no limite de 2 apps publicados por empresa; subido para 5 (prod `SHARED_APPS_PER_COMPANY=5` e padrão no código, ADR 025). Repetir.
+- [x] Passo 5: app com tela de notícias no ar de primeira (meta de 1 versão atingida). Antes travou no limite de 2 apps publicados por empresa; subido para 5 (prod `SHARED_APPS_PER_COMPANY=5` e padrão no código, ADR 025).
+- [ ] Ajuste pequeno: em `problemas`, dizer em qual PC a execução rodou, para o Claude não chutar "pasta digitada errada".
 
 ## Rodar pelo celular ou de outro PC (decidido 2026-11-11, depois do teste do MCP)
 
