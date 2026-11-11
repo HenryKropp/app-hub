@@ -146,6 +146,15 @@ Pedido do Henry: o objetivo é as pessoas pararem de rodar apps no PC e usarem p
 - [x] Passo 5: app com tela de notícias no ar de primeira (meta de 1 versão atingida). Antes travou no limite de 2 apps publicados por empresa; subido para 5 (prod `SHARED_APPS_PER_COMPANY=5` e padrão no código, ADR 025).
 - [ ] Ajuste pequeno: em `problemas`, dizer em qual PC a execução rodou, para o Claude não chutar "pasta digitada errada".
 
+## Página do app em abas (2026-11-11, ADR 039)
+Henry achou a página do app confusa ("abrir ou no meu computador"). Revisão e 5 opções em https://claude.ai/artifact/4qtVwxi6RjcsydxxQJMz9m; escolhida a A (abas).
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Trocar Usar · Cuidar por abas (Início, Execuções, Documentação, Configurações, Servidor, Histórico) | Done | Selo de estado ao lado do nome; um botão principal; "Testar no meu computador" em Mais, explicado |
+| Teste do Henry em apps reais (script e app com tela no servidor) | Pending | Depois do deploy |
+| Ilustração da landing ainda mostra "Usar · Cuidar" | Pending | Desenho de marketing em `LandingPage.tsx`; trocar quando mexer na landing |
+
 ## Rodar pelo celular ou de outro PC (decidido 2026-11-11, depois do teste do MCP)
 
 Decisões do Henry (ainda sem documento de projeto escrito):

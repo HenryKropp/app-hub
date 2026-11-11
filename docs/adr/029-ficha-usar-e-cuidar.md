@@ -1,6 +1,6 @@
 # 029 - Ficha do app em duas faces: Usar e Cuidar
 
-**Status:** Accepted (substitui o "Desenho B" da ficha, ADR 009, na organização da página)
+**Status:** Superseded by [ADR-039](039-pagina-do-app-em-abas.md)
 
 ## Context
 A página de cada app virou uma pilha de doze seções com o mesmo peso. O que

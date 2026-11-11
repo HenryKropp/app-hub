@@ -1,3 +1,4 @@
+import userEvent from "@testing-library/user-event"
 import { render, screen } from "@testing-library/react"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 import { afterEach, expect, test, vi } from "vitest"
@@ -34,7 +35,8 @@ const mount = (d: AppDetail, person = henry) => {
 test("the owner or an administrator sees Arquivar", async () => {
   mount(detail())
   await screen.findByRole("heading", { name: "Eq. Research Files Prep" })
-  expect(screen.getByRole("button", { name: "Arquivar" })).toBeInTheDocument()
+  await userEvent.click(screen.getByRole("tab", { name: "Configurações" }))
+  expect(await screen.findByRole("button", { name: "Arquivar" })).toBeInTheDocument()
 })
 
 test("someone who only uses the app does not", async () => {
