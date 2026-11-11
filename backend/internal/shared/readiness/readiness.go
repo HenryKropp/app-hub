@@ -36,11 +36,11 @@ type Report struct {
 	Recipe     recipes.Recipe    `json:"recipe"`
 	WantsDB    bool              `json:"wants_db"`
 	SuggestEnv []manifest.EnvVar `json:"suggest_env"` // settings read in code and missing from the manifest
+	EnvReads   map[string]bool   `json:"env_reads"`   // every setting the code reads → required (no default)
 	Items      []Item            `json:"items"`
 }
 
 var (
-	envReadRe  = regexp.MustCompile(`(?:os\.getenv\(|os\.environ\.get\(|os\.environ\[|process\.env\.)\s*["']?([A-Z][A-Z0-9_]*)`)
 	fileDataRe = regexp.MustCompile(`sqlite3\.connect|\.to_csv\(|\.to_excel\(|openpyxl\.Workbook\(|\.save\(\s*["'][^"']+\.xlsx|open\([^)]*,\s*["'](?:w|a)`)
 	winPathRe  = regexp.MustCompile(`(?:^|[^A-Za-z0-9_])[A-Za-z]:\\(?:\\|[^nrtbfv0\s"'])|/mnt/[a-z]/|(?i:OneDrive)`)
 	browserRe  = regexp.MustCompile(`playwright|puppeteer|chromium|wkhtmltopdf|selenium`)
@@ -62,12 +62,12 @@ func Check(src versions.Folder, m manifest.Manifest, secrets []scanner.SecretFin
 	if m.Shared != nil {
 		s = *m.Shared
 	}
-	r := Report{Recipe: rec, WantsDB: s.Database == "postgres"}
+	envSeen := map[string]bool{} // name → required
+	r := Report{Recipe: rec, WantsDB: s.Database == "postgres", EnvReads: envSeen}
 	var fileData, winPaths, browser []hit
-	envSeen := map[string]bool{}
 	err = src.Walk(func(rel string, dir bool, _ int64, _ time.Time) error {
 		if dir {
-			if b := path.Base(rel); b == ".git" || b == "node_modules" || b == ".venv" || b == "venv" || b == "__pycache__" {
+			if skipDir(rel) {
 				return fs.SkipDir
 			}
 			return nil
@@ -82,9 +82,7 @@ func Check(src versions.Folder, m manifest.Manifest, secrets []scanner.SecretFin
 		b, _ := io.ReadAll(io.LimitReader(f, 1<<20))
 		f.Close()
 		for i, line := range strings.Split(string(b), "\n") {
-			for _, mm := range envReadRe.FindAllStringSubmatch(line, -1) {
-				envSeen[mm[1]] = true
-			}
+			envReadsIn(line, envSeen)
 			if fileDataRe.MatchString(line) {
 				fileData = append(fileData, hit{rel, i + 1})
 			}
@@ -140,7 +138,7 @@ func Check(src versions.Folder, m manifest.Manifest, secrets []scanner.SecretFin
 	}
 
 	// Banco
-	if envSeen["DATABASE_URL"] {
+	if _, ok := envSeen["DATABASE_URL"]; ok {
 		r.WantsDB = true
 	}
 	if r.WantsDB {
@@ -174,7 +172,7 @@ func Check(src versions.Folder, m manifest.Manifest, secrets []scanner.SecretFin
 	}
 	sort.Strings(names)
 	for _, n := range names {
-		r.SuggestEnv = append(r.SuggestEnv, manifest.EnvVar{Name: n, Label: n, Secret: secretWord.MatchString(n), Required: true})
+		r.SuggestEnv = append(r.SuggestEnv, manifest.EnvVar{Name: n, Label: n, Secret: secretWord.MatchString(n), Required: envSeen[n]})
 	}
 	if len(names) > 0 {
 		add(Item{Key: "settings", Title: "Configurações", Status: "auto",

@@ -20,10 +20,10 @@ import (
 // marks, the same settings (filled only on the site) and the same approval.
 
 const (
-	msgTelaAprovacao    = "Esperando a aprovação de um administrador; publico depois que aprovarem."
-	msgTelaPublicando   = "Ainda publicando; chame de novo com esperar 30."
+	msgTelaAprovacao  = "Esperando a aprovação de um administrador; publico depois que aprovarem."
+	msgTelaPublicando = "Ainda publicando; chame de novo com esperar 30."
 	// msgTelaLerLog: after a failure, read the log before sending anything again.
-	msgTelaLerLog = "Antes de mandar outra versão, leia o log acima e corrija a causa no código. Não publique de novo sem mudar nada: o resultado seria o mesmo."
+	msgTelaLerLog       = "Antes de mandar outra versão, leia o log acima e corrija a causa no código. Não publique de novo sem mudar nada: o resultado seria o mesmo."
 	msgTelaSemPermissao = "Você não tem permissão para publicar este app no Ziv. Quem cuida dele (ou um administrador) publica."
 )
 
@@ -196,12 +196,15 @@ func (h *Handler) saveTelaSettings(ctx context.Context, base string, d appDetail
 	if d.Manifest.Shared != nil {
 		cur = *d.Manifest.Shared
 	}
-	env := slices.Clone(cur.Env)
-	for _, e := range first.SuggestEnv {
-		if !slices.ContainsFunc(env, func(x manifest.EnvVar) bool { return x.Name == e.Name }) {
-			env = append(env, e)
-		}
+	var cfg []configItem
+	if status, raw, msg := h.toolAPI(ctx, "GET", base+"/shared/config", nil, &cfg); msg != "" {
+		return sharedFailure(status, raw, msg), false
 	}
+	hasValue := map[string]bool{}
+	for _, c := range cfg {
+		hasValue[c.Name] = c.HasValue
+	}
+	env := mergeEnv(cur.Env, first.EnvReads, d.Manifest.Keys, hasValue)
 	command := cur.Command
 	if c := strings.TrimSpace(in.Comando); c != "" {
 		command = c
@@ -216,7 +219,7 @@ func (h *Handler) saveTelaSettings(ctx context.Context, base string, d appDetail
 			acks = append(acks, k)
 		}
 	}
-	if st.Shared != nil && cur.Enabled && len(env) == len(cur.Env) && command == cur.Command && len(acks) == len(st.Shared.Acks) {
+	if st.Shared != nil && cur.Enabled && slices.Equal(env, cur.Env) && command == cur.Command && len(acks) == len(st.Shared.Acks) {
 		return "", true
 	}
 	if acks == nil {
@@ -306,4 +309,56 @@ func (h *Handler) waitPublish(ctx context.Context, base string, dep deploymentOu
 		return toolOK(text+". Chame de novo com esperar 30.", out)
 	}
 	return toolFail(fmt.Sprintf("A publicação terminou com a situação %q.", dep.Status))
+}
+
+// mergeEnv rebuilds the settings list from what the code reads now (MCP F2):
+//   - a setting the code no longer reads, without a value, a default or a
+//     place in the ficha's keys, leaves the list;
+//   - one the code reads is required only if a read has no default;
+//   - the ficha's keys (sent by Claude with the version) have the last word
+//     on label and required;
+//   - a new name the code reads joins the list.
+func mergeEnv(cur []manifest.EnvVar, reads map[string]bool, keys []manifest.Key, hasValue map[string]bool) []manifest.EnvVar {
+	key := map[string]manifest.Key{}
+	for _, k := range keys {
+		key[k.Name] = k
+	}
+	out := []manifest.EnvVar{}
+	seen := map[string]bool{}
+	for _, e := range cur {
+		required, read := reads[e.Name]
+		k, inKeys := key[e.Name]
+		if !read && !inKeys && !hasValue[e.Name] && e.Default == "" {
+			continue
+		}
+		if read {
+			e.Required = required
+		}
+		if inKeys {
+			e.Required = k.Required
+			if k.Label != "" {
+				e.Label = k.Label
+			}
+		}
+		seen[e.Name] = true
+		out = append(out, e)
+	}
+	var added []string
+	for n := range reads {
+		if !seen[n] && !slices.Contains(manifest.ReservedEnv, n) {
+			added = append(added, n)
+		}
+	}
+	slices.Sort(added)
+	for _, n := range added {
+		e := manifest.EnvVar{Name: n, Label: n, Secret: looksSecret(n, ""), Required: reads[n]}
+		if k, ok := key[n]; ok {
+			e.Required = k.Required
+			if k.Label != "" {
+				e.Label = k.Label
+			}
+		}
+		out = append(out, e)
+	}
+	return out
 }

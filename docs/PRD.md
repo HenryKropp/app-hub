@@ -201,6 +201,11 @@ O Henry pediu isto em 2026-09-30 e redesenhou em 2026-11-04. A pessoa usa o Ziv 
     - Enquanto publica, mostra a etapa e o tempo.
     - `ver_app` diz se o app está no ar e qual versão roda.
     - `ver_log_app` mostra o log para quem cuida do app.
+  - **Chaves sem falso positivo** (2026-11-11, ADR 035):
+    - O Ziv só pede a chave que o código lê de fato; uma leitura com valor padrão não é obrigatória.
+    - A lista de ajustes do app com tela é refeita a cada versão, e as `keys` de uma versão nova valem.
+    - `enviar_chaves` deixa de fora os nomes do .env que o app não usa.
+    - `apagar_chave` apaga uma chave, só depois que a pessoa confirma.
   - As versões ficam marcadas "Código enviado · pelo Claude".
   - **Cofre do app** (2026-11-09, ADR 027): as senhas de um script ficam no cofre do próprio app, nunca no código nem na conversa.
     - O Claude troca a senha no código por `os.environ["NOME"]`, declara o nome em `keys` e devolve o link da parte "Cofre".

@@ -153,7 +153,7 @@ Plano aprovado em 2026-11-11, a construir: `docs/superpowers/specs/2026-11-11-mc
 | F1 Publicar sem ficar no escuro | Done | 2026-11-11 (ADR 034): o Ziv percebe em segundos que o programa morreu (código e tempo); falha traz o fim do log com senhas apagadas e diz se a anterior está de fato no ar; etapa e tempo enquanto publica; `ver_app` com `no_ar`/`versao_no_ar`/`ultima_publicacao`; ferramenta `ver_log_app`. **Falta:** deploy no servidor e teste do Henry |
 | Limpeza de imagens com várias tags | Pending | Apagar pela tag da implantação (`ImageTag(slug, id)`), não pelo ID, para não acumular disco |
 | F1 resto: `ver_app_no_ar` (GET como a pessoa) | Pending | Revisar segurança: só leitura, só apps que a pessoa vê |
-| F2 Chaves sem falso positivo | Pending | Ver plano |
+| F2 Chaves sem falso positivo | Done | 2026-11-11, ADR 035: leitura com padrão é opcional, constante não é chave, lista refeita a cada versão, `keys` vale para app com tela, `enviar_chaves` ignora nome que o código não lê, `apagar_chave` com confirmação. Adiado: "não é chave, ignorar" no cofre |
 | F3a `problemas` | Pending | Lista única do que deu errado |
 | F4 Testar antes (como testar na ficha, ensaio no servidor) | Pending | Ver plano, adendo 3 |
 

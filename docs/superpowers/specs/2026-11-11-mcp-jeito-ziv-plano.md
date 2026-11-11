@@ -54,6 +54,7 @@ Uma mudança já pronta levou 6 versões (3→8) e ~20 chamadas para entrar no a
 - `keys` da ficha numa versão nova é a fonte da verdade (hoje é ignorada, `mudou: false`).
 - No cofre, mostrar as chaves que o Ziv acha obrigatórias com "não é chave, ignorar".
 - Apagar chave pelo Claude, com confirmação (hoje só preenche e deixou lixo no cofre).
+- *Feito em 2026-11-11 (ADR 035), menos o "não é chave, ignorar" no cofre, adiado.*
 
 **Entra nas frentes que já existiam:**
 - B (receita): documentar o ambiente do servidor: Python 3.12, código em /app, `python -m <pacote>`, porta em PORT, gunicorn disponível, sem OneDrive. Dica: testar copiando para uma pasta rasa antes de publicar.
