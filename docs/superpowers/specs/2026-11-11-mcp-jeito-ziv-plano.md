@@ -61,3 +61,19 @@ Uma mudança já pronta levou 6 versões (3→8) e ~20 chamadas para entrar no a
 
 ## Ordem nova
 F0 → F1 → F2 → A+B → D → C → E.
+
+## Adendo 2 — o Claude ver tudo e reagir (pedido do Henry, 2026-11-11)
+
+O Henry quer que o Claude veja direto no Ziv todos os logs e erros e reaja sozinho.
+
+**F3a. Ver tudo (ferramentas de leitura).**
+- `ver_log_app(app_id, linhas)`: log do app com tela no servidor e das execuções de script.
+- `problemas(app_id?)`: lista única do que deu errado (execução com erro, app com tela fora do ar, publicação que falhou, agenda que não rodou, chave faltando), com quando, versão, trecho do log e link.
+- Só para quem cuida do app ou é admin. Senhas do cofre apagadas do log antes de sair (o Ziv conhece os valores e troca por ••••).
+
+**F3b. Reagir.** O MCP só responde quando o Claude pergunta, então "proativo" precisa de um gatilho:
+1. Na conversa: a apresentação manda o Claude, ao mexer num app, chamar `problemas` antes e avisar o que achar. Depois de publicar ou rodar, conferir o resultado sozinho.
+2. Fora da conversa: o Ziv avisa quem cuida do app quando algo quebra (aviso no site/e-mail) com um botão "pedir ao Claude para corrigir".
+3. Vigia automática (depois): uma rotina agendada do Claude (Claude Code/cloud) passa por `problemas` de tempos em tempos, diagnostica pelo log, prepara a correção e pede OK antes de mandar uma versão nova. Nunca publica sem a pessoa aprovar.
+
+Ordem: F3a junto com F1 (é a mesma coisa: entregar o log); F3b.1 junto com A; F3b.2 e F3b.3 depois de E.
