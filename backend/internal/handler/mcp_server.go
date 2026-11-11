@@ -108,6 +108,8 @@ var mcpRoutes = []string{
 	"GET /api/apps/{id}/shared/logs",
 	// apagar_chave (MCP F2): only after the person confirms; the value is never read
 	"DELETE /api/apps/{id}/keys/{name}",
+	// problemas (MCP F3a): the person's own schedules, read only
+	"GET /api/me/schedules",
 }
 
 var errMCPRoute = errors.New("mcp: rota não liberada para o Claude")

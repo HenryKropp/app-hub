@@ -154,7 +154,7 @@ Plano aprovado em 2026-11-11, a construir: `docs/superpowers/specs/2026-11-11-mc
 | Limpeza de imagens com várias tags | Pending | Apagar pela tag da implantação (`ImageTag(slug, id)`), não pelo ID, para não acumular disco |
 | F1 resto: `ver_app_no_ar` (GET como a pessoa) | Pending | Revisar segurança: só leitura, só apps que a pessoa vê |
 | F2 Chaves sem falso positivo | Done | 2026-11-11, ADR 035: leitura com padrão é opcional, constante não é chave, lista refeita a cada versão, `keys` vale para app com tela, `enviar_chaves` ignora nome que o código não lê, `apagar_chave` com confirmação. Adiado: "não é chave, ignorar" no cofre |
-| F3a `problemas` | Pending | Lista única do que deu errado |
+| F3a `problemas` | Done | 2026-11-11, ADR 036: execução com erro, agenda pausada/pulada, app com tela fora do ar, publicação que falhou, ajuste faltando; só leitura, como a pessoa |
 | F4 Testar antes (como testar na ficha, ensaio no servidor) | Pending | Ver plano, adendo 3 |
 
 ### Etapa 1 — conectar, achar, rodar e publicar artifacts (ADR 021)
