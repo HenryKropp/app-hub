@@ -258,7 +258,7 @@ func (s *Service) Unshare(ctx context.Context, appID, by int64) error {
 				logErr(s.eng.Remove(ctx, d.ContainerID), "remove container", "container", d.ContainerID)
 			}
 			if d.ImageID != "" {
-				logErr(s.eng.RemoveImage(ctx, d.ImageID), "remove image", "image", d.ImageID)
+				s.removeImage(ctx, sa.Slug, d.ID, d.ImageID)
 			}
 			logErr(s.q.SetDeploymentContainer(ctx, sqlc.SetDeploymentContainerParams{ID: d.ID}), "clear container", "deployment", d.ID)
 			logErr(s.q.SetDeploymentStatus(ctx, sqlc.SetDeploymentStatusParams{ID: d.ID, Status: "retired"}), "retire", "deployment", d.ID)
