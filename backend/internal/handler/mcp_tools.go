@@ -240,6 +240,13 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 	}, h.toolProblemas)
 
 	mcp.AddTool(s, &mcp.Tool{
+		Name: "receita_app_ziv",
+		Description: "Como fazer um programa para o Ziv: qual escolher (app, app com tela ou artifact), o jeito certo e o errado " +
+			"(entradas, resultado, senhas, tela, agenda, caminhos), onde ele roda e como testar antes. Leia antes de escrever ou adaptar um programa para a empresa.",
+		Annotations: readOnly,
+	}, h.toolReceitaAppZiv)
+
+	mcp.AddTool(s, &mcp.Tool{
 		Name: "formato_do_app",
 		Description: "Devolve o protocolo para registrar ou atualizar um app no Ziv a partir de uma pasta do computador: como ler a pasta, " +
 			"o formato do manifesto, as áreas da empresa e os limites. Leia antes de registrar_app.",
@@ -704,6 +711,9 @@ func (h *Handler) toolVerExecucao(ctx context.Context, _ *mcp.CallToolRequest, i
 		"execucao_id": run.ID, "app": run.AppName, "situacao": situacao, "terminou": !runIsLive(run.Status),
 		"erro": run.ErrorMessage, "pasta": run.OutputFolder, "arquivos": arquivos, "total_arquivos": total, "link": link,
 	}
+	if !runIsLive(run.Status) {
+		out["mensagem_para_pessoa"] = msgPessoaExecucao(run.AppName, run.Status, run.ErrorMessage, run.OutputFolder, total, link)
+	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "Execução %d do %s: %s.\n", run.ID, run.AppName, situacao)
 	if run.ErrorMessage != "" {
@@ -851,7 +861,8 @@ func (h *Handler) toolPublicarArtifact(ctx context.Context, _ *mcp.CallToolReque
 	}
 	link := h.mcpLink("/artifacts/%d", d.ID)
 	text := fmt.Sprintf("Publiquei o artifact %q, versão %d.\nLink: %s", d.Name, d.Current, link)
-	return toolOK(text, map[string]any{"artifact_id": d.ID, "versao": d.Current, "link": link})
+	return toolOK(text, map[string]any{"artifact_id": d.ID, "versao": d.Current, "link": link,
+		"mensagem_para_pessoa": msgPessoaArtifact(d.Name, int32(d.Current), link)})
 }
 
 // ---- guia_visual ----

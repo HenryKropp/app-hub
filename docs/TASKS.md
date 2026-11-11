@@ -155,6 +155,10 @@ Plano aprovado em 2026-11-11, a construir: `docs/superpowers/specs/2026-11-11-mc
 | F1 resto: `ver_app_no_ar` (GET como a pessoa) | Pending | Revisar segurança: só leitura, só apps que a pessoa vê |
 | F2 Chaves sem falso positivo | Done | 2026-11-11, ADR 035: leitura com padrão é opcional, constante não é chave, lista refeita a cada versão, `keys` vale para app com tela, `enviar_chaves` ignora nome que o código não lê, `apagar_chave` com confirmação. Adiado: "não é chave, ignorar" no cofre |
 | F3a `problemas` | Done | 2026-11-11, ADR 036: execução com erro, agenda pausada/pulada, app com tela fora do ar, publicação que falhou, ajuste faltando; só leitura, como a pessoa |
+| A+B Apresentação nova + `receita_app_ziv` | Done | 2026-11-11, ADR 037 |
+| C Passo "adaptar" no protocolo | Done | 2026-11-11, ADR 037: detectar padrões errados, mudar só com OK, testar numa cópia (F4b) |
+| D Jeito Ziv de falar (`mensagem_para_pessoa`, teste de palavras, ficha padrão, guia de escolha) | Done | 2026-11-11, ADR 037 |
+| E Teste de verdade numa sessão nova | Pending | No teste final com o Henry |
 | F4 Testar antes (como testar na ficha, ensaio no servidor) | Pending | Ver plano, adendo 3 |
 
 ### Etapa 1 — conectar, achar, rodar e publicar artifacts (ADR 021)
