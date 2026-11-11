@@ -36,7 +36,7 @@ export type EnvVar = { name: string; label: string; secret?: boolean; required?:
 export type SharedSpec = {
   enabled: boolean; port?: number; health_path?: string; database?: "" | "postgres"
   always_on?: boolean; idle_minutes?: number; memory_mb?: number; cpus?: number
-  python?: string; node?: string; command?: string; env?: EnvVar[] | null
+  python?: string; node?: string; command?: string; env?: EnvVar[] | null; check_text?: string
 }
 
 /** A key the app reads from Configurações (Chaves e senhas): the name only, never the value. */
@@ -126,7 +126,7 @@ export type ReadinessItem = { key: string; status: "ok" | "auto" | "missing" | "
 export type Readiness = { ready: boolean; recipe: { kind: string; dockerfile: string; port: number; command: string; needs_confirm: boolean; requirements: string[] | null }; wants_db: boolean; suggest_env: EnvVar[] | null; items: ReadinessItem[] }
 export type SharedSettings = {
   enabled: boolean; always_on: boolean; idle_minutes: number; memory_mb: number; cpus: number; port: number
-  health_path: string; database: "" | "postgres"; command: string; env: EnvVar[]; acks: string[]; updated_at: string
+  health_path: string; database: "" | "postgres"; command: string; env: EnvVar[]; check_text: string; acks: string[]; updated_at: string
 }
 export type SharedBackup = { id: number; kind: "daily" | "manual" | "pre_deploy" | "pre_restore"; size_bytes: number; created_at: string; expires_at: string | null; created_by_name: string; version_number: number | null }
 export type UsagePoint = { at: string; mem_mb: number; cpu: number }

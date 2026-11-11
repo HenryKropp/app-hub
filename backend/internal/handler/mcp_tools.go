@@ -266,7 +266,8 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 		Description: "Põe no ar (ou atualiza) um app com tela do Ziv, no endereço próprio dele, como o botão Publicar do site. Chame depois de registrar_app de um app com tela. " +
 			"Se a checagem do Ziv trouxer avisos, mostre cada um à pessoa e só chame de novo com ciente depois que ela disser que está ciente. " +
 			"Se faltar preencher chaves, a pessoa preenche no Ziv, nunca pela conversa. Enquanto estiver publicando, chame de novo com esperar 30 (a resposta diz a etapa). " +
-			"Se falhar, a resposta traz o motivo e o fim do log do app: leia e corrija a causa no código antes de mandar outra versão; nunca reenvie a mesma versão no chute.",
+			"Se falhar, a resposta traz o motivo e o fim do log do app: leia e corrija a causa no código antes de mandar outra versão; nunca reenvie a mesma versão no chute. " +
+			"Com conferir_texto (e conferir_caminho), o Ziv só troca para a versão nova se a página mostrar esse texto; senão a anterior segue no ar.",
 		Annotations: changes,
 	}, h.toolPublicarTela)
 

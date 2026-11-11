@@ -339,7 +339,13 @@ type Shared struct {
 	Node       string   `yaml:"node,omitempty" json:"node"`       // padrão 22
 	Command    string   `yaml:"command,omitempty" json:"command"` // comando de início confirmado (Python web)
 	Env        []EnvVar `yaml:"env,omitempty" json:"env"`
+	// CheckText (MCP F4): a text the page at HealthPath must show before a
+	// new version takes the place of the one in the air.
+	CheckText string `yaml:"check_text,omitempty" json:"check_text,omitempty"`
 }
+
+// MaxCheckText caps the text a publish checks on the page.
+const MaxCheckText = 200
 
 // EnvVar declares a setting the app needs. It never holds the value.
 type EnvVar struct {
@@ -408,6 +414,9 @@ func (m Manifest) sharedProblems() []string {
 	}
 	if s.HealthPath != "" && !strings.HasPrefix(s.HealthPath, "/") {
 		out = append(out, "O endereço de saúde precisa começar com /.")
+	}
+	if len([]rune(s.CheckText)) > MaxCheckText || strings.ContainsAny(s.CheckText, "\r\n") {
+		out = append(out, fmt.Sprintf("O texto a conferir na página tem uma linha só, com até %d letras.", MaxCheckText))
 	}
 	if strings.ContainsAny(s.Command, "\r\n") {
 		out = append(out, MsgCommandLines)

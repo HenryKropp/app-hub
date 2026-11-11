@@ -37,6 +37,7 @@ Antes de registrar, rode o programa numa cópia limpa da pasta, como o Ziv vê: 
 
 ## 5. Depois de mandar
 
+- App com tela: combine com a pessoa um texto que a página sempre mostra e mande em `conferir_texto` ao publicar; o Ziv só troca de versão se a nova mostrar esse texto (não serve para Streamlit).
 - Depois de publicar ou rodar, confira o resultado sozinho (`ver_execucao`, `ver_app`); não espere a pessoa perguntar.
 - Se algo falhou, leia o log (`ver_log_app` ou `ver_execucao`) e corrija a causa antes de mandar outra versão. Nunca mande a mesma versão de novo por tentativa.
 - Para ver tudo o que deu errado nos apps da pessoa, use `problemas`.

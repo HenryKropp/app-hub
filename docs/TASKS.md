@@ -159,7 +159,8 @@ Plano aprovado em 2026-11-11, a construir: `docs/superpowers/specs/2026-11-11-mc
 | C Passo "adaptar" no protocolo | Done | 2026-11-11, ADR 037: detectar padrões errados, mudar só com OK, testar numa cópia (F4b) |
 | D Jeito Ziv de falar (`mensagem_para_pessoa`, teste de palavras, ficha padrão, guia de escolha) | Done | 2026-11-11, ADR 037 |
 | E Teste de verdade numa sessão nova | Pending | No teste final com o Henry |
-| F4 Testar antes (como testar na ficha, ensaio no servidor) | Pending | Ver plano, adendo 3 |
+| F4 app com tela: conferir um texto na página antes de trocar de versão | Done | 2026-11-11, ADR 038: `check_text` na ficha, `conferir_texto` no MCP; não serve para Streamlit |
+| F4 resto: "como testar" de scripts (entradas de exemplo + ensaio), campo no site, vigia periódica | Pending | Ver plano, adendo 3 |
 
 ### Etapa 1 — conectar, achar, rodar e publicar artifacts (ADR 021)
 

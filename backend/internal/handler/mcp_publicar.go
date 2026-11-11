@@ -32,6 +32,9 @@ type publicarTelaIn struct {
 	Ciente  []string `json:"ciente,omitempty" jsonschema:"os avisos que a pessoa disse estar ciente: file_data, windows_paths, secrets, container_limits"`
 	Comando string   `json:"comando,omitempty" jsonschema:"o comando de início, só se a checagem pedir e a pessoa confirmar"`
 	Esperar int      `json:"esperar,omitempty" jsonschema:"segundos para esperar o resultado, até 30"`
+	// MCP F4: how to check a new version before it takes the place of the one in the air.
+	ConferirCaminho *string `json:"conferir_caminho,omitempty" jsonschema:"a página que o Ziv abre para conferir a versão nova, começando com / (padrão /)"`
+	ConferirTexto   *string `json:"conferir_texto,omitempty" jsonschema:"um texto que essa página sempre mostra quando está certa; vazio deixa de conferir. Não serve para Streamlit (a página só aparece com JavaScript)"`
 }
 
 type telaOut struct {
@@ -221,14 +224,22 @@ func (h *Handler) saveTelaSettings(ctx context.Context, base string, d appDetail
 			acks = append(acks, k)
 		}
 	}
-	if st.Shared != nil && cur.Enabled && slices.Equal(env, cur.Env) && command == cur.Command && len(acks) == len(st.Shared.Acks) {
+	healthPath, checkText := cur.HealthPath, cur.CheckText
+	if in.ConferirCaminho != nil {
+		healthPath = strings.TrimSpace(*in.ConferirCaminho)
+	}
+	if in.ConferirTexto != nil {
+		checkText = strings.TrimSpace(*in.ConferirTexto)
+	}
+	if st.Shared != nil && cur.Enabled && slices.Equal(env, cur.Env) && command == cur.Command && len(acks) == len(st.Shared.Acks) &&
+		healthPath == cur.HealthPath && checkText == cur.CheckText {
 		return "", true
 	}
 	if acks == nil {
 		acks = []string{}
 	}
 	body := SharedSettings{Enabled: true, AlwaysOn: cur.AlwaysOn, IdleMin: cur.IdleMin, MemoryMB: cur.MemoryMB, CPUs: cur.CPUs,
-		Port: cur.Port, HealthPath: cur.HealthPath, Database: cur.Database, Command: command, Env: env, Acks: acks, UpdatedAt: d.UpdatedAt.Time}
+		Port: cur.Port, HealthPath: healthPath, Database: cur.Database, Command: command, Env: env, CheckText: checkText, Acks: acks, UpdatedAt: d.UpdatedAt.Time}
 	if status, raw, msg := h.auditedAPI(ctx, "PUT", base+"/shared", "PUT /api/apps/{id}/shared", body, nil); msg != "" {
 		return sharedFailure(status, raw, msg), false
 	}
