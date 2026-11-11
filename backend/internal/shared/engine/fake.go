@@ -34,6 +34,9 @@ type Fake struct {
 	Calls      []string                       // "build <tag>", "start <name>", "stop <id>", "remove <id>", "exec <container> <cmd>"
 	ExecFn     func(container string, stdin io.Reader, stdout io.Writer, cmd []string) error
 	logs       string // SetLogs; "" = two plain lines
+	// CrashOnStart, when set, makes every new container end right away with
+	// this exit code (the program died at start).
+	CrashOnStart *int
 }
 
 // SetLogs sets what Logs answers.
@@ -153,6 +156,10 @@ func (f *Fake) Start(_ context.Context, s StartSpec) (string, error) {
 	id := "ctr-" + strconv.Itoa(f.seq) + "-" + s.Name
 	sw := &swapHandler{}
 	sw.set(h)
+	if f.CrashOnStart != nil {
+		f.Containers[id] = &FakeContainer{Spec: s, Exit: *f.CrashOnStart, swap: sw}
+		return id, nil
+	}
 	f.Containers[id] = &FakeContainer{Spec: s, Running: true, srv: httptest.NewServer(sw), swap: sw}
 	return id, nil
 }

@@ -25,7 +25,6 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/appdb"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/engine"
-	"github.com/HenryKropp/app-hub/backend/internal/shared/health"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/recipes"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/stage"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/tenant"
@@ -90,6 +89,7 @@ type Service struct {
 	ports         map[int64]int     // app → porta da versão no ar
 	testPorts     map[int64]int     // app → porta da caixa de teste
 	testPasswords map[string]string // banco de teste → senha (só em memória)
+	stages        map[int64]Stage   // implantação em montagem → etapa (MCP F1)
 }
 
 func New(q *sqlc.Queries, eng engine.Engine, dbs appdb.DBs, v *vault.Vault, opt Options) *Service {
@@ -282,6 +282,7 @@ func (s *Service) begin(ctx context.Context, app sqlc.App, m manifest.Manifest, 
 	s.spawn(func() {
 		defer unlock()
 		defer s.recoverJob(j)
+		defer s.setStage(j.dep.ID, "")
 		s.runJob(context.Background(), j)
 	})
 	return dep, nil
@@ -398,12 +399,13 @@ func (s *Service) Finish(ctx context.Context, p sqlc.FinishDeploymentParams) err
 
 // fail records a failed deployment (the version in the air does not change).
 func (s *Service) fail(ctx context.Context, j job, f *failure) {
+	f.log = s.MaskSecrets(ctx, j.app.ID, f.log)
 	slog.Warn("shared deploy failed", "app", j.app.ID, "deployment", j.dep.ID, "msg", f.msg, "log", lastLines(f.log, 10))
 	if !j.test && !j.sa.CurrentDeploymentID.Valid {
 		logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: j.app.ID, Status: "draft", StatusMessage: f.msg}), "set status", "app", j.app.ID)
 	}
 	if err := s.Finish(ctx, sqlc.FinishDeploymentParams{ID: j.dep.ID, Status: "failed",
-		Port: int32(j.rec.Port), BuildLog: lastLines(f.log, 40), ErrorMessage: f.msg}); errors.Is(err, ErrNotBuilding) {
+		Port: int32(j.rec.Port), BuildLog: lastLines(f.log, 60), ErrorMessage: f.msg}); errors.Is(err, ErrNotBuilding) {
 		// Already recorded live/ready by this job (a later step failed), or cleared by someone else.
 		logErr(s.q.FailFinishedDeployment(ctx, sqlc.FailFinishedDeploymentParams{ID: j.dep.ID, ErrorMessage: f.msg}), "fail finished deployment", "deployment", j.dep.ID)
 	} else if err != nil {
@@ -414,6 +416,7 @@ func (s *Service) fail(ctx context.Context, j job, f *failure) {
 // build copies the folder and builds the image. It returns the image ID and the log.
 func (s *Service) build(ctx context.Context, j job) (string, string, *failure) {
 	dir := filepath.Join(s.opt.DataDir, "stage", strconv.FormatInt(j.dep.ID, 10))
+	s.setStage(j.dep.ID, StageBuild)
 	_ = os.RemoveAll(dir) // stage.Copy wants a fresh folder
 	defer os.RemoveAll(dir)
 	df, err := stage.Copy(versions.LocalFolder{Root: j.app.FolderPath}, dir, j.m.Outputs, j.rec)
@@ -456,6 +459,7 @@ func (s *Service) start(ctx context.Context, j job, img, dbName string) (string,
 		return "", 0, &failure{msg: "Não foi possível ligar o app no servidor.", log: err.Error()}
 	}
 	defer release()
+	s.setStage(j.dep.ID, StageStart)
 	cid, err := s.eng.Start(ctx, engine.StartSpec{Name: name, Image: img, Env: env, Port: j.rec.Port,
 		MemoryMB: int(j.sa.MemoryMb), CPUs: toFloat(j.sa.Cpus), DataDir: data, Network: engine.AppNetwork(s.opt.Tenant.Key, j.app.ID),
 		Labels: map[string]string{engine.Label: strconv.FormatInt(j.app.ID, 10), engine.DeploymentLabel: strconv.FormatInt(j.dep.ID, 10),
@@ -463,16 +467,15 @@ func (s *Service) start(ctx context.Context, j job, img, dbName string) (string,
 	if err != nil {
 		return "", 0, &failure{msg: "Não foi possível ligar o app no servidor.", log: err.Error()}
 	}
-	st, err := s.eng.Inspect(ctx, cid)
-	if err == nil && st.HostPort != 0 {
-		err = health.Wait(ctx, fmt.Sprintf("http://127.0.0.1:%d%s", st.HostPort, j.sa.HealthPath), s.opt.HealthTimeout)
-	} else if err == nil {
-		err = health.ErrNoAnswer
-	}
-	if err != nil {
-		logs, _ := s.eng.Logs(ctx, cid, 40)
+	s.setStage(j.dep.ID, StageWaiting)
+	if f := s.waitUp(ctx, cid, j.rec.Port, j.sa.HealthPath); f != nil {
 		logErr(s.eng.Remove(ctx, cid), "remove container", "container", cid)
-		return "", 0, &failure{msg: fmt.Sprintf("O app ligou, mas não respondeu na porta %d. Confira se ele escuta em 0.0.0.0 na porta da variável PORT.", j.rec.Port), log: logs}
+		return "", 0, f
+	}
+	st, err := s.eng.Inspect(ctx, cid)
+	if err != nil || st.HostPort == 0 {
+		logErr(s.eng.Remove(ctx, cid), "remove container", "container", cid)
+		return "", 0, &failure{msg: "O app respondeu, mas o Ziv perdeu o caminho até ele. Tente de novo.", log: fmt.Sprint(err)}
 	}
 	return cid, st.HostPort, nil
 }
@@ -490,6 +493,7 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 	j.replacing = live
 	if live && j.sa.WantsDb && j.sa.DbName != "" {
 		depID := j.dep.ID
+		s.setStage(j.dep.ID, StageBackup)
 		if _, err := s.Backup(ctx, j.app.ID, "pre_deploy", &depID, &j.by); err != nil {
 			return &failure{msg: "Não foi possível fazer a cópia de segurança antes de publicar. Nada mudou no app.", log: detail(err)}
 		}
@@ -500,6 +504,7 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 	}
 	dbName := ""
 	if j.sa.WantsDb {
+		s.setStage(j.dep.ID, StageDB)
 		dbName = s.dbs.Name(j.app.ID)
 		pw, err := s.dbPassword(ctx, j.app.ID)
 		if err == nil {
@@ -519,6 +524,7 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 		f.log = log + "\n" + f.log
 		return f
 	}
+	s.setStage(j.dep.ID, StageSwap)
 	// Record the new version (the only write with its image, container and
 	// port), then point the app at it. Until both succeed the old version
 	// stays in the air and the new one is thrown away.

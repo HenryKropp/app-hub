@@ -127,7 +127,7 @@ func TestBuildFailureKeepsLogTail(t *testing.T) {
 	e.Eng.BuildLog = strings.Repeat("linha\n", 100)
 	e.Eng.BuildErr = errors.New("ERROR: No matching distribution found for pandsa")
 	d := e.Publish(t)
-	if d.Status != "failed" || !strings.Contains(d.ErrorMessage, "montar") || strings.Count(d.BuildLog, "\n") > 41 {
+	if d.Status != "failed" || !strings.Contains(d.ErrorMessage, "montar") || strings.Count(d.BuildLog, "\n") > 61 {
 		t.Fatalf("%q (%d lines)", d.ErrorMessage, strings.Count(d.BuildLog, "\n"))
 	}
 	if e.Shared(t).Status != "draft" {
@@ -1056,4 +1056,88 @@ func TestHoldBlocksPublish(t *testing.T) {
 	if e.S.Busy(e.App.ID) {
 		t.Fatal("still busy")
 	}
+}
+
+// MCP F1: a program that dies at start is reported in seconds, with its exit
+// code and the end of its log, not after the whole health wait.
+func TestCrashAtStartIsReportedFast(t *testing.T) {
+	e := setup(t)
+	e.Eng.CrashOnStart = ptr(1)
+	e.Eng.SetLogs("Traceback (most recent call last):\nIndexError: 4")
+	d := e.Publish(t)
+	if d.Status != "failed" || !strings.Contains(d.ErrorMessage, "parou com erro (código 1)") || strings.Contains(d.ErrorMessage, "0.0.0.0") {
+		t.Fatalf("%s %q", d.Status, d.ErrorMessage)
+	}
+	if !strings.Contains(d.BuildLog, "IndexError: 4") {
+		t.Fatalf("log without the traceback: %q", d.BuildLog)
+	}
+	if e.Eng.Running() != nil && len(e.Eng.Running()) != 0 {
+		t.Fatalf("running %v", e.Eng.Running())
+	}
+}
+
+func TestProgramThatEndsWithoutError(t *testing.T) {
+	e := setup(t)
+	e.Eng.CrashOnStart = ptr(0)
+	d := e.Publish(t)
+	if d.Status != "failed" || !strings.Contains(d.ErrorMessage, "terminou sozinho") {
+		t.Fatalf("%s %q", d.Status, d.ErrorMessage)
+	}
+}
+
+// The app's own secrets never reach the stored log.
+func TestFailureLogHidesSecrets(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	sealed, err := e.Vault().Seal("s3nha-do-banco")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.Q.UpsertAppConfig(ctx, sqlc.UpsertAppConfigParams{AppID: e.App.ID, Name: "API_KEY", IsSecret: true, ValueCipher: sealed}); err != nil {
+		t.Fatal(err)
+	}
+	e.Eng.CrashOnStart = ptr(1)
+	e.Eng.SetLogs("conectando com s3nha-do-banco\nerro")
+	d := e.Publish(t)
+	if strings.Contains(d.BuildLog, "s3nha-do-banco") || !strings.Contains(d.BuildLog, "conectando com ••••") {
+		t.Fatalf("%q", d.BuildLog)
+	}
+	if got := e.S.MaskSecrets(ctx, e.App.ID, "x s3nha-do-banco y"); got != "x •••• y" {
+		t.Fatalf("%q", got)
+	}
+}
+
+// While it builds, the deployment says which stage it is in; once done, nothing.
+type blockBuild struct {
+	*engine.Fake
+	in, out chan struct{}
+}
+
+func (b blockBuild) Build(ctx context.Context, spec engine.BuildSpec) (string, string, error) {
+	close(b.in)
+	<-b.out
+	return b.Fake.Build(ctx, spec)
+}
+
+func TestStageWhileBuilding(t *testing.T) {
+	ctx := context.Background()
+	e := setup(t)
+	b := blockBuild{Fake: e.Eng, in: make(chan struct{}), out: make(chan struct{})}
+	s := deploy.New(e.Q, b, e.DBs, e.Vault(), deploy.Options{DataDir: e.DataDir(), Domain: "localhost:8080", HealthTimeout: time.Second})
+	d, err := s.Publish(ctx, e.App, e.M, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	<-b.in
+	if st, ok := s.StageOf(d.ID); !ok || st.Name != deploy.StageBuild || st.Since.IsZero() {
+		t.Fatalf("stage %+v %v", st, ok)
+	}
+	close(b.out)
+	for i := 0; i < 200 && s.Busy(e.App.ID); i++ {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if st, ok := s.StageOf(d.ID); ok {
+		t.Fatalf("stage left after the end: %+v", st)
+	}
+	e.Eng.Close()
 }

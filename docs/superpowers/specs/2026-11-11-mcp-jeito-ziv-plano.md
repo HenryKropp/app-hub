@@ -37,6 +37,8 @@ A + B → D → C → E. Pouco código: mais texto, uma ferramenta nova, um test
 
 Uma mudança já pronta levou 6 versões (3→8) e ~20 chamadas para entrar no ar. Meta: 1 versão e ~3 passos. Estas frentes entram **antes** de A+B, porque custam tempo real hoje.
 
+**F0 — resultado (2026-11-11, ADR 034):** a hipótese estava errada. Não houve falta de memória nem reinício do Ziv, e os ECONNREFUSED nunca chegaram ao servidor: vieram da rede do PC. **F1 feita** no mesmo dia (falta `ver_app_no_ar`).
+
 **F0. Estabilidade (investigar primeiro).** ECONNREFUSED intermitente em ver_app, preparar_envio, enviar_chaves e no curl; conexão MCP caiu 2x. Hipótese: a VM e2-micro (1 GB) roda o Ziv e o app com tela (Chromium + Xvfb) juntos → falta de memória reinicia o Ziv. Conferir memória/OOM/reinícios na VM; limitar memória dos apps ou separar.
 
 **F1. Publicar sem ficar no escuro.**

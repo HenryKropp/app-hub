@@ -147,6 +147,16 @@ Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mc
 
 Plano aprovado em 2026-11-11, a construir: `docs/superpowers/specs/2026-11-11-mcp-jeito-ziv-plano.md`. A apresentação nova, a receita "como fazer app para o Ziv", o passo "adaptar" no registro, o jeito Ziv de falar (dicionário, respostas prontas, ficha padrão, guia de escolha) e o teste numa sessão nova.
 
+| Tarefa | Status | Notas |
+|---|---|---|
+| F0 Estabilidade | Done | 2026-11-11 (ADR 034). O servidor não caiu: memória sobrando, Ziv ligado sem reinício, e os ECONNREFUSED nunca chegaram ao servidor (rede do PC). Achados extras: Playwright no app com tela falha sem `libatomic` (receita automática sem navegador); imagens antigas iguais (mesmo ID, várias tags) não são apagadas (`rmi` por ID recusa) |
+| F1 Publicar sem ficar no escuro | Done | 2026-11-11 (ADR 034): o Ziv percebe em segundos que o programa morreu (código e tempo); falha traz o fim do log com senhas apagadas e diz se a anterior está de fato no ar; etapa e tempo enquanto publica; `ver_app` com `no_ar`/`versao_no_ar`/`ultima_publicacao`; ferramenta `ver_log_app`. **Falta:** deploy no servidor e teste do Henry |
+| Limpeza de imagens com várias tags | Pending | Apagar pela tag da implantação (`ImageTag(slug, id)`), não pelo ID, para não acumular disco |
+| F1 resto: `ver_app_no_ar` (GET como a pessoa) | Pending | Revisar segurança: só leitura, só apps que a pessoa vê |
+| F2 Chaves sem falso positivo | Pending | Ver plano |
+| F3a `problemas` | Pending | Lista única do que deu errado |
+| F4 Testar antes (como testar na ficha, ensaio no servidor) | Pending | Ver plano, adendo 3 |
+
 ### Etapa 1 — conectar, achar, rodar e publicar artifacts (ADR 021)
 
 | Tarefa | Status | Notas |

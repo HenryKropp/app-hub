@@ -261,6 +261,7 @@ func TestMCPRoutesListed(t *testing.T) {
 	for _, r := range [][2]string{
 		{"GET", "/api/apps/4/shared"}, {"PUT", "/api/apps/4/shared"}, {"GET", "/api/apps/4/shared/check"},
 		{"GET", "/api/apps/4/shared/config"}, {"POST", "/api/apps/4/shared/publish"}, {"GET", "/api/apps/4/shared/deployments/9"},
+		{"GET", "/api/apps/4/shared/logs"},
 	} {
 		if !mcpRouteAllowed(r[0], r[1]) {
 			t.Errorf("%s %s refused", r[0], r[1])
@@ -268,7 +269,7 @@ func TestMCPRoutesListed(t *testing.T) {
 	}
 	for _, r := range [][2]string{
 		{"PUT", "/api/apps/4"}, {"PUT", "/api/apps/4/shared/config"}, {"POST", "/api/apps/4/shared/rollback"},
-		{"POST", "/api/apps/4/shared/unshare"}, {"GET", "/api/apps/4/shared/logs"},
+		{"POST", "/api/apps/4/shared/unshare"}, {"GET", "/api/apps/4/shared/usage"},
 	} {
 		if mcpRouteAllowed(r[0], r[1]) {
 			t.Errorf("%s %s allowed", r[0], r[1])

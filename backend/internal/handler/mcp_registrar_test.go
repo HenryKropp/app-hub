@@ -470,7 +470,7 @@ func TestPublicarTelaErroMantemAnterior(t *testing.T) {
 	waitNotBusy(t, h, id)
 	sd.eng.BuildErr = errors.New("a montagem falhou")
 	res, text, out := publicar(t, s, map[string]any{"app_id": id})
-	if !res.IsError || out["situacao"] != "erro" || !strings.Contains(text, "a anterior continua no ar") || !strings.Contains(text, "Não foi possível montar o app") {
+	if !res.IsError || out["situacao"] != "erro" || !strings.Contains(text, "a versão 1 continua no ar") || out["no_ar"] != true || !strings.Contains(text, "Não foi possível montar o app") {
 		t.Fatalf("%v %q %+v", res.IsError, text, out)
 	}
 	var after int64
@@ -608,4 +608,97 @@ func TestRegistrarScriptKeysGoToVault(t *testing.T) {
 	if len(got.Keys) != 2 {
 		t.Fatalf("keys after update %+v", got)
 	}
+}
+
+// MCP F1: a program that dies at start comes back with the reason and the end
+// of its log, says it is not in the air, and ver_app / ver_log_app agree.
+func TestPublicarTelaCrashMostraLog(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	sd := withShared(t, h)
+	s := toolSession(t, c)
+	id := registrarTela(t, h, s, "")
+	code := 1
+	sd.eng.CrashOnStart = &code
+	sd.eng.SetLogs("Traceback (most recent call last):\n  File \"/app/config.py\", line 14\nIndexError: 4")
+	res, text, out := publicar(t, s, map[string]any{"app_id": id})
+	if !res.IsError || out["situacao"] != "erro" || out["no_ar"] != false ||
+		!strings.Contains(text, "A publicação da versão 1 falhou: O programa parou com erro (código 1)") ||
+		!strings.Contains(text, "O app não está no ar.") || !strings.Contains(text, "IndexError: 4") ||
+		!strings.Contains(text, "Não publique de novo sem mudar nada") || strings.Contains(text, "continua no ar") {
+		t.Fatalf("%v %q %+v", res.IsError, text, out)
+	}
+	if lg, _ := out["log"].(string); !strings.Contains(lg, "IndexError: 4") {
+		t.Fatalf("log %+v", out)
+	}
+
+	_, text, out = callTool(t, s, "ver_app", map[string]any{"id": id})
+	last, _ := out["ultima_publicacao"].(map[string]any)
+	if out["no_ar"] != false || last["situacao"] != "failed" || last["versao"] != float64(1) || out["versao_no_ar"] != nil {
+		t.Fatalf("ver_app %q %+v", text, out)
+	}
+
+	res, text, out = callTool(t, s, "ver_log_app", map[string]any{"app_id": id})
+	if res.IsError || out["origem"] != "ultima_publicacao" || !strings.Contains(text, "IndexError: 4") || !strings.Contains(text, "A última publicação (versão 1) falhou") {
+		t.Fatalf("ver_log_app %v %q %+v", res.IsError, text, out)
+	}
+
+	// Fixed: it goes up, and the tools now say so.
+	sd.eng.CrashOnStart = nil
+	sd.eng.SetLogs("Uvicorn running on 0.0.0.0:8501")
+	if _, text, out := publicar(t, s, map[string]any{"app_id": id}); out["situacao"] != "no_ar" || out["no_ar"] != true {
+		t.Fatalf("v1 again %q %+v", text, out)
+	}
+	_, text, out = callTool(t, s, "ver_app", map[string]any{"id": id})
+	if out["no_ar"] != true || out["versao_no_ar"] != float64(1) || !strings.HasPrefix(out["situacao_no_ar"].(string), "No ar (versão 1)") {
+		t.Fatalf("ver_app no ar %q %+v", text, out)
+	}
+	res, text, out = callTool(t, s, "ver_log_app", map[string]any{"app_id": id, "linhas": 5})
+	if res.IsError || out["origem"] != "app_no_ar" || !strings.Contains(text, "Uvicorn running") {
+		t.Fatalf("ver_log_app no ar %q %+v", text, out)
+	}
+}
+
+// The app's own secret values never reach Claude through the log.
+func TestVerLogAppEscondeSenhas(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	sd := withShared(t, h)
+	s := toolSession(t, c)
+	id := registrarTela(t, h, s, "import os\nkey = os.getenv('API_KEY')\n")
+	if _, err := testPool.Exec(context.Background(), "INSERT INTO app_config (app_id, name, is_secret, value_cipher) VALUES ($1, 'API_KEY', true, $2)",
+		id, mustSeal(t, h, "s3cr3t-valor")); err != nil {
+		t.Fatal(err)
+	}
+	sd.eng.SetLogs("usando a chave s3cr3t-valor")
+	if _, text, out := publicar(t, s, map[string]any{"app_id": id}); out["situacao"] != "no_ar" {
+		t.Fatalf("%q", text)
+	}
+	_, text, _ := callTool(t, s, "ver_log_app", map[string]any{"app_id": id})
+	if strings.Contains(text, "s3cr3t-valor") || !strings.Contains(text, "usando a chave ••••") {
+		t.Fatalf("%q", text)
+	}
+}
+
+func TestVerLogAppSoQuemCuida(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withShared(t, h)
+	id := registrarTela(t, h, toolSession(t, c), "")
+	createPersonAs(t, c, "Bia", "bia@alis.com", "usuario")
+	bia := c.fresh()
+	loginAs(t, bia, "bia@alis.com")
+	res, text, _ := callTool(t, toolSession(t, bia), "ver_log_app", map[string]any{"app_id": id})
+	if !res.IsError || strings.Contains(text, "Uvicorn") {
+		t.Fatalf("%q", text)
+	}
+}
+
+func mustSeal(t *testing.T, h *Handler, v string) []byte {
+	t.Helper()
+	b, err := h.shared.Vault.Seal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }
