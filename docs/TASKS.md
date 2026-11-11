@@ -143,6 +143,10 @@ Pedido do Henry: o objetivo é as pessoas pararem de rodar apps no PC e usarem p
 
 Desenho aprovado pelo Henry em 2026-11-04 (`docs/superpowers/specs/2026-11-04-mcp-design.md`). A ordem mudou: primeiro conectar, achar, rodar e publicar; depois registrar, criar e agendar.
 
+### Próximo — Claude entender e usar o Ziv ("jeito Ziv")
+
+Plano aprovado em 2026-11-11, a construir: `docs/superpowers/specs/2026-11-11-mcp-jeito-ziv-plano.md`. A apresentação nova, a receita "como fazer app para o Ziv", o passo "adaptar" no registro, o jeito Ziv de falar (dicionário, respostas prontas, ficha padrão, guia de escolha) e o teste numa sessão nova.
+
 ### Etapa 1 — conectar, achar, rodar e publicar artifacts (ADR 021)
 
 | Tarefa | Status | Notas |
