@@ -77,3 +77,21 @@ O Henry quer que o Claude veja direto no Ziv todos os logs e erros e reaja sozin
 3. Vigia automática (depois): uma rotina agendada do Claude (Claude Code/cloud) passa por `problemas` de tempos em tempos, diagnostica pelo log, prepara a correção e pede OK antes de mandar uma versão nova. Nunca publica sem a pessoa aprovar.
 
 Ordem: F3a junto com F1 (é a mesma coisa: entregar o log); F3b.1 junto com A; F3b.2 e F3b.3 depois de E.
+
+## Adendo 3 — testar tudo antes, do jeito de cada app (pedido do Henry, 2026-11-11)
+
+Cada app é diferente, então o teste não é um só. Ideia: **o próprio app diz como se testa**, e o Ziv roda esse teste igual para todos.
+
+**F4a. Ficha ganha "como testar"** (campo novo no manifesto, o Claude preenche ao registrar, a pessoa confere):
+- Script: entradas de exemplo + o que deve sair (ex.: "um .xlsx na pasta de saída", "termina sem erro em até 2 min").
+- App com tela: caminho de saúde (ex. `/saude` ou `/`) + um texto que deve aparecer na página.
+- App com janela / executável: abre e continua vivo por N segundos.
+- Agenda: o mesmo teste do script, rodado uma vez antes de ligar.
+
+**F4b. Antes de mandar (no PC, pelo Claude).** A receita/protocolo manda o Claude testar numa cópia limpa da pasta, como o servidor vê (pasta rasa, sem OneDrive, sem C:\, sem .env da pessoa), com as entradas de exemplo. Só registra se passar. Pegaria o `parents[4]` do feedback.
+
+**F4c. Ensaio no servidor antes de trocar.** Ao publicar um app com tela, o Ziv sobe a versão nova ao lado da que está no ar, roda o teste da ficha e **só troca se passar**. Se falhar, a antiga segue no ar (de verdade) e o Claude recebe o motivo + log (F1). Para script: botão/ferramenta "ensaiar" que roda com as entradas de exemplo sem contar como execução real.
+
+**F4d. Teste também depois.** A vigia (F3b.3) pode rodar o teste da ficha de tempos em tempos e virar um "problema" se falhar.
+
+Ordem: F4b entra com B (receita); F4a+F4c junto com F1 (publicação); F4d junto com a vigia.
