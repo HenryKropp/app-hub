@@ -40,12 +40,11 @@ const mockApp = (d: AppDetail) => {
 }
 const base = mockApp
 
-// The Cuidar face opens one section at a time from its menu (ADR 029).
-const openCare = async (section: string) => {
-  const nav = await screen.findByRole("navigation", { name: "Seções de cuidado" })
-  await userEvent.click(within(nav).getByRole("button", { name: new RegExp(`^${section}`) }))
+// The page shows one tab at a time (ADR 039).
+const openTab = async (name: string) => {
+  const tabs = await screen.findByRole("tablist", { name: "Partes do app" })
+  await userEvent.click(within(tabs).getByRole("tab", { name: new RegExp(`^${name}`) }))
 }
-const openUse = async () => userEvent.click(await screen.findByRole("tab", { name: "Usar" }))
 
 test("ficha shows before the folder check answers", async () => {
   base(detail())
@@ -63,7 +62,7 @@ test("check finding a new version updates the field and reloads history", async 
   vi.spyOn(api, "checkApp").mockImplementation(() => new Promise((r) => { answer = r }))
   renderAt()
   expect(await screen.findByText("versão 2")).toBeInTheDocument()
-  await openCare("Histórico")
+  await openTab("Histórico")
   await vi.waitFor(() => expect(api.history).toHaveBeenCalledTimes(1))
   act(() => answer({ folder_readable: true, version: { number: 3, created_at: "2026-10-01T15:00:00Z" } }))
   expect(await screen.findByText("versão 3")).toBeInTheDocument()
@@ -74,7 +73,7 @@ test("check with same version does not reload history", async () => {
   base(detail())
   const check = vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: true, version: { number: 2, created_at: "2026-09-30T10:00:00Z" } })
   renderAt()
-  await openCare("Histórico")
+  await openTab("Histórico")
   await vi.waitFor(() => expect(check).toHaveBeenCalled())
   await new Promise((r) => setTimeout(r, 50))
   expect(api.history).toHaveBeenCalledTimes(1)
@@ -160,7 +159,7 @@ test("shows the history timeline", async () => {
     more: false, next_before: "",
   })
   renderAt()
-  await openCare("Histórico")
+  await openTab("Histórico")
   expect(await screen.findByRole("link", { name: /Concluída/ })).toHaveAttribute("href", "/execucoes/7")
 })
 
@@ -174,13 +173,13 @@ test("ficha says once where inputs come from, shows 3 notes and the rest on requ
   base(d)
   vi.spyOn(api, "checkApp").mockResolvedValue({ folder_readable: true, version: null })
   renderAt()
-  await openCare("Ficha")
-  expect(await screen.findByText("Você preenche tudo na janela do app:")).toBeInTheDocument()
-  expect(screen.getByText("Nome da empresa")).toHaveTextContent(/^Nome da empresa$/)
-  await openCare("Código")
-  expect(screen.queryByText("n4")).not.toBeInTheDocument()
-  await user.click(screen.getByRole("button", { name: "Ver mais 2" }))
-  expect(screen.getByText("n5")).toBeInTheDocument()
+  await openTab("Documentação")
+  const doc = within(screen.getByRole("tabpanel"))
+  expect(await doc.findByText("Você preenche tudo na janela do app:")).toBeInTheDocument()
+  expect(doc.getByText("Nome da empresa")).toHaveTextContent(/^Nome da empresa$/)
+  expect(doc.queryByText("n4")).not.toBeInTheDocument()
+  await user.click(doc.getByRole("button", { name: "Ver mais 2" }))
+  expect(doc.getByText("n5")).toBeInTheDocument()
 })
 
 it("a colleague sees use and runs, no Editar and no technical block", async () => {
@@ -188,9 +187,10 @@ it("a colleague sees use and runs, no Editar and no technical block", async () =
   renderPage(bia)
   expect(await screen.findByText("O que ele pede")).toBeInTheDocument()
   expect(screen.queryByText("Editar")).toBeNull()
-  expect(screen.queryByRole("tab", { name: /Cuidar/ })).toBeNull()
-  expect(screen.queryByRole("navigation", { name: "Seções de cuidado" })).toBeNull()
-  expect(screen.getByText("Suas execuções")).toBeInTheDocument()
+  const tabs = within(screen.getByRole("tablist", { name: "Partes do app" })).getAllByRole("tab").map((t) => t.textContent)
+  expect(tabs).toEqual(["Início", "Execuções", "Documentação"])
+  expect(screen.getByRole("heading", { name: "Suas últimas execuções" })).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: /para resolver/ })).toBeNull()
 })
 
 it("saves one part and shows the new ficha", async () => {
@@ -198,14 +198,14 @@ it("saves one part and shows the new ficha", async () => {
   mockApp(d)
   const update = vi.spyOn(api, "updateApp").mockResolvedValue({ ...d, manifest: { ...d.manifest, outputs: [{ label: "Relatório", pattern: "*.pdf" }] }, updated_at: "2026-10-05T12:00:00Z" })
   renderPage(henry)
-  await openCare("Ficha")
+  await openTab("Documentação")
   await userEvent.click(await screen.findByRole("button", { name: "Editar O que ele entrega" }))
   const label = screen.getByLabelText("Descrição do resultado")
   await userEvent.clear(label)
   await userEvent.type(label, "Relatório")
   await userEvent.click(screen.getByRole("button", { name: "Salvar" }))
   expect(update).toHaveBeenCalledWith(d.id, expect.objectContaining({ updated_at: d.updated_at }))
-  expect(await screen.findByText("Relatório")).toBeInTheDocument()
+  expect(await within(screen.getByRole("tabpanel")).findByText("Relatório")).toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "Salvar" })).toBeNull()
 })
 
@@ -213,7 +213,7 @@ it("keeps the part open and offers reload on a conflict", async () => {
   mockApp(detail())
   vi.spyOn(api, "updateApp").mockRejectedValue(new ApiError(409, "Alguém mudou esta ficha agora há pouco. Recarregue para ver a versão nova."))
   renderPage(henry)
-  await openCare("Ficha")
+  await openTab("Documentação")
   await userEvent.click(await screen.findByRole("button", { name: "Editar O que ele entrega" }))
   await userEvent.click(screen.getByRole("button", { name: "Salvar" }))
   expect(await screen.findByRole("alert")).toHaveTextContent("Recarregue")
@@ -224,7 +224,7 @@ it("asks before discarding changes", async () => {
   mockApp(detail())
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(false)
   renderPage(henry)
-  await openCare("Ficha")
+  await openTab("Documentação")
   await userEvent.click(await screen.findByRole("button", { name: "Editar O que ele entrega" }))
   await userEvent.type(screen.getByLabelText("Descrição do resultado"), "x")
   await userEvent.click(screen.getByRole("button", { name: "Cancelar" }))
@@ -241,7 +241,7 @@ it("shows a lost app as not found", async () => {
 it("links other apps and marks the unknown ones", async () => {
   mockApp(detail({ depends_on_apps: [{ id: 7, slug: "files-prep", name: "Files Prep", visible: true }, { id: 0, slug: "sumiu", name: "sumiu", visible: false }], used_by: [] }))
   renderPage(henry)
-  await openCare("Código")
+  await openTab("Documentação")
   expect(screen.getByRole("link", { name: "Files Prep" })).toHaveAttribute("href", "/apps/7")
   expect(screen.getByText(/sumiu · fora do catálogo/)).toBeInTheDocument()
 })
@@ -250,7 +250,7 @@ it("asks before opening another part over unsaved changes", async () => {
   mockApp(detail())
   const confirm = vi.spyOn(window, "confirm").mockReturnValue(false)
   renderPage(henry)
-  await openCare("Ficha")
+  await openTab("Documentação")
   await userEvent.click(await screen.findByRole("button", { name: "Editar O que ele entrega" }))
   await userEvent.type(screen.getByLabelText("Descrição do resultado"), "x")
   await userEvent.click(screen.getByRole("button", { name: "Editar O que ele pede" }))
@@ -263,7 +263,6 @@ it("shows choice options in one line", async () => {
   d.manifest = { ...d.manifest, inputs: [{ id: "docs", label: "Documentos", type: "choice", source: "window", options: ["FRE", "ITR"], multiple: true, required: true }] }
   mockApp(d)
   renderPage(henry)
-  await openUse()
   expect(await screen.findByText(/FRE · ITR/)).toHaveTextContent("FRE · ITR (pode marcar mais de uma)")
 })
 
@@ -273,41 +272,39 @@ it("lists the last runs with a link to each", async () => {
     { id: 11, status: "done", person_name: "Bia", created_at: "2026-10-01T10:00:00Z", started_at: null, finished_at: null, file_count: 4 },
   ])
   renderPage(henry)
-  await openUse()
-  expect(await screen.findByRole("heading", { name: "Execuções" })).toBeInTheDocument()
+  expect(await screen.findByRole("heading", { name: "Últimas execuções" })).toBeInTheDocument()
   expect(await screen.findByRole("link", { name: /4 arquivos/ })).toHaveAttribute("href", "/execucoes/11")
   expect(screen.getByText(/Bia/)).toBeInTheDocument()
 })
 
-it("who takes care starts on Cuidar with the pendências and can switch to Usar", async () => {
+it("who takes care starts on Início with what to resolve, the last runs and the ficha, read-only", async () => {
   mockApp(detail())
   renderPage(henry)
-  expect(await screen.findByRole("tab", { name: /Cuidar/ })).toHaveAttribute("aria-selected", "true")
-  expect(screen.getByRole("list", { name: "Etapas do app" })).toHaveTextContent("Com reserva")
+  expect(await screen.findByRole("tab", { name: /^Início/ })).toHaveAttribute("aria-selected", "true")
+  expect(screen.getByRole("button", { name: /coisas? para resolver/ })).toBeInTheDocument()
   expect(screen.getByText("Escolher uma reserva")).toBeInTheDocument()
-  expect(screen.queryByRole("heading", { name: "Execuções" })).toBeNull()
-  await openUse()
+  expect(screen.getByRole("heading", { name: "Últimas execuções" })).toBeInTheDocument()
   expect(screen.getByRole("heading", { name: "O que ele entrega" })).toBeInTheDocument()
   expect(screen.queryByRole("button", { name: /^Editar O que/ })).toBeNull()
 })
 
-it("Escolher in the pendências opens Quem cuida for editing in the Ficha", async () => {
+it("Escolher in Para resolver opens Quem cuida for editing in Documentação", async () => {
   mockApp(detail())
   renderPage(henry)
   await userEvent.click(await screen.findByRole("button", { name: "Escolher" }))
-  expect(within(screen.getByRole("region", { name: "Ficha" })).getByRole("button", { name: "Salvar" })).toBeInTheDocument()
+  expect(within(screen.getByRole("tabpanel", { name: "Documentação" })).getByRole("button", { name: "Salvar" })).toBeInTheDocument()
 })
 
-it("an app waiting approval counts as a pendência and is approved there", async () => {
+it("an app waiting approval says so next to the name and is approved on Início", async () => {
   const d = detail({ backup_id: 2, manifest: { ...detail().manifest, backup: { id: 2, name: "Bia", email: "bia@x.com" }, summary: "Faz algo." } as AppDetail["manifest"], control: { require_approval: true, approved: false, suspended: false, can_manage: true } as AppDetail["control"] })
   mockApp(d)
   const set = vi.spyOn(api, "setAppControl").mockResolvedValue({ ...d.control!, approved: true })
   renderPage(henry)
-  expect(await screen.findByRole("tab", { name: /^Cuidar.*1 pendência$/ })).toBeInTheDocument()
-  expect(screen.getByRole("list", { name: "Etapas do app" })).toHaveTextContent("esperando você")
+  expect(await screen.findByRole("button", { name: "Esperando aprovação" })).toBeInTheDocument()
   await userEvent.click(screen.getByRole("button", { name: "Aprovar" }))
   expect(set).toHaveBeenCalledWith(3, { approved: true, suspended: false })
-  expect(await screen.findByText("Tudo em dia. Nada pendente neste app.")).toBeInTheDocument()
+  expect(await screen.findByRole("tablist", { name: "Partes do app" })).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Esperando aprovação" })).toBeNull()
 })
 
 it("saves with the version the edit started from, so a change in between gets the conflict", async () => {
@@ -324,15 +321,15 @@ it("saves with the version the edit started from, so a change in between gets th
   vi.spyOn(api, "describeVersion").mockResolvedValue({} as never)
   const update = vi.spyOn(api, "updateApp").mockRejectedValue(new ApiError(409, "Alguém mudou esta ficha agora há pouco. Recarregue para ver a versão nova."))
   renderPage(henry)
-  await openCare("Ficha")
+  await openTab("Documentação")
   await userEvent.click(await screen.findByRole("button", { name: "Editar O que ele entrega" }))
   // While the part is open, the version gets a description in the history: the app reloads.
-  await openCare("Histórico")
+  await openTab("Histórico")
   await userEvent.click(await screen.findByRole("button", { name: "Descrever" }))
   await userEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Salvar" }))
   await vi.waitFor(() => expect(api.app).toHaveBeenCalledTimes(2))
   await vi.waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
-  await openCare("Ficha")
+  await openTab("Documentação")
   await userEvent.click(screen.getByRole("button", { name: "Salvar" }))
   expect(update).toHaveBeenCalledWith(d.id, expect.objectContaining({ updated_at: d.updated_at }))
   expect(await screen.findByRole("button", { name: "Recarregar" })).toBeInTheDocument()
@@ -344,7 +341,7 @@ it("shows Recarregar only for a conflict or a lost app, not for something missin
   mockApp(d)
   const update = vi.spyOn(api, "updateApp")
   renderPage(henry)
-  await openCare("Ficha")
+  await openTab("Documentação")
   await userEvent.click(await screen.findByRole("button", { name: "Editar O que ele pede" }))
   await userEvent.click(screen.getByRole("button", { name: "Salvar" }))
   expect(await screen.findByRole("alert")).toHaveTextContent('Falta definir as opções de "Documentos".')
@@ -356,7 +353,7 @@ it("an app lost while open: save says not found, Recarregar shows it and offers 
   mockApp(detail())
   vi.spyOn(api, "updateApp").mockRejectedValue(new ApiError(404, "App não encontrado."))
   renderPage(bia)
-  await openCare("Ficha")
+  await openTab("Documentação")
   await userEvent.click(await screen.findByRole("button", { name: "Editar O que ele entrega" }))
   await userEvent.click(screen.getByRole("button", { name: "Salvar" }))
   expect(await screen.findByRole("alert")).toHaveTextContent("App não encontrado.")
@@ -371,7 +368,7 @@ it("tries the editor lists again after they failed", async () => {
   mockApp(detail())
   vi.mocked(api.people).mockRejectedValueOnce(new ApiError(0, "offline")).mockResolvedValue([])
   renderPage(henry)
-  await openCare("Ficha")
+  await openTab("Documentação")
   await userEvent.click(await screen.findByRole("button", { name: "Editar Quem cuida" }))
   await vi.waitFor(() => expect(api.people).toHaveBeenCalledTimes(1))
   await userEvent.click(screen.getByRole("button", { name: "Cancelar" }))
@@ -387,7 +384,7 @@ it("following another app's link loads that app fresh", async () => {
   renderPage(henry)
   await screen.findByRole("heading", { name: "Eq. Research Files Prep" })
   vi.mocked(api.app).mockImplementation(() => new Promise((r) => { answer = r }))
-  await openCare("Código")
+  await openTab("Documentação")
   await userEvent.click(screen.getByRole("link", { name: "Files Prep" }))
   expect(await screen.findByText("Carregando…")).toBeInTheDocument()
   expect(screen.queryByRole("heading", { name: "Eq. Research Files Prep" })).toBeNull()
@@ -399,7 +396,7 @@ it("an editor without access control cannot change who cares for the app nor its
   mockApp(detail({ can: { ...VIEW_ONLY, edit: true, tech: true } }))
   vi.mocked(api.areas).mockResolvedValue([{ id: 1, name: "Research", app_count: 1, leaders: [], members: [] }])
   renderPage(bia)
-  await openCare("Ficha")
+  await openTab("Documentação")
   expect(screen.getByRole("heading", { name: "Quem cuida" })).toBeInTheDocument()
   expect(screen.queryByRole("button", { name: "Editar Quem cuida" })).toBeNull()
   await userEvent.click(screen.getByRole("button", { name: "Editar Sobre" }))
@@ -411,7 +408,7 @@ it("an editor without access control cannot change who cares for the app nor its
 it("someone who cares for the app's access changes who cares and the area", async () => {
   mockApp(detail())
   renderPage(henry)
-  await openCare("Ficha")
+  await openTab("Documentação")
   expect(await screen.findByRole("button", { name: "Editar Quem cuida" })).toBeInTheDocument()
   await userEvent.click(screen.getByRole("button", { name: "Editar Sobre" }))
   expect(within(screen.getByRole("group", { name: "Sobre" })).getByLabelText(/Área/)).toBeInTheDocument()
@@ -421,7 +418,7 @@ it("offers Tornar compartilhado on a web app to who takes care, not to others", 
   const web = detail({ manifest: { ...detail().manifest, kind: "web" } })
   base(web)
   const { unmount } = renderPage()
-  await openCare("Servidor")
+  await openTab("Servidor")
   expect(await screen.findByRole("button", { name: "Tornar compartilhado" })).toBeInTheDocument()
   expect(screen.getByText("Fica num endereço só, para várias pessoas usarem ao mesmo tempo, com os dados guardados no Ziv.")).toBeInTheDocument()
   unmount()
@@ -440,7 +437,7 @@ it("Tornar compartilhado saves the defaults and shows the shared part", async ()
   vi.spyOn(api.shared, "get").mockResolvedValue({ shared: { status: "draft", status_message: "", stopped_by: "", always_on: false, idle_minutes: 30, memory_mb: 512, cpus: 1, wants_db: false, url: "", acks: [], has_previous: false }, deployments: [] })
   const check = vi.spyOn(api.shared, "check").mockResolvedValue({ ready: true, recipe: { kind: "flask", command: "", dockerfile: "", port: 0, needs_confirm: false, requirements: null }, wants_db: false, suggest_env: [], items: [] })
   renderPage()
-  await openCare("Servidor")
+  await openTab("Servidor")
   await user.click(await screen.findByRole("button", { name: "Tornar compartilhado" }))
   expect(save).toHaveBeenCalledWith(3, expect.objectContaining({ enabled: true, memory_mb: 512, cpus: 1, idle_minutes: 30, database: "", updated_at: web.updated_at }))
   expect(await screen.findByText("Tudo certo para publicar.")).toBeInTheDocument()
@@ -466,7 +463,7 @@ it("says what to do when the ficha does not reload after a shared change", async
   vi.spyOn(api.shared, "stop").mockResolvedValue({})
   const err = vi.spyOn(toast, "error")
   renderPage()
-  await openCare("Servidor")
+  await openTab("Servidor")
   await user.click(await screen.findByRole("button", { name: "Parar" }))
   await user.click(screen.getByRole("button", { name: "Sim, parar" }))
   await vi.waitFor(() => expect(err).toHaveBeenCalledWith("Não consegui atualizar a ficha. Recarregue a página para ver o estado novo."))
@@ -480,15 +477,15 @@ test("the back link goes to /apps and the title has a star", async () => {
   expect(screen.getByRole("button", { name: "Tirar Eq. Research Files Prep dos favoritos" })).toHaveAttribute("aria-pressed", "true")
 })
 
-test("a screen app has Configurações right below Ficha and opens on the computer", async () => {
+test("a screen app has Configurações right after Documentação and opens on the computer", async () => {
   base(detail({ manifest: manifest({ kind: "web", name: "Notícias" }) }))
   renderAt()
-  expect(await screen.findByRole("button", { name: "Abrir no computador" })).toBeInTheDocument()
-  const nav = await screen.findByRole("navigation", { name: "Seções de cuidado" })
-  const labels = within(nav).getAllByRole("button").map((b) => b.textContent)
-  expect(labels.indexOf("Configurações")).toBe(labels.indexOf("Ficha") + 1)
-  expect(within(nav).queryByRole("button", { name: /Cofre/ })).not.toBeInTheDocument()
-  await openCare("Configurações")
+  expect(await screen.findByRole("button", { name: "Abrir" })).toBeInTheDocument()
+  const tabs = within(await screen.findByRole("tablist", { name: "Partes do app" }))
+  const labels = tabs.getAllByRole("tab").map((b) => b.textContent)
+  expect(labels.indexOf("Configurações")).toBe(labels.indexOf("Documentação") + 1)
+  expect(tabs.queryByRole("tab", { name: /Cofre/ })).not.toBeInTheDocument()
+  await openTab("Configurações")
   expect(await screen.findByRole("heading", { name: "Chaves e senhas" })).toBeInTheDocument()
   expect(screen.getByRole("heading", { name: "Outros ajustes" })).toBeInTheDocument()
   expect(screen.getByText(/no seu computador e na versão ligada no servidor/)).toBeInTheDocument()
@@ -503,10 +500,24 @@ test("Pendências points to Configurações when a required value is empty", asy
   expect(await screen.findByRole("heading", { name: "Chaves e senhas" })).toBeInTheDocument()
 })
 
-test("a screen app on the server opens there, and also on the computer", async () => {
+test("a screen app on the server opens there; testing on the computer is under Mais, explained", async () => {
   base(detail({ manifest: manifest({ kind: "web", name: "Notícias" }), shared: { status: "running", url: "http://noticias.localhost", slug: "noticias" } as AppDetail["shared"] }))
   vi.spyOn(api.shared, "get").mockReturnValue(new Promise(() => {})) // the Compartilhar part is tested elsewhere
   renderAt()
   expect((await screen.findAllByRole("link", { name: /Abrir/ })).length).toBeGreaterThan(0)
-  expect(screen.getByRole("button", { name: "No meu computador" })).toBeInTheDocument()
+  // Things to resolve come first; with none, the pill says "No ar".
+  expect(screen.getByRole("button", { name: /para resolver/ })).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "No meu computador" })).toBeNull()
+  await userEvent.click(screen.getByRole("button", { name: /^Mais/ }))
+  const item = await screen.findByRole("menuitem", { name: /Testar no meu computador/ })
+  expect(item).toHaveTextContent("Roda a cópia da sua pasta, para testar antes de publicar.")
+})
+
+test("with nothing to resolve, the pill next to the name says the app is up and leads to Servidor", async () => {
+  const m = manifest({ kind: "web", name: "Notícias", summary: "Lê as notícias.", backup: { id: 2, name: "Bia", email: "bia@x.com" }, outputs: [{ label: "Resumo", pattern: "*.pdf" }] })
+  base(detail({ backup_id: 2, manifest: m, shared: { status: "running", url: "http://noticias.localhost", slug: "noticias" } as AppDetail["shared"] }))
+  vi.spyOn(api.shared, "get").mockReturnValue(new Promise(() => {}))
+  renderAt()
+  await userEvent.click(await screen.findByRole("button", { name: "No ar" }))
+  expect(screen.getByRole("tab", { name: "Servidor" })).toHaveAttribute("aria-selected", "true")
 })

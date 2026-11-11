@@ -8,7 +8,7 @@ import { RunsProvider } from "@/lib/runs-context"
 import { ALL_CAN, bia, detail, henry } from "@/test/fixtures"
 import { AppPage } from "./AppPage"
 
-// Execuções in the Cuidar face (ADR 033).
+// The Execuções tab (ADR 033, ADR 039).
 
 const NOW = new Date("2026-11-09T12:03:12Z")
 
@@ -49,12 +49,12 @@ const mount = (d: AppDetail, runs: RunSummary[], person: Person = henry) => {
 }
 
 const openRuns = async () => {
-  const nav = await screen.findByRole("navigation", { name: "Seções de cuidado" })
-  await userEvent.click(within(nav).getByRole("button", { name: /^Execuções/ }))
-  return screen.getByRole("region", { name: "Execuções" })
+  const tabs = await screen.findByRole("tablist", { name: "Partes do app" })
+  await userEvent.click(within(tabs).getByRole("tab", { name: /^Execuções/ }))
+  return screen.getByRole("tabpanel", { name: "Execuções" })
 }
 
-test("the Cuidar face has Execuções: running on top with a ticking timer, then the recent ones", async () => {
+test("the Execuções tab has running on top with a ticking timer, then the recent ones", async () => {
   mount(detail(), [
     summary({ id: 12, status: "running", person_name: "Ana", started_at: "2026-11-09T12:00:00Z", finished_at: null, file_count: 0 }),
     summary({}),
@@ -85,9 +85,8 @@ test("without seeing everyone's runs the tab is about your own, with no Quem col
   expect(within(region).queryByRole("heading", { name: "Rodando agora" })).toBeNull()
 })
 
-test("the Usar face keeps its list", async () => {
+test("Início shows the last runs with Ver todas", async () => {
   mount(detail(), [summary({})])
-  await userEvent.click(await screen.findByRole("tab", { name: "Usar" }))
-  expect(await screen.findByRole("heading", { name: "Execuções" })).toBeInTheDocument()
+  expect(await screen.findByRole("heading", { name: "Últimas execuções" })).toBeInTheDocument()
   expect(await screen.findByRole("link", { name: /4 arquivos/ })).toHaveAttribute("href", "/execucoes/11")
 })
