@@ -160,3 +160,26 @@ func TestPublishWhenOff(t *testing.T) {
 		t.Fatal(deploy.ErrSharedOff)
 	}
 }
+
+// An app with the browser gets the browser's memory even where the company's
+// cap per app is lower, and even when it had less before.
+func TestBrowserAppGetsBrowserMemory(t *testing.T) {
+	e := setup(t)
+	s := e.NewTenantService(company, "", 0, 256)
+	app := e.App
+	app.FolderPath = t.TempDir()
+	deploytest.CopyDir(t, deploytest.Testdata("playwright-py"), app.FolderPath)
+	m := e.M
+	for _, mem := range []int{0, 256} {
+		m.Shared = &manifest.Shared{Enabled: true, MemoryMB: mem}
+		sa, err := s.Configure(context.Background(), app, m)
+		if err != nil || sa.MemoryMb != 512 {
+			t.Fatalf("memory %d: got %d, %v", mem, sa.MemoryMb, err)
+		}
+	}
+	m.Shared = &manifest.Shared{Enabled: true, MemoryMB: 1024}
+	var le *deploy.LimitError
+	if _, err := s.Configure(context.Background(), app, m); !errors.As(err, &le) || !strings.Contains(le.Error(), "512 MB") {
+		t.Fatal(err)
+	}
+}

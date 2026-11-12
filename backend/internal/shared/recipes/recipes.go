@@ -31,7 +31,15 @@ type Recipe struct {
 	NeedsConfirm bool              `json:"needs_confirm"`
 	ExtraFiles   map[string]string `json:"-"`
 	Requirements []string          `json:"requirements"`
+	// Browser: the recipe brings Playwright's Chromium, its system libraries
+	// and Xvfb (a virtual screen), because the Python app uses Playwright.
+	Browser bool `json:"browser"`
 }
+
+// BrowserMemoryMB is what a screen app with the browser gets by default, and
+// may use even where the company's cap per app is lower: Chromium does not
+// run in less.
+const BrowserMemoryMB = 512
 
 var (
 	exposeRe   = regexp.MustCompile(`(?mi)^\s*EXPOSE\s+(\d+)`)
@@ -175,7 +183,7 @@ func cmdLine(command string) string {
 }
 
 func pyBase(s manifest.Shared, f files, reqText string, imports map[string]bool) Recipe {
-	r := Recipe{ExtraFiles: map[string]string{}}
+	r := Recipe{ExtraFiles: map[string]string{}, Browser: usesPlaywright(reqText, imports)}
 	if strings.TrimSpace(reqText) == "" {
 		local := map[string]bool{}
 		for _, p := range f.list {
@@ -198,6 +206,10 @@ func pyBase(s manifest.Shared, f files, reqText string, imports map[string]bool)
 		sort.Strings(r.Requirements)
 		r.ExtraFiles["requirements.txt"] = strings.Join(r.Requirements, "\n") + "\n"
 	}
+	if r.Browser {
+		r.Dockerfile = fmt.Sprintf(browserBase, s.Python)
+		return r
+	}
 	r.Dockerfile = fmt.Sprintf(`FROM docker.io/library/python:%s-slim
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1
@@ -206,6 +218,38 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 `, s.Python)
 	return r
+}
+
+// browserBase is the Python recipe with Playwright's Chromium. Bookworm,
+// because Playwright installs the system libraries only on the Debian
+// versions it supports. The browser layer comes before the app's own
+// libraries and does not depend on them, so every app with the browser shares
+// it on disk (the build reuses an identical step). After the app's
+// libraries, "playwright install chromium" does nothing when the version is
+// the same, and fetches the matching browser when the app pins another one.
+// Xvfb is the virtual screen for sites that block the invisible browser; the
+// app starts it itself when it wants it. libatomic1 comes first: Playwright's
+// own driver does not start without it.
+const browserBase = `FROM docker.io/library/python:%s-slim-bookworm
+WORKDIR /app
+ENV PYTHONUNBUFFERED=1 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libatomic1 xvfb xauth \
+ && pip install --no-cache-dir playwright \
+ && python -m playwright install --with-deps chromium \
+ && rm -rf /var/lib/apt/lists/*
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+RUN python -m playwright install chromium
+COPY . .
+`
+
+var reqPlaywrightRe = regexp.MustCompile(`(?mi)^\s*playwright\b`)
+
+// usesPlaywright: the Python app lists Playwright in requirements.txt or
+// imports it.
+func usesPlaywright(reqText string, imports map[string]bool) bool {
+	return imports["playwright"] || reqPlaywrightRe.MatchString(reqText)
 }
 
 func nodeRecipe(s manifest.Shared, lock bool) Recipe {

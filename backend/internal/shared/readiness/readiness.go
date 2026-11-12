@@ -193,7 +193,10 @@ func Check(src versions.Folder, m manifest.Manifest, secrets []scanner.SecretFin
 	}
 
 	// O que não cabe na caixa
-	if len(browser) > 0 && rec.Kind != "dockerfile" {
+	if len(browser) > 0 && rec.Browser {
+		add(Item{Key: "container_limits", Title: "Navegador", Status: "ok",
+			Detail: "O app usa o Playwright: o Ziv monta o app com o Chromium e uma tela virtual (Xvfb). Ele recebe pelo menos 512 MB de memória."})
+	} else if len(browser) > 0 && rec.Kind != "dockerfile" {
 		add(Item{Key: "container_limits", Title: "Recurso que não vem na receita", Status: "warn",
 			Detail:     "O app chama um navegador automático (" + where(browser) + "), usado por exemplo para gerar PDF. A receita automática não traz navegador; essa parte não vai funcionar no servidor.",
 			ClaudeText: "Este app vai rodar num contêiner Linux sem navegador. Escreva um Dockerfile que instale o que " + where(browser) + " precisa (Node, Playwright e o Chromium com as dependências do sistema), ou troque a geração de PDF por uma biblioteca Python que não precise de navegador."})

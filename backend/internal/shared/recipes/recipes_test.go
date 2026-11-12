@@ -195,3 +195,27 @@ func TestLocalStart(t *testing.T) {
 		}
 	}
 }
+
+func TestPythonPlaywrightBringsBrowser(t *testing.T) {
+	r := detect(t, "playwright-py", manifest.Manifest{Entrypoint: "app.py"})
+	if r.Kind != "streamlit" || !r.Browser {
+		t.Fatalf("%+v", r)
+	}
+	for _, want := range []string{"python:3.12-slim-bookworm", "PLAYWRIGHT_BROWSERS_PATH=/ms-playwright",
+		"playwright install --with-deps chromium", "xvfb", "libatomic1", "streamlit run app.py"} {
+		if !strings.Contains(r.Dockerfile, want) {
+			t.Errorf("missing %q in\n%s", want, r.Dockerfile)
+		}
+	}
+	// the shared browser step comes before the app's own libraries
+	if strings.Index(r.Dockerfile, "--with-deps") > strings.Index(r.Dockerfile, "-r requirements.txt") {
+		t.Error(r.Dockerfile)
+	}
+	if s := detect(t, "streamlit", manifest.Manifest{Entrypoint: "app.py"}); s.Browser || strings.Contains(s.Dockerfile, "playwright") {
+		t.Fatalf("%+v", s)
+	}
+	// Node's Playwright, called from Python, is not in the recipe
+	if n := detect(t, "playwright", manifest.Manifest{Entrypoint: "app.py"}); n.Browser {
+		t.Fatalf("%+v", n)
+	}
+}
