@@ -160,3 +160,10 @@ func TestWinPathRegexForms(t *testing.T) {
 		}
 	}
 }
+
+func TestPythonPlaywrightIsInRecipe(t *testing.T) {
+	r := check(t, "playwright-py", manifest.Manifest{Entrypoint: "app.py"}, nil)
+	if it := item(r, "container_limits"); it.Status != "ok" || !r.Ready {
+		t.Fatalf("%+v", r)
+	}
+}

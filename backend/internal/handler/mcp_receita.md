@@ -29,7 +29,7 @@ Na dúvida entre app e app com tela: se a pessoa só precisa do resultado, é ap
 ## 3. Onde roda
 
 - **App (script):** no computador de quem roda, pelo Agente do Ziv, numa cópia da pasta do app. Tempo máximo: 15 minutos. As chaves do cofre chegam no ambiente só dessa execução.
-- **App com tela:** no servidor do Ziv, Python 3.12 (ou Node), código em `/app`, dependências do `requirements.txt` (ou `package.json`). Comando típico: `streamlit run app.py`, `uvicorn pacote.main:app` ou `gunicorn` (Flask). A porta vem em `PORT`. Não há OneDrive, `C:\` nem a pasta pessoal de ninguém. Um navegador (Playwright, Selenium) não vem pronto: avise a pessoa antes de usar.
+- **App com tela:** no servidor do Ziv, Python 3.12 (ou Node), código em `/app`, dependências do `requirements.txt` (ou `package.json`). Comando típico: `streamlit run app.py`, `uvicorn pacote.main:app` ou `gunicorn` (Flask). A porta vem em `PORT`. Não há OneDrive, `C:\` nem a pasta pessoal de ninguém. Playwright em Python vem pronto: com `playwright` no `requirements.txt` (ou importado), o Ziv monta o app com o Chromium, as bibliotecas dele e uma tela virtual (Xvfb; o app liga com `Xvfb :99` e `DISPLAY=:99` quando o site bloqueia o navegador invisível) e dá ao app pelo menos 512 MB. Não instale o navegador no código do app. Outros navegadores (Selenium, Puppeteer, Playwright em Node) não vêm prontos: avise a pessoa antes de usar.
 
 ## 4. Testar antes de mandar
 

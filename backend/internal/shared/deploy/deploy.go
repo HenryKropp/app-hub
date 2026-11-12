@@ -224,11 +224,23 @@ func (s *Service) Configure(ctx context.Context, app sqlc.App, m manifest.Manife
 	}
 	unset := sh.MemoryMB == 0
 	sh = sh.WithDefaults()
-	if unset && s.opt.MaxMemoryMB > 0 && sh.MemoryMB > s.opt.MaxMemoryMB { // the default fits the company's cap
-		sh.MemoryMB = s.opt.MaxMemoryMB
+	limit := s.opt.MaxMemoryMB
+	// An app with the browser gets at least the browser's memory: Chromium
+	// does not run in less, whatever was set before or the company's cap per
+	// app (publishing through the MCP sends the memory the app already had).
+	if rec, err := recipes.Detect(versions.LocalFolder{Root: app.FolderPath}, m); err == nil && rec.Browser {
+		if sh.MemoryMB < recipes.BrowserMemoryMB {
+			sh.MemoryMB = recipes.BrowserMemoryMB
+		}
+		if limit > 0 && limit < recipes.BrowserMemoryMB {
+			limit = recipes.BrowserMemoryMB
+		}
 	}
-	if s.opt.MaxMemoryMB > 0 && sh.MemoryMB > s.opt.MaxMemoryMB {
-		return sqlc.SharedApp{}, &LimitError{Msg: fmt.Sprintf("Nesta empresa cada app com tela pode usar até %d MB de memória. Diminua a memória do app e tente de novo.", s.opt.MaxMemoryMB)}
+	if unset && limit > 0 && sh.MemoryMB > limit { // the default fits the company's cap
+		sh.MemoryMB = limit
+	}
+	if limit > 0 && sh.MemoryMB > limit {
+		return sqlc.SharedApp{}, &LimitError{Msg: fmt.Sprintf("Nesta empresa cada app com tela pode usar até %d MB de memória. Diminua a memória do app e tente de novo.", limit)}
 	}
 	return s.q.UpsertSharedApp(ctx, sqlc.UpsertSharedAppParams{
 		AppID: app.ID, Slug: slug, AlwaysOn: sh.AlwaysOn, IdleMinutes: int32(sh.IdleMin), MemoryMb: int32(sh.MemoryMB),

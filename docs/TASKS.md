@@ -486,3 +486,15 @@ Plano aprovado em 2026-11-11, a construir: `docs/superpowers/specs/2026-11-11-mc
 | Página da execução: o que foi preenchido, tempo correndo e registro do app | Done | Valores com cara de senha não são guardados |
 | Publicado em zivapp.duckdns.org | Done | 2026-11-09 |
 | Teste do Henry no Ziv publicado | Pending | |
+
+## Navegador na receita automática (2026-11-12, ADR 040)
+
+| Tarefa | Status | Notas |
+|---|---|---|
+| Receita Python com Playwright traz Chromium, bibliotecas, Xvfb e libatomic1 | Done | Base bookworm; passo do navegador compartilhado entre apps; montado de verdade e o Chromium abriu com janela em 512 MB |
+| App com navegador recebe pelo menos 512 MB, mesmo com teto da empresa menor | Done | |
+| Checagem antes de publicar: "Navegador ok" no lugar do aviso | Done | Selenium, Puppeteer e Playwright em Node ainda avisam |
+| Guia do MCP: Playwright em Python vem pronto | Done | |
+| Memória somada no servidor: 512 → 768 MB (`SHARED_APPS_MEMORY_BUDGET_MB`) | Done | Um app com navegador + um app comum |
+| Publicar no zivapp e republicar o app de relatórios (BTG/BBA) | Pending | O app deve parar de instalar o navegador sozinho |
+| Playwright em Node e Selenium | Pending | Depois |
