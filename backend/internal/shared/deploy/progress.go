@@ -60,7 +60,7 @@ var pollEvery = 500 * time.Millisecond
 func (s *Service) waitUp(ctx context.Context, cid string, port int, healthPath, checkText string) *failure {
 	start := s.now()
 	deadline := time.Now().Add(s.opt.HealthTimeout)
-	answered := false
+	answered, slow := false, false
 	for {
 		st, err := s.eng.Inspect(ctx, cid)
 		if err == nil && st.Exists && !st.Running {
@@ -68,8 +68,12 @@ func (s *Service) waitUp(ctx context.Context, cid string, port int, healthPath, 
 		}
 		if err == nil && st.HostPort != 0 {
 			url := fmt.Sprintf("http://127.0.0.1:%d%s", st.HostPort, healthPath)
-			if checkText == "" && health.Check(ctx, url) {
-				return nil
+			if checkText == "" {
+				ok, late := health.Probe(ctx, url)
+				if ok {
+					return nil
+				}
+				slow = slow || late
 			}
 			if checkText != "" {
 				if body, ok := health.Page(ctx, url); ok {
@@ -86,6 +90,11 @@ func (s *Service) waitUp(ctx context.Context, cid string, port int, healthPath, 
 				return &failure{msg: fmt.Sprintf("A versão nova abriu, mas a página %s não mostra o texto esperado %q. "+
 					"Confira o texto a conferir na ficha ou o que a página mostra (o Ziv lê a página sem rodar o JavaScript).",
 					healthPath, checkText), log: logs}
+			}
+			if slow {
+				return &failure{msg: fmt.Sprintf("O programa ligou, mas a página %s demorou mais de %s para responder. "+
+					"Deixe a página inicial mais leve (o trabalho pesado pode rodar depois que ela abre).",
+					healthPath, seconds(health.AnswerTimeout)), log: logs}
 			}
 			return &failure{msg: fmt.Sprintf("O programa está ligado há %s, mas não respondeu na porta %d. "+
 				"Confira se ele escuta em 0.0.0.0 na porta da variável PORT (e não em 127.0.0.1 ou numa porta fixa).",

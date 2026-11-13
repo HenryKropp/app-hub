@@ -30,3 +30,7 @@ O ADR 040 ensinou a receita automática a trazer o navegador. O app de relatóri
 ## Primeira remontagem real (2026-11-13)
 
 A remontagem do app de relatórios começou sozinha, 30 s depois da publicação. Ela foi cortada pelo limite de 15 minutos da montagem: no servidor gratuito, instalar as bibliotecas e baixar o Chromium leva mais que isso. A versão antiga continuou no ar. O limite da montagem passou para 40 minutos, e o tempo para dar uma montagem como perdida passou de 30 para 60 minutos.
+
+A segunda remontagem montou a imagem em cerca de 28 minutos, mas a versão nova foi recusada na conferência. A página inicial do app leva mais de 4 s no servidor gratuito, e passa de 5 s enquanto o app ainda liga (com o navegador se preparando). O Ziv esperava 5 s por tentativa e mostrava "não respondeu na porta", embora o app respondesse. Agora cada tentativa espera até 15 s (`health.AnswerTimeout`). Quando a página responde, mas devagar demais, a mensagem diz isso e pede uma página inicial mais leve.
+
+Fica para depois: a versão recusada leva junto a camada do navegador, então a próxima montagem baixa tudo de novo.
