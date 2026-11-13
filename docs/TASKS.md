@@ -499,5 +499,7 @@ Plano aprovado em 2026-11-11, a construir: `docs/superpowers/specs/2026-11-11-mc
 | Correções da revisão de código (9 pontos) | Done | 2026-11-13: memória ao republicar, aviso de memória, piso de 512 visível, pasta ilegível, Playwright travado em 1.64.1 (ou o do app), `--with-deps` no 2º passo, `playwright-stealth` não conta, Selenium junto com Playwright ainda avisa. Imagem montada e Chromium abriu |
 | Publicar no zivapp | Done | 2026-11-13 |
 | O Ziv remonta sozinho quando a receita muda (ADR 041) | Done | 2026-11-13. O supervisor confere cada app ligado uma vez por início do Ziv e remonta um por vez, só se o código no ar for o último |
+| Conferência espera até 15 s por tentativa; mensagem própria para página lenta | Done | 2026-11-13. A página do app de relatórios leva mais de 4 s no servidor gratuito |
+| Guardar a camada do navegador quando a versão nova é recusada | Pending | Hoje a próxima montagem baixa tudo de novo (cerca de 28 min) |
 | App de relatórios (BTG/BBA) remontado com o navegador | Pending | Deve acontecer sozinho depois da publicação do ADR 041. O código do app não precisa mudar: o passo que instalava o Chromium vira uma conferência rápida |
 | Playwright em Node e Selenium | Pending | Depois |

@@ -5,25 +5,39 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"time"
 )
 
 var ErrNoAnswer = errors.New("o app ligou, mas não respondeu")
 
-var client = &http.Client{Timeout: 5 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+// AnswerTimeout is how long one try waits for the page. A Flask or Streamlit
+// page on the free 1 GB server can take several seconds, more while the app
+// is still starting (ADR 041).
+const AnswerTimeout = 15 * time.Second
+
+var client = &http.Client{Timeout: AnswerTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 
 func Check(ctx context.Context, url string) bool {
+	ok, _ := Probe(ctx, url)
+	return ok
+}
+
+// Probe is Check that also says whether the try ran out of time (the program
+// listens but answers too slowly), as opposed to nobody listening.
+func Probe(ctx context.Context, url string) (ok, slow bool) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return false
+		return false, false
 	}
 	res, err := client.Do(req)
 	if err != nil {
-		return false
+		var ne net.Error
+		return false, errors.As(err, &ne) && ne.Timeout()
 	}
 	res.Body.Close()
-	return res.StatusCode < 500
+	return res.StatusCode < 500, false
 }
 
 // Page reads the page at url (up to 1 MB) when it answers below 500.
