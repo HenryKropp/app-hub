@@ -503,5 +503,7 @@ Plano aprovado em 2026-11-11, a construir: `docs/superpowers/specs/2026-11-11-mc
 | Tela virtual: com `DISPLAY` definido, o Ziv liga o Xvfb antes do app (ADR 040) | Done | 2026-11-13. Conferido no servidor: Chromium com janela em 512 MB |
 | Supervisor não reinicia app ocupado (página lenta) antes de ~10 min | Done | 2026-11-13. O primeiro teste do BTG foi interrompido por um reinício |
 | Guardar a camada do navegador quando a versão nova é recusada | Pending | Hoje a próxima montagem baixa tudo de novo (cerca de 28 min) |
-| App de relatórios (BTG/BBA) remontado com o navegador | Pending | Deve acontecer sozinho depois da publicação do ADR 041. O código do app não precisa mudar: o passo que instalava o Chromium vira uma conferência rápida |
+| App de relatórios (BTG/BBA) remontado com o navegador | Done | Remontado sozinho (ADR 041). Chromium e login no BTG funcionam no servidor, mas o e2-micro é lento demais: as páginas do BTG passam de 60 s |
+| BTG do app de relatórios rodando no PC do Henry pelo Agente | Pending | Escolha do Henry em 2026-11-13; o resto do app continua no servidor |
+| Teste extenso antes de publicar (qualquer app) | Pending | Pedido do Henry em 2026-11-13: antes de dizer "pronto", o Ziv põe o app para trabalhar de verdade no servidor (não só abrir a página) e avisa antes do que não vai dar certo, como lentidão, memória e sites que não abrem. Vale para todo app futuro. Desenhar primeiro |
 | Playwright em Node e Selenium | Pending | Depois |
