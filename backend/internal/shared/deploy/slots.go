@@ -30,22 +30,31 @@ func NewSlots(base engine.Engine, maxRunning, budgetMB int) *Slots {
 	return &Slots{base: base, maxRunning: maxRunning, budgetMB: budgetMB, inflight: map[int]int{}}
 }
 
-// Acquire reserves room for a box of memMB. replacing (a box that replaces the
-// app's own running one) is always allowed. release drops the reservation:
-// call it right after the box started or failed (from then on the box counts
-// itself, through List).
-func (s *Slots) Acquire(ctx context.Context, memMB int, replacing bool) (func(), error) {
+// Owner names the app whose own running box a new box replaces (update
+// publish, rollback, restart): the company key and the app id.
+type Owner struct {
+	Workspace string
+	AppID     int64
+}
+
+// Acquire reserves room for a box of memMB. A box that replaces the app's own
+// running one (replacing non-nil) never waits for a count slot, and passes
+// the memory budget when it does not grow: only the extra memory over the
+// app's own box must fit. release drops the reservation: call it right after
+// the box started or failed (from then on the box counts itself, through
+// List).
+func (s *Slots) Acquire(ctx context.Context, memMB int, replacing *Owner) (func(), error) {
 	if s == nil {
 		return func() {}, nil
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !replacing && (s.maxRunning > 0 || s.budgetMB > 0) {
+	if s.maxRunning > 0 || s.budgetMB > 0 {
 		all, err := s.base.List(ctx)
 		if err != nil {
 			return nil, err
 		}
-		count, sum := len(s.inflight), 0
+		count, sum, own := len(s.inflight), 0, 0
 		for _, mb := range s.inflight {
 			sum += mb
 		}
@@ -53,15 +62,22 @@ func (s *Slots) Acquire(ctx context.Context, memMB int, replacing bool) (func(),
 			if !c.Running {
 				continue
 			}
-			count++
 			mb, err := strconv.Atoi(c.Labels[engine.MemoryLabel])
 			if err != nil || mb <= 0 {
 				mb = legacyMemoryMB
 			}
+			if replacing != nil && engine.WorkspaceOf(c.Labels) == replacing.Workspace && c.Labels[engine.Label] == strconv.FormatInt(replacing.AppID, 10) {
+				own = max(own, mb)
+				continue
+			}
+			count++
 			sum += mb
 		}
-		if (s.maxRunning > 0 && count+1 > s.maxRunning) || (s.budgetMB > 0 && sum+memMB > s.budgetMB) {
+		if replacing == nil && s.maxRunning > 0 && count+1 > s.maxRunning {
 			return nil, &LimitError{Msg: fmt.Sprintf("O servidor está no limite de apps com tela ligados ao mesmo tempo (%d). Tente de novo em alguns minutos: apps sem uso dormem sozinhos depois de 30 minutos.", s.maxRunning)}
+		}
+		if s.budgetMB > 0 && sum+memMB > s.budgetMB && (replacing == nil || memMB > own) {
+			return nil, &LimitError{Msg: fmt.Sprintf("O servidor está sem memória livre para ligar este app agora (ele usa %d MB). Tente de novo em alguns minutos: apps sem uso dormem sozinhos depois de 30 minutos.", memMB)}
 		}
 	}
 	s.seq++

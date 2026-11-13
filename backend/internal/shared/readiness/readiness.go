@@ -44,13 +44,16 @@ var (
 	fileDataRe = regexp.MustCompile(`sqlite3\.connect|\.to_csv\(|\.to_excel\(|openpyxl\.Workbook\(|\.save\(\s*["'][^"']+\.xlsx|open\([^)]*,\s*["'](?:w|a)`)
 	winPathRe  = regexp.MustCompile(`(?:^|[^A-Za-z0-9_])[A-Za-z]:\\(?:\\|[^nrtbfv0\s"'])|/mnt/[a-z]/|(?i:OneDrive)`)
 	browserRe  = regexp.MustCompile(`playwright|puppeteer|chromium|wkhtmltopdf|selenium`)
-	secretWord = regexp.MustCompile(`(?i)PASS|SECRET|TOKEN|KEY`)
-	codeExt    = map[string]bool{".py": true, ".js": true, ".mjs": true, ".ts": true}
+	// otherBrowserRe: the browsers the recipe never brings.
+	otherBrowserRe = regexp.MustCompile(`puppeteer|wkhtmltopdf|selenium`)
+	secretWord     = regexp.MustCompile(`(?i)PASS|SECRET|TOKEN|KEY`)
+	codeExt        = map[string]bool{".py": true, ".js": true, ".mjs": true, ".ts": true}
 )
 
 type hit struct {
 	file string
 	line int
+	text string // the line, kept only for browser hits
 }
 
 func Check(src versions.Folder, m manifest.Manifest, secrets []scanner.SecretFinding, acks []string) (Report, error) {
@@ -84,13 +87,13 @@ func Check(src versions.Folder, m manifest.Manifest, secrets []scanner.SecretFin
 		for i, line := range strings.Split(string(b), "\n") {
 			envReadsIn(line, envSeen)
 			if fileDataRe.MatchString(line) {
-				fileData = append(fileData, hit{rel, i + 1})
+				fileData = append(fileData, hit{rel, i + 1, ""})
 			}
 			if winPathRe.MatchString(line) {
-				winPaths = append(winPaths, hit{rel, i + 1})
+				winPaths = append(winPaths, hit{rel, i + 1, ""})
 			}
 			if browserRe.MatchString(line) {
-				browser = append(browser, hit{rel, i + 1})
+				browser = append(browser, hit{rel, i + 1, line})
 			}
 		}
 		return nil
@@ -193,12 +196,27 @@ func Check(src versions.Folder, m manifest.Manifest, secrets []scanner.SecretFin
 	}
 
 	// O que não cabe na caixa
-	if len(browser) > 0 && rec.Browser {
+	// With the browser in the recipe, only Playwright in Python is covered:
+	// Selenium, Puppeteer, wkhtmltopdf and Playwright in Node still are not.
+	notCovered := browser
+	if rec.Browser {
+		notCovered = nil
+		for _, h := range browser {
+			if !strings.HasSuffix(h.file, ".py") || otherBrowserRe.MatchString(h.text) {
+				notCovered = append(notCovered, h)
+			}
+		}
+	}
+	if rec.Browser && len(notCovered) == 0 {
 		add(Item{Key: "container_limits", Title: "Navegador", Status: "ok",
 			Detail: "O app usa o Playwright: o Ziv monta o app com o Chromium e uma tela virtual (Xvfb). Ele recebe pelo menos 512 MB de memória."})
-	} else if len(browser) > 0 && rec.Kind != "dockerfile" {
+	} else if len(notCovered) > 0 && rec.Kind != "dockerfile" {
+		detail := "O app chama um navegador automático (" + where(notCovered) + "), usado por exemplo para gerar PDF. A receita automática não traz esse navegador; essa parte não vai funcionar no servidor."
+		if rec.Browser {
+			detail = "O Playwright em Python vem pronto, mas o app também chama outro navegador automático (" + where(notCovered) + "): Selenium, Puppeteer, wkhtmltopdf e Playwright em Node não vêm na receita; essa parte não vai funcionar no servidor."
+		}
 		add(Item{Key: "container_limits", Title: "Recurso que não vem na receita", Status: "warn",
-			Detail:     "O app chama um navegador automático (" + where(browser) + "), usado por exemplo para gerar PDF. A receita automática não traz navegador; essa parte não vai funcionar no servidor.",
+			Detail:     detail,
 			ClaudeText: "Este app vai rodar num contêiner Linux sem navegador. Escreva um Dockerfile que instale o que " + where(browser) + " precisa (Node, Playwright e o Chromium com as dependências do sistema), ou troque a geração de PDF por uma biblioteca Python que não precise de navegador."})
 	}
 

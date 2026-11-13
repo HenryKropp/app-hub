@@ -167,3 +167,12 @@ func TestPythonPlaywrightIsInRecipe(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 }
+
+// Playwright in Python is in the recipe; Selenium in the same app still is not.
+func TestPlaywrightDoesNotCoverSelenium(t *testing.T) {
+	r := check(t, "playwright-selenium", manifest.Manifest{Entrypoint: "app.py"}, nil)
+	it := item(r, "container_limits")
+	if it.Status != "warn" || !strings.Contains(it.Detail, "pdf.py") || strings.Contains(it.Detail, "app.py") {
+		t.Fatalf("%+v", it)
+	}
+}

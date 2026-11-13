@@ -452,6 +452,16 @@ func (h *Handler) putShared(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "Não consegui ler a pasta do app agora. Nada foi salvo. Confira se o OneDrive está sincronizado e tente de novo.")
 		return
 	}
+	// An app with the browser keeps at least the browser's memory: the value
+	// is raised here, so the ficha shows what the server applies.
+	if m.Shared != nil && m.Shared.MemoryMB != 0 {
+		if min, err := h.shared.Svc.MinMemoryMB(a, m); err != nil {
+			sharedError(w, err)
+			return
+		} else if m.Shared.MemoryMB < min {
+			m.Shared.MemoryMB = min
+		}
+	}
 	var backup *int64
 	if a.BackupID.Valid {
 		backup = &a.BackupID.Int64

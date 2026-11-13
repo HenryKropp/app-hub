@@ -183,3 +183,15 @@ func TestBrowserAppGetsBrowserMemory(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// Without reading the folder, Configure saves nothing: it cannot tell whether
+// the app needs the browser's memory.
+func TestConfigureUnreadableFolder(t *testing.T) {
+	e := setup(t)
+	s := e.NewTenantService(company, "", 0, 256)
+	app := e.App
+	app.FolderPath = filepath.Join(t.TempDir(), "sumiu")
+	if _, err := s.Configure(context.Background(), app, e.M); !errors.Is(err, deploy.ErrFolderUnreadable) {
+		t.Fatal(err)
+	}
+}
