@@ -5,6 +5,8 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -177,5 +179,48 @@ func TestServerPageCompanyOnly(t *testing.T) {
 	}
 	if code := c.do("PUT", "/api/server/cost", map[string]int64{"monthly_cost_cents": 1}, &e); code != http.StatusForbidden || e.Error != "O custo do servidor é definido pela empresa principal." {
 		t.Fatalf("%d %q", code, e.Error)
+	}
+}
+
+// An app with the browser refuses less than the browser's memory on the
+// Servidor tab, and the sharing form raises it, so the ficha and the server
+// agree.
+func TestBrowserAppMemoryFloor(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withShared(t, h)
+	id := sharedApp(t, h, d, "notas")
+	app, err := h.q.GetApp(t.Context(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(app.FolderPath, "requirements.txt"), []byte("streamlit\nplaywright\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	path := "/api/server/apps/" + itoa(id)
+	var e struct {
+		Error string `json:"error"`
+	}
+	if code := c.do("PUT", path, map[string]any{"memory_mb": 256, "cpus": 1, "idle_minutes": 30}, &e); code != 400 || !strings.Contains(e.Error, "512 MB") {
+		t.Fatalf("below the browser's memory %d %+v", code, e)
+	}
+	if code := c.do("PUT", path, map[string]any{"memory_mb": 512, "cpus": 1, "idle_minutes": 30}, nil); code != 200 {
+		t.Fatalf("browser's memory %d", code)
+	}
+	var cur struct {
+		UpdatedAt string `json:"updated_at"`
+	}
+	c.do("GET", appPath(id, ""), nil, &cur)
+	if code := c.do("PUT", appPath(id, "/shared"), map[string]any{"enabled": true, "memory_mb": 256, "updated_at": cur.UpdatedAt}, nil); code != 200 {
+		t.Fatalf("sharing form %d", code)
+	}
+	saved, err := h.q.GetApp(t.Context(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mb int
+	testPool.QueryRow(t.Context(), "SELECT memory_mb FROM shared_apps WHERE app_id = $1", id).Scan(&mb)
+	if m := manifestOf(saved); m.Shared == nil || m.Shared.MemoryMB != 512 || mb != 512 {
+		t.Fatalf("manifest %+v, row %d", m.Shared, mb)
 	}
 }

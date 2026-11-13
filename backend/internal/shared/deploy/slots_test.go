@@ -36,10 +36,10 @@ func TestSlotsFullByCount(t *testing.T) {
 	t.Cleanup(f.Close)
 	boxes(t, f, box("256"), box("256"))
 	var le *deploy.LimitError
-	if _, err := deploy.NewSlots(f, 2, 0).Acquire(ctx, 128, false); !errors.As(err, &le) || !strings.Contains(le.Error(), "(2)") {
+	if _, err := deploy.NewSlots(f, 2, 0).Acquire(ctx, 128, nil); !errors.As(err, &le) || !strings.Contains(le.Error(), "(2)") {
 		t.Fatal(err)
 	}
-	if release, err := deploy.NewSlots(f, 2, 0).Acquire(ctx, 128, true); err != nil {
+	if release, err := deploy.NewSlots(f, 2, 0).Acquire(ctx, 128, &deploy.Owner{AppID: 9}); err != nil {
 		t.Fatal(err)
 	} else {
 		release()
@@ -52,10 +52,10 @@ func TestSlotsFullByMemory(t *testing.T) {
 	t.Cleanup(f.Close)
 	boxes(t, f, box("256"))
 	var le *deploy.LimitError
-	if _, err := deploy.NewSlots(f, 0, 512).Acquire(ctx, 300, false); !errors.As(err, &le) {
+	if _, err := deploy.NewSlots(f, 0, 512).Acquire(ctx, 300, nil); !errors.As(err, &le) {
 		t.Fatal(err)
 	}
-	if _, err := deploy.NewSlots(f, 0, 512).Acquire(ctx, 256, false); err != nil {
+	if _, err := deploy.NewSlots(f, 0, 512).Acquire(ctx, 256, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -65,15 +65,15 @@ func TestSlotsCountsInflight(t *testing.T) {
 	f := engine.NewFake()
 	t.Cleanup(f.Close)
 	s := deploy.NewSlots(f, 1, 0)
-	release, err := s.Acquire(ctx, 128, false)
+	release, err := s.Acquire(ctx, 128, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.Acquire(ctx, 128, false); err == nil {
+	if _, err := s.Acquire(ctx, 128, nil); err == nil {
 		t.Fatal("second reservation passed")
 	}
 	release()
-	if _, err := s.Acquire(ctx, 128, false); err != nil {
+	if _, err := s.Acquire(ctx, 128, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -82,14 +82,14 @@ func TestSlotsMissingLabelCountsDefault(t *testing.T) {
 	f := engine.NewFake()
 	t.Cleanup(f.Close)
 	boxes(t, f, box(""))
-	if _, err := deploy.NewSlots(f, 0, 600).Acquire(context.Background(), 128, false); err == nil {
+	if _, err := deploy.NewSlots(f, 0, 600).Acquire(context.Background(), 128, nil); err == nil {
 		t.Fatal("old box counted as less than 512 MB")
 	}
 }
 
 func TestNilSlotsNoLimit(t *testing.T) {
 	var s *deploy.Slots
-	release, err := s.Acquire(context.Background(), 4096, false)
+	release, err := s.Acquire(context.Background(), 4096, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,5 +127,40 @@ func TestWakeWhenFullSleepsWithMessage(t *testing.T) {
 	}
 	if sa := e.Shared(t); sa.Status != "sleeping" || !strings.Contains(sa.StatusMessage, "no limite") {
 		t.Fatalf("%s %q", sa.Status, sa.StatusMessage)
+	}
+}
+
+// A box that replaces the app's own may keep its memory over the budget, but
+// growing must fit: only the extra memory over its own box counts.
+func TestSlotsReplacingChecksGrowth(t *testing.T) {
+	ctx := context.Background()
+	f := engine.NewFake()
+	t.Cleanup(f.Close)
+	boxes(t, f, box("256"), box("256", engine.Label, "7"), box("256", engine.Label, "8"))
+	s := deploy.NewSlots(f, 0, 768)
+	var le *deploy.LimitError
+	if _, err := s.Acquire(ctx, 512, &deploy.Owner{AppID: 9}); !errors.As(err, &le) || !strings.Contains(le.Error(), "memória") {
+		t.Fatalf("growing past the budget: %v", err)
+	}
+	release, err := s.Acquire(ctx, 256, &deploy.Owner{AppID: 9})
+	if err != nil {
+		t.Fatalf("same memory: %v", err)
+	}
+	release()
+	// another company's app 9 is not this app's own box
+	if _, err := s.Acquire(ctx, 256, &deploy.Owner{Workspace: "outra", AppID: 9}); err == nil {
+		t.Fatal("another company's box counted as own")
+	}
+}
+
+// Refused for memory, the message says memory, not the count of apps.
+func TestSlotsMemoryMessage(t *testing.T) {
+	f := engine.NewFake()
+	t.Cleanup(f.Close)
+	boxes(t, f, box("512"))
+	var le *deploy.LimitError
+	if _, err := deploy.NewSlots(f, 2, 768).Acquire(context.Background(), 512, nil); !errors.As(err, &le) ||
+		!strings.Contains(le.Error(), "sem memória") || strings.Contains(le.Error(), "(2)") {
+		t.Fatal(err)
 	}
 }

@@ -40,7 +40,9 @@ var (
 	ErrStopped    = errors.New("O app está parado. Use Ligar para ligá-lo de novo.")
 	ErrBadSlug    = errors.New("O nome curto do app só pode ter letras minúsculas, números e hífens (sem dois hífens seguidos) para virar endereço.")
 	// ErrFolderOutside: outside principal, an app is built only from its code kept in the Ziv.
-	ErrFolderOutside = errors.New("Nesta empresa, um app com tela precisa ter o código guardado no Ziv. Suba o app pelo Claude Code (\"sobe esse programa para o Ziv\") e publique de novo.")
+	// ErrFolderUnreadable: the app's folder could not be read to detect its recipe.
+	ErrFolderUnreadable = errors.New("Não consegui ler a pasta do app agora. Confira se o OneDrive está sincronizado e tente de novo.")
+	ErrFolderOutside    = errors.New("Nesta empresa, um app com tela precisa ter o código guardado no Ziv. Suba o app pelo Claude Code (\"sobe esse programa para o Ziv\") e publique de novo.")
 )
 
 // LimitError is a company limit (apps published, memory per app) the action would pass.
@@ -214,6 +216,30 @@ func (s *Service) lock(appID int64) (func(), error) {
 // Configure creates or updates the shared_apps row from the manifest
 // (marking the app shared, status draft if new).
 func (s *Service) Configure(ctx context.Context, app sqlc.App, m manifest.Manifest) (sqlc.SharedApp, error) {
+	rec, err := recipes.Detect(versions.LocalFolder{Root: app.FolderPath}, m)
+	if err != nil && !errors.Is(err, recipes.ErrCommandLines) {
+		// Without reading the folder the Ziv cannot tell whether the app needs
+		// the browser's memory: saving now could leave Chromium with too little.
+		return sqlc.SharedApp{}, ErrFolderUnreadable
+	}
+	return s.configure(ctx, app, m, rec)
+}
+
+// MinMemoryMB is the least memory the app can be given: the browser's, when
+// its recipe brings the browser; 0 otherwise.
+func (s *Service) MinMemoryMB(app sqlc.App, m manifest.Manifest) (int, error) {
+	rec, err := recipes.Detect(versions.LocalFolder{Root: app.FolderPath}, m)
+	if err != nil && !errors.Is(err, recipes.ErrCommandLines) {
+		return 0, ErrFolderUnreadable
+	}
+	if rec.Browser {
+		return recipes.BrowserMemoryMB, nil
+	}
+	return 0, nil
+}
+
+// configure is Configure with the app's recipe already detected.
+func (s *Service) configure(ctx context.Context, app sqlc.App, m manifest.Manifest, rec recipes.Recipe) (sqlc.SharedApp, error) {
 	slug, err := s.Slug(app.Slug)
 	if err != nil {
 		return sqlc.SharedApp{}, err
@@ -227,8 +253,9 @@ func (s *Service) Configure(ctx context.Context, app sqlc.App, m manifest.Manife
 	limit := s.opt.MaxMemoryMB
 	// An app with the browser gets at least the browser's memory: Chromium
 	// does not run in less, whatever was set before or the company's cap per
-	// app (publishing through the MCP sends the memory the app already had).
-	if rec, err := recipes.Detect(versions.LocalFolder{Root: app.FolderPath}, m); err == nil && rec.Browser {
+	// app. The screens refuse a lower value before saving (MinMemoryMB); this
+	// covers an app that gained the browser after its memory was saved.
+	if rec.Browser {
 		if sh.MemoryMB < recipes.BrowserMemoryMB {
 			sh.MemoryMB = recipes.BrowserMemoryMB
 		}
@@ -323,7 +350,11 @@ func (s *Service) prepare(ctx context.Context, app sqlc.App, m manifest.Manifest
 	if err := s.CheckFolder(app.FolderPath); err != nil {
 		return sqlc.SharedDeployment{}, job{}, err
 	}
-	sa, err := s.Configure(ctx, app, m)
+	rec, err := recipes.Detect(versions.LocalFolder{Root: app.FolderPath}, m)
+	if err != nil {
+		return sqlc.SharedDeployment{}, job{}, err
+	}
+	sa, err := s.configure(ctx, app, m, rec)
 	if err != nil {
 		return sqlc.SharedDeployment{}, job{}, err
 	}
@@ -335,10 +366,6 @@ func (s *Service) prepare(ctx context.Context, app sqlc.App, m manifest.Manifest
 		if n >= int64(s.opt.MaxApps) {
 			return sqlc.SharedDeployment{}, job{}, &LimitError{Msg: fmt.Sprintf("Esta empresa já tem %d apps com tela publicados, o máximo do servidor. Deixe de compartilhar um deles para publicar outro.", s.opt.MaxApps)}
 		}
-	}
-	rec, err := recipes.Detect(versions.LocalFolder{Root: app.FolderPath}, m)
-	if err != nil {
-		return sqlc.SharedDeployment{}, job{}, err
 	}
 	if rec.Kind == "" {
 		return sqlc.SharedDeployment{}, job{}, errors.New("O Ziv não sabe ligar este app. Veja a checagem para o que falta.")
@@ -472,7 +499,11 @@ func (s *Service) start(ctx context.Context, j job, img, dbName string) (string,
 	if err := os.MkdirAll(data, 0o755); err != nil {
 		return "", 0, &failure{msg: "Não foi possível criar a pasta de dados do app no servidor.", log: err.Error()}
 	}
-	release, err := s.opt.Slots.Acquire(ctx, int(j.sa.MemoryMb), j.replacing)
+	var owner *Owner
+	if j.replacing {
+		owner = &Owner{Workspace: s.opt.Tenant.Key, AppID: j.app.ID}
+	}
+	release, err := s.opt.Slots.Acquire(ctx, int(j.sa.MemoryMb), owner)
 	if le := (*LimitError)(nil); errors.As(err, &le) {
 		return "", 0, &failure{msg: le.Msg, limit: le}
 	} else if err != nil {

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"log/slog"
 	"math"
 	"net/http"
@@ -203,6 +204,13 @@ func (h *Handler) putServerApp(w http.ResponseWriter, r *http.Request) {
 	m := manifestOf(a)
 	if m.Shared == nil {
 		writeError(w, http.StatusConflict, "O app perdeu a configuração de compartilhamento. Abra a ficha do app e compartilhe de novo.")
+		return
+	}
+	if min, err := h.shared.Svc.MinMemoryMB(a, m); err != nil {
+		sharedError(w, err)
+		return
+	} else if body.MemoryMB < min {
+		writeError(w, http.StatusBadRequest, fmt.Sprintf("Este app usa um navegador (Playwright) e precisa de pelo menos %d MB de memória. Ajuste o valor e tente de novo.", min))
 		return
 	}
 	sh := *m.Shared

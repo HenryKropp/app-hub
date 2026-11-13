@@ -219,3 +219,37 @@ func TestPythonPlaywrightBringsBrowser(t *testing.T) {
 		t.Fatalf("%+v", n)
 	}
 }
+
+func TestPlaywrightRequirementsLine(t *testing.T) {
+	for req, want := range map[string]bool{
+		"playwright\n": true, "Playwright==1.50.0\n": true, "playwright>=1.40 ; python_version>'3'\n": true,
+		"playwright[extra]\n": true, "playwright\r\n": true, "  playwright # browser\n": true,
+		"playwright-stealth\n": false, "playwright_helpers\n": false, "# playwright\n": false,
+	} {
+		if got := usesPlaywright(req, nil); got != want {
+			t.Errorf("%q: got %v", req, got)
+		}
+	}
+	for req, want := range map[string]string{
+		"playwright==1.50.0\n": "1.50.0", "playwright == 1.48.2 ; python_version>'3'\r\n": "1.48.2",
+		"playwright>=1.40\n": PlaywrightVersion, "playwright\n": PlaywrightVersion,
+	} {
+		if got := playwrightVersion(req); got != want {
+			t.Errorf("%q: got %q", req, got)
+		}
+	}
+}
+
+func TestBrowserRecipePinsAndInstallsDeps(t *testing.T) {
+	r := pyBase(manifest.Shared{Python: "3.12"}, files{}, "streamlit\nplaywright==1.50.0\n", map[string]bool{"streamlit": true})
+	if !strings.Contains(r.Dockerfile, "pip install --no-cache-dir playwright==1.50.0") {
+		t.Error(r.Dockerfile)
+	}
+	if strings.Count(r.Dockerfile, "playwright install --with-deps chromium") != 2 {
+		t.Error("the step after the app's libraries must install the system libraries too:\n" + r.Dockerfile)
+	}
+	r = pyBase(manifest.Shared{Python: "3.12"}, files{}, "streamlit\nplaywright\n", nil)
+	if !strings.Contains(r.Dockerfile, "playwright=="+PlaywrightVersion) {
+		t.Error(r.Dockerfile)
+	}
+}

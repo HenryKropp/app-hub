@@ -26,3 +26,19 @@ Havia duas saídas: cada app trazer o próprio Dockerfile, ou o Ziv montar o nav
 - Conferido montando de verdade a receita gerada: o Chromium abriu com janela no Xvfb, com limite de 512 MB.
 - Com 1 GB de RAM, cabe um app com navegador ligado por vez. Para mais, é preciso uma máquina paga (ADR 022).
 - Fica para depois: Playwright em Node e Selenium.
+
+## Revisão do código (2026-11-13)
+
+A revisão do commit 12455ac achou 9 pontos, todos corrigidos:
+
+- **Republicar não fura a memória do servidor.** Uma caixa que substitui a do próprio app continua sem esperar vaga de contagem, mas, se a memória dela cresce (por exemplo, 256 → 512 MB ao ganhar o navegador), só a diferença sobre a caixa antiga precisa caber na memória somada. A caixa antiga é reconhecida pela empresa e pelo número do app (`deploy.Owner`), porque dois apps de empresas diferentes podem ter o mesmo número.
+- **Recusa por memória diz memória.** O servidor sem memória livre agora responde "sem memória livre para ligar este app agora (ele usa N MB)", e não mais "limite de apps ligados (2)".
+- **A memória escolhida não é trocada em silêncio.** Na aba Servidor, menos de 512 MB num app com navegador é recusado com uma frase clara. Na tela de compartilhar (e no MCP, que passa por ela), o valor sobe para 512 antes de gravar, para a ficha e o servidor mostrarem o mesmo. O piso dentro de `Configure` fica só para um app que ganhou o navegador depois de gravar a memória.
+- **Pasta ilegível não grava nada.** Se o Ziv não consegue ler a pasta para saber se o app usa navegador, `Configure` recusa (`ErrFolderUnreadable`) em vez de seguir sem o piso.
+- **A pasta é lida uma vez por publicação.** `prepare` detecta a receita uma vez e passa para `configure`.
+- **Playwright travado.** O passo compartilhado instala `playwright==1.64.1` (`recipes.PlaywrightVersion`), ou a versão que o app fixa com `playwright==X`. Assim o passo só muda quando a versão muda, e um app com versão fixa não carrega um segundo Chromium.
+- **O segundo `playwright install` usa `--with-deps`.** Se uma faixa de versão (`>=`) mudar o Playwright, as bibliotecas do sistema do Chromium novo também entram.
+- **Só o pacote `playwright` liga o navegador.** `playwright-stealth` e parecidos não contam mais.
+- **A checagem separa o que vem pronto.** Com o navegador na receita, só o Playwright em arquivos `.py` fica "ok"; Selenium, Puppeteer, wkhtmltopdf e Playwright em Node no mesmo app continuam com o aviso.
+
+Conferido montando de verdade a receita com `playwright==1.64.1`: a imagem montou e o Chromium abriu.

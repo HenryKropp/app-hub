@@ -207,7 +207,7 @@ func pyBase(s manifest.Shared, f files, reqText string, imports map[string]bool)
 		r.ExtraFiles["requirements.txt"] = strings.Join(r.Requirements, "\n") + "\n"
 	}
 	if r.Browser {
-		r.Dockerfile = fmt.Sprintf(browserBase, s.Python)
+		r.Dockerfile = fmt.Sprintf(browserBase, s.Python, playwrightVersion(reqText))
 		return r
 	}
 	r.Dockerfile = fmt.Sprintf(`FROM docker.io/library/python:%s-slim
@@ -220,36 +220,56 @@ COPY . .
 	return r
 }
 
+// PlaywrightVersion is the Playwright the browser layer installs when the app
+// does not pin one. Pinned so the shared layer only changes when this does.
+const PlaywrightVersion = "1.64.1"
+
 // browserBase is the Python recipe with Playwright's Chromium. Bookworm,
 // because Playwright installs the system libraries only on the Debian
 // versions it supports. The browser layer comes before the app's own
-// libraries and does not depend on them, so every app with the browser shares
-// it on disk (the build reuses an identical step). After the app's
-// libraries, "playwright install chromium" does nothing when the version is
-// the same, and fetches the matching browser when the app pins another one.
-// Xvfb is the virtual screen for sites that block the invisible browser; the
-// app starts it itself when it wants it. libatomic1 comes first: Playwright's
-// own driver does not start without it.
+// libraries and does not depend on them, so every app with the same
+// Playwright shares it on disk (the build reuses an identical step). It
+// installs the version the app pins (playwright==X), so a pinned app does not
+// carry a second Chromium. After the app's libraries, "playwright install
+// --with-deps chromium" does nothing new when the version is the same, and
+// fetches the matching browser and its system libraries when a looser pin
+// (>=, ~=) moved it. Xvfb is the virtual screen for sites that block the
+// invisible browser; the app starts it itself when it wants it. libatomic1
+// comes first: Playwright's own driver does not start without it.
 const browserBase = `FROM docker.io/library/python:%s-slim-bookworm
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libatomic1 xvfb xauth \
- && pip install --no-cache-dir playwright \
+ && pip install --no-cache-dir playwright==%s \
  && python -m playwright install --with-deps chromium \
  && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-RUN python -m playwright install chromium
+RUN python -m playwright install --with-deps chromium \
+ && rm -rf /var/lib/apt/lists/*
 COPY . .
 `
 
-var reqPlaywrightRe = regexp.MustCompile(`(?mi)^\s*playwright\b`)
+// reqPlaywrightRe: a requirements line for the playwright package itself,
+// not for packages whose name only starts with it (playwright-stealth).
+var (
+	reqPlaywrightRe  = regexp.MustCompile(`(?mi)^[ \t]*playwright[ \t]*(?:[<>=!~;@\[#\r]|$)`)
+	reqPlaywrightPin = regexp.MustCompile(`(?mi)^[ \t]*playwright[ \t]*==[ \t]*([0-9][0-9A-Za-z.]*)[ \t]*(?:[;#\r]|$)`)
+)
 
 // usesPlaywright: the Python app lists Playwright in requirements.txt or
 // imports it.
 func usesPlaywright(reqText string, imports map[string]bool) bool {
 	return imports["playwright"] || reqPlaywrightRe.MatchString(reqText)
+}
+
+// playwrightVersion: the version the app pins, or PlaywrightVersion.
+func playwrightVersion(reqText string) string {
+	if m := reqPlaywrightPin.FindStringSubmatch(reqText); m != nil {
+		return m[1]
+	}
+	return PlaywrightVersion
 }
 
 func nodeRecipe(s manifest.Shared, lock bool) Recipe {

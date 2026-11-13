@@ -496,5 +496,6 @@ Plano aprovado em 2026-11-11, a construir: `docs/superpowers/specs/2026-11-11-mc
 | Checagem antes de publicar: "Navegador ok" no lugar do aviso | Done | Selenium, Puppeteer e Playwright em Node ainda avisam |
 | Guia do MCP: Playwright em Python vem pronto | Done | |
 | Memória somada no servidor: 512 → 768 MB (`SHARED_APPS_MEMORY_BUDGET_MB`) | Done | Um app com navegador + um app comum |
+| Correções da revisão de código (9 pontos) | Done | 2026-11-13: memória ao republicar, aviso de memória, piso de 512 visível, pasta ilegível, Playwright travado em 1.64.1 (ou o do app), `--with-deps` no 2º passo, `playwright-stealth` não conta, Selenium junto com Playwright ainda avisa. Imagem montada e Chromium abriu |
 | Publicar no zivapp e republicar o app de relatórios (BTG/BBA) | Pending | O app deve parar de instalar o navegador sozinho |
 | Playwright em Node e Selenium | Pending | Depois |
