@@ -1,7 +1,10 @@
 package supervisor
 
 import (
+	"net/http"
+
 	"context"
+	"github.com/HenryKropp/app-hub/backend/internal/shared/health"
 	"testing"
 	"time"
 )
@@ -64,5 +67,32 @@ func TestRefreshSkipsUnpublishedCode(t *testing.T) {
 	waitIdle(t, func() bool { return e.S.Busy(e.App.ID) })
 	if e.Shared(t).CurrentDeploymentID.Int64 != old {
 		t.Fatal("rebuilt code the person did not publish")
+	}
+}
+
+// An app that listens but answers too slowly is at work (a browser on the
+// small server): it is not restarted after two checks, only after ~10 minutes.
+func TestBusyAppIsNotRestartedSoon(t *testing.T) {
+	old := health.AnswerTimeout
+	health.AnswerTimeout = 100 * time.Millisecond
+	t.Cleanup(func() { health.AnswerTimeout = old })
+	ctx := context.Background()
+	e, s, _ := live(t)
+	box := currentContainer(t, e)
+	e.Eng.SetHandler(box, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-time.After(time.Second):
+		case <-r.Context().Done():
+		}
+	}))
+	for i := 0; i < busyToRestart-1; i++ {
+		s.Tick(ctx)
+	}
+	if currentContainer(t, e) != box {
+		t.Fatal("a busy app was restarted, throwing its work away")
+	}
+	s.Tick(ctx)
+	if currentContainer(t, e) == box {
+		t.Fatal("an app slow for ~10 minutes should be restarted")
 	}
 }
