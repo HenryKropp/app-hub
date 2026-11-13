@@ -100,3 +100,45 @@ func TestPodmanRoundTrip(t *testing.T) {
 		t.Fatalf("list %+v", list)
 	}
 }
+
+// Another company's image in the local store cannot be read by a Dockerfile,
+// by name (full or short), by id, with COPY --from or RUN --mount from.
+func TestPodmanBuildCannotReadLocalImages(t *testing.T) {
+	ctx := context.Background()
+	p := NewPodman("")
+	if err := p.Available(ctx); err != nil {
+		t.Skip("podman indisponível")
+	}
+	labels := map[string]string{Label: "999998"}
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM docker.io/library/busybox:latest\nRUN echo segredo > /segredo.txt\n"), 0o644)
+	secret, log, err := p.Build(ctx, BuildSpec{ContextDir: dir, Tag: "localhost/ziv/wsegredo/app:1", Labels: labels})
+	if err != nil {
+		t.Fatalf("%v\n%s", err, log)
+	}
+	t.Cleanup(func() { p.RemoveImage(ctx, secret) })
+	short := strings.TrimPrefix(secret, "sha256:")[:12]
+	for name, df := range map[string]string{
+		"from":       "FROM localhost/ziv/wsegredo/app:1\n",
+		"short name": "FROM ziv/wsegredo/app:1\n",
+		"id":         "FROM " + short + "\n",
+		"copy from":  "FROM docker.io/library/busybox:latest\nCOPY --from=localhost/ziv/wsegredo/app:1 /segredo.txt /r\n",
+		"mount from": "FROM docker.io/library/busybox:latest\nRUN --mount=type=bind,from=localhost/ziv/wsegredo/app:1,target=/x cat /x/segredo.txt\n",
+	} {
+		d := t.TempDir()
+		os.WriteFile(filepath.Join(d, "Dockerfile"), []byte(df), 0o644)
+		img, _, err := p.Build(ctx, BuildSpec{ContextDir: d, Tag: "localhost/ziv/wladrao/app:1", Labels: labels})
+		if err == nil {
+			p.RemoveImage(ctx, img)
+			t.Errorf("%s: build read the other company's image", name)
+		}
+	}
+	// Stages of the same Dockerfile still work.
+	d := t.TempDir()
+	os.WriteFile(filepath.Join(d, "Dockerfile"), []byte("FROM docker.io/library/busybox:latest AS a\nRUN echo ok > /o\nFROM docker.io/library/busybox:latest\nCOPY --from=a /o /o\n"), 0o644)
+	img, log, err := p.Build(ctx, BuildSpec{ContextDir: d, Tag: "localhost/ziv/wladrao/app:2", Labels: labels})
+	if err != nil {
+		t.Fatalf("multi-stage: %v\n%s", err, log)
+	}
+	p.RemoveImage(ctx, img)
+}

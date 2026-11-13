@@ -239,7 +239,11 @@ func (p *Podman) Build(ctx context.Context, b BuildSpec) (string, string, error)
 	}
 	iid := filepath.Join(os.TempDir(), "ziv-iid-"+strconv.FormatInt(time.Now().UnixNano(), 10))
 	defer os.Remove(iid)
-	args := append([]string{"build", "--iidfile", iid, "-t", b.Tag, "-f", filepath.Join(b.ContextDir, df)}, labelArgs(b.Labels)...)
+	// --pull=always: every image a Dockerfile names (FROM, COPY --from, RUN
+	// --mount from, ONBUILD) comes from the registry, never from the local
+	// store, which holds every company's apps. Stages of the same file still
+	// work; a local name or an image id fails the build.
+	args := append([]string{"build", "--pull=always", "--iidfile", iid, "-t", b.Tag, "-f", filepath.Join(b.ContextDir, df)}, labelArgs(b.Labels)...)
 	args = append(args, b.ContextDir)
 	ctx, cancel := context.WithTimeout(ctx, buildTimeout)
 	defer cancel()

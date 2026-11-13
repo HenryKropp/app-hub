@@ -181,3 +181,14 @@ func TestParsePSKeepsLegacyAndNew(t *testing.T) {
 		t.Fatalf("%+v %v", got, err)
 	}
 }
+
+// A member's Dockerfile must not read images other companies left in the
+// shared local store (FROM, COPY --from, RUN --mount from, ONBUILD): every
+// build pulls its images from the registry, never from the local store.
+func TestBuildAlwaysPulls(t *testing.T) {
+	bin, logFile := fakePodman(t)
+	_, _, _ = NewPodman(bin).Build(context.Background(), BuildSpec{ContextDir: t.TempDir(), Tag: "localhost/ziv/x:1"})
+	if got := calls(t, logFile); !strings.Contains(got, "build --pull=always ") {
+		t.Fatalf("build without --pull=always: %q", got)
+	}
+}
