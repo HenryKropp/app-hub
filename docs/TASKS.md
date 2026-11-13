@@ -500,6 +500,7 @@ Plano aprovado em 2026-11-11, a construir: `docs/superpowers/specs/2026-11-11-mc
 | Publicar no zivapp | Done | 2026-11-13 |
 | O Ziv remonta sozinho quando a receita muda (ADR 041) | Done | 2026-11-13. O supervisor confere cada app ligado uma vez por início do Ziv e remonta um por vez, só se o código no ar for o último |
 | Conferência espera até 15 s por tentativa; mensagem própria para página lenta | Done | 2026-11-13. A página do app de relatórios leva mais de 4 s no servidor gratuito |
+| Tela virtual: com `DISPLAY` definido, o Ziv liga o Xvfb antes do app (ADR 040) | Done | 2026-11-13. Conferido no servidor: Chromium com janela em 512 MB |
 | Guardar a camada do navegador quando a versão nova é recusada | Pending | Hoje a próxima montagem baixa tudo de novo (cerca de 28 min) |
 | App de relatórios (BTG/BBA) remontado com o navegador | Pending | Deve acontecer sozinho depois da publicação do ADR 041. O código do app não precisa mudar: o passo que instalava o Chromium vira uma conferência rápida |
 | Playwright em Node e Selenium | Pending | Depois |

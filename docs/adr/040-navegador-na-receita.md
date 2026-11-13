@@ -42,3 +42,7 @@ A revisão do commit 12455ac achou 9 pontos, todos corrigidos:
 - **A checagem separa o que vem pronto.** Com o navegador na receita, só o Playwright em arquivos `.py` fica "ok"; Selenium, Puppeteer, wkhtmltopdf e Playwright em Node no mesmo app continuam com o aviso.
 
 Conferido montando de verdade a receita com `playwright==1.64.1`: a imagem montou e o Chromium abriu.
+
+## Tela virtual ligada pelo Ziv (2026-11-13)
+
+O app de relatórios guarda `DISPLAY=:99` no cofre, e o código dele só liga o Xvfb quando `DISPLAY` está vazio. Resultado: a versão remontada ficou sem tela, e o BTG (que precisa de janela) falharia. Agora, num app com navegador, o comando de partida liga o Xvfb na tela que `DISPLAY` indica, se ela ainda não existe, e então liga o app. Um app sem `DISPLAY` continua como antes. Conferido no servidor com a imagem do app: o Chromium abriu com janela dentro de 512 MB.

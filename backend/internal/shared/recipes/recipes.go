@@ -134,7 +134,7 @@ func Detect(src versions.Folder, m manifest.Manifest) (Recipe, error) {
 		r := pyBase(s, f, reqText, imports)
 		r.Kind, r.Port = "streamlit", 8501
 		r.Command = "streamlit run " + entry + " --server.port $PORT --server.address 0.0.0.0 --server.headless true"
-		r.Dockerfile += cmdLine(r.Command)
+		r.Dockerfile += r.cmd()
 		return r, nil
 	case uses("fastapi"), uses("flask"), uses("django"):
 		r := pyBase(s, f, reqText, imports)
@@ -159,7 +159,7 @@ func Detect(src versions.Folder, m manifest.Manifest) (Recipe, error) {
 		if r.Kind == "fastapi" {
 			server = "uvicorn"
 		}
-		r.Dockerfile += "RUN pip install --no-cache-dir " + server + "\n" + cmdLine(r.Command)
+		r.Dockerfile += "RUN pip install --no-cache-dir " + server + "\n" + r.cmd()
 		return r, nil
 	}
 	return Recipe{}, nil
@@ -180,6 +180,21 @@ func cmdLine(command string) string {
 		c = "exec " + c
 	}
 	return "CMD " + c + "\n"
+}
+
+// xvfbStart turns on the virtual screen the app names in DISPLAY (":99"),
+// unless one is already there. An app that sets DISPLAY expects a screen; one
+// that leaves it empty starts its own, or runs the invisible browser.
+const xvfbStart = `if [ -n "$DISPLAY" ] && [ ! -e "/tmp/.X11-unix/X${DISPLAY#:}" ]; then Xvfb "$DISPLAY" -screen 0 1280x800x24 -nolisten tcp >/dev/null 2>&1 & fi; `
+
+// cmd is the recipe's CMD line; with the browser it first turns on the
+// virtual screen.
+func (r Recipe) cmd() string {
+	c := cmdLine(r.Command)
+	if r.Browser {
+		c = "CMD " + xvfbStart + strings.TrimPrefix(c, "CMD ")
+	}
+	return c
 }
 
 func pyBase(s manifest.Shared, f files, reqText string, imports map[string]bool) Recipe {

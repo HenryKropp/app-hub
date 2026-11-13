@@ -253,3 +253,15 @@ func TestBrowserRecipePinsAndInstallsDeps(t *testing.T) {
 		t.Error(r.Dockerfile)
 	}
 }
+
+// With the browser, the CMD turns on the screen DISPLAY names, then the app.
+func TestBrowserRecipeStartsScreen(t *testing.T) {
+	r := detect(t, "playwright-py", manifest.Manifest{Entrypoint: "app.py"})
+	last := strings.TrimSpace(r.Dockerfile[strings.LastIndex(r.Dockerfile, "\nCMD "):])
+	if !strings.HasPrefix(last, `CMD if [ -n "$DISPLAY" ]`) || !strings.HasSuffix(last, "exec streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true") {
+		t.Fatal(last)
+	}
+	if s := detect(t, "streamlit", manifest.Manifest{Entrypoint: "app.py"}); strings.Contains(s.Dockerfile, "Xvfb") {
+		t.Fatal(s.Dockerfile)
+	}
+}
