@@ -67,6 +67,12 @@ type failedChecks struct {
 // app: one slow answer (the check gives up after 5 s) is not enough.
 const failsToRestart = 2
 
+// busyToRestart is how many checks in a row may find the app listening but
+// too slow to answer before it is restarted: about 10 minutes. An app at
+// heavy work (a browser on the small server) answers slowly; restarting it
+// would throw the work away (ADR 041).
+const busyToRestart = 20
+
 // errChanged: the app is no longer what the supervisor checked.
 var errChanged = errors.New("app changed since the check")
 
@@ -304,7 +310,7 @@ func (s *Supervisor) Step(ctx context.Context) {
 				f = failedChecks{container: cid}
 			}
 			f.n++
-			if h == noAnswer && f.n < failsToRestart { // a dead container needs no second look
+			if (h == noAnswer && f.n < failsToRestart) || (h == busy && f.n < busyToRestart) { // a dead container needs no second look
 				s.fails[a.AppID] = f
 				continue
 			}
@@ -398,7 +404,8 @@ type checkResult int
 const (
 	up       checkResult = iota
 	down                 // no container, or it is not running: certain
-	noAnswer             // running, but / did not answer well in time: maybe just slow
+	noAnswer             // running, but / did not answer well: maybe just starting
+	busy                 // running and listening, but / took longer than a try waits: busy at work
 )
 
 // healthy checks the live container and also says which container it was.
@@ -411,7 +418,9 @@ func (s *Supervisor) healthy(ctx context.Context, a sqlc.ListSharedAppsRow) (che
 	if err != nil || !st.Running || st.HostPort == 0 {
 		return down, id
 	}
-	if !health.Check(ctx, fmt.Sprintf("http://127.0.0.1:%d%s", st.HostPort, a.HealthPath)) {
+	if ok, slow := health.Probe(ctx, fmt.Sprintf("http://127.0.0.1:%d%s", st.HostPort, a.HealthPath)); slow {
+		return busy, id
+	} else if !ok {
 		return noAnswer, id
 	}
 	return up, id

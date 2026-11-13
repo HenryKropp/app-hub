@@ -34,3 +34,7 @@ A remontagem do app de relatórios começou sozinha, 30 s depois da publicação
 A segunda remontagem montou a imagem em cerca de 28 minutos, mas a versão nova foi recusada na conferência. A página inicial do app leva mais de 4 s no servidor gratuito, e passa de 5 s enquanto o app ainda liga (com o navegador se preparando). O Ziv esperava 5 s por tentativa e mostrava "não respondeu na porta", embora o app respondesse. Agora cada tentativa espera até 15 s (`health.AnswerTimeout`). Quando a página responde, mas devagar demais, a mensagem diz isso e pede uma página inicial mais leve.
 
 Fica para depois: a versão recusada leva junto a camada do navegador, então a próxima montagem baixa tudo de novo.
+
+## App ocupado não é app travado (2026-11-13)
+
+No primeiro teste do BTG, o Chromium ocupou o único processador do servidor gratuito, e a página do app passou de 15 s. O supervisor tomou isso por app travado e reiniciou o app duas checagens depois, jogando fora a busca. Agora o supervisor separa os dois casos. Se ninguém atende ou a página dá erro, o app reinicia depois de 2 checagens, como antes. Se o app aceita a conexão, mas a página não fica pronta a tempo, ele está ocupado: reinicia só depois de 20 checagens seguidas (cerca de 10 minutos).

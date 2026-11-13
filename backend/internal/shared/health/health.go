@@ -14,10 +14,17 @@ var ErrNoAnswer = errors.New("o app ligou, mas não respondeu")
 
 // AnswerTimeout is how long one try waits for the page. A Flask or Streamlit
 // page on the free 1 GB server can take several seconds, more while the app
-// is still starting (ADR 041).
-const AnswerTimeout = 15 * time.Second
+// is still starting (ADR 041). A var only so tests can shorten it.
+var AnswerTimeout = 15 * time.Second
 
-var client = &http.Client{Timeout: AnswerTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+var client = &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+
+// do sends req with one try's time limit.
+func do(req *http.Request) (*http.Response, error) {
+	c := *client
+	c.Timeout = AnswerTimeout
+	return c.Do(req)
+}
 
 func Check(ctx context.Context, url string) bool {
 	ok, _ := Probe(ctx, url)
@@ -31,7 +38,7 @@ func Probe(ctx context.Context, url string) (ok, slow bool) {
 	if err != nil {
 		return false, false
 	}
-	res, err := client.Do(req)
+	res, err := do(req)
 	if err != nil {
 		var ne net.Error
 		return false, errors.As(err, &ne) && ne.Timeout()
@@ -46,7 +53,7 @@ func Page(ctx context.Context, url string) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	res, err := client.Do(req)
+	res, err := do(req)
 	if err != nil {
 		return "", false
 	}
