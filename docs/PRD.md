@@ -84,6 +84,7 @@ A numeração segue a especificação do produto.
 - **Apps para vários ao mesmo tempo (em aberto, anotado em 2026-10-02):** alguns apps (ex.: Sistema Alis, Research Platform) são usados por várias pessoas juntas e precisam dos mesmos dados. Esses não podem abrir uma cópia no computador de cada um. Ideia a decidir:
   - Opção no manifesto: **pessoal** (abre no computador de quem clicou, como hoje) ou **compartilhado** (um só para todos).
   - O app compartilhado roda no servidor central (ADR 005). Todos abrem o mesmo endereço pelo navegador, e o Hub mantém o app no ar e mostra o link na ficha.
+  - Quando o Ziv aprende a montar melhor um tipo de app (por exemplo, com o navegador do Playwright), ele remonta sozinho os apps no ar com o mesmo código, sem ninguém clicar (ADR 041).
   - Um banco de dados só, ao lado do app, com a senha no cofre (3.7).
   - Aviso no diagnóstico quando um app compartilhado guarda dados em arquivo solto (planilha, CSV): duas pessoas gravando juntas podem perder dados.
   - No piloto, o servidor central é o PC do Henry: só funciona com ele ligado e na rede. De verdade, fica na nuvem (Módulo 2) ou num computador do cliente sempre ligado.
