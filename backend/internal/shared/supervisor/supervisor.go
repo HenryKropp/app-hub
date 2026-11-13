@@ -23,7 +23,7 @@ import (
 // staleAfter is how old a "building" deployment must be before it can be
 // called lost: well beyond the longest build plus the 90 s health wait, so a
 // second Hub process (or a late job) is never cut off.
-const staleAfter = 30 * time.Minute
+const staleAfter = 60 * time.Minute
 
 // msgGaveUp is the status message once the supervisor stops restarting.
 const msgGaveUp = "O app parou de responder 3 vezes em 10 minutos."

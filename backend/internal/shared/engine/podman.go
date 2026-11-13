@@ -53,7 +53,9 @@ func NewPodman(bin string, opts ...Option) *Podman {
 }
 
 const shortTimeout = 30 * time.Second
-const buildTimeout = 15 * time.Minute
+// buildTimeout: a first build with the browser (ADR 040) took over 15 minutes
+// on the free 1 GB server (ADR 041).
+const buildTimeout = 40 * time.Minute
 
 func (p *Podman) run(ctx context.Context, timeout time.Duration, stdin io.Reader, args ...string) ([]byte, error) {
 	if timeout > 0 {

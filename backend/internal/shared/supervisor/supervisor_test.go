@@ -78,7 +78,7 @@ func holdBusy(t *testing.T, e *deploytest.Env) (sqlc.SharedDeployment, func()) {
 // created just now are old enough to be called lost.
 func later(e *deploytest.Env, svc *deploy.Service) *Supervisor {
 	s := New(e.Q, e.Eng, svc)
-	s.SetNow(func() time.Time { return time.Now().Add(time.Hour) })
+	s.SetNow(func() time.Time { return time.Now().Add(2 * time.Hour) })
 	return s
 }
 
