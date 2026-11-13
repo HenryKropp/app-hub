@@ -21,9 +21,30 @@ type Slots struct {
 	maxRunning int
 	budgetMB   int
 
-	mu       sync.Mutex
-	inflight map[int]int // reservation id → MB, between Acquire and release
-	seq      int
+	mu         sync.Mutex
+	inflight   map[int]int // reservation id → MB, between Acquire and release
+	seq        int
+	refreshing bool // a rebuild by the Ziv itself is running somewhere
+}
+
+// TryRefresh takes the server's single refresh turn: one rebuild by the Ziv
+// itself at a time, so the small server never builds two at once for that.
+// ok is false while another refresh holds it; done gives it back. A nil
+// *Slots always gives the turn.
+func (s *Slots) TryRefresh() (done func(), ok bool) {
+	if s == nil {
+		return func() {}, true
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.refreshing {
+		return nil, false
+	}
+	s.refreshing = true
+	var once sync.Once
+	return func() {
+		once.Do(func() { s.mu.Lock(); s.refreshing = false; s.mu.Unlock() })
+	}, true
 }
 
 func NewSlots(base engine.Engine, maxRunning, budgetMB int) *Slots {

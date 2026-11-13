@@ -281,7 +281,7 @@ type job struct {
 	m    manifest.Manifest
 	dep  sqlc.SharedDeployment
 	rec  recipes.Recipe
-	by   int64
+	by   int64 // 0: the Ziv itself (a refresh)
 	test bool
 	// replacing: the box replaces the app's own running one (update publish,
 	// rollback), so it never waits for a free slot.
@@ -292,18 +292,32 @@ type job struct {
 	checkText string
 }
 
+// person is who started the job; nil when the Ziv did (a refresh).
+func (j job) person() *int64 {
+	if j.by == 0 {
+		return nil
+	}
+	return &j.by
+}
+
 func (s *Service) Publish(ctx context.Context, app sqlc.App, m manifest.Manifest, by int64) (sqlc.SharedDeployment, error) {
-	return s.begin(ctx, app, m, by, false)
+	return s.begin(ctx, app, m, by, false, nil)
+}
+
+// publish is Publish with a func to call once the background job ends (nil
+// for none). It is not called when publish returns an error.
+func (s *Service) publish(ctx context.Context, app sqlc.App, m manifest.Manifest, by int64, after func()) (sqlc.SharedDeployment, error) {
+	return s.begin(ctx, app, m, by, false, after)
 }
 
 func (s *Service) Test(ctx context.Context, app sqlc.App, m manifest.Manifest, by int64) (sqlc.SharedDeployment, error) {
-	return s.begin(ctx, app, m, by, true)
+	return s.begin(ctx, app, m, by, true, nil)
 }
 
 // begin checks everything that can be checked right away (so the person sees
 // the error on the button), records the deployment and runs the rest in the
 // background.
-func (s *Service) begin(ctx context.Context, app sqlc.App, m manifest.Manifest, by int64, test bool) (sqlc.SharedDeployment, error) {
+func (s *Service) begin(ctx context.Context, app sqlc.App, m manifest.Manifest, by int64, test bool, after func()) (sqlc.SharedDeployment, error) {
 	if s.vault == nil {
 		return sqlc.SharedDeployment{}, ErrNoVault
 	}
@@ -323,6 +337,9 @@ func (s *Service) begin(ctx context.Context, app sqlc.App, m manifest.Manifest, 
 		return sqlc.SharedDeployment{}, err
 	}
 	s.spawn(func() {
+		if after != nil {
+			defer after()
+		}
 		defer unlock()
 		defer s.recoverJob(j)
 		defer s.setStage(j.dep.ID, "")
@@ -391,7 +408,7 @@ func (s *Service) prepare(ctx context.Context, app sqlc.App, m manifest.Manifest
 		versionID = pgtype.Int8{Int64: v.ID, Valid: true}
 	}
 	dep, err := s.q.InsertDeployment(ctx, sqlc.InsertDeploymentParams{AppID: app.ID, VersionID: versionID, Kind: kind,
-		Recipe: rec.Dockerfile, CreatedBy: pgtype.Int8{Int64: by, Valid: true}, ExpiresAt: expires})
+		Recipe: rec.Dockerfile, CreatedBy: pgtype.Int8{Int64: by, Valid: by != 0}, ExpiresAt: expires})
 	if err != nil {
 		if isUniqueViolation(err) {
 			return sqlc.SharedDeployment{}, job{}, ErrBusy
@@ -545,7 +562,7 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 	if live && j.sa.WantsDb && j.sa.DbName != "" {
 		depID := j.dep.ID
 		s.setStage(j.dep.ID, StageBackup)
-		if _, err := s.Backup(ctx, j.app.ID, "pre_deploy", &depID, &j.by); err != nil {
+		if _, err := s.Backup(ctx, j.app.ID, "pre_deploy", &depID, j.person()); err != nil {
 			return &failure{msg: "Não foi possível fazer a cópia de segurança antes de publicar. Nada mudou no app.", log: detail(err)}
 		}
 	}
@@ -613,7 +630,11 @@ func (s *Service) runPublish(ctx context.Context, j job) *failure {
 	}
 	logErr(s.q.SetSharedStatus(ctx, sqlc.SetSharedStatusParams{AppID: j.app.ID, Status: "running"}), "set status", "app", j.app.ID)
 	logErr(s.q.SetSharedAccessNow(ctx, j.app.ID), "set access", "app", j.app.ID)
-	s.event(ctx, j.app.ID, &j.by, "Publicou "+s.versionLabel(ctx, j.dep))
+	if j.by == 0 {
+		s.event(ctx, j.app.ID, nil, "O Ziv remontou "+s.versionLabel(ctx, j.dep)+" com a receita nova do servidor")
+	} else {
+		s.event(ctx, j.app.ID, &j.by, "Publicou "+s.versionLabel(ctx, j.dep))
+	}
 	return nil
 }
 

@@ -52,6 +52,7 @@ type Supervisor struct {
 	down        bool
 
 	fails         map[int64]failedChecks // failed health checks in a row, per app
+	refreshed     map[int64]int64        // app → the version in the air already checked for a new recipe
 	beforeRestart func(appID int64)      // tests: runs between the health check and the restart
 	beforeStep    func()                 // tests: runs at the start of Step
 }
@@ -73,7 +74,7 @@ var errChanged = errors.New("app changed since the check")
 var errGaveUp = errors.New("gave up restarting")
 
 func New(q *sqlc.Queries, eng engine.Engine, svc *deploy.Service) *Supervisor {
-	return &Supervisor{Interval: 30 * time.Second, BackupHour: 3, q: q, eng: eng, svc: svc, now: time.Now, access: map[int64]time.Time{}, backupTry: map[int64]time.Time{}, fails: map[int64]failedChecks{}}
+	return &Supervisor{Interval: 30 * time.Second, BackupHour: 3, q: q, eng: eng, svc: svc, now: time.Now, access: map[int64]time.Time{}, backupTry: map[int64]time.Time{}, fails: map[int64]failedChecks{}, refreshed: map[int64]int64{}}
 }
 
 func (s *Supervisor) SetNow(fn func() time.Time) { s.now = fn }
@@ -335,9 +336,36 @@ func (s *Supervisor) Step(ctx context.Context) {
 		}
 	}
 	s.endExpiredTests(ctx, now)
+	s.refreshOne(ctx, apps)
 	if now.Sub(s.lastCleanup) >= time.Hour {
 		s.lastCleanup = now
 		s.cleanup(ctx, now)
+	}
+}
+
+// refreshOne starts at most one rebuild per round: a running app whose
+// version in the air was built with an older recipe of the Ziv (ADR 041).
+// Each version in the air is checked once per Ziv start; a refresh that
+// could not start (the app busy, another refresh building) is checked again
+// next round. A sleeping app is checked once it runs again.
+func (s *Supervisor) refreshOne(ctx context.Context, apps []sqlc.ListSharedAppsRow) {
+	for _, a := range apps {
+		if a.Status != "running" || !a.CurrentDeploymentID.Valid || s.refreshed[a.AppID] == a.CurrentDeploymentID.Int64 || s.svc.Busy(a.AppID) {
+			continue
+		}
+		started, err := s.svc.Refresh(ctx, a.AppID)
+		if errors.Is(err, deploy.ErrRefreshRunning) || errors.Is(err, deploy.ErrBusy) {
+			return // try again next round
+		}
+		s.refreshed[a.AppID] = a.CurrentDeploymentID.Int64
+		if err != nil {
+			slog.Warn("supervisor refresh", "app", a.AppID, "err", err)
+			continue
+		}
+		if started {
+			slog.Info("supervisor refresh: rebuilding with the new recipe", "app", a.AppID, "deployment", a.CurrentDeploymentID.Int64)
+			return
+		}
 	}
 }
 
