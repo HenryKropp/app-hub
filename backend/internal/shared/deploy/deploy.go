@@ -933,6 +933,11 @@ func lastLines(s string, n int) string {
 // explainBuild recognizes common build errors and says what to do.
 func explainBuild(log string) string {
 	switch {
+	case strings.Contains(log, "docker://localhost/"), strings.Contains(log, "no stage or image found"),
+		strings.Contains(log, "referred to by ID"):
+		// The build always pulls (engine.Podman.Build): a name of an image
+		// kept on the server, or an image id, is refused on purpose.
+		return "A receita usa uma imagem guardada no servidor. Por segurança, o Ziv só aceita imagens baixadas da internet, com o endereço completo (por exemplo docker.io/library/python:3.12-slim)."
 	case strings.Contains(log, "No matching distribution found"), strings.Contains(log, "Could not find a version"):
 		return "Uma biblioteca da lista não foi encontrada. Confira os nomes no requirements.txt."
 	case strings.Contains(log, "npm ERR!") && strings.Contains(log, "ci"):
