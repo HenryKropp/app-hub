@@ -26,3 +26,7 @@ O ADR 040 ensinou a receita automática a trazer o navegador. O app de relatóri
 
 - Uma mudança no comando ou na porta salva e ainda não publicada também muda a receita. Nesse caso, a remontagem aplica a mudança. Isso é aceitável: a pessoa já tinha salvo.
 - Depois de uma publicação do Ziv que muda a receita de muitos apps, eles são remontados um por um. No servidor gratuito, cada montagem pode levar minutos.
+
+## Primeira remontagem real (2026-11-13)
+
+A remontagem do app de relatórios começou sozinha, 30 s depois da publicação. Ela foi cortada pelo limite de 15 minutos da montagem: no servidor gratuito, instalar as bibliotecas e baixar o Chromium leva mais que isso. A versão antiga continuou no ar. O limite da montagem passou para 40 minutos, e o tempo para dar uma montagem como perdida passou de 30 para 60 minutos.

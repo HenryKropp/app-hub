@@ -22,7 +22,7 @@ Havia duas saídas: cada app trazer o próprio Dockerfile, ou o Ziv montar o nav
 
 ## Consequências
 
-- A imagem de um app com navegador tem cerca de 1,8 GB. O passo do navegador é compartilhado entre os apps. Na primeira montagem no servidor gratuito, o download pode levar alguns minutos, dentro dos 15 minutos de limite.
+- A imagem de um app com navegador tem cerca de 1,8 GB. O passo do navegador é compartilhado entre os apps. Na primeira montagem no servidor gratuito, a montagem passou dos 15 minutos de limite. Por isso, o limite da montagem subiu para 40 minutos (ADR 041).
 - Conferido montando de verdade a receita gerada: o Chromium abriu com janela no Xvfb, com limite de 512 MB.
 - Com 1 GB de RAM, cabe um app com navegador ligado por vez. Para mais, é preciso uma máquina paga (ADR 022).
 - Fica para depois: Playwright em Node e Selenium.
