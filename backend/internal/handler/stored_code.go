@@ -216,21 +216,88 @@ func (h *Handler) sendSources(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "A nota da versão pode ter até 2.000 caracteres.")
 		return
 	}
+	if !h.keepsCode(w, r, a) {
+		return
+	}
+	var current manifest.Manifest
+	if err := json.Unmarshal(a.Manifest, &current); err != nil {
+		internalError(w, "decode manifest", err)
+		return
+	}
+	m := current
+	if b.Ficha != nil {
+		// Checked again under the lock by applySources, which applies the
+		// ficha over the app as it is then.
+		if !b.UpdatedAt.Equal(a.UpdatedAt.Time) {
+			writeError(w, http.StatusConflict, "Alguém mudou esta ficha agora há pouco. Recarregue para ver a versão nova.")
+			return
+		}
+		var ok bool
+		if m, ok = validFicha(w, current, b.Ficha); !ok {
+			return
+		}
+	}
+	if _, ok := h.checkSentFiles(w, r, m, b.Files, b.ConfirmSecrets); !ok {
+		return
+	}
+	saved, v, changed, ok := h.applySources(w, r, a, me, b.Files, b.Ficha, b.Note, pgtype.Bool{Bool: false, Valid: true})
+	if !ok {
+		return
+	}
+	blocked, err := h.executionBlock(r.Context(), saved.ID)
+	if err != nil {
+		internalError(w, "approval", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"id": saved.ID, "version": v.Number, "changed": changed, "blocked_reason": blocked, "updated_at": saved.UpdatedAt.Time})
+}
+
+// keepsCode answers no_stored_code (and returns false) when the Ziv does not
+// keep the app's code: its versions come from the folder on the PC.
+func (h *Handler) keepsCode(w http.ResponseWriter, r *http.Request, a sqlc.App) bool {
+	if _, err := h.q.ScriptSources(r.Context(), a.ID); errors.Is(err, pgx.ErrNoRows) {
+		writeJSON(w, http.StatusConflict, map[string]string{"code": "no_stored_code", "error": noStoredCodeMsg})
+		return false
+	} else if err != nil {
+		internalError(w, "script sources", err)
+		return false
+	}
+	return true
+}
+
+// validFicha applies f over current and checks the result, answering w when
+// it is not valid.
+func validFicha(w http.ResponseWriter, current manifest.Manifest, f *fichaUpdate) (manifest.Manifest, bool) {
+	m := applyFicha(current, f)
+	if len(m.Summary) > 2000 {
+		writeError(w, http.StatusBadRequest, "Informe um nome de até 120 caracteres e uma descrição de até 2.000.")
+		return m, false
+	}
+	if issues := m.Validate(); len(issues) > 0 {
+		writeError(w, http.StatusBadRequest, strings.Join(issues, " "))
+		return m, false
+	}
+	return m, true
+}
+
+// applySources puts files live as the app's code: it replaces the stored
+// code, rebuilds the folder, records the version (with its test mark) and
+// saves the ficha changes over the app as it is now. It refuses apps whose
+// code the Ziv does not keep and apps with a run going on. The caller has
+// already checked the files (checkSentFiles). ok is false when w was answered.
+func (h *Handler) applySources(w http.ResponseWriter, r *http.Request, a sqlc.App, me sqlc.Person,
+	files map[string]manifest.InputFile, ficha *fichaUpdate, note string, tested pgtype.Bool) (sqlc.App, sqlc.AppVersion, bool, bool) {
 	ctx := r.Context()
 	if h.shared.Svc != nil { // a test or publish reads the folder: none starts while it is rewritten
 		release, err := h.shared.Svc.Hold(a.ID)
 		if err != nil {
 			writeError(w, http.StatusConflict, busyMsg)
-			return
+			return a, sqlc.AppVersion{}, false, false
 		}
 		defer release()
 	}
-	if _, err := h.q.ScriptSources(ctx, a.ID); errors.Is(err, pgx.ErrNoRows) {
-		writeJSON(w, http.StatusConflict, map[string]string{"code": "no_stored_code", "error": noStoredCodeMsg})
-		return
-	} else if err != nil {
-		internalError(w, "script sources", err)
-		return
+	if !h.keepsCode(w, r, a) {
+		return a, sqlc.AppVersion{}, false, false
 	}
 	// The lock is held while the code changes and its version is recorded;
 	// it is released before the ficha is saved, because writeApp checks the
@@ -246,80 +313,63 @@ func (h *Handler) sendSources(w http.ResponseWriter, r *http.Request) {
 	a, err := h.q.GetApp(ctx, a.ID)
 	if err != nil {
 		internalError(w, "get app", err)
-		return
+		return a, sqlc.AppVersion{}, false, false
 	}
 	if err := h.q.ExpireStaleRuns(ctx); err != nil {
 		internalError(w, "expire runs", err)
-		return
+		return a, sqlc.AppVersion{}, false, false
 	}
 	if active, err := h.q.AppHasActiveRun(ctx, a.ID); err != nil {
 		internalError(w, "active run", err)
-		return
+		return a, sqlc.AppVersion{}, false, false
 	} else if active {
 		writeError(w, http.StatusConflict, "Espere a execução terminar antes de mandar uma versão nova.")
-		return
+		return a, sqlc.AppVersion{}, false, false
 	}
 	var current manifest.Manifest
 	if err := json.Unmarshal(a.Manifest, &current); err != nil {
 		internalError(w, "decode manifest", err)
-		return
+		return a, sqlc.AppVersion{}, false, false
 	}
 	m := current
-	if b.Ficha != nil {
-		if !b.UpdatedAt.Equal(a.UpdatedAt.Time) {
-			writeError(w, http.StatusConflict, "Alguém mudou esta ficha agora há pouco. Recarregue para ver a versão nova.")
-			return
-		}
-		m = applyFicha(current, b.Ficha)
-		if len(m.Summary) > 2000 {
-			writeError(w, http.StatusBadRequest, "Informe um nome de até 120 caracteres e uma descrição de até 2.000.")
-			return
-		}
-		if issues := m.Validate(); len(issues) > 0 {
-			writeError(w, http.StatusBadRequest, strings.Join(issues, " "))
-			return
+	if ficha != nil {
+		var ok bool
+		if m, ok = validFicha(w, current, ficha); !ok {
+			return a, sqlc.AppVersion{}, false, false
 		}
 	}
-	if _, ok := h.checkSentFiles(w, r, m, b.Files, b.ConfirmSecrets); !ok {
-		return
-	}
-	files, _ := json.Marshal(b.Files)
-	if err := h.q.ReplaceScriptSources(ctx, a.ID, files); err != nil {
+	data, _ := json.Marshal(files)
+	if err := h.q.ReplaceScriptSources(ctx, a.ID, data); err != nil {
 		internalError(w, "replace sources", err)
-		return
+		return a, sqlc.AppVersion{}, false, false
 	}
 	if err := os.RemoveAll(a.FolderPath); err != nil {
 		internalError(w, "clear folder", err)
-		return
+		return a, sqlc.AppVersion{}, false, false
 	}
 	if err := h.hydrateImportedScript(ctx, a, current); err != nil {
 		internalError(w, "rebuild folder", err)
-		return
+		return a, sqlc.AppVersion{}, false, false
 	}
-	v, changed, err := h.recordSentVersion(ctx, a, me.ID, b.Note, pgtype.Bool{})
+	v, changed, err := h.recordSentVersion(ctx, a, me.ID, note, tested)
 	if err != nil {
 		internalError(w, "record version", err)
-		return
+		return a, sqlc.AppVersion{}, false, false
 	}
 	unlock()
 	locked = false
-	if b.Ficha != nil {
+	if ficha != nil {
 		var backup *int64
 		if a.BackupID.Valid {
 			backup = &a.BackupID.Int64
 		}
 		saved, ok := h.writeApp(w, r, me, a.FolderPath, appBody{FolderPath: a.FolderPath, OwnerID: a.OwnerID, BackupID: backup, Manifest: m}, &a)
 		if !ok {
-			return
+			return a, v, changed, false
 		}
 		a = saved
 	}
-	blocked, err := h.executionBlock(ctx, a.ID)
-	if err != nil {
-		internalError(w, "approval", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"id": a.ID, "version": v.Number, "changed": changed, "blocked_reason": blocked, "updated_at": a.UpdatedAt.Time})
+	return a, v, changed, true
 }
 
 // syncSourcesFromFolder makes the stored code match the app folder after a

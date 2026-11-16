@@ -15,6 +15,7 @@ import (
 
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 	"github.com/HenryKropp/app-hub/backend/internal/shared/deploy"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func importBody(name string) map[string]any {
@@ -177,6 +178,14 @@ func TestSourcesNewVersion(t *testing.T) {
 	testPool.QueryRow(context.Background(), "SELECT origin, description FROM app_versions WHERE app_id=$1 AND number=2", id).Scan(&origin, &desc)
 	if origin != "upload" || desc != "Corrige a soma" {
 		t.Fatal(origin, desc)
+	}
+	// Sent straight to the air, without a test: "não testada". The import
+	// (v1) predates the mark.
+	var tested2, tested1 pgtype.Bool
+	testPool.QueryRow(context.Background(), "SELECT tested FROM app_versions WHERE app_id=$1 AND number=2", id).Scan(&tested2)
+	testPool.QueryRow(context.Background(), "SELECT tested FROM app_versions WHERE app_id=$1 AND number=1", id).Scan(&tested1)
+	if !tested2.Valid || tested2.Bool || tested1.Valid {
+		t.Fatalf("tested v2=%+v v1=%+v", tested2, tested1)
 	}
 	if got := storedNames(t, id)["main.py"]; got != "print('v2')" {
 		t.Fatal(got)
