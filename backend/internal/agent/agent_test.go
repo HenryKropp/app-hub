@@ -55,6 +55,15 @@ func (f *fakeHub) handler() http.Handler {
 		f.mu.Unlock()
 		w.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("POST /api/agent/jobs/{id}/evidence", func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		var id int64
+		_, _ = fmtSscan(r.PathValue("id"), &id)
+		f.mu.Lock()
+		f.uploads[id] = "evidence:" + string(b)
+		f.mu.Unlock()
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("POST /api/agent/jobs/{id}/upload", func(w http.ResponseWriter, r *http.Request) {
 		b, _ := io.ReadAll(r.Body)
 		var id int64

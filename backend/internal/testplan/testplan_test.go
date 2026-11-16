@@ -31,7 +31,9 @@ func TestFingerprint(t *testing.T) {
 		func(m *manifest.Manifest) { m.Teste.Espera = []manifest.Espera{{Arquivos: "*.csv"}} },
 		func(m *manifest.Manifest) { m.Teste.Entradas = map[string]string{"data": "2026-01-01"} },
 		func(m *manifest.Manifest) { m.Teste.TempoMaximoMin = 5 },
-		func(m *manifest.Manifest) { m.Keys = []manifest.Key{{Name: "BTG_SENHA"}, {Name: "BTG_USUARIO", Label: "x"}} },
+		func(m *manifest.Manifest) {
+			m.Keys = []manifest.Key{{Name: "BTG_SENHA"}, {Name: "BTG_USUARIO", Label: "x"}}
+		},
 	}
 	for i, f := range same {
 		m := plan()

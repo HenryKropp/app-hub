@@ -96,6 +96,37 @@ func (a *Agent) handle(ctx context.Context, job agentproto.Job) {
 		}
 		res := a.Runner.Run(ctx, p, func(r agentproto.Result) { a.report(ctx, job.ID, r) })
 		a.report(ctx, job.ID, res)
+	case agentproto.KindTest:
+		var p agentproto.TestPayload
+		if err := json.Unmarshal(job.Payload, &p); err != nil || p.AppID <= 0 || p.DraftID <= 0 {
+			a.report(ctx, job.ID, failed("Pedido de teste inválido."))
+			return
+		}
+		if p.Keys {
+			keys, err := a.Client.Keys(ctx, job.ID)
+			if err != nil {
+				slog.Error("fetch app keys", "job", job.ID, "err", err)
+				a.report(ctx, job.ID, failed("Não consegui pegar as chaves e senhas do app para o teste."))
+				return
+			}
+			p.KeyValues = keys
+		}
+		folder := TestFolder(a.StateDir, p.AppID, p.DraftID)
+		res := a.Runner.RunTest(ctx, p, folder)
+		if res.Event == agentproto.EventFinished {
+			// The evidence goes before the result: the Hub checks the test
+			// as soon as the result arrives.
+			pr, pw := io.Pipe()
+			go func() {
+				_, err := evidenceZip(pw, folder, agentproto.MaxEvidenceBytes)
+				pw.CloseWithError(err)
+			}()
+			if err := a.Client.UploadEvidence(ctx, job.ID, pr); err != nil {
+				slog.Error("upload evidence", "job", job.ID, "err", err)
+			}
+			_ = pr.Close()
+		}
+		a.report(ctx, job.ID, res)
 	case agentproto.KindChooseFolder:
 		var p agentproto.ChooseFolderPayload
 		_ = json.Unmarshal(job.Payload, &p)

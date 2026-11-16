@@ -32,15 +32,15 @@ func TestTesteProblems(t *testing.T) {
 	}
 
 	cases := map[string]func(t *Teste){
-		"sem acessa":       func(t *Teste) { t.Acessa = nil },
-		"pula vazio":       func(t *Teste) { t.Pula = " " },
-		"espera sem arq":   func(t *Teste) { t.Espera = []Espera{{LogContem: "ok"}} },
-		"tela_contem":      func(t *Teste) { t.Espera = append(t.Espera, Espera{TelaContem: "x"}) },
-		"acao":             func(t *Teste) { t.Acao = "POST /rodar" },
-		"tempo 16":         func(t *Teste) { t.TempoMaximoMin = 16 },
-		"tempo -1":         func(t *Teste) { t.TempoMaximoMin = -1 },
-		"glob inválido":    func(t *Teste) { t.Espera[0].Arquivos = "[a" },
-		"no_minimo -1":     func(t *Teste) { t.Espera[0].NoMinimo = -1 },
+		"sem acessa":     func(t *Teste) { t.Acessa = nil },
+		"pula vazio":     func(t *Teste) { t.Pula = " " },
+		"espera sem arq": func(t *Teste) { t.Espera = []Espera{{LogContem: "ok"}} },
+		"tela_contem":    func(t *Teste) { t.Espera = append(t.Espera, Espera{TelaContem: "x"}) },
+		"acao":           func(t *Teste) { t.Acao = "POST /rodar" },
+		"tempo 16":       func(t *Teste) { t.TempoMaximoMin = 16 },
+		"tempo -1":       func(t *Teste) { t.TempoMaximoMin = -1 },
+		"glob inválido":  func(t *Teste) { t.Espera[0].Arquivos = "[a" },
+		"no_minimo -1":   func(t *Teste) { t.Espera[0].NoMinimo = -1 },
 	}
 	for name, mutate := range cases {
 		tt := validTeste()
