@@ -46,9 +46,14 @@ func (q *Queries) InsertNotice(ctx context.Context, arg InsertNoticeParams) erro
 
 const listNotices = `-- name: ListNotices :many
 SELECT n.id, n.app_id, n.version, n.text, n.created_at, n.read_at, a.name AS app_name FROM notices n JOIN apps a ON a.id = n.app_id
-WHERE n.app_id = ANY($1::bigint[])
+WHERE a.archived_at IS NULL AND ($1::boolean OR a.owner_id = $2)
 ORDER BY n.created_at DESC, n.id DESC LIMIT 20
 `
+
+type ListNoticesParams struct {
+	Admin    bool  `json:"admin"`
+	PersonID int64 `json:"person_id"`
+}
 
 type ListNoticesRow struct {
 	ID        int64              `json:"id"`
@@ -60,8 +65,9 @@ type ListNoticesRow struct {
 	AppName   string             `json:"app_name"`
 }
 
-func (q *Queries) ListNotices(ctx context.Context, appIds []int64) ([]ListNoticesRow, error) {
-	rows, err := q.db.Query(ctx, listNotices, appIds)
+// The notices of the apps the person owns; a company admin sees them all.
+func (q *Queries) ListNotices(ctx context.Context, arg ListNoticesParams) ([]ListNoticesRow, error) {
+	rows, err := q.db.Query(ctx, listNotices, arg.Admin, arg.PersonID)
 	if err != nil {
 		return nil, err
 	}

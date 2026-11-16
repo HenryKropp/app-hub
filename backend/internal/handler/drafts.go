@@ -120,18 +120,12 @@ func (h *Handler) draftFromPath(w http.ResponseWriter, r *http.Request) (sqlc.Ap
 
 // getDraft answers GET /api/apps/{id}/drafts/{d}.
 func (h *Handler) getDraft(w http.ResponseWriter, r *http.Request) {
-	_, _, d, ok := h.draftFromPath(w, r)
+	a, _, d, ok := h.draftFromPath(w, r)
 	if !ok {
 		return
 	}
-	var number *int32
-	if d.VersionNumber.Valid {
-		number = &d.VersionNumber.Int32
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"id": d.ID, "status": d.Status, "status_reason": d.StatusReason,
-		"version_number": number, "note": d.Note, "created_at": d.CreatedAt.Time,
-	})
+	// draftFromPath already asked for can.Edit, so the masked log goes too.
+	writeJSON(w, http.StatusOK, h.draftView(r.Context(), a, d, true))
 }
 
 // publishDraftRoute is the manual door (POST /api/apps/{id}/drafts/{d}/publish):

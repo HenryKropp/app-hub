@@ -2,8 +2,9 @@
 INSERT INTO notices (app_id, version, text) VALUES ($1, $2, $3);
 
 -- name: ListNotices :many
+-- The notices of the apps the person owns; a company admin sees them all.
 SELECT n.*, a.name AS app_name FROM notices n JOIN apps a ON a.id = n.app_id
-WHERE n.app_id = ANY(sqlc.arg(app_ids)::bigint[])
+WHERE a.archived_at IS NULL AND (sqlc.arg(admin)::boolean OR a.owner_id = sqlc.arg(person_id))
 ORDER BY n.created_at DESC, n.id DESC LIMIT 20;
 
 -- name: GetNotice :one

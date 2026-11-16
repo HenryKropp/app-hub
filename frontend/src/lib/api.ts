@@ -209,7 +209,26 @@ export type AppDetail = {
   used_by?: AppLink[]
   /** Labels of the required values still empty in Configurações (ADR 032). */
   missing_settings?: string[]
+  /** A new version under test (ADR 044); only for who can edit the app. */
+  open_draft?: OpenDraft | null
+  /** A new app that only shows up after its first test passes. */
+  in_test?: boolean
 }
+
+export type OpenDraft = { id: number; stage: string; stage_label: string }
+
+/** The plan confirmation screen (ADR 044). */
+export type TestPlan = {
+  plan: { acessa: string[]; pula: string; keys: string[]; place: string } | null
+  fingerprint: string
+  confirmed: { by: string; at: string; computer_id: number | null } | null
+  matches: boolean
+  computers: { id: number; name: string; connected: boolean; outdated: boolean }[]
+  can_confirm: boolean
+  confirm_text: string
+}
+
+export type Notice = { id: number; app_id: number; app_name: string; version: number; text: string; created_at: string; read_at: string | null }
 
 export type UpdateState = "" | "updating" | "updated" | "gave_up"
 export type Computer = {
@@ -511,6 +530,15 @@ export const api = {
   setGrants: (id: number, b: { person_id: number; permissions: string[]; whole_area: boolean }) =>
     request<AppAccess>("PUT", `/api/apps/${id}/grants`, b),
   home: () => request<Home>("GET", "/api/home"),
+  notices: () => request<Notice[]>("GET", "/api/notices"),
+  readNotice: (id: number) => request<void>("POST", `/api/notices/${id}/read`),
+  testPlan: {
+    get: (id: number | string) => request<TestPlan>("GET", `/api/apps/${id}/test-plan`),
+    confirm: (id: number | string, fingerprint: string, computerId: number) =>
+      request<TestPlan>("POST", `/api/apps/${id}/test-plan/confirm`, { fingerprint, computer_id: computerId }),
+    setComputer: (id: number | string, computerId: number) =>
+      request<TestPlan>("PUT", `/api/apps/${id}/test-plan/computer`, { computer_id: computerId }),
+  },
   homeTeam: () => request<TeamHome>("GET", "/api/home/team"),
   setFavorite: (kind: "app" | "artifact", id: number, on: boolean) =>
     request<void>(on ? "PUT" : "DELETE", `/api/favorites/${kind}/${id}`),

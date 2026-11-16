@@ -20,6 +20,7 @@ import { MyRunsPage } from "@/pages/MyRunsPage"
 import { RunPage } from "@/pages/RunPage"
 import { SettingsPage } from "@/pages/SettingsPage"
 import { VersionPage } from "@/pages/VersionPage"
+import { TestPlanPage } from "@/pages/TestPlanPage"
 import { SetupPage } from "@/pages/SetupPage"
 import { AdminPage } from "@/pages/AdminPage"
 import { PRODUCT_NAME } from "@/lib/brand"
@@ -67,6 +68,7 @@ function Routed() {
         <Route path="apps/arquivados" element={<ArchivedAppsPage />} />
         <Route path="apps/:id" element={<AppPage />} />
         <Route path="apps/:id/versoes/:n" element={<VersionPage />} />
+        <Route path="apps/:id/plano-de-teste" element={<TestPlanPage />} />
         <Route
           path="registrar"
           element={

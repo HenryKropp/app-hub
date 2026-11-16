@@ -18,7 +18,8 @@ import (
 func testeFicha() map[string]any {
 	return map[string]any{"teste": map[string]any{
 		"acessa": []string{"nada externo"}, "pula": "nada",
-		"espera": []map[string]any{{"arquivos": "*.pdf"}},
+		"espera":   []map[string]any{{"arquivos": "*.pdf"}},
+		"entradas": map[string]string{"amount": "1"},
 	}}
 }
 
