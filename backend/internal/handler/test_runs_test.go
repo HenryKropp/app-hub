@@ -93,7 +93,8 @@ func TestTestResultPassesAndApproves(t *testing.T) {
 		t.Fatalf("result %d", code)
 	}
 	d := draftRow(t, h, draftID)
-	if d.Status != "aprovada" {
+	// Approved drafts go straight on to publishing (Task 5).
+	if d.Status != "no_ar" {
 		t.Fatalf("status %q %q", d.Status, d.StatusReason)
 	}
 	var checks []struct {

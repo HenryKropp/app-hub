@@ -362,6 +362,44 @@ func (q *Queries) GetComputerByToken(ctx context.Context, tokenHash string) (Com
 	return i, err
 }
 
+const getComputerStatus = `-- name: GetComputerStatus :one
+SELECT id, person_id, name, token_hash, agent_version, last_seen_at, created_at, revoked_at, can_update, can_stop, (revoked_at IS NULL AND COALESCE(last_seen_at > now() - interval '60 seconds', FALSE))::boolean AS connected
+FROM computers WHERE id = $1
+`
+
+type GetComputerStatusRow struct {
+	ID           int64              `json:"id"`
+	PersonID     int64              `json:"person_id"`
+	Name         string             `json:"name"`
+	TokenHash    string             `json:"token_hash"`
+	AgentVersion string             `json:"agent_version"`
+	LastSeenAt   pgtype.Timestamptz `json:"last_seen_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	RevokedAt    pgtype.Timestamptz `json:"revoked_at"`
+	CanUpdate    bool               `json:"can_update"`
+	CanStop      bool               `json:"can_stop"`
+	Connected    bool               `json:"connected"`
+}
+
+func (q *Queries) GetComputerStatus(ctx context.Context, id int64) (GetComputerStatusRow, error) {
+	row := q.db.QueryRow(ctx, getComputerStatus, id)
+	var i GetComputerStatusRow
+	err := row.Scan(
+		&i.ID,
+		&i.PersonID,
+		&i.Name,
+		&i.TokenHash,
+		&i.AgentVersion,
+		&i.LastSeenAt,
+		&i.CreatedAt,
+		&i.RevokedAt,
+		&i.CanUpdate,
+		&i.CanStop,
+		&i.Connected,
+	)
+	return i, err
+}
+
 const getJob = `-- name: GetJob :one
 SELECT id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at, keys_delivered_at, draft_id FROM agent_jobs WHERE id = $1
 `

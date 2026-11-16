@@ -48,6 +48,8 @@ func refuse(status int, code, msg string) *launchError {
 	return &launchError{Status: status, Code: code, Msg: msg}
 }
 
+const msgInTest = "Este app ainda está em teste. Ele fica disponível depois que o primeiro teste passar."
+
 const msgWebNoCode = "Para abrir no computador, o código do app precisa estar guardado no Ziv. Registre o app pelo Claude ou envie o código pelo site."
 
 // webStart works out how the Agente starts a screen app on the computer,
@@ -72,6 +74,9 @@ func webStart(a sqlc.App, m manifest.Manifest, sources map[string]manifest.Input
 // computer's agent. err is an internal failure; *launchError a refusal.
 func (h *Handler) launchRun(ctx context.Context, req launchRequest) (sqlc.Run, *launchError, error) {
 	a, m := req.App, req.Manifest
+	if a.InTest {
+		return sqlc.Run{}, refuse(409, "in_test", msgInTest), nil
+	}
 	if reason, err := h.executionBlock(ctx, a.ID); err != nil {
 		return sqlc.Run{}, nil, err
 	} else if reason != "" {
