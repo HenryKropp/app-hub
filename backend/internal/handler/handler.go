@@ -226,6 +226,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/agent/binary", h.agentBinary)
 	mux.HandleFunc("GET /api/agent/next", h.agentNext)
 	mux.HandleFunc("POST /api/agent/jobs/{id}/result", h.agentResult)
+	mux.HandleFunc("POST /api/agent/jobs/{id}/evidence", h.agentEvidence)
 	mux.HandleFunc("PUT /api/mcp/envios/{token}", h.receiveUpload)
 	mux.HandleFunc("PUT /api/mcp/chaves/{token}", h.receiveKeys)
 	h.registerMCPAuth(mux)
