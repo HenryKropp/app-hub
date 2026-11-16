@@ -70,3 +70,9 @@ DELETE FROM apps WHERE id = $1 AND archived_at IS NOT NULL AND archived_at < $2;
 
 -- name: AppArchived :one
 SELECT (archived_at IS NOT NULL)::bool AS archived FROM apps WHERE id = $1;
+
+-- name: ClearInTest :exec
+UPDATE apps SET in_test = false, restricted = false WHERE id = $1 AND in_test;
+
+-- name: SetInTest :exec
+UPDATE apps SET in_test = true, restricted = true WHERE id = $1;

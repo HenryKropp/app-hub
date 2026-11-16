@@ -59,3 +59,6 @@ SELECT EXISTS(SELECT 1 FROM runs WHERE app_id = $1 AND status IN ('waiting', 'ru
 
 -- name: GetAppVersionByID :one
 SELECT * FROM app_versions WHERE id = $1;
+
+-- name: MarkVersionTested :exec
+UPDATE app_versions SET tested = true WHERE app_id = $1 AND number = $2;

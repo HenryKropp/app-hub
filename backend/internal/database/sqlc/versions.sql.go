@@ -405,6 +405,20 @@ func (q *Queries) ListVersionsBefore(ctx context.Context, arg ListVersionsBefore
 	return items, nil
 }
 
+const markVersionTested = `-- name: MarkVersionTested :exec
+UPDATE app_versions SET tested = true WHERE app_id = $1 AND number = $2
+`
+
+type MarkVersionTestedParams struct {
+	AppID  int64 `json:"app_id"`
+	Number int32 `json:"number"`
+}
+
+func (q *Queries) MarkVersionTested(ctx context.Context, arg MarkVersionTestedParams) error {
+	_, err := q.db.Exec(ctx, markVersionTested, arg.AppID, arg.Number)
+	return err
+}
+
 const putCodeBlob = `-- name: PutCodeBlob :exec
 INSERT INTO code_blobs (sha256, content, size) VALUES ($1, $2, $3) ON CONFLICT (sha256) DO NOTHING
 `

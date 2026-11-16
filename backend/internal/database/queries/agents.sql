@@ -135,3 +135,8 @@ WHERE computer_id = sqlc.arg(computer_id) AND kind = 'update'
 
 -- name: LatestUpdateJob :one
 SELECT * FROM agent_jobs WHERE computer_id = $1 AND kind = 'update' ORDER BY id DESC LIMIT 1;
+
+-- name: CreateTestJob :one
+INSERT INTO agent_jobs (computer_id, draft_id, kind, payload)
+VALUES ($1, $2, 'test', $3)
+RETURNING *;

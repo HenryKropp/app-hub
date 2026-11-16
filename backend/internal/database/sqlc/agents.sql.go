@@ -52,7 +52,7 @@ WHERE id = (
     LIMIT 1
     FOR UPDATE SKIP LOCKED
 )
-RETURNING id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at, keys_delivered_at
+RETURNING id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at, keys_delivered_at, draft_id
 `
 
 func (q *Queries) ClaimJob(ctx context.Context, computerID int64) (AgentJob, error) {
@@ -70,6 +70,7 @@ func (q *Queries) ClaimJob(ctx context.Context, computerID int64) (AgentJob, err
 		&i.TakenAt,
 		&i.DoneAt,
 		&i.KeysDeliveredAt,
+		&i.DraftID,
 	)
 	return i, err
 }
@@ -181,7 +182,7 @@ func (q *Queries) CreateComputer(ctx context.Context, arg CreateComputerParams) 
 const createJob = `-- name: CreateJob :one
 INSERT INTO agent_jobs (computer_id, run_id, kind, payload)
 VALUES ($1, $2, $3, $4)
-RETURNING id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at, keys_delivered_at
+RETURNING id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at, keys_delivered_at, draft_id
 `
 
 type CreateJobParams struct {
@@ -211,6 +212,7 @@ func (q *Queries) CreateJob(ctx context.Context, arg CreateJobParams) (AgentJob,
 		&i.TakenAt,
 		&i.DoneAt,
 		&i.KeysDeliveredAt,
+		&i.DraftID,
 	)
 	return i, err
 }
@@ -229,6 +231,38 @@ type CreatePairingParams struct {
 func (q *Queries) CreatePairing(ctx context.Context, arg CreatePairingParams) error {
 	_, err := q.db.Exec(ctx, createPairing, arg.Code, arg.SecretHash, arg.ComputerName)
 	return err
+}
+
+const createTestJob = `-- name: CreateTestJob :one
+INSERT INTO agent_jobs (computer_id, draft_id, kind, payload)
+VALUES ($1, $2, 'test', $3)
+RETURNING id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at, keys_delivered_at, draft_id
+`
+
+type CreateTestJobParams struct {
+	ComputerID int64       `json:"computer_id"`
+	DraftID    pgtype.Int8 `json:"draft_id"`
+	Payload    []byte      `json:"payload"`
+}
+
+func (q *Queries) CreateTestJob(ctx context.Context, arg CreateTestJobParams) (AgentJob, error) {
+	row := q.db.QueryRow(ctx, createTestJob, arg.ComputerID, arg.DraftID, arg.Payload)
+	var i AgentJob
+	err := row.Scan(
+		&i.ID,
+		&i.ComputerID,
+		&i.RunID,
+		&i.Kind,
+		&i.Payload,
+		&i.Status,
+		&i.Result,
+		&i.CreatedAt,
+		&i.TakenAt,
+		&i.DoneAt,
+		&i.KeysDeliveredAt,
+		&i.DraftID,
+	)
+	return i, err
 }
 
 const expireStaleJobs = `-- name: ExpireStaleJobs :exec
@@ -329,7 +363,7 @@ func (q *Queries) GetComputerByToken(ctx context.Context, tokenHash string) (Com
 }
 
 const getJob = `-- name: GetJob :one
-SELECT id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at, keys_delivered_at FROM agent_jobs WHERE id = $1
+SELECT id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at, keys_delivered_at, draft_id FROM agent_jobs WHERE id = $1
 `
 
 func (q *Queries) GetJob(ctx context.Context, id int64) (AgentJob, error) {
@@ -347,6 +381,7 @@ func (q *Queries) GetJob(ctx context.Context, id int64) (AgentJob, error) {
 		&i.TakenAt,
 		&i.DoneAt,
 		&i.KeysDeliveredAt,
+		&i.DraftID,
 	)
 	return i, err
 }
@@ -442,7 +477,7 @@ func (q *Queries) IsComputerConnected(ctx context.Context, id int64) (bool, erro
 }
 
 const latestUpdateJob = `-- name: LatestUpdateJob :one
-SELECT id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at, keys_delivered_at FROM agent_jobs WHERE computer_id = $1 AND kind = 'update' ORDER BY id DESC LIMIT 1
+SELECT id, computer_id, run_id, kind, payload, status, result, created_at, taken_at, done_at, keys_delivered_at, draft_id FROM agent_jobs WHERE computer_id = $1 AND kind = 'update' ORDER BY id DESC LIMIT 1
 `
 
 func (q *Queries) LatestUpdateJob(ctx context.Context, computerID int64) (AgentJob, error) {
@@ -460,6 +495,7 @@ func (q *Queries) LatestUpdateJob(ctx context.Context, computerID int64) (AgentJ
 		&i.TakenAt,
 		&i.DoneAt,
 		&i.KeysDeliveredAt,
+		&i.DraftID,
 	)
 	return i, err
 }

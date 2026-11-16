@@ -11,9 +11,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const approveDraft = `-- name: ApproveDraft :execrows
+UPDATE app_drafts
+SET status = 'aprovada', stage = 'publicando', stage_since = clock_timestamp(), updated_at = clock_timestamp()
+WHERE id = $1 AND status = 'testando' AND stage = 'rodando'
+`
+
+func (q *Queries) ApproveDraft(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.Exec(ctx, approveDraft, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const cancelOpenDrafts = `-- name: CancelOpenDrafts :exec
 UPDATE app_drafts
-SET status = 'cancelada', status_reason = $1, updated_at = clock_timestamp()
+SET status = 'cancelada', stage = '', status_reason = $1, updated_at = clock_timestamp()
 WHERE app_id = $2 AND status IN ('rascunho', 'testando', 'aprovada')
 `
 
@@ -27,8 +41,42 @@ func (q *Queries) CancelOpenDrafts(ctx context.Context, arg CancelOpenDraftsPara
 	return err
 }
 
+const deleteOldClosedDrafts = `-- name: DeleteOldClosedDrafts :exec
+DELETE FROM app_drafts WHERE status IN ('cancelada', 'reprovada') AND updated_at < now() - interval '30 days'
+`
+
+func (q *Queries) DeleteOldClosedDrafts(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteOldClosedDrafts)
+	return err
+}
+
+const deleteOldEvidence = `-- name: DeleteOldEvidence :exec
+DELETE FROM draft_evidence WHERE created_at < now() - interval '7 days'
+`
+
+func (q *Queries) DeleteOldEvidence(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteOldEvidence)
+	return err
+}
+
+const failDraft = `-- name: FailDraft :exec
+UPDATE app_drafts
+SET status = 'reprovada', stage = '', status_reason = $1, updated_at = clock_timestamp()
+WHERE id = $2 AND status IN ('testando', 'aprovada')
+`
+
+type FailDraftParams struct {
+	Reason string `json:"reason"`
+	ID     int64  `json:"id"`
+}
+
+func (q *Queries) FailDraft(ctx context.Context, arg FailDraftParams) error {
+	_, err := q.db.Exec(ctx, failDraft, arg.Reason, arg.ID)
+	return err
+}
+
 const getDraft = `-- name: GetDraft :one
-SELECT id, app_id, author_id, channel, files, ficha, note, status, status_reason, version_number, created_at, updated_at FROM app_drafts WHERE app_id = $1 AND id = $2
+SELECT id, app_id, author_id, channel, files, ficha, note, status, status_reason, version_number, created_at, updated_at, stage, stage_since, test_job_id, test_started_at, test_exit_code, test_log, test_checks, test_files FROM app_drafts WHERE app_id = $1 AND id = $2
 `
 
 type GetDraftParams struct {
@@ -52,6 +100,69 @@ func (q *Queries) GetDraft(ctx context.Context, arg GetDraftParams) (AppDraft, e
 		&i.VersionNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Stage,
+		&i.StageSince,
+		&i.TestJobID,
+		&i.TestStartedAt,
+		&i.TestExitCode,
+		&i.TestLog,
+		&i.TestChecks,
+		&i.TestFiles,
+	)
+	return i, err
+}
+
+const getDraftByID = `-- name: GetDraftByID :one
+SELECT id, app_id, author_id, channel, files, ficha, note, status, status_reason, version_number, created_at, updated_at, stage, stage_since, test_job_id, test_started_at, test_exit_code, test_log, test_checks, test_files FROM app_drafts WHERE id = $1
+`
+
+func (q *Queries) GetDraftByID(ctx context.Context, id int64) (AppDraft, error) {
+	row := q.db.QueryRow(ctx, getDraftByID, id)
+	var i AppDraft
+	err := row.Scan(
+		&i.ID,
+		&i.AppID,
+		&i.AuthorID,
+		&i.Channel,
+		&i.Files,
+		&i.Ficha,
+		&i.Note,
+		&i.Status,
+		&i.StatusReason,
+		&i.VersionNumber,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Stage,
+		&i.StageSince,
+		&i.TestJobID,
+		&i.TestStartedAt,
+		&i.TestExitCode,
+		&i.TestLog,
+		&i.TestChecks,
+		&i.TestFiles,
+	)
+	return i, err
+}
+
+const getEvidence = `-- name: GetEvidence :one
+SELECT id, draft_id, path, size, content, created_at FROM draft_evidence WHERE draft_id = $1 AND path = $2
+`
+
+type GetEvidenceParams struct {
+	DraftID int64  `json:"draft_id"`
+	Path    string `json:"path"`
+}
+
+func (q *Queries) GetEvidence(ctx context.Context, arg GetEvidenceParams) (DraftEvidence, error) {
+	row := q.db.QueryRow(ctx, getEvidence, arg.DraftID, arg.Path)
+	var i DraftEvidence
+	err := row.Scan(
+		&i.ID,
+		&i.DraftID,
+		&i.Path,
+		&i.Size,
+		&i.Content,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -59,7 +170,7 @@ func (q *Queries) GetDraft(ctx context.Context, arg GetDraftParams) (AppDraft, e
 const insertDraft = `-- name: InsertDraft :one
 INSERT INTO app_drafts (app_id, author_id, channel, files, ficha, note)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, app_id, author_id, channel, files, ficha, note, status, status_reason, version_number, created_at, updated_at
+RETURNING id, app_id, author_id, channel, files, ficha, note, status, status_reason, version_number, created_at, updated_at, stage, stage_since, test_job_id, test_started_at, test_exit_code, test_log, test_checks, test_files
 `
 
 type InsertDraftParams struct {
@@ -94,13 +205,113 @@ func (q *Queries) InsertDraft(ctx context.Context, arg InsertDraftParams) (AppDr
 		&i.VersionNumber,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Stage,
+		&i.StageSince,
+		&i.TestJobID,
+		&i.TestStartedAt,
+		&i.TestExitCode,
+		&i.TestLog,
+		&i.TestChecks,
+		&i.TestFiles,
 	)
 	return i, err
 }
 
+const insertEvidence = `-- name: InsertEvidence :exec
+INSERT INTO draft_evidence (draft_id, path, size, content)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (draft_id, path) DO UPDATE SET size = EXCLUDED.size, content = EXCLUDED.content
+`
+
+type InsertEvidenceParams struct {
+	DraftID int64  `json:"draft_id"`
+	Path    string `json:"path"`
+	Size    int64  `json:"size"`
+	Content []byte `json:"content"`
+}
+
+func (q *Queries) InsertEvidence(ctx context.Context, arg InsertEvidenceParams) error {
+	_, err := q.db.Exec(ctx, insertEvidence,
+		arg.DraftID,
+		arg.Path,
+		arg.Size,
+		arg.Content,
+	)
+	return err
+}
+
+const listActiveDrafts = `-- name: ListActiveDrafts :many
+SELECT id, app_id, author_id, channel, files, ficha, note, status, status_reason, version_number, created_at, updated_at, stage, stage_since, test_job_id, test_started_at, test_exit_code, test_log, test_checks, test_files FROM app_drafts WHERE status IN ('testando', 'aprovada') ORDER BY id
+`
+
+func (q *Queries) ListActiveDrafts(ctx context.Context) ([]AppDraft, error) {
+	rows, err := q.db.Query(ctx, listActiveDrafts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AppDraft
+	for rows.Next() {
+		var i AppDraft
+		if err := rows.Scan(
+			&i.ID,
+			&i.AppID,
+			&i.AuthorID,
+			&i.Channel,
+			&i.Files,
+			&i.Ficha,
+			&i.Note,
+			&i.Status,
+			&i.StatusReason,
+			&i.VersionNumber,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Stage,
+			&i.StageSince,
+			&i.TestJobID,
+			&i.TestStartedAt,
+			&i.TestExitCode,
+			&i.TestLog,
+			&i.TestChecks,
+			&i.TestFiles,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEvidencePaths = `-- name: ListEvidencePaths :many
+SELECT path FROM draft_evidence WHERE draft_id = $1 ORDER BY path
+`
+
+func (q *Queries) ListEvidencePaths(ctx context.Context, draftID int64) ([]string, error) {
+	rows, err := q.db.Query(ctx, listEvidencePaths, draftID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var path string
+		if err := rows.Scan(&path); err != nil {
+			return nil, err
+		}
+		items = append(items, path)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markDraftPublished = `-- name: MarkDraftPublished :exec
 UPDATE app_drafts
-SET status = 'no_ar', version_number = $1, updated_at = clock_timestamp()
+SET status = 'no_ar', stage = '', version_number = $1, updated_at = clock_timestamp()
 WHERE id = $2
 `
 
@@ -112,4 +323,115 @@ type MarkDraftPublishedParams struct {
 func (q *Queries) MarkDraftPublished(ctx context.Context, arg MarkDraftPublishedParams) error {
 	_, err := q.db.Exec(ctx, markDraftPublished, arg.VersionNumber, arg.ID)
 	return err
+}
+
+const openDraftForApp = `-- name: OpenDraftForApp :one
+SELECT id, app_id, author_id, channel, files, ficha, note, status, status_reason, version_number, created_at, updated_at, stage, stage_since, test_job_id, test_started_at, test_exit_code, test_log, test_checks, test_files FROM app_drafts WHERE app_id = $1 AND status IN ('testando', 'aprovada')
+ORDER BY id DESC LIMIT 1
+`
+
+func (q *Queries) OpenDraftForApp(ctx context.Context, appID int64) (AppDraft, error) {
+	row := q.db.QueryRow(ctx, openDraftForApp, appID)
+	var i AppDraft
+	err := row.Scan(
+		&i.ID,
+		&i.AppID,
+		&i.AuthorID,
+		&i.Channel,
+		&i.Files,
+		&i.Ficha,
+		&i.Note,
+		&i.Status,
+		&i.StatusReason,
+		&i.VersionNumber,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Stage,
+		&i.StageSince,
+		&i.TestJobID,
+		&i.TestStartedAt,
+		&i.TestExitCode,
+		&i.TestLog,
+		&i.TestChecks,
+		&i.TestFiles,
+	)
+	return i, err
+}
+
+const saveDraftResult = `-- name: SaveDraftResult :exec
+UPDATE app_drafts
+SET test_exit_code = $1, test_log = $2, test_checks = $3,
+    test_files = $4, updated_at = clock_timestamp()
+WHERE id = $5
+`
+
+type SaveDraftResultParams struct {
+	ExitCode pgtype.Int4 `json:"exit_code"`
+	Log      string      `json:"log"`
+	Checks   []byte      `json:"checks"`
+	Files    []byte      `json:"files"`
+	ID       int64       `json:"id"`
+}
+
+func (q *Queries) SaveDraftResult(ctx context.Context, arg SaveDraftResultParams) error {
+	_, err := q.db.Exec(ctx, saveDraftResult,
+		arg.ExitCode,
+		arg.Log,
+		arg.Checks,
+		arg.Files,
+		arg.ID,
+	)
+	return err
+}
+
+const setDraftStage = `-- name: SetDraftStage :execrows
+UPDATE app_drafts
+SET stage = $1, stage_since = clock_timestamp(), updated_at = clock_timestamp()
+WHERE id = $2 AND stage = $3 AND status IN ('testando', 'aprovada')
+`
+
+type SetDraftStageParams struct {
+	ToStage   string `json:"to_stage"`
+	ID        int64  `json:"id"`
+	FromStage string `json:"from_stage"`
+}
+
+// Moves only from the expected stage, so the clock and the Agente's result
+// never walk the same step twice.
+func (q *Queries) SetDraftStage(ctx context.Context, arg SetDraftStageParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setDraftStage, arg.ToStage, arg.ID, arg.FromStage)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const setDraftTestJob = `-- name: SetDraftTestJob :exec
+UPDATE app_drafts
+SET test_job_id = $1, test_started_at = clock_timestamp(), updated_at = clock_timestamp()
+WHERE id = $2
+`
+
+type SetDraftTestJobParams struct {
+	JobID pgtype.Int8 `json:"job_id"`
+	ID    int64       `json:"id"`
+}
+
+func (q *Queries) SetDraftTestJob(ctx context.Context, arg SetDraftTestJobParams) error {
+	_, err := q.db.Exec(ctx, setDraftTestJob, arg.JobID, arg.ID)
+	return err
+}
+
+const startDraftTest = `-- name: StartDraftTest :execrows
+UPDATE app_drafts
+SET status = 'testando', stage = 'esperando_confirmacao', stage_since = clock_timestamp(), updated_at = clock_timestamp()
+WHERE id = $1 AND status = 'rascunho'
+`
+
+func (q *Queries) StartDraftTest(ctx context.Context, id int64) (int64, error) {
+	result, err := q.db.Exec(ctx, startDraftTest, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
