@@ -105,8 +105,8 @@ func (h *Handler) checkSentFiles(w http.ResponseWriter, r *http.Request, m manif
 // recordSentVersion scans the app's stored-code folder and records it:
 // "original" when the app has no version yet, else "upload"; channel "mcp"
 // when ctx is Claude's. changed is false (v is the latest) when nothing
-// changed. The caller holds lockApp.
-func (h *Handler) recordSentVersion(ctx context.Context, a sqlc.App, by int64, note string) (sqlc.AppVersion, bool, error) {
+// changed; tested is the version's test mark. The caller holds lockApp.
+func (h *Handler) recordSentVersion(ctx context.Context, a sqlc.App, by int64, note string, tested pgtype.Bool) (sqlc.AppVersion, bool, error) {
 	var m manifest.Manifest
 	if err := json.Unmarshal(a.Manifest, &m); err != nil {
 		return sqlc.AppVersion{}, false, err
@@ -138,7 +138,7 @@ func (h *Handler) recordSentVersion(ctx context.Context, a sqlc.App, by int64, n
 	if !hasLatest {
 		origin = "original"
 	}
-	v, err := h.insertVersion(ctx, a, stored, snap, contents, origin, pgtype.Int4{}, pgtype.Int8{Int64: by, Valid: true}, false, originOf(ctx), note)
+	v, err := h.insertVersion(ctx, a, stored, snap, contents, origin, pgtype.Int4{}, pgtype.Int8{Int64: by, Valid: true}, false, originOf(ctx), note, tested)
 	if err != nil {
 		return v, false, err
 	}
@@ -296,7 +296,7 @@ func (h *Handler) sendSources(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "rebuild folder", err)
 		return
 	}
-	v, changed, err := h.recordSentVersion(ctx, a, me.ID, b.Note)
+	v, changed, err := h.recordSentVersion(ctx, a, me.ID, b.Note, pgtype.Bool{})
 	if err != nil {
 		internalError(w, "record version", err)
 		return

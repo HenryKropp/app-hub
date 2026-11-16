@@ -49,7 +49,7 @@ func (q *Queries) DescribeAppVersion(ctx context.Context, arg DescribeAppVersion
 }
 
 const getAppVersion = `-- name: GetAppVersion :one
-SELECT v.id, v.app_id, v.number, v.origin, v.restored_from, v.author_id, v.author_probable, v.description, v.described_by, v.described_at, v.files, v.summary, v.files_changed_at, v.created_at, v.channel, p.name AS author_name
+SELECT v.id, v.app_id, v.number, v.origin, v.restored_from, v.author_id, v.author_probable, v.description, v.described_by, v.described_at, v.files, v.summary, v.files_changed_at, v.created_at, v.channel, v.tested, p.name AS author_name
 FROM app_versions v LEFT JOIN people p ON p.id = v.author_id
 WHERE v.app_id = $1 AND v.number = $2
 `
@@ -75,6 +75,7 @@ type GetAppVersionRow struct {
 	FilesChangedAt pgtype.Timestamptz `json:"files_changed_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	Channel        string             `json:"channel"`
+	Tested         pgtype.Bool        `json:"tested"`
 	AuthorName     pgtype.Text        `json:"author_name"`
 }
 
@@ -97,13 +98,14 @@ func (q *Queries) GetAppVersion(ctx context.Context, arg GetAppVersionParams) (G
 		&i.FilesChangedAt,
 		&i.CreatedAt,
 		&i.Channel,
+		&i.Tested,
 		&i.AuthorName,
 	)
 	return i, err
 }
 
 const getAppVersionByID = `-- name: GetAppVersionByID :one
-SELECT id, app_id, number, origin, restored_from, author_id, author_probable, description, described_by, described_at, files, summary, files_changed_at, created_at, channel FROM app_versions WHERE id = $1
+SELECT id, app_id, number, origin, restored_from, author_id, author_probable, description, described_by, described_at, files, summary, files_changed_at, created_at, channel, tested FROM app_versions WHERE id = $1
 `
 
 func (q *Queries) GetAppVersionByID(ctx context.Context, id int64) (AppVersion, error) {
@@ -125,6 +127,7 @@ func (q *Queries) GetAppVersionByID(ctx context.Context, id int64) (AppVersion, 
 		&i.FilesChangedAt,
 		&i.CreatedAt,
 		&i.Channel,
+		&i.Tested,
 	)
 	return i, err
 }
@@ -156,12 +159,12 @@ func (q *Queries) InsertAppChange(ctx context.Context, arg InsertAppChangeParams
 }
 
 const insertAppVersion = `-- name: InsertAppVersion :one
-INSERT INTO app_versions (app_id, number, origin, restored_from, author_id, author_probable, files, summary, files_changed_at, channel, description)
+INSERT INTO app_versions (app_id, number, origin, restored_from, author_id, author_probable, files, summary, files_changed_at, channel, description, tested)
 VALUES ($1,
         (SELECT COALESCE(MAX(number), 0) + 1 FROM app_versions WHERE app_id = $1),
         $2, $3, $4, $5,
-        $6, $7, $8, $9, $10)
-RETURNING id, app_id, number, origin, restored_from, author_id, author_probable, description, described_by, described_at, files, summary, files_changed_at, created_at, channel
+        $6, $7, $8, $9, $10, $11)
+RETURNING id, app_id, number, origin, restored_from, author_id, author_probable, description, described_by, described_at, files, summary, files_changed_at, created_at, channel, tested
 `
 
 type InsertAppVersionParams struct {
@@ -175,6 +178,7 @@ type InsertAppVersionParams struct {
 	FilesChangedAt pgtype.Timestamptz `json:"files_changed_at"`
 	Channel        string             `json:"channel"`
 	Description    string             `json:"description"`
+	Tested         pgtype.Bool        `json:"tested"`
 }
 
 func (q *Queries) InsertAppVersion(ctx context.Context, arg InsertAppVersionParams) (AppVersion, error) {
@@ -189,6 +193,7 @@ func (q *Queries) InsertAppVersion(ctx context.Context, arg InsertAppVersionPara
 		arg.FilesChangedAt,
 		arg.Channel,
 		arg.Description,
+		arg.Tested,
 	)
 	var i AppVersion
 	err := row.Scan(
@@ -207,12 +212,13 @@ func (q *Queries) InsertAppVersion(ctx context.Context, arg InsertAppVersionPara
 		&i.FilesChangedAt,
 		&i.CreatedAt,
 		&i.Channel,
+		&i.Tested,
 	)
 	return i, err
 }
 
 const latestAppVersion = `-- name: LatestAppVersion :one
-SELECT id, app_id, number, origin, restored_from, author_id, author_probable, description, described_by, described_at, files, summary, files_changed_at, created_at, channel FROM app_versions WHERE app_id = $1 ORDER BY number DESC LIMIT 1
+SELECT id, app_id, number, origin, restored_from, author_id, author_probable, description, described_by, described_at, files, summary, files_changed_at, created_at, channel, tested FROM app_versions WHERE app_id = $1 ORDER BY number DESC LIMIT 1
 `
 
 func (q *Queries) LatestAppVersion(ctx context.Context, appID int64) (AppVersion, error) {
@@ -234,6 +240,7 @@ func (q *Queries) LatestAppVersion(ctx context.Context, appID int64) (AppVersion
 		&i.FilesChangedAt,
 		&i.CreatedAt,
 		&i.Channel,
+		&i.Tested,
 	)
 	return i, err
 }
@@ -339,7 +346,7 @@ func (q *Queries) ListRunsBefore(ctx context.Context, arg ListRunsBeforeParams) 
 
 const listVersionsBefore = `-- name: ListVersionsBefore :many
 SELECT v.number, v.origin, v.restored_from, v.author_probable, v.description, v.summary,
-       v.files_changed_at, v.created_at, v.channel, p.name AS author_name
+       v.files_changed_at, v.created_at, v.channel, v.tested, p.name AS author_name
 FROM app_versions v LEFT JOIN people p ON p.id = v.author_id
 WHERE v.app_id = $1 AND v.created_at < $2
 ORDER BY v.created_at DESC
@@ -362,6 +369,7 @@ type ListVersionsBeforeRow struct {
 	FilesChangedAt pgtype.Timestamptz `json:"files_changed_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	Channel        string             `json:"channel"`
+	Tested         pgtype.Bool        `json:"tested"`
 	AuthorName     pgtype.Text        `json:"author_name"`
 }
 
@@ -384,6 +392,7 @@ func (q *Queries) ListVersionsBefore(ctx context.Context, arg ListVersionsBefore
 			&i.FilesChangedAt,
 			&i.CreatedAt,
 			&i.Channel,
+			&i.Tested,
 			&i.AuthorName,
 		); err != nil {
 			return nil, err

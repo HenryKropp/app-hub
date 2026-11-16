@@ -61,6 +61,21 @@ type AppConfig struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type AppDraft struct {
+	ID            int64              `json:"id"`
+	AppID         int64              `json:"app_id"`
+	AuthorID      pgtype.Int8        `json:"author_id"`
+	Channel       string             `json:"channel"`
+	Files         []byte             `json:"files"`
+	Ficha         []byte             `json:"ficha"`
+	Note          string             `json:"note"`
+	Status        string             `json:"status"`
+	StatusReason  string             `json:"status_reason"`
+	VersionNumber pgtype.Int4        `json:"version_number"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
 type AppGrant struct {
 	AppID      int64  `json:"app_id"`
 	PersonID   int64  `json:"person_id"`
@@ -96,6 +111,7 @@ type AppVersion struct {
 	FilesChangedAt pgtype.Timestamptz `json:"files_changed_at"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	Channel        string             `json:"channel"`
+	Tested         pgtype.Bool        `json:"tested"`
 }
 
 type AppViewer struct {

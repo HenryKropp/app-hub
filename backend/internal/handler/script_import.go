@@ -17,6 +17,7 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
@@ -155,7 +156,7 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 	var number int32
 	if a, err := h.q.GetApp(r.Context(), id); err == nil {
 		unlock := h.lockApp(id)
-		v, _, err := h.recordSentVersion(r.Context(), a, me.ID, "")
+		v, _, err := h.recordSentVersion(r.Context(), a, me.ID, "", pgtype.Bool{})
 		unlock()
 		if err != nil {
 			slog.Error("import script version", "app", id, "err", err)

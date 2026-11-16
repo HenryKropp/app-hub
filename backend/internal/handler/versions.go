@@ -112,7 +112,13 @@ func (h *Handler) checkVersionLocked(ctx context.Context, a sqlc.App) (sqlc.AppV
 	if !hasLatest {
 		origin = "original"
 	}
-	v, err := h.insertVersion(ctx, a, stored, snap, contents, origin, pgtype.Int4{}, pgtype.Int8{Int64: a.OwnerID, Valid: true}, true, "manual", "")
+	// A change found in the PC folder went live without a test; the first
+	// version of an app predates the mark.
+	tested := pgtype.Bool{}
+	if origin == "folder" {
+		tested = pgtype.Bool{Bool: false, Valid: true}
+	}
+	v, err := h.insertVersion(ctx, a, stored, snap, contents, origin, pgtype.Int4{}, pgtype.Int8{Int64: a.OwnerID, Valid: true}, true, "manual", "", tested)
 	if err != nil {
 		return v, snap, true, err
 	}
@@ -121,7 +127,7 @@ func (h *Handler) checkVersionLocked(ctx context.Context, a sqlc.App) (sqlc.AppV
 }
 
 func (h *Handler) insertVersion(ctx context.Context, a sqlc.App, prev, snap versions.Snapshot, contents map[string][]byte,
-	origin string, restoredFrom pgtype.Int4, author pgtype.Int8, probable bool, channel, description string) (sqlc.AppVersion, error) {
+	origin string, restoredFrom pgtype.Int4, author pgtype.Int8, probable bool, channel, description string, tested pgtype.Bool) (sqlc.AppVersion, error) {
 	for sha, data := range contents {
 		if err := h.q.PutCodeBlob(ctx, sqlc.PutCodeBlobParams{Sha256: sha, Content: data, Size: int64(len(data))}); err != nil {
 			return sqlc.AppVersion{}, err
@@ -143,6 +149,7 @@ func (h *Handler) insertVersion(ctx context.Context, a sqlc.App, prev, snap vers
 	return h.q.InsertAppVersion(ctx, sqlc.InsertAppVersionParams{
 		AppID: a.ID, Origin: origin, RestoredFrom: restoredFrom, AuthorID: author, AuthorProbable: probable,
 		Files: files, Summary: summary, FilesChangedAt: changedAt, Channel: channel, Description: description,
+		Tested: tested,
 	})
 }
 
