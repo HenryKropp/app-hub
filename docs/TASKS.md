@@ -512,3 +512,23 @@ Plano aprovado em 2026-11-11, a construir: `docs/superpowers/specs/2026-11-11-mc
 | Agente na nuvem do cliente | Pending | Ideia do Henry em 2026-11-13: segurança de dados é a maior proposta de valor. O portal fica com a gente; os apps e os dados rodam numa máquina do cliente (GCP/AWS/Azure) com um Agente de servidor. "Seus dados nunca saem da sua nuvem." Também resolve app pesado como o BTG. Começar pelo desenho (brainstorming) |
 | Mensagem de segurança para o cliente | Pending | Depois do furo fechado: cofre por app, isolamento por empresa, registro de quem fez o quê, e a opção de rodar na nuvem do cliente |
 | Playwright em Node e Selenium | Pending | Depois |
+
+## Lições do app de relatórios (2026-11-16)
+
+Revisão do Henry e do cofundador depois de pôr o app de relatórios no ar (versões 11 a 16). Ordem combinada: primeiro o projeto "Testar e publicar sem o Henry".
+
+| Task | Status | Notes |
+|------|--------|-------|
+| MCP: publicar em um passo | Pending | Hoje são cinco (preparar_envio, zip, envio, registrar_app, publicar_app_com_tela em repetição). Projeto "Testar e publicar sem o Henry" |
+| MCP: testar_app (versão de rascunho no PC ou no servidor, sem publicar) | Pending | Devolve log, arquivos gerados e foto da tela. Junta com "Teste extenso antes de publicar". Mesmo projeto |
+| Teste usa as chaves do Cofre sem ninguém ver as senhas | Pending | Hoje o cofundador lê as senhas de dentro do servidor para testar no PC. Mesmo projeto |
+| Ziv fecha e reabre o app no PC sozinho quando chega versão nova | Pending | Hoje registrar_app recusa com o app aberto e o Henry tem que clicar em Parei. Mesmo projeto |
+| MCP: ver o log do app que roda no PC | Pending | ver_log_app só lê o servidor |
+| Erros do MCP dizem o próximo passo | Pending | Ex.: versão recusada porque o servidor estava dormindo |
+| Ver fácil em qual versão o app está | Pending | Pedido do Henry: hoje é difícil saber a versão no ar e no PC |
+| Ver o que está rodando agora | Pending | Pedido do Henry: o que roda agora, onde (PC ou servidor) e há quanto tempo; andamento ao vivo ("BTG 3 de 12") |
+| Sininho de notificações | Pending | Pedido do Henry: tirar os avisos de baixo da tela e ter um botão de notificações (sininho) |
+| Ziv guarda o código e o histórico de cada versão | Pending | "O que mudou na versão 16" e voltar para a anterior; hoje o código fica numa pasta do OneDrive sem cópia |
+| Receita diz onde cada parte roda; uma rodada por vez | Pending | Às 9h o servidor e o PC buscaram o BTG ao mesmo tempo |
+| Peças prontas para apps: pastas do SharePoint, código por e-mail ou digitado, fila de aprovação | Pending | O app de relatórios construiu as três sozinho |
+| Servidor mais rápido | Pending | O e2-micro é lento para navegador; montagem leva cerca de 28 min |
