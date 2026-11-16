@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -61,47 +62,28 @@ func registrar(t *testing.T, s *mcp.ClientSession, args map[string]any) (*mcp.Ca
 	return callTool(t, s, "registrar_app", args)
 }
 
-// registrarNovo registers Conta CNPJs and returns its id.
+// registrarNovo stores Conta CNPJs straight away (a script already in the
+// air, as before Etapa 2) through the import route Claude uses, and returns
+// its id. Scripts sent by Claude now go through enviar_versao and its test.
 func registrarNovo(t *testing.T, h *Handler, s *mcp.ClientSession) int64 {
 	t.Helper()
 	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print('v1')\n"})
-	res, text, out := registrar(t, s, map[string]any{"envio": envio, "manifesto": scriptManifesto()})
-	if res.IsError {
-		t.Fatalf("registrar: %s", text)
-	}
-	id := int64(out["app_id"].(float64))
-	t.Cleanup(func() { cleanupAppFolder(t, id) })
-	return id
-}
-
-func TestRegistrarScriptNovo(t *testing.T) {
-	c, h := newPoolClient(t)
-	setupAdmin(t, c)
-	s := toolSession(t, c)
-	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print('v1')\n"})
-	res, text, out := registrar(t, s, map[string]any{"envio": envio, "manifesto": scriptManifesto()})
-	if res.IsError {
-		t.Fatalf("registrar: %s", text)
-	}
-	id := int64(out["app_id"].(float64))
-	t.Cleanup(func() { cleanupAppFolder(t, id) })
-	if !strings.Contains(text, `Registrei o app "Conta CNPJs" (versão 1)`) || !strings.Contains(text, fmt.Sprintf("http://hub.test/apps/%d", id)) {
-		t.Fatalf("text %q", text)
-	}
-	var kind, channel string
-	if err := testPool.QueryRow(context.Background(), `SELECT a.kind, v.channel FROM apps a JOIN app_versions v ON v.app_id = a.id AND v.number = 1 WHERE a.id = $1`, id).Scan(&kind, &channel); err != nil {
+	ctx := context.Background()
+	var person int64
+	if err := testPool.QueryRow(ctx, `SELECT person_id FROM mcp_uploads WHERE id = $1`, envio).Scan(&person); err != nil {
 		t.Fatal(err)
 	}
-	if kind != "script" || channel != "mcp" {
-		t.Fatalf("kind %s channel %s", kind, channel)
+	mctx := withMCPPerson(ctx, person)
+	_, res, msg := h.envioFiles(mctx, envio)
+	if msg != "" {
+		t.Fatal(msg)
 	}
-	var used bool
-	if err := testPool.QueryRow(context.Background(), `SELECT used_at IS NOT NULL FROM mcp_uploads WHERE id = $1`, envio).Scan(&used); err != nil || !used {
-		t.Fatalf("used %v %v", used, err)
+	var ans sentAnswer
+	if _, _, msg := h.toolAPI(mctx, "POST", "/api/scripts/import", map[string]any{"manifest": scriptManifesto(), "files": inputFiles(res)}, &ans); msg != "" {
+		t.Fatalf("import: %s", msg)
 	}
-	if res, text, _ := registrar(t, s, map[string]any{"envio": envio, "manifesto": scriptManifesto()}); !res.IsError || !strings.Contains(text, "já foi usado") {
-		t.Fatalf("reuse: %q", text)
-	}
+	t.Cleanup(func() { cleanupAppFolder(t, ans.ID) })
+	return ans.ID
 }
 
 func cleanupAppFolder(t *testing.T, id int64) {
@@ -112,37 +94,16 @@ func cleanupAppFolder(t *testing.T, id int64) {
 	}
 }
 
-func TestRegistrarVersaoNova(t *testing.T) {
-	c, h := newPoolClient(t)
-	setupAdmin(t, c)
-	s := toolSession(t, c)
-	id := registrarNovo(t, h, s)
-	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print('v2')\n"})
-	res, text, out := registrar(t, s, map[string]any{"envio": envio, "app_id": id, "nota": "Corrige o total"})
-	if res.IsError || out["versao"] != float64(2) || out["mudou"] != true || !strings.Contains(text, `Mandei a versão 2 do "Conta CNPJs"`) {
-		t.Fatalf("update %v %q %+v", res.IsError, text, out)
-	}
-	var n int
-	testPool.QueryRow(context.Background(), `SELECT count(*) FROM apps WHERE name = 'Conta CNPJs'`).Scan(&n)
-	if n != 1 {
-		t.Fatalf("apps = %d", n)
-	}
-	envio = sendEnvio(t, h, s, map[string]string{"main.py": "print('v2')\n"})
-	if res, text, out := registrar(t, s, map[string]any{"envio": envio, "app_id": id}); res.IsError || out["mudou"] != false || !strings.Contains(text, "nada mudou") {
-		t.Fatalf("same %v %q", res.IsError, text)
-	}
-}
-
 func TestRegistrarSecretsRetrySameEnvio(t *testing.T) {
 	c, h := newPoolClient(t)
 	setupAdmin(t, c)
 	s := toolSession(t, c)
 	envio := sendEnvio(t, h, s, map[string]string{"main.py": "API_KEY = \"sk-proj-abcdefghijklmnopqrstuvwxyz0123456789ABCD\"\nprint(API_KEY)\n"})
-	res, text, _ := registrar(t, s, map[string]any{"envio": envio, "manifesto": scriptManifesto()})
+	res, text, _ := enviarVersao(t, s, map[string]any{"envio": envio, "manifesto": testeManifesto()})
 	if !res.IsError || !strings.Contains(text, "confirmar_segredos") || !strings.Contains(text, "mesmo envio") {
 		t.Fatalf("first %v %q", res.IsError, text)
 	}
-	res, text, out := registrar(t, s, map[string]any{"envio": envio, "manifesto": scriptManifesto(), "confirmar_segredos": true})
+	res, text, out := enviarVersao(t, s, map[string]any{"envio": envio, "manifesto": testeManifesto(), "confirmar_segredos": true})
 	if res.IsError {
 		t.Fatalf("retry: %s", text)
 	}
@@ -154,7 +115,7 @@ func TestRegistrarDropsEnv(t *testing.T) {
 	setupAdmin(t, c)
 	s := toolSession(t, c)
 	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print(1)\n", ".env": "SENHA=x\n"})
-	res, text, out := registrar(t, s, map[string]any{"envio": envio, "manifesto": scriptManifesto()})
+	res, text, out := enviarVersao(t, s, map[string]any{"envio": envio, "manifesto": testeManifesto()})
 	if res.IsError || !strings.Contains(text, "Deixei de fora: .env") || !strings.Contains(text, "nunca mande os valores") {
 		t.Fatalf("%v %q", res.IsError, text)
 	}
@@ -194,7 +155,7 @@ func TestRegistrarOtherPersonsEnvio(t *testing.T) {
 	ana := c.fresh()
 	loginAs(t, ana, "ana@exemplo.com")
 	envio := sendEnvio(t, h, toolSession(t, c), map[string]string{"main.py": "print(1)\n"})
-	if res, text, _ := registrar(t, toolSession(t, ana), map[string]any{"envio": envio, "manifesto": scriptManifesto()}); !res.IsError || !strings.Contains(text, "Não achei esse envio") {
+	if res, text, _ := enviarVersao(t, toolSession(t, ana), map[string]any{"envio": envio, "manifesto": testeManifesto()}); !res.IsError || !strings.Contains(text, "Não achei esse envio") {
 		t.Fatalf("%q", text)
 	}
 }
@@ -204,7 +165,7 @@ func TestRegistrarMissingEntrypointHint(t *testing.T) {
 	setupAdmin(t, c)
 	s := toolSession(t, c)
 	envio := sendEnvio(t, h, s, map[string]string{"pasta/main.py": "print(1)\n"})
-	if res, text, _ := registrar(t, s, map[string]any{"envio": envio, "manifesto": scriptManifesto()}); !res.IsError || !strings.Contains(text, "de dentro da pasta") {
+	if res, text, _ := enviarVersao(t, s, map[string]any{"envio": envio, "manifesto": testeManifesto()}); !res.IsError || !strings.Contains(text, "de dentro da pasta") {
 		t.Fatalf("%q", text)
 	}
 }
@@ -215,7 +176,7 @@ func TestRegistrarFolderAppRefused(t *testing.T) {
 	s := toolSession(t, c)
 	id := insertApp(t, manifest.Manifest{ManifestVersion: 1, ID: "da-pasta", Name: "Da pasta", Kind: manifest.KindScript, Entrypoint: "main.py", Area: "Research"})
 	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print(1)\n"})
-	if res, text, _ := registrar(t, s, map[string]any{"envio": envio, "app_id": id}); !res.IsError || !strings.Contains(text, "pasta do computador") {
+	if res, text, _ := enviarVersao(t, s, map[string]any{"envio": envio, "app_id": id, "manifesto": testeManifesto()}); !res.IsError || !strings.Contains(text, "pasta do computador") {
 		t.Fatalf("%q", text)
 	}
 }
@@ -225,16 +186,11 @@ func TestRegistrarAudited(t *testing.T) {
 	p := setupAdmin(t, c)
 	s := toolSession(t, c)
 	before := maxAuditID(t)
-	id := registrarNovo(t, h, s)
-	if n := claudeAudits(t, before, "POST /api/scripts/import", p.ID); n != 1 {
-		t.Fatalf("import audits = %d", n)
-	}
-	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print('v2')\n"})
-	if res, text, _ := registrar(t, s, map[string]any{"envio": envio, "app_id": id}); res.IsError {
-		t.Fatal(text)
-	}
-	if n := claudeAudits(t, before, "POST /api/apps/{id}/sources", p.ID); n != 1 {
-		t.Fatalf("sources audits = %d", n)
+	enviarNovo(t, h, s)
+	for _, route := range []string{"POST /api/scripts/import", "POST /api/apps/{id}/drafts", "POST /api/apps/{id}/drafts/{id}/test"} {
+		if n := claudeAudits(t, before, route, p.ID); n != 1 {
+			t.Fatalf("%s audits = %d", route, n)
+		}
 	}
 }
 
@@ -289,17 +245,22 @@ func TestRegistrarVersaoMudaFicha(t *testing.T) {
 	setupAdmin(t, c)
 	s := toolSession(t, c)
 	id := registrarNovo(t, h, s)
-	m := scriptManifesto()
+	m := testeManifesto()
 	m["summary"] = "Resumo novo."
 	m["inputs"] = append(m["inputs"].([]any), map[string]any{"id": "data", "label": "Data", "type": "date", "source": "argument", "required": false})
 	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print('v2')\n"})
-	res, text, _ := registrar(t, s, map[string]any{"envio": envio, "app_id": id, "manifesto": m})
+	res, text, out := enviarVersao(t, s, map[string]any{"envio": envio, "app_id": id, "manifesto": m})
 	if res.IsError || !strings.Contains(text, "resumo") || !strings.Contains(text, "entradas") {
 		t.Fatalf("%v %q", res.IsError, text)
 	}
-	d := detail(t, c, id)
-	if d.Manifest.Summary != "Resumo novo." || len(d.Manifest.Inputs) != 2 {
-		t.Fatalf("ficha %q %d", d.Manifest.Summary, len(d.Manifest.Inputs))
+	// The new ficha waits in the version under test; the app keeps the old one.
+	var ficha manifest.Manifest
+	json.Unmarshal(draftRow(t, h, int64(out["versao"].(float64))).Ficha, &ficha)
+	if ficha.Summary != "Resumo novo." || len(ficha.Inputs) != 2 {
+		t.Fatalf("draft ficha %q %d", ficha.Summary, len(ficha.Inputs))
+	}
+	if d := detail(t, c, id); d.Manifest.Summary == "Resumo novo." {
+		t.Fatal("app ficha changed before the test")
 	}
 }
 
@@ -309,11 +270,11 @@ func TestRegistrarVersaoIgnoraNomeArea(t *testing.T) {
 	s := toolSession(t, c)
 	id := registrarNovo(t, h, s)
 	before := detail(t, c, id)
-	m := scriptManifesto()
+	m := testeManifesto()
 	m["name"], m["area"] = "Outro", "Compliance"
 	m["owner"] = map[string]any{"name": "Ana", "email": "ana@exemplo.com"}
 	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print('v2')\n"})
-	res, text, _ := registrar(t, s, map[string]any{"envio": envio, "app_id": id, "manifesto": m})
+	res, text, _ := enviarVersao(t, s, map[string]any{"envio": envio, "app_id": id, "manifesto": m})
 	if res.IsError || !strings.Contains(text, "isso só muda pelo site") {
 		t.Fatalf("%v %q", res.IsError, text)
 	}
@@ -531,7 +492,7 @@ func TestRegistrarScriptKeysHonest(t *testing.T) {
 	setupAdmin(t, c)
 	s := toolSession(t, c)
 	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print(1)\n", ".env": "SENHA=x\n"})
-	res, text, out := registrar(t, s, map[string]any{"envio": envio, "manifesto": scriptManifesto()})
+	res, text, out := enviarVersao(t, s, map[string]any{"envio": envio, "manifesto": testeManifesto()})
 	if res.IsError || !strings.Contains(text, "Configurações do app") || !strings.Contains(text, "keys") || !strings.Contains(text, "nunca mande os valores") {
 		t.Fatalf("%q", text)
 	}
@@ -561,7 +522,7 @@ func TestRegistrarSecretsSaysWhere(t *testing.T) {
 	s := toolSession(t, c)
 	const value = "sk-proj-abcdefghijklmnopqrstuvwxyz0123456789ABCD"
 	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print(1)\n", "baixar/config.py": "import os\n\nAPI_KEY = \"" + value + "\"\n"})
-	res, text, _ := registrar(t, s, map[string]any{"envio": envio, "manifesto": scriptManifesto()})
+	res, text, _ := enviarVersao(t, s, map[string]any{"envio": envio, "manifesto": testeManifesto()})
 	if !res.IsError || !strings.Contains(text, "baixar/config.py, linha 3 (API_KEY)") || strings.Contains(text, value) {
 		t.Fatalf("confirm %q", text)
 	}
@@ -580,10 +541,10 @@ func TestRegistrarScriptKeysGoToVault(t *testing.T) {
 	setupAdmin(t, c)
 	withKeyVault(t, h)
 	s := toolSession(t, c)
-	m := scriptManifesto()
+	m := testeManifesto()
 	m["keys"] = []any{map[string]any{"name": "BTG_SENHA", "label": "Senha do BTG", "required": true}}
 	envio := sendEnvio(t, h, s, map[string]string{"main.py": "import os\nprint(len(os.environ['BTG_SENHA']))\n"})
-	res, text, out := registrar(t, s, map[string]any{"envio": envio, "manifesto": m})
+	res, text, out := enviarVersao(t, s, map[string]any{"envio": envio, "manifesto": m})
 	if res.IsError {
 		t.Fatalf("registrar: %s", text)
 	}
@@ -599,14 +560,15 @@ func TestRegistrarScriptKeysGoToVault(t *testing.T) {
 	// A new version may add a key.
 	m["keys"] = []any{map[string]any{"name": "BTG_SENHA", "label": "Senha do BTG", "required": true}, map[string]any{"name": "EMAIL", "label": "E-mail"}}
 	envio = sendEnvio(t, h, s, map[string]string{"main.py": "import os\nprint(os.environ.get('EMAIL'))\n"})
-	res, text, _ = registrar(t, s, map[string]any{"envio": envio, "app_id": id, "manifesto": m})
+	res, text, out2 := enviarVersao(t, s, map[string]any{"envio": envio, "app_id": id, "manifesto": m})
 	if res.IsError || !strings.Contains(text, "chaves e senhas") {
 		t.Fatalf("update %q", text)
 	}
-	var got keysOut
-	c.do("GET", "/api/apps/"+itoa(id)+"/keys", nil, &got)
-	if len(got.Keys) != 2 {
-		t.Fatalf("keys after update %+v", got)
+	// The new key comes with the version: the app's keys change when it publishes.
+	var ficha manifest.Manifest
+	json.Unmarshal(draftRow(t, h, int64(out2["versao"].(float64))).Ficha, &ficha)
+	if len(ficha.Keys) != 2 {
+		t.Fatalf("draft keys %+v", ficha.Keys)
 	}
 }
 

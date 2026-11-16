@@ -284,6 +284,17 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 		if msg := kindRefusal(sent.Kind, sent.Entrypoint); msg != "" {
 			return toolFail(msg)
 		}
+		if sent.Kind == "" || sent.Kind == manifest.KindScript {
+			return toolFail(msgRegistrarScript)
+		}
+	} else {
+		var d appDetail
+		if _, _, msg := h.toolAPI(ctx, "GET", fmt.Sprintf("/api/apps/%d", in.AppID), nil, &d); msg != "" {
+			return toolFail(msg)
+		}
+		if d.Manifest.Kind == manifest.KindScript {
+			return toolFail(msgRegistrarScript)
+		}
 	}
 	up, res, msg := h.envioFiles(ctx, in.Envio)
 	if msg != "" {

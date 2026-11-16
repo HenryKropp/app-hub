@@ -33,10 +33,41 @@ Na dúvida entre app e app com tela: se a pessoa só precisa do resultado, é ap
 
 ## 4. Testar antes de mandar
 
-Antes de registrar, rode o programa numa cópia limpa da pasta, como o Ziv vê: uma pasta curta e nova (fora do OneDrive), sem o `.env` da pessoa, com as entradas de exemplo. Só registre se funcionar. Isso pega caminho fixo, arquivo que faltou e dependência esquecida.
+Antes de mandar, rode o programa numa cópia limpa da pasta, como o Ziv vê: uma pasta curta e nova (fora do OneDrive), sem o `.env` da pessoa, com as entradas de exemplo. Só mande se funcionar. Isso pega caminho fixo, arquivo que faltou e dependência esquecida.
+
+**Todo app (script) tem a seção `teste` na ficha.** O Ziv roda a versão nova uma vez, de verdade, no PC de teste, e só põe no ar se passar. Sem `teste`, `enviar_versao` recusa.
+
+```json
+"teste": {
+  "acessa": ["BTG (login com as chaves BTG_USUARIO, BTG_SENHA)"],
+  "pula": "mover os relatórios para a pasta oficial do OneDrive",
+  "entradas": {"data": "hoje"},
+  "espera": [{"arquivos": "*.pdf", "no_minimo": 1}, {"log_contem": "Concluído"}],
+  "tempo_maximo_min": 10
+}
+```
+
+- `acessa`: o que o teste toca, em português, para o dono do app confirmar (sites, sistemas, chaves). Diga a verdade: é isso que ele aprova.
+- `pula`: o único passo irreversível que o modo teste não faz (mandar e-mail, mover para a pasta oficial, enviar uma ordem). `"nada"` se não há.
+- `entradas`: o valor de cada entrada obrigatória na rodada de teste (pelo `id` da entrada).
+- `espera`: o que o Ziv confere para dizer "passou". Precisa de pelo menos um `arquivos` (com `no_minimo`, 1 se faltar); `log_contem` sozinho não basta. O código de saída 0 também é exigido.
+- `tempo_maximo_min`: até 15.
+
+**Modo teste no código.** Na rodada de teste o Ziv põe `ZIV_TESTE=1` e `ZIV_PASTA_TESTE=<pasta>` no ambiente, e roda o app numa pasta só do teste (os arquivos com caminho relativo já caem nela). O app faz tudo de verdade (login, baixar, montar) e, com `ZIV_TESTE`, pula só o passo de `pula`:
+
+```python
+import os
+if os.environ.get("ZIV_TESTE") == "1":
+    print("Modo teste: não movi para a pasta oficial.")
+else:
+    mover_para_pasta_oficial(arquivos)
+```
+
+Na primeira vez, o dono do app confirma o plano de teste no site (o link vem na resposta de `enviar_versao`). Depois disso, os próximos testes rodam sozinhos, até o plano mudar.
 
 ## 5. Depois de mandar
 
+- App (script): acompanhe com `ver_versao` até o fim. Se o teste falhou, leia as conferências e o log, corrija e mande outra versão com `enviar_versao`. Os arquivos do teste saem com `baixar_arquivo_teste`.
 - App com tela: combine com a pessoa um texto que a página sempre mostra e mande em `conferir_texto` ao publicar; o Ziv só troca de versão se a nova mostrar esse texto (não serve para Streamlit).
 - Depois de publicar ou rodar, confira o resultado sozinho (`ver_execucao`, `ver_app`); não espere a pessoa perguntar.
 - Se algo falhou, leia o log (`ver_log_app` ou `ver_execucao`) e corrija a causa antes de mandar outra versão. Nunca mande a mesma versão de novo por tentativa.

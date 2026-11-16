@@ -108,6 +108,12 @@ var mcpRoutes = []string{
 	"GET /api/areas",
 	"POST /api/scripts/import",
 	"POST /api/apps/{id}/sources",
+	// enviar_versao, ver_versao, baixar_arquivo_teste (ADR 044): the test plan
+	// is confirmed only on the site, and a draft is never published by hand here
+	"POST /api/apps/{id}/drafts",
+	"POST /api/apps/{id}/drafts/{id}/test",
+	"GET /api/apps/{id}/drafts/{id}",
+	"GET /api/apps/{id}/drafts/{id}/files",
 	// enviar_chaves: names and state only; the values arrive by curl, never here
 	"GET /api/apps/{id}/keys",
 	// publicar_app_com_tela: the settings values (PUT …/shared/config) stay site-only

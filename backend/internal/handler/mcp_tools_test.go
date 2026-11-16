@@ -254,7 +254,7 @@ func TestToolGuiaVisual(t *testing.T) {
 }
 
 // Only rodar_app, publicar_artifact, preparar_envio, registrar_app,
-// publicar_app_com_tela and enviar_chaves change something; enviar_chaves is
+// publicar_app_com_tela, enviar_chaves and enviar_versao change something; enviar_chaves is
 // the only one that may replace what was there (a key already in the vault).
 func TestToolAnnotations(t *testing.T) {
 	c, _ := newPoolClient(t)
@@ -266,7 +266,8 @@ func TestToolAnnotations(t *testing.T) {
 	}
 	want := map[string]bool{"buscar": true, "ver_app": true, "ver_artifact": true, "rodar_app": false, "ver_execucao": true,
 		"minhas_execucoes": true, "publicar_artifact": false, "guia_visual": true, "preparar_envio": false, "formato_do_app": true, "registrar_app": false,
-		"publicar_app_com_tela": false, "enviar_chaves": false, "ver_log_app": true, "apagar_chave": false, "problemas": true, "receita_app_ziv": true}
+		"publicar_app_com_tela": false, "enviar_chaves": false, "ver_log_app": true, "apagar_chave": false, "problemas": true, "receita_app_ziv": true,
+		"enviar_versao": false, "ver_versao": true, "baixar_arquivo_teste": true}
 	if len(list.Tools) != len(want) {
 		t.Fatalf("tools = %d", len(list.Tools))
 	}

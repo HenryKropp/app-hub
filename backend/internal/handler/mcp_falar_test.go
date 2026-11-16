@@ -62,27 +62,19 @@ func TestMensagemParaPessoaNasFerramentas(t *testing.T) {
 	sd := withShared(t, h)
 	s := toolSession(t, c)
 
-	envio := sendEnvio(t, h, s, map[string]string{"main.py": "print('v1')\n"})
-	_, _, out := registrar(t, s, map[string]any{"envio": envio, "manifesto": scriptManifesto()})
-	script := int64(out["app_id"].(float64))
-	t.Cleanup(func() { cleanupAppFolder(t, script) })
-	msg, _ := out["mensagem_para_pessoa"].(string)
-	semJargao(t, "registrar_app", msg)
-	if !strings.Contains(msg, "Ele pede valor") || !strings.Contains(msg, "Entrega relatório") {
-		t.Fatalf("registrar %q", msg)
-	}
-
+	// Scripts go through enviar_versao since Etapa 2 (ADR 044); its answer is
+	// checked in mcp_versao_test.go.
 	tela := registrarTela(t, h, s, "")
 	t.Cleanup(func() { cleanupAppFolder(t, tela) })
-	_, _, out = publicar(t, s, map[string]any{"app_id": tela})
-	msg, _ = out["mensagem_para_pessoa"].(string)
+	_, _, out := publicar(t, s, map[string]any{"app_id": tela})
+	msg, _ := out["mensagem_para_pessoa"].(string)
 	semJargao(t, "publicar no ar", msg)
 	if !strings.Contains(msg, "está no ar em http") {
 		t.Fatalf("publicar %q", msg)
 	}
 	code := 1
 	sd.eng.CrashOnStart = &code
-	envio = sendEnvio(t, h, s, map[string]string{"app.py": "import streamlit as st\nst.title('v2')\n", "requirements.txt": "streamlit\n"})
+	envio := sendEnvio(t, h, s, map[string]string{"app.py": "import streamlit as st\nst.title('v2')\n", "requirements.txt": "streamlit\n"})
 	registrar(t, s, map[string]any{"envio": envio, "app_id": tela})
 	_, _, out = publicar(t, s, map[string]any{"app_id": tela})
 	msg, _ = out["mensagem_para_pessoa"].(string)

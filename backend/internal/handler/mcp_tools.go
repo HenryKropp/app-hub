@@ -210,7 +210,7 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "preparar_envio",
-		Description: "Prepara o envio do código de um app para o Ziv. Devolve um endereço de uso único (vale 30 minutos) e os comandos para zipar a pasta " +
+		Description: "Prepara o envio do código de um app com tela para o Ziv (para scripts, enviar_versao já prepara o envio). Devolve um endereço de uso único (vale 30 minutos) e os comandos para zipar a pasta " +
 			"(sem .env, .git, venv, node_modules) numa pasta temporária e mandar com curl. Use só depois que a pessoa disse \"pode registrar\".",
 		Annotations: changes,
 	}, h.toolPrepararEnvio)
@@ -255,11 +255,36 @@ func (h *Handler) registerMCPTools(s *mcp.Server) {
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "registrar_app",
-		Description: "Registra no Ziv um app novo (script ou app com tela) com o código que chegou por preparar_envio, ou manda uma versão nova de um app " +
-			"que já existe (app_id). Siga o protocolo de formato_do_app e use só depois que a pessoa disse \"pode registrar\" (ou \"pode mandar\"). " +
+		Description: "Registra no Ziv um app com tela novo com o código que chegou por preparar_envio, ou manda uma versão nova de um app com tela " +
+			"que já existe (app_id). Scripts não vão por aqui: use enviar_versao, que testa antes de pôr no ar. " +
+			"Siga o protocolo de formato_do_app e use só depois que a pessoa disse \"pode registrar\" (ou \"pode mandar\"). " +
 			"Se o Ziv avisar que o código parece ter senhas ou chaves, pergunte à pessoa antes de mandar de novo com confirmar_segredos true.",
 		Annotations: changes,
 	}, h.toolRegistrarApp)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "enviar_versao",
+		Description: "Manda um script (novo ou versão nova, app_id) para o Ziv testar no PC antes de pôr no ar. Sem envio, prepara o envio e devolve os comandos " +
+			"(zip numa pasta temporária, sem .env, e curl); depois do curl, chame de novo com envio. O manifesto precisa da seção teste (veja receita_app_ziv). " +
+			"Se o plano de teste é novo ou mudou, a resposta traz um link para o responsável confirmar no site; só depois o teste roda. " +
+			"Acompanhe com ver_versao. Use só depois que a pessoa disse \"pode mandar\". Se o Ziv avisar que o código parece ter senhas, pergunte à pessoa antes de mandar de novo com confirmar_segredos true.",
+		Annotations: changes,
+	}, h.toolEnviarVersao)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "ver_versao",
+		Description: "Mostra como está o teste de uma versão mandada por enviar_versao: a etapa, cada conferência (✓/✗), o log (senhas trocadas por ••••), " +
+			"os arquivos que o teste gerou e, se falta, o link de confirmação do plano. Com esperar (até 30), espera uma mudança. " +
+			"Se reprovou, leia o motivo e o log e corrija o código antes de mandar outra versão.",
+		Annotations: readOnly,
+	}, h.toolVerVersao)
+
+	mcp.AddTool(s, &mcp.Tool{
+		Name: "baixar_arquivo_teste",
+		Description: "Devolve o conteúdo de um arquivo que o teste de uma versão gerou (texto até 200 KB), para conferir o resultado. " +
+			"Binário ou maior vem como link. Só o dono do app ou um administrador pode. Os arquivos ficam 7 dias.",
+		Annotations: readOnly,
+	}, h.toolBaixarArquivoTeste)
 
 	mcp.AddTool(s, &mcp.Tool{
 		Name: "publicar_app_com_tela",
