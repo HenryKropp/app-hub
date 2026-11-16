@@ -32,6 +32,9 @@ const (
 
 	// pcWaitLimit is how long a draft waits for its test PC.
 	pcWaitLimit = 24 * time.Hour
+	// orphanWait is how long rodando may go without a job before it is queued
+	// again; queueTest writes the job right after moving the stage.
+	orphanWait = time.Minute
 	// testGrace is the time past tempo_maximo_min before the test fails.
 	testGrace = 5 * time.Minute
 
@@ -65,6 +68,11 @@ func (h *Handler) StartTestPipeline(ctx context.Context) {
 
 // testPipelineTick moves every draft under test and clears old evidence.
 func (h *Handler) testPipelineTick(ctx context.Context, now time.Time) {
+	// Runs first: ExpireStaleRuns finds a stale run through its job still
+	// pending, so failing the job first would leave the run waiting forever.
+	if err := h.q.ExpireStaleRuns(ctx); err != nil {
+		slog.Error("pipeline expire runs", "err", err)
+	}
 	if err := h.q.ExpireStaleJobs(ctx); err != nil {
 		slog.Error("pipeline expire jobs", "err", err)
 	}
@@ -145,6 +153,11 @@ func (h *Handler) stepDraft(ctx context.Context, d sqlc.AppDraft, now time.Time)
 		}
 		return h.queueTest(ctx, a, d, m, pc, now)
 	case stageRunning:
+		if !d.TestJobID.Valid && d.StageSince.Valid && now.Sub(d.StageSince.Time) > orphanWait {
+			// The stage moved but the job was never written (the process
+			// stopped in between): queue it again.
+			return h.moveStage(ctx, d, stagePC)
+		}
 		if d.TestJobID.Valid {
 			j, err := h.q.GetJob(ctx, d.TestJobID.Int64)
 			if err != nil && !errors.Is(err, pgx.ErrNoRows) {

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -249,5 +250,35 @@ func TestEnviarVersaoRestartAfterKeys(t *testing.T) {
 	}
 	if strings.Contains(text, "segredo-btg-123") {
 		t.Fatal("key value in text")
+	}
+}
+
+// Review fix 4: a vault value inside a test file, or in its name, never
+// reaches the conversation.
+func TestBaixarArquivoTesteMasksKey(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withKeyVault(t, h)
+	s := toolSession(t, c)
+	appID := importKeyScript(t, c)
+	c.do("PUT", "/api/apps/"+itoa(appID)+"/keys/BTG_SENHA", map[string]string{"value": keyValue}, nil)
+	token := pairComputer(t, c, "PC")
+	c.agent("POST", "/api/agent/hello", token, agentproto.Hello{Name: "PC", Version: agentproto.Version}, nil)
+	_, out := sendDraft(t, c, appID, map[string]string{"main.py": "print(2)"}, map[string]any{"ficha": testeFicha()})
+	job := runningTestJob(t, c, h, appID, out.DraftID, token, "PC")
+	name := "pagina_" + keyValue + ".html"
+	postEvidence(t, c, token, job, evidenceZipOf(t, map[string]string{"pagina.html": "<p>Olá " + keyValue + "</p>", name: "x"}))
+	agentResultFor(c, token, job, agentproto.Result{Event: agentproto.EventFinished, ExitCode: 0, Log: "ok",
+		Files: []agentproto.FileEntry{{Path: "pagina.html", Size: 20}, {Path: name, Size: 1}}})
+	res, text, _ := callTool(t, s, "baixar_arquivo_teste", map[string]any{"app_id": appID, "versao": out.DraftID, "caminho": "pagina.html"})
+	if res.IsError || strings.Contains(text, keyValue) || !strings.Contains(text, "Olá") {
+		t.Fatalf("content %v %q", res.IsError, text)
+	}
+	_, text, _ = callTool(t, s, "ver_versao", map[string]any{"app_id": appID, "versao": out.DraftID})
+	if strings.Contains(text, keyValue) {
+		t.Fatalf("ver_versao %q", text)
+	}
+	if v := getDraftView(t, c, appID, out.DraftID); strings.Contains(fmt.Sprint(v), keyValue) {
+		t.Fatalf("draft view %v", v)
 	}
 }

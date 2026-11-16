@@ -395,6 +395,7 @@ func (h *Handler) agentKeys(w http.ResponseWriter, r *http.Request) {
 	}
 	// The audit names who asked for the run, or the author of the tested draft.
 	var appID, actor int64
+	var draft *sqlc.AppDraft
 	if runID.Valid {
 		run, err := h.q.GetRun(ctx, runID.Int64)
 		if err != nil {
@@ -409,6 +410,7 @@ func (h *Handler) agentKeys(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		appID, actor = d.AppID, d.AuthorID.Int64
+		draft = &d
 	}
 	a, err := h.q.GetApp(ctx, appID)
 	if err != nil {
@@ -420,6 +422,24 @@ func (h *Handler) agentKeys(w http.ResponseWriter, r *http.Request) {
 		slog.Error("open app keys", "app", a.ID, "err", err)
 		writeError(w, http.StatusServiceUnavailable, msgKeysLocked)
 		return
+	}
+	if draft != nil {
+		// A test gets only the keys its plan declares: the ones the owner saw
+		// under "Chaves usadas" when confirming.
+		m, err := draftManifest(a, *draft)
+		if err != nil {
+			internalError(w, "keys draft manifest", err)
+			return
+		}
+		declared := map[string]bool{}
+		for _, k := range m.Keys {
+			declared[k.Name] = true
+		}
+		for name := range values {
+			if !declared[name] {
+				delete(values, name)
+			}
+		}
 	}
 	h.keyAudit(ctx, actor, "app_key.delivered", "GET /api/agent/jobs/{id}/keys")
 	w.Header().Set("Cache-Control", "no-store")

@@ -296,3 +296,47 @@ func TestInTestAppRefusesRuns(t *testing.T) {
 		t.Fatalf("%d %v", code, out)
 	}
 }
+
+// Review fix 1: the clock fails stale pending jobs only after the runs behind
+// them were interrupted, or a run of a PC that never came back stays
+// "waiting" forever (and blocks every new version).
+func TestPipelineTickInterruptsStaleRun(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	appID := importFiles(t, c, map[string]string{"main.py": "print('v1')"})
+	pairComputer(t, c, "PC")
+	ctx := context.Background()
+	pc := computerID(t, "PC")
+	var runID int64
+	if err := testPool.QueryRow(ctx, `INSERT INTO runs (app_id, person_id, computer_id, output_folder, status)
+		VALUES ($1, 1, $2, 'C:\x', 'waiting') RETURNING id`, appID, pc).Scan(&runID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := testPool.Exec(ctx, `INSERT INTO agent_jobs (computer_id, run_id, kind, payload, created_at)
+		VALUES ($1, $2, 'run', '{}', now() - interval '3 minutes')`, pc, runID); err != nil {
+		t.Fatal(err)
+	}
+	h.testPipelineTick(ctx, time.Now())
+	var status string
+	testPool.QueryRow(ctx, "SELECT status FROM runs WHERE id=$1", runID).Scan(&status)
+	if status == "waiting" {
+		t.Fatalf("run still %q", status)
+	}
+}
+
+// Review fix 2: a draft left in rodando without a job (the process stopped
+// between moving the stage and creating the job) is queued again.
+func TestPipelineRunningWithoutJobRecovers(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	appID, draftID, _ := draftWithPC(t, c, h)
+	startTest(t, h, draftID)
+	confirmPlan(t, h, appID, draftID, "PC")
+	if _, err := testPool.Exec(context.Background(), "UPDATE app_drafts SET stage='rodando', stage_since=now() - interval '10 minutes', test_job_id=NULL, test_started_at=NULL WHERE id=$1", draftID); err != nil {
+		t.Fatal(err)
+	}
+	h.testPipelineTick(context.Background(), time.Now())
+	if d := draftRow(t, h, draftID); d.Stage != "rodando" || !d.TestJobID.Valid || testJobs(t, draftID) != 1 {
+		t.Fatalf("stage %q job %v jobs %d", d.Stage, d.TestJobID.Valid, testJobs(t, draftID))
+	}
+}

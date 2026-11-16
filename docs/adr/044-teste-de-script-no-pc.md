@@ -47,9 +47,17 @@ conferir e publicar sozinho.
   `enviar_versao` com `app_id` e `versao` começa o teste sem novo envio.
 - **App novo nasce restrito e "em teste".** Só o dono e os admins o veem, e
   ele não roda até o primeiro teste passar.
-- **O teste respeita a aprovação de segurança** (`executionBlock`). Uma
-  versão que vai ao ar e precisa de aprovação fica bloqueada, como hoje, e o
-  aviso diz isso.
+- **O teste respeita a aprovação de segurança do app no ar** (`executionBlock`):
+  numa empresa que exige aprovação, o teste só roda se a versão no ar está
+  aprovada. O código novo do rascunho **não** passa por aprovação antes do
+  teste: ele roda no PC de quem confirmou o plano, com as chaves que o plano
+  declara. A versão que vai ao ar depois precisa de aprovação, como hoje, e o
+  aviso diz isso. (Pendente de decisão do Henry: exigir aprovação do código
+  do rascunho antes do teste nas empresas que pedem aprovação.)
+- **O teste recebe só as chaves que o plano declara** (as que aparecem em
+  "Chaves usadas" na confirmação), não o Cofre inteiro. Valores do Cofre são
+  mascarados no log, nos nomes de arquivos, nas conferências e no conteúdo
+  que `baixar_arquivo_teste` traz para a conversa.
 
 ## Rationale
 O Agente já roda scripts no PC com o Cofre. Reaproveitar o trabalho do Agente

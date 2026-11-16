@@ -223,3 +223,24 @@ func TestAgentKeysForTestJob(t *testing.T) {
 		t.Fatalf("second %d", code)
 	}
 }
+
+// Review fix 5: a test receives only the keys its plan declares, the ones the
+// confirmation showed; a key added on the site later does not reach it.
+func TestAgentKeysForTestJobOnlyDeclared(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	withKeyVault(t, h)
+	appID := importKeyScript(t, c)
+	c.do("PUT", "/api/apps/"+itoa(appID)+"/keys/BTG_SENHA", map[string]string{"value": keyValue}, nil)
+	if code := c.do("PUT", "/api/apps/"+itoa(appID)+"/keys/OUTRA_SENHA", map[string]string{"value": "outra-senha-123"}, nil); code != http.StatusOK {
+		t.Fatalf("extra key %d", code)
+	}
+	token := pairComputer(t, c, "PC")
+	c.agent("POST", "/api/agent/hello", token, agentproto.Hello{Name: "PC", Version: agentproto.Version}, nil)
+	_, out := sendDraft(t, c, appID, map[string]string{"main.py": "print(2)"}, map[string]any{"ficha": testeFicha()})
+	job := runningTestJob(t, c, h, appID, out.DraftID, token, "PC")
+	var keys map[string]string
+	if code := c.agent("GET", "/api/agent/jobs/"+itoa(job)+"/keys", token, nil, &keys); code != http.StatusOK || keys["BTG_SENHA"] != keyValue || keys["OUTRA_SENHA"] != "" {
+		t.Fatalf("keys %d %v", code, keys)
+	}
+}

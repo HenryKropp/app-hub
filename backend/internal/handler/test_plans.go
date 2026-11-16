@@ -65,6 +65,11 @@ func (h *Handler) draftView(ctx context.Context, a sqlc.App, d sqlc.AppDraft, wi
 	if len(d.TestFiles) > 0 {
 		files = d.TestFiles
 	}
+	// A file name or a check may carry a vault value (relatorio_<conta>.pdf):
+	// both are masked like the log. A mask keeps the JSON valid, since it
+	// only replaces text that was inside a string.
+	checks = json.RawMessage(h.maskFor(ctx, a, string(checks)))
+	files = json.RawMessage(h.maskFor(ctx, a, string(files)))
 	out := map[string]any{
 		"id": d.ID, "status": d.Status, "status_reason": d.StatusReason,
 		"version_number": number, "note": d.Note, "created_at": d.CreatedAt.Time,

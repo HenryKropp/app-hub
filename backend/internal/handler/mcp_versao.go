@@ -391,5 +391,13 @@ func (h *Handler) toolBaixarArquivoTeste(ctx context.Context, _ *mcp.CallToolReq
 		text := fmt.Sprintf("O arquivo %s é binário ou passa de 200 KB, então não vem pela conversa. O dono do app ou um administrador baixa por este link, entrando no Ziv: %s (página do app: %s).", in.Caminho, download, page)
 		return toolOK(text, map[string]any{"caminho": in.Caminho, "tamanho": len(raw), "link": download, "pagina": page})
 	}
-	return toolOK(fmt.Sprintf("Arquivo %s do teste:\n%s", in.Caminho, raw), map[string]any{"caminho": in.Caminho, "tamanho": len(raw), "conteudo": string(raw)})
+	// The file is the app's real work and may show a vault value (a page
+	// saying "Olá, <usuário>"): masked before it reaches the conversation.
+	content := string(raw)
+	if a, err := h.q.GetApp(ctx, in.AppID); err == nil {
+		content = h.maskFor(ctx, a, content)
+	} else {
+		return toolFail("Não consegui abrir este app agora.")
+	}
+	return toolOK(fmt.Sprintf("Arquivo %s do teste:\n%s", in.Caminho, content), map[string]any{"caminho": in.Caminho, "tamanho": len(raw), "conteudo": content})
 }
