@@ -1,6 +1,6 @@
 # Testar e publicar sem o Henry — desenho
 
-**Data:** 2026-11-16 · **Status:** em aprovação · **Origem:** TASKS "Lições do app de relatórios" (itens 1 a 4) + "Teste extenso antes de publicar"
+**Data:** 2026-11-16 · **Status:** aprovado pelo Henry em 2026-11-16 · **Origem:** TASKS "Lições do app de relatórios" (itens 1 a 4) + "Teste extenso antes de publicar"
 
 ## Por que
 

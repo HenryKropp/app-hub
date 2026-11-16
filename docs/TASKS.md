@@ -519,7 +519,7 @@ Revisão do Henry e do cofundador depois de pôr o app de relatórios no ar (ver
 
 | Task | Status | Notes |
 |------|--------|-------|
-| MCP: publicar em um passo | In Progress | Desenho em docs/superpowers/specs/2026-11-16-testar-e-publicar-sem-o-henry-design.md (aguardando aprovação). Hoje são cinco (preparar_envio, zip, envio, registrar_app, publicar_app_com_tela em repetição). Projeto "Testar e publicar sem o Henry" |
+| MCP: publicar em um passo | In Progress | Desenho em docs/superpowers/specs/2026-11-16-testar-e-publicar-sem-o-henry-design.md (aprovado 2026-11-16; próximo: plano de construção). Hoje são cinco (preparar_envio, zip, envio, registrar_app, publicar_app_com_tela em repetição). Projeto "Testar e publicar sem o Henry" |
 | MCP: testar_app (versão de rascunho no PC ou no servidor, sem publicar) | Pending | Devolve log, arquivos gerados e foto da tela. Junta com "Teste extenso antes de publicar". Mesmo projeto |
 | Teste usa as chaves do Cofre sem ninguém ver as senhas | Pending | Hoje o cofundador lê as senhas de dentro do servidor para testar no PC. Mesmo projeto |
 | Ziv fecha e reabre o app no PC sozinho quando chega versão nova | Pending | Hoje registrar_app recusa com o app aberto e o Henry tem que clicar em Parei. Mesmo projeto |
