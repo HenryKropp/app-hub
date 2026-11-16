@@ -338,6 +338,11 @@ func (h *Handler) applySources(w http.ResponseWriter, r *http.Request, a sqlc.Ap
 			return a, sqlc.AppVersion{}, false, false
 		}
 	}
+	// Checked again against the ficha and the company policy as they are now:
+	// a draft may have waited days. The sender's secrets confirmation stands.
+	if _, ok := h.checkSentFiles(w, r, m, files, true); !ok {
+		return a, sqlc.AppVersion{}, false, false
+	}
 	data, _ := json.Marshal(files)
 	if err := h.q.ReplaceScriptSources(ctx, a.ID, data); err != nil {
 		internalError(w, "replace sources", err)

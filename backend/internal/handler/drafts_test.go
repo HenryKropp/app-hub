@@ -224,3 +224,30 @@ func TestDraftNeedsEdit(t *testing.T) {
 		t.Fatalf("publish %d %+v", code, out)
 	}
 }
+
+// The files are checked again when the draft goes live: a company policy
+// turned on after the draft was kept still holds.
+func TestDraftPublishRechecksSecretsPolicy(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	h.SetWorkspace(WorkspaceOptions{Slug: "teste", Name: "Teste"})
+	var before bool
+	_ = testPool.QueryRow(context.Background(), `SELECT block_embedded_secrets FROM security_settings WHERE id = TRUE`).Scan(&before)
+	t.Cleanup(func() {
+		_, _ = testPool.Exec(context.Background(), `UPDATE security_settings SET block_embedded_secrets = $1 WHERE id = TRUE`, before)
+	})
+	exec(t, `UPDATE security_settings SET block_embedded_secrets = false WHERE id = TRUE`)
+	id := importFiles(t, c, map[string]string{"main.py": "print(1)"})
+	secret := map[string]string{"main.py": "KEY = 'AKIAIOSFODNN7EXAMPLQ'\nprint(KEY)"}
+	code, out := sendDraft(t, c, id, secret, map[string]any{"confirm_secrets": true})
+	if code != http.StatusCreated {
+		t.Fatalf("%d %+v", code, out)
+	}
+	exec(t, `UPDATE security_settings SET block_embedded_secrets = true WHERE id = TRUE`)
+	if code, pout := publishDraftReq(c, id, out.DraftID); code != http.StatusUnprocessableEntity || pout.Code != "script_secrets_blocked" {
+		t.Fatalf("%d %+v", code, pout)
+	}
+	if storedNames(t, id)["main.py"] != "print(1)" || versionCount(t, id) != 1 {
+		t.Fatal("blocked code went live")
+	}
+}
