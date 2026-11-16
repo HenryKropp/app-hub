@@ -52,8 +52,8 @@ conferir e publicar sozinho.
   aprovada. O código novo do rascunho **não** passa por aprovação antes do
   teste: ele roda no PC de quem confirmou o plano, com as chaves que o plano
   declara. A versão que vai ao ar depois precisa de aprovação, como hoje, e o
-  aviso diz isso. (Pendente de decisão do Henry: exigir aprovação do código
-  do rascunho antes do teste nas empresas que pedem aprovação.)
+  aviso diz isso. (Decidido pelo Henry em 2026-11-16: fica assim. Exigir
+  aprovação antes do teste faria cada versão esperar um administrador.)
 - **O teste recebe só as chaves que o plano declara** (as que aparecem em
   "Chaves usadas" na confirmação), não o Cofre inteiro. Valores do Cofre são
   mascarados no log, nos nomes de arquivos, nas conferências e no conteúdo
