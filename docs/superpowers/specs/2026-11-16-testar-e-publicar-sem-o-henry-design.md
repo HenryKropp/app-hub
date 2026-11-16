@@ -61,17 +61,17 @@ O que o Henry quer: quem constrói um app (o cofundador, outro Claude ou uma pes
 
 Hoje `sendSources` (`backend/internal/handler/stored_code.go:287-298`) troca `script_sources` e a pasta do app na hora, e `launchRun` (`handler/launch.go:139-161`) usa sempre o código mais recente. A mudança:
 
-- Uma versão (`app_versions`) ganha **situação**: `rascunho` → `testando` → `aprovada`/`reprovada` → `no_ar` → `substituida`. Só uma versão por app fica `no_ar`.
+- Uma versão enviada passa pelas **situações** `rascunho` → `testando` → `aprovada`/`reprovada` → `no_ar` (a anterior vira `substituida`). Só uma versão por app fica `no_ar`. Ver "Implementação" abaixo.
 - **Rodadas normais** (manuais e agendadas) rodam o código da versão `no_ar`. **A rodada de teste** roda o código do rascunho.
 - Enviar uma versão com uma rodada normal em andamento **não é mais recusado**, porque o rascunho não mexe na versão no ar. (Hoje a recusa vem de `stored_code.go:255-260`.)
-- Um rascunho novo enviado enquanto outro do mesmo app ainda não foi publicado **cancela o anterior**. Ele fica `reprovada` com o motivo "substituída por versão mais nova". *(Call do cofundador.)*
+- Um rascunho novo enviado enquanto outro do mesmo app ainda não foi publicado **cancela o anterior**. Ele fica `cancelada` com o motivo "substituída por versão mais nova". *(Call do cofundador.)*
 - Apps já existentes: a versão atual de cada app vira `no_ar` na migração.
 - **A receita pertence à versão, não ao app.** Hoje ela fica em `apps`. Ela passa a ser guardada em cada versão. Rodadas normais leem a receita da versão `no_ar`. O teste lê a do rascunho. A impressão do plano vem do rascunho. Assim o rascunho não muda entradas, chaves ou plano do app no ar. *(Call do cofundador.)*
-- **Pelo site** (decisão 6), no "Enviar versão nova":
-  - App cujo rascunho tem `teste`: a versão fica `rascunho` e a tela mostra **"Testar e publicar"**, que inicia a mesma sequência do `enviar_versao`.
-  - App sem `teste`: a tela avisa **"Esta versão vai ao ar sem teste"**. Depois de confirmar, a versão vai direto a `no_ar`, marcada "não testada", e a página do app mostra essa marca.
-  - **Voltar uma versão antiga** não testa de novo: ela já esteve no ar.
-  - Versões por pasta (`origin='folder'`) seguem a mesma regra do site.
+- **Pelo site** (decisão 6). *Achado ao planejar:* o site não tem "Enviar versão nova" para apps (esse botão só existe para artifacts). Versões chegam pelo site de dois jeitos, e a decisão vale para os dois:
+  - **"Publicar versão nova" de app de tela no servidor** (`frontend/src/components/ficha/shared/Publish.tsx`). Com `teste` no plano, o botão vira **"Testar e publicar"** e inicia a mesma sequência do `enviar_versao`. Sem `teste`, avisa **"Esta versão vai ao ar sem teste"** antes de publicar.
+  - **Versões detectadas na pasta do PC** (`origin='folder'`, apps cujo código o Ziv não guarda). O Ziv não controla essa pasta, então não dá para segurar como rascunho. Elas ficam marcadas "não testada".
+  - **Voltar uma versão antiga** não testa de novo, porque ela já esteve no ar.
+- **Implementação (call do cofundador, no plano):** o rascunho vive numa tabela própria (`app_drafts`), com os arquivos e as mudanças de ficha. Só ganha número em `app_versions` quando vai ao ar. Assim, tudo o que hoje lê "a versão mais recente" (aprovação de segurança, conferência da pasta, histórico) continua significando "a versão no ar", sem mudar. Cada versão em `app_versions` ganha `tested`: vazio para as antigas, falso para "não testada", verdadeiro para "testada".
 - **App novo** só aparece para os usuários depois do primeiro teste que passa. Até lá, aparece só para quem enviou e para os admins, como "em teste". *(Call do cofundador.)*
 - Publicar uma versão de app de PC é só marcá-la `no_ar`. O código vai junto em cada rodada (`agentproto/proto.go:42-80`), então não há instalação. Para app de tela no servidor, publicar é o deploy normal (`/shared/publish`). O builder pode promover a imagem já construída no teste, se for simples.
 
