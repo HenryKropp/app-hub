@@ -216,7 +216,7 @@ func (h *Handler) versionItemOf(r *http.Request, a sqlc.App, v sqlc.GetAppVersio
 	if latest, err := h.q.LatestAppVersion(r.Context(), a.ID); err == nil {
 		current = latest.Number
 	}
-	return newVersionItem(v.Number, v.Origin, v.RestoredFrom, v.AuthorName, v.AuthorProbable, v.Description, v.Summary, v.FilesChangedAt, v.CreatedAt, v.Channel, current)
+	return newVersionItem(v.Number, v.Origin, v.RestoredFrom, v.AuthorName, v.AuthorProbable, v.Description, v.Summary, v.FilesChangedAt, v.CreatedAt, v.Channel, v.Tested, current)
 }
 
 func (h *Handler) getVersion(w http.ResponseWriter, r *http.Request) {

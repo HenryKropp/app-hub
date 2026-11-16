@@ -183,6 +183,17 @@ export function ByClaude({ className }: { className?: string }) {
   return <span className={cn("inline-flex h-5 items-center rounded-full bg-secondary px-2 text-xs font-medium whitespace-nowrap text-muted-foreground", className)}>pelo Claude</span>
 }
 
+/** Whether a version passed the Ziv's test before going live (ADR 043). Quiet,
+ *  no alert color: "não testada" only gets a thin border. */
+export function TestedMark({ tested, className }: { tested: boolean; className?: string }) {
+  return (
+    <span className={cn("inline-flex h-5 items-center rounded-full px-2 text-xs font-medium whitespace-nowrap text-muted-foreground",
+      tested ? "bg-secondary" : "border border-border", className)}>
+      {tested ? "testada" : "não testada"}
+    </span>
+  )
+}
+
 /** Marks a run a schedule started (ADR 024). Neutral, like ByClaude. */
 export function Scheduled({ className }: { className?: string }) {
   return <span className={cn("inline-flex h-5 items-center rounded-full bg-secondary px-2 text-xs font-medium whitespace-nowrap text-muted-foreground", className)}>agendada</span>

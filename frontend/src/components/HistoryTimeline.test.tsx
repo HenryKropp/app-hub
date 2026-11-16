@@ -108,3 +108,20 @@ test("code sent through the Ziv says so, and Claude's versions are marked", asyn
   expect(rows[2]).toHaveTextContent("Estado original")
   expect(rows[2]).toHaveTextContent("pelo Claude")
 })
+
+test("marks versions that went live without a test", async () => {
+  vi.spyOn(api, "history").mockResolvedValue({
+    items: [
+      { type: "version", at: "2026-10-03T12:00:00Z", version: v({ number: 3, tested: false }) },
+      { type: "version", at: "2026-10-02T12:00:00Z", version: v({ number: 2, tested: true, current: false }) },
+      { type: "version", at: "2026-10-01T12:00:00Z", version: v({ number: 1, tested: null, current: false }) },
+    ],
+    more: false, next_before: "",
+  })
+  renderIt()
+  const rows = within(await screen.findByRole("list", { name: "Histórico" })).getAllByRole("listitem")
+  expect(within(rows[0]).getByText("não testada")).toBeInTheDocument()
+  expect(within(rows[1]).getByText("testada")).toBeInTheDocument()
+  expect(within(rows[1]).queryByText("não testada")).toBeNull()
+  expect(within(rows[2]).queryByText(/testada/)).toBeNull()
+})

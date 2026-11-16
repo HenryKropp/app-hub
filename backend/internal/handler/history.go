@@ -28,6 +28,7 @@ type versionItem struct {
 	CreatedAt      time.Time        `json:"created_at"`
 	Current        bool             `json:"current"`
 	Channel        string           `json:"channel"` // "mcp" when the code came through Claude
+	Tested         *bool            `json:"tested"`  // nil: older than the mark; false: "não testada"
 }
 
 type runItem struct {
@@ -64,10 +65,13 @@ func int4Ptr(v pgtype.Int4) *int32 {
 }
 
 func newVersionItem(number int32, origin string, restoredFrom pgtype.Int4, author pgtype.Text, probable bool,
-	description string, summary []byte, changedAt, createdAt pgtype.Timestamptz, channel string, current int32) versionItem {
+	description string, summary []byte, changedAt, createdAt pgtype.Timestamptz, channel string, tested pgtype.Bool, current int32) versionItem {
 	it := versionItem{Number: number, Origin: origin, RestoredFrom: int4Ptr(restoredFrom), AuthorName: author.String,
 		AuthorProbable: probable, Description: description, FilesChangedAt: tsPtr(changedAt), CreatedAt: createdAt.Time,
 		Current: number == current, Channel: channel, Summary: versions.Summary{Binaries: []string{}}}
+	if tested.Valid {
+		it.Tested = &tested.Bool
+	}
 	_ = json.Unmarshal(summary, &it.Summary)
 	return it
 }
@@ -134,7 +138,7 @@ func (h *Handler) appHistory(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		for _, v := range rows {
-			it := newVersionItem(v.Number, v.Origin, v.RestoredFrom, v.AuthorName, v.AuthorProbable, v.Description, v.Summary, v.FilesChangedAt, v.CreatedAt, v.Channel, current)
+			it := newVersionItem(v.Number, v.Origin, v.RestoredFrom, v.AuthorName, v.AuthorProbable, v.Description, v.Summary, v.FilesChangedAt, v.CreatedAt, v.Channel, v.Tested, current)
 			items = append(items, historyItem{Type: "version", At: v.CreatedAt.Time, Version: &it})
 		}
 	}

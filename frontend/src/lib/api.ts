@@ -305,6 +305,8 @@ export type VersionSummary = { added: number; removed: number; modified: number;
 export type VersionInfo = {
   number: number; origin: "original" | "folder" | "restore" | "upload"; channel: "manual" | "mcp"; restored_from: number | null
   author_name: string; author_probable: boolean; description: string; summary: VersionSummary
+  /** null: older than the mark; false: went live without a test. */
+  tested?: boolean | null
   files_changed_at: string | null; created_at: string; current: boolean
 }
 export type FichaChange = { field: string; label: string; before?: string; after?: string; long?: boolean }

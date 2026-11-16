@@ -78,3 +78,29 @@ func TestHistoryBadParams(t *testing.T) {
 		t.Fatalf("missing app %d", code)
 	}
 }
+
+// A version sent straight to the air shows "não testada" (tested: false);
+// the import predates the mark (tested: null).
+func TestHistoryTestedMark(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	id := importFiles(t, c, map[string]string{"main.py": "print('v1')"})
+	if code, out := send(t, c, id, map[string]string{"main.py": "print('v2')"}, nil); code != http.StatusOK {
+		t.Fatal(code, out)
+	}
+	var hist struct {
+		Items []struct {
+			Version *map[string]any `json:"version"`
+		} `json:"items"`
+	}
+	if code := c.do("GET", appPath(id, "/history?type=code"), nil, &hist); code != http.StatusOK || len(hist.Items) != 2 {
+		t.Fatalf("history %d %+v", code, hist)
+	}
+	v2, v1 := *hist.Items[0].Version, *hist.Items[1].Version
+	if got, ok := v2["tested"]; !ok || got != false {
+		t.Fatalf("v2 tested %v %v", got, ok)
+	}
+	if got, ok := v1["tested"]; !ok || got != nil {
+		t.Fatalf("v1 tested %v %v", got, ok)
+	}
+}
