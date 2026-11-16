@@ -124,6 +124,7 @@ Pedido do Henry em 2026-09-30: o histórico de um app mostra três coisas, numa 
 - O Hub detecta quando o código da pasta mudou e registra a nova versão sozinho.
 - Botão para voltar a uma versão anterior. A restauração também vira uma versão.
 - Histórico de execuções ligado à versão usada.
+- **Rascunho de versão (2026-11-16, ADR 043):** uma versão nova pode ficar guardada como rascunho sem mudar o app no ar; só vai ao ar quando é publicada. No Histórico, a versão que foi ao ar sem teste aparece marcada "não testada" (e "testada" quando o Ziv testar antes, a partir da Etapa 2).
 - **Construído (2026-10-01, ADR 006):** a versão nasce sozinha quando o Hub confere a pasta, sem perguntar. Descrever a mudança é opcional. Só o código-fonte tem cópia; do `.exe` fica só a impressão digital, e voltar a versão pede recompilar. A ficha só é registrada, não se restaura. Chaves no código aparecem mascaradas.
 
 ### 3.7 Equipe e permissões (1.7, construído na Etapa 2, ADR 009)
@@ -144,7 +145,7 @@ Em linguagem de produto, quem pode o quê:
 
 ### 3.7b Apps compartilhados (construído em 2026-10, ADR 010)
 Alguns apps precisam ficar no ar para muita gente usar ao mesmo tempo, com os mesmos dados. O Hub passa a rodá-los num servidor, em vez de abrir no computador de cada pessoa.
-- **Tornar compartilhado:** na ficha, a parte "Compartilhado" mostra a checagem do que falta (com um "texto para o Claude" para consertar), deixa **Testar** numa caixa separada, com banco próprio de teste (desliga sozinha em 30 min), e **Publicar** para a equipe. **Publicar versão nova** sobe ao lado da atual e só assume se funcionar; **Voltar para a anterior** volta só a versão ou a versão com os dados.
+- **Tornar compartilhado:** na ficha, a parte "Compartilhado" mostra a checagem do que falta (com um "texto para o Claude" para consertar), deixa **Testar** numa caixa separada, com banco próprio de teste (desliga sozinha em 30 min), e **Publicar** para a equipe. **Publicar versão nova** sobe ao lado da atual e só assume se funcionar; **Voltar para a anterior** volta só a versão ou a versão com os dados. Enquanto o app não tem plano de teste, **Publicar** avisa antes: "Esta versão vai ao ar sem teste" (2026-11-16, ADR 043).
 - **Abrir:** o cartão do catálogo ganha **Abrir** e o status (no ar, dormindo, parado, com problema). O app abre em endereço próprio, sem outro login: vale o login do Hub e as mesmas regras de acesso da ficha. O app sabe quem é a pessoa (nome, e-mail e papel).
 - **Descanso e cópias:** o app dorme depois de 30 min sem uso e acorda no próximo acesso. Há cópia diária do banco, cópias antes de publicar e restaurar e cópia manual, todas criptografadas; a ficha restaura.
 - **Servidor e gastos:** o administrador informa quanto o servidor custa por mês e vê memória, disco e a parte de cada app no gasto, e pode parar, ligar ou mudar os limites de um app.

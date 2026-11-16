@@ -22,4 +22,22 @@ await page.goto(`${BASE}/apps/${id}`)
 await page.getByRole("tab", { name: "Histórico" }).click()
 await page.getByText("não testada").first().waitFor()
 await page.screenshot({ path: `${OUT}/historico.png` })
+
+// The publish warning, on a screen app ("Notas" in the dev data). The check is
+// forced ready and publishing is blocked: nothing is built.
+const apps = await (await page.request.get(`${BASE}/api/apps`)).json()
+const shared = apps.find((a) => a.shared)
+if (shared) {
+  await page.route("**/api/apps/*/shared/check", (r) => r.fulfill({ json: {
+    ready: true, recipe: { kind: "python", dockerfile: "", port: 8000, command: "", needs_confirm: false, requirements: [] },
+    wants_db: false, suggest_env: [], items: [],
+  } }))
+  await page.route("**/api/apps/*/shared/publish", (r) => r.abort())
+  await page.goto(`${BASE}/apps/${shared.id}`)
+  await page.getByRole("tab", { name: "Servidor" }).click()
+  await page.getByRole("button", { name: /^Publicar/ }).first().click()
+  await page.getByText("Esta versão vai ao ar sem teste.").waitFor()
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: `${OUT}/publicar-aviso.png` })
+}
 await browser.close()

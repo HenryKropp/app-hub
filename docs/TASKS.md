@@ -519,7 +519,9 @@ Revisão do Henry e do cofundador depois de pôr o app de relatórios no ar (ver
 
 | Task | Status | Notes |
 |------|--------|-------|
-| MCP: publicar em um passo | In Progress | Desenho em docs/superpowers/specs/2026-11-16-testar-e-publicar-sem-o-henry-design.md (aprovado 2026-11-16; próximo: plano de construção). Hoje são cinco (preparar_envio, zip, envio, registrar_app, publicar_app_com_tela em repetição). Projeto "Testar e publicar sem o Henry" |
+| MCP: publicar em um passo | In Progress | Desenho em docs/superpowers/specs/2026-11-16-testar-e-publicar-sem-o-henry-design.md (aprovado 2026-11-16). Dividido em 4 etapas: 1 rascunho, 2 teste de script no PC + enviar_versao, 3 apps com tela, 4 troca no PC. Hoje são cinco (preparar_envio, zip, envio, registrar_app, publicar_app_com_tela em repetição). Projeto "Testar e publicar sem o Henry" |
+| Testar e publicar — Etapa 1 rascunho | Done | 2026-11-16, branch etapa-1-rascunho (ADR 043). Rascunho de versão (criar, ver, publicar) sem mudar o app no ar; marca "não testada"/"testada" no Histórico; "Publicar" de app com tela avisa "Esta versão vai ao ar sem teste". Plano: docs/superpowers/plans/2026-11-16-etapa-1-rascunho.md. Falta: deploy e conferência do Henry |
+| Testar e publicar — Etapa 2 teste de script no PC + enviar_versao | Pending | Próxima: escrever o plano. Usa publishDraft(..., tested=true) depois do teste |
 | MCP: testar_app (versão de rascunho no PC ou no servidor, sem publicar) | Pending | Devolve log, arquivos gerados e foto da tela. Junta com "Teste extenso antes de publicar". Mesmo projeto |
 | Teste usa as chaves do Cofre sem ninguém ver as senhas | Pending | Hoje o cofundador lê as senhas de dentro do servidor para testar no PC. Mesmo projeto |
 | Ziv fecha e reabre o app no PC sozinho quando chega versão nova | Pending | Hoje registrar_app recusa com o app aberto e o Henry tem que clicar em Parei. Mesmo projeto |

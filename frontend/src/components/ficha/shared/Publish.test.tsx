@@ -18,6 +18,7 @@ it("publishes and follows the progress until it is live", async () => {
   // 100 ms between looks, so "Publicando…" is still there when the test looks for it on a busy machine.
   render(<PublishBar appId={1} ready live={false} latest={3} liveVersion={undefined} hasPrevious={false} interval={100} onDone={onDone} />)
   await userEvent.click(screen.getByRole("button", { name: "Publicar" }))
+  await userEvent.click(await screen.findByRole("button", { name: "Publicar mesmo assim" }))
   expect(await screen.findByText("Publicando…")).toBeInTheDocument()
   await waitFor(() => expect(onDone).toHaveBeenCalled())
   expect(dep).toHaveBeenCalledWith(1, 7)
@@ -35,6 +36,7 @@ it("shows the failure in plain words and keeps the old version", async () => {
   vi.spyOn(api.shared, "deployment").mockResolvedValue({ id: 8, kind: "live", status: "failed", error_message: "A versão nova não respondeu. A anterior continua no ar." } as never)
   render(<PublishBar appId={1} ready live latest={5} liveVersion={4} hasPrevious interval={10} onDone={() => {}} />)
   await userEvent.click(screen.getByRole("button", { name: "Publicar versão nova" }))
+  await userEvent.click(await screen.findByRole("button", { name: "Publicar mesmo assim" }))
   expect(await screen.findByText("A versão nova não respondeu. A anterior continua no ar.")).toBeInTheDocument()
   // Whoever does not see the technical part gets no log, so no link to it.
   expect(screen.queryByRole("button", { name: "Ver detalhes" })).not.toBeInTheDocument()
@@ -45,6 +47,7 @@ it("shows the build log behind Ver detalhes when it came", async () => {
   vi.spyOn(api.shared, "deployment").mockResolvedValue({ id: 8, kind: "live", status: "failed", error_message: "Não deu para montar o app.", build_log: "pip: no matching distribution" } as never)
   render(<PublishBar appId={1} ready live={false} latest={1} liveVersion={undefined} hasPrevious={false} interval={10} onDone={() => {}} />)
   await userEvent.click(screen.getByRole("button", { name: "Publicar" }))
+  await userEvent.click(await screen.findByRole("button", { name: "Publicar mesmo assim" }))
   await userEvent.click(await screen.findByRole("button", { name: "Ver detalhes" }))
   expect(await screen.findByText("pip: no matching distribution")).toBeInTheDocument()
 })
@@ -64,6 +67,7 @@ it("shows the server's sentence when the app is busy, without retrying", async (
   const pub = vi.spyOn(api.shared, "publish").mockRejectedValue(new ApiError(409, "Já tem uma mudança em andamento neste app. Espere terminar e tente de novo."))
   render(<PublishBar appId={1} ready live={false} latest={1} liveVersion={undefined} hasPrevious={false} interval={10} onDone={() => {}} />)
   await userEvent.click(screen.getByRole("button", { name: "Publicar" }))
+  await userEvent.click(await screen.findByRole("button", { name: "Publicar mesmo assim" }))
   await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Já tem uma mudança em andamento neste app. Espere terminar e tente de novo."))
   expect(pub).toHaveBeenCalledTimes(1)
   expect(screen.getByRole("button", { name: "Publicar" })).toBeEnabled()
@@ -98,4 +102,26 @@ it("Testar and Publicar are not coral: the page keeps one coral button, Abrir (A
   render(<PublishBar appId={1} ready live={false} latest={1} liveVersion={undefined} hasPrevious={false} interval={10} onDone={() => {}} />)
   expect(screen.getByRole("button", { name: "Testar" }).className).not.toContain("bg-brand")
   expect(screen.getByRole("button", { name: "Publicar" }).className).not.toContain("bg-brand")
+})
+
+it("warns that the version goes live without a test before publishing", async () => {
+  const pub = vi.spyOn(api.shared, "publish").mockResolvedValue({ id: 7, kind: "live", status: "building" } as never)
+  vi.spyOn(api.shared, "deployment").mockResolvedValue({ id: 7, kind: "live", status: "building" } as never)
+  render(<PublishBar appId={1} ready live latest={5} liveVersion={4} hasPrevious={false} interval={1000} onDone={() => {}} />)
+  await userEvent.click(screen.getByRole("button", { name: "Publicar versão nova" }))
+  expect(await screen.findByText("Esta versão vai ao ar sem teste.")).toBeInTheDocument()
+  expect(pub).not.toHaveBeenCalled()
+  await userEvent.click(screen.getByRole("button", { name: "Cancelar" }))
+  expect(pub).not.toHaveBeenCalled()
+  await userEvent.click(screen.getByRole("button", { name: "Publicar versão nova" }))
+  await userEvent.click(await screen.findByRole("button", { name: "Publicar mesmo assim" }))
+  await waitFor(() => expect(pub).toHaveBeenCalledWith(1))
+})
+
+it("the first Publicar warns too", async () => {
+  const pub = vi.spyOn(api.shared, "publish").mockResolvedValue({ id: 7, kind: "live", status: "building" } as never)
+  render(<PublishBar appId={1} ready live={false} latest={1} liveVersion={undefined} hasPrevious={false} interval={1000} onDone={() => {}} />)
+  await userEvent.click(screen.getByRole("button", { name: "Publicar" }))
+  expect(await screen.findByText("Esta versão vai ao ar sem teste.")).toBeInTheDocument()
+  expect(pub).not.toHaveBeenCalled()
 })

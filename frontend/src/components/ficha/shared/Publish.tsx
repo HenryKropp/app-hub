@@ -27,6 +27,8 @@ export function PublishBar({ appId, ready, live, latest, liveVersion, hasPreviou
   const [testReady, setTestReady] = useState<boolean | null>(null)
   const [logOpen, setLogOpen] = useState(false)
   const [backOpen, setBackOpen] = useState(false)
+  // No app has a test plan yet (ADR 043): every publish goes live untested, so it asks first.
+  const [untestedOpen, setUntestedOpen] = useState(false)
   const [withData, setWithData] = useState(false)
   const [goingBack, setGoingBack] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
@@ -108,7 +110,7 @@ export function PublishBar({ appId, ready, live, latest, liveVersion, hasPreviou
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" className="h-8 px-4" disabled={blocked} onClick={() => start(true)}>Testar</Button>
         {showPublish && (
-          <Button variant="default" className="h-8 px-4" disabled={blocked} onClick={() => start(false)}>
+          <Button variant="default" className="h-8 px-4" disabled={blocked} onClick={() => setUntestedOpen(true)}>
             {newer ? "Publicar versão nova" : "Publicar"}
           </Button>
         )}
@@ -156,6 +158,22 @@ export function PublishBar({ appId, ready, live, latest, liveVersion, hasPreviou
             <DialogDescription>O que o servidor escreveu enquanto montava o app.</DialogDescription>
           </DialogHeader>
           <pre className="max-h-[60vh] overflow-auto rounded-md bg-secondary p-3 font-mono text-xs whitespace-pre-wrap [overflow-wrap:anywhere]">{dep?.build_log}</pre>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={untestedOpen} onOpenChange={setUntestedOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{newer ? "Publicar versão nova" : "Publicar"}</DialogTitle>
+            <DialogDescription>Esta versão vai ao ar sem teste.</DialogDescription>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Quem usa o app passa a ver esta versão na hora. Para conferir antes, use Testar.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUntestedOpen(false)}>Cancelar</Button>
+            <Button onClick={() => { setUntestedOpen(false); start(false) }}>Publicar mesmo assim</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
