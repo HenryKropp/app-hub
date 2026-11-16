@@ -197,6 +197,10 @@ func fichaChanges(cur manifest.Manifest, sent map[string]any, next manifest.Mani
 		f.Keys = &next.Keys
 		changed = append(changed, "chaves e senhas")
 	}
+	if has("teste") && next.Teste != nil && !reflect.DeepEqual(normJSON(next.Teste), normJSON(cur.Teste)) {
+		f.Teste = next.Teste
+		changed = append(changed, "plano de teste")
+	}
 	if has("name") && strings.TrimSpace(next.Name) != cur.Name {
 		ignored = append(ignored, "nome")
 	}

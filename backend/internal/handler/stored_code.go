@@ -157,6 +157,7 @@ type fichaUpdate struct {
 	Entrypoint *string            `json:"entrypoint"` // scripts only; ignored for web
 	Runtime    *manifest.Runtime  `json:"runtime"`    // scripts only; ignored for web
 	Keys       *[]manifest.Key    `json:"keys"`       // scripts only: the vault's key names
+	Teste      *manifest.Teste    `json:"teste"`      // the version's test plan (Etapa 2)
 }
 
 // applyFicha returns m with f's set fields; nil fields keep m's value.
@@ -183,6 +184,10 @@ func applyFicha(m manifest.Manifest, f *fichaUpdate) manifest.Manifest {
 	}
 	if f.Keys != nil { // every kind with a vault (MCP F2)
 		m.Keys = *f.Keys
+	}
+	if f.Teste != nil {
+		t := *f.Teste
+		m.Teste = &t
 	}
 	return m
 }
