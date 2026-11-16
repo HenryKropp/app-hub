@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -119,18 +120,12 @@ func (h *Handler) draftFromPath(w http.ResponseWriter, r *http.Request) (sqlc.Ap
 
 // getDraft answers GET /api/apps/{id}/drafts/{d}.
 func (h *Handler) getDraft(w http.ResponseWriter, r *http.Request) {
-	_, _, d, ok := h.draftFromPath(w, r)
+	a, _, d, ok := h.draftFromPath(w, r)
 	if !ok {
 		return
 	}
-	var number *int32
-	if d.VersionNumber.Valid {
-		number = &d.VersionNumber.Int32
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"id": d.ID, "status": d.Status, "status_reason": d.StatusReason,
-		"version_number": number, "note": d.Note, "created_at": d.CreatedAt.Time,
-	})
+	// draftFromPath already asked for can.Edit, so the masked log goes too.
+	writeJSON(w, http.StatusOK, h.draftView(r.Context(), a, d, true))
 }
 
 // publishDraftRoute is the manual door (POST /api/apps/{id}/drafts/{d}/publish):
@@ -173,13 +168,28 @@ func (h *Handler) publishDraft(w http.ResponseWriter, r *http.Request, a sqlc.Ap
 			return a, sqlc.AppVersion{}, false, false
 		}
 	}
-	saved, v, changed, ok := h.applySources(w, r, a, me, files, ficha, d.Note, pgtype.Bool{Bool: tested, Valid: true})
-	if !ok {
-		return saved, v, changed, false
-	}
-	if err := h.q.MarkDraftPublished(r.Context(), sqlc.MarkDraftPublishedParams{ID: d.ID, VersionNumber: pgtype.Int4{Int32: v.Number, Valid: true}}); err != nil {
-		internalError(w, "mark draft", err)
-		return saved, v, changed, false
-	}
-	return saved, v, changed, true
+	// The draft's situation is checked again under the app lock and marked
+	// published before the lock is let go, so two publishers never both win.
+	saved, v, changed, ok := h.applySources(w, r, a, me, files, ficha, d.Note, pgtype.Bool{Bool: tested, Valid: true}, &applyHooks{
+		check: func(ctx context.Context) (string, string, error) {
+			now, err := h.q.GetDraftByID(ctx, d.ID)
+			if err != nil {
+				return "", "", err
+			}
+			if now.Status == "no_ar" || now.Status == "cancelada" || (tested && now.Status != "aprovada") {
+				return "draft_closed", "Este rascunho não está mais aberto.", nil
+			}
+			return "", "", nil
+		},
+		applied: func(ctx context.Context, v sqlc.AppVersion, changed bool) error {
+			// Same code as the live version: that version is the one tested.
+			if tested && !changed {
+				if err := h.q.MarkVersionTested(ctx, sqlc.MarkVersionTestedParams{AppID: a.ID, Number: v.Number}); err != nil {
+					return err
+				}
+			}
+			return h.q.MarkDraftPublished(ctx, sqlc.MarkDraftPublishedParams{ID: d.ID, VersionNumber: pgtype.Int4{Int32: v.Number, Valid: true}})
+		},
+	})
+	return saved, v, changed, ok
 }

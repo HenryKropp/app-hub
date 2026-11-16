@@ -161,7 +161,7 @@ func (h *Handler) toolPrepararEnvio(ctx context.Context, _ *mcp.CallToolRequest,
 		"Troque <PASTA> pela pasta do app no computador da pessoa e rode os comandos do sistema dela: "+
 		"comando_windows no Prompt de Comando (cmd), comando_git_bash no Git Bash do Windows, comando_mac_linux no Mac ou Linux. "+
 		"O .zip vai para a pasta temporária, nunca para a pasta do app, e fica sem .env, chaves, .git, venv e node_modules.\n"+
-		"Quando o curl mostrar \"recebido\": true, chame registrar_app com envio %d e apague o .zip temporário.",
+		"Quando o curl mostrar \"recebido\": true, chame enviar_versao (script) ou registrar_app (app com tela) com envio %d e apague o .zip temporário.",
 		id, until.Local().Format("15:04"), id)
 	return toolOK(text, out)
 }

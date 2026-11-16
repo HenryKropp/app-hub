@@ -210,6 +210,14 @@ type appDetail struct {
 	NeedsPublish     bool               `json:"needs_publish,omitempty"`    // PUT /shared: a new port only counts after a new publish
 	StoredCode       bool               `json:"stored_code"`                // the Ziv keeps the code: new versions can be sent (Claude)
 	MissingSettings  []string           `json:"missing_settings,omitempty"` // required values still empty in Configurações (ADR 032)
+	OpenDraft        *openDraftRef      `json:"open_draft"`                 // a new version under test (ADR 044), for who can edit
+	InTest           bool               `json:"in_test"`
+}
+
+type openDraftRef struct {
+	ID         int64  `json:"id"`
+	Stage      string `json:"stage"`
+	StageLabel string `json:"stage_label"`
 }
 
 type appLink struct {
@@ -287,6 +295,15 @@ func (h *Handler) writeDetailWith(w http.ResponseWriter, r *http.Request, me sql
 		return
 	}
 	d.Can = acc.For(appRef(a))
+	d.InTest = a.InTest
+	if d.Can.Edit {
+		if od, err := h.q.OpenDraftForApp(r.Context(), a.ID); err == nil {
+			d.OpenDraft = &openDraftRef{ID: od.ID, Stage: od.Stage, StageLabel: h.draftLabel(r.Context(), od)}
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			internalError(w, "open draft", err)
+			return
+		}
+	}
 	if d.Favorite, err = h.isFavorite(r.Context(), me.ID, "app", a.ID); err != nil {
 		internalError(w, "favorite", err)
 		return

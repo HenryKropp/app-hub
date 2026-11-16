@@ -38,6 +38,20 @@ func safeAppPath(root, rel string) bool {
 // Script runs have a private working directory, NOT an OS security sandbox.
 // Only apps reviewed by a trusted creator should execute under a user's account.
 func (r *Runner) runScript(ctx context.Context, p agentproto.RunPayload, report func(agentproto.Result)) agentproto.Result {
+	return r.runScriptIn(ctx, p, report, scriptOpts{Subdir: fmt.Sprintf("Execucao-%d", p.RunID), Timeout: 15 * time.Minute, SaveRecord: true})
+}
+
+// scriptOpts is what differs between a normal run and a test run.
+type scriptOpts struct {
+	// Subdir is created inside OutputFolder for the results; "" writes them
+	// straight into OutputFolder (a test's own folder).
+	Subdir     string
+	ExtraEnv   []string
+	Timeout    time.Duration
+	SaveRecord bool
+}
+
+func (r *Runner) runScriptIn(ctx context.Context, p agentproto.RunPayload, report func(agentproto.Result), o scriptOpts) agentproto.Result {
 	s := p.Script
 	if p.Exe != s.Manifest.Entrypoint || s.Manifest.Kind != manifest.KindScript {
 		return failed("A ficha do script não corresponde ao arquivo solicitado.")
@@ -51,7 +65,7 @@ func (r *Runner) runScript(ctx context.Context, p agentproto.RunPayload, report 
 	if err := checkWritable(p.OutputFolder); err != nil {
 		return failed("A pasta de resultados não existe ou não aceita gravação. Escolha outra pasta.")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, o.Timeout)
 	defer cancel()
 	root, err := os.MkdirTemp("", "apphub-script-*")
 	if err != nil {
@@ -79,6 +93,7 @@ func (r *Runner) runScript(ctx context.Context, p agentproto.RunPayload, report 
 	// characters outside it (✓, emoji, bytes of a binary file). Only the
 	// console changes; open() keeps the encoding the script expects.
 	env = append(env, "APP_HUB_OUTPUT_DIR="+work, "PYTHONUNBUFFERED=1", "PYTHONDONTWRITEBYTECODE=1", "PYTHONIOENCODING=utf-8")
+	env = append(env, o.ExtraEnv...)
 	report(agentproto.Result{Event: agentproto.EventStarted, AppVersion: "Script · Agente " + agentproto.Version})
 
 	// Dependencies live outside the working folder and never modify the user's
@@ -211,7 +226,7 @@ func (r *Runner) runScript(ctx context.Context, p agentproto.RunPayload, report 
 	exit := 0
 	// A stopped script still hands over what it wrote until then.
 	if ctx.Err() != nil && !r.wasStopped(p.RunID) {
-		return failed("O script foi interrompido ou ultrapassou o limite de 15 minutos. Confira o script e tente novamente.")
+		return failed(fmt.Sprintf("O script foi interrompido ou ultrapassou o limite de %d minutos. Confira o script e tente novamente.", int(o.Timeout.Minutes())))
 	}
 	var exitErr *exec.ExitError
 	if errors.As(err, &exitErr) {
@@ -232,9 +247,9 @@ func (r *Runner) runScript(ctx context.Context, p agentproto.RunPayload, report 
 		}
 		generated = append(generated, agentproto.FileEntry{Path: name, Size: int64(log.Len()), Modified: time.Now(), Change: "new"})
 	}
-	subdir := fmt.Sprintf("Execucao-%d", p.RunID)
+	subdir := o.Subdir
 	out := filepath.Join(p.OutputFolder, subdir)
-	if len(generated) > 0 {
+	if len(generated) > 0 && subdir != "" {
 		if err := os.Mkdir(out, 0o700); err != nil {
 			return failed("Já existe uma pasta desta execução ou não consegui criá-la. Nenhum arquivo anterior foi substituído.")
 		}
@@ -254,8 +269,10 @@ func (r *Runner) runScript(ctx context.Context, p agentproto.RunPayload, report 
 		f.Path = filepath.ToSlash(filepath.Join(subdir, filepath.FromSlash(f.Path)))
 		files = append(files, f)
 	}
-	if err := saveRecord(r.StateDir, p.RunID, p.OutputFolder, files); err != nil {
-		return failed("Não consegui guardar o registro dos resultados.")
+	if o.SaveRecord {
+		if err := saveRecord(r.StateDir, p.RunID, p.OutputFolder, files); err != nil {
+			return failed("Não consegui guardar o registro dos resultados.")
+		}
 	}
 	return agentproto.Result{Event: agentproto.EventFinished, ExitCode: exit, Files: files}
 }

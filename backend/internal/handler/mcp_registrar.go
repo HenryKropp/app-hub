@@ -197,6 +197,10 @@ func fichaChanges(cur manifest.Manifest, sent map[string]any, next manifest.Mani
 		f.Keys = &next.Keys
 		changed = append(changed, "chaves e senhas")
 	}
+	if has("teste") && next.Teste != nil && !reflect.DeepEqual(normJSON(next.Teste), normJSON(cur.Teste)) {
+		f.Teste = next.Teste
+		changed = append(changed, "plano de teste")
+	}
 	if has("name") && strings.TrimSpace(next.Name) != cur.Name {
 		ignored = append(ignored, "nome")
 	}
@@ -279,6 +283,17 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 	if in.AppID == 0 {
 		if msg := kindRefusal(sent.Kind, sent.Entrypoint); msg != "" {
 			return toolFail(msg)
+		}
+		if sent.Kind == "" || sent.Kind == manifest.KindScript {
+			return toolFail(msgRegistrarScript)
+		}
+	} else {
+		var d appDetail
+		if _, _, msg := h.toolAPI(ctx, "GET", fmt.Sprintf("/api/apps/%d", in.AppID), nil, &d); msg != "" {
+			return toolFail(msg)
+		}
+		if d.Manifest.Kind == manifest.KindScript {
+			return toolFail(msgRegistrarScript)
 		}
 	}
 	up, res, msg := h.envioFiles(ctx, in.Envio)

@@ -26,6 +26,7 @@ import { formatWhen } from "@/lib/runs"
 import { kindInfo } from "@/lib/kinds"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { DraftBanner } from "@/components/DraftBanner"
 
 type PartKey = "sobre" | "pede" | "entrega" | "pessoas" | "notas" | "outros" | "codigo"
 // updatedAt is the version the draft started from: saving it after the app
@@ -293,6 +294,7 @@ export function AppPage() {
       <Link to="/apps" className="mb-6 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" /> Apps
       </Link>
+      {app.open_draft && <DraftBanner appId={app.id} draft={app.open_draft} />}
       <header className="flex flex-col gap-5 pb-2 lg:flex-row lg:items-end lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">

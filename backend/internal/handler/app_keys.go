@@ -384,20 +384,35 @@ func (h *Handler) agentKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	var runID int64
+	var runID, draftID pgtype.Int8
 	err = h.q.SecurityDB().QueryRow(ctx, `UPDATE agent_jobs SET keys_delivered_at = now()
-		WHERE id = $1 AND computer_id = $2 AND kind = 'run' AND status = 'taken' AND keys_delivered_at IS NULL AND run_id IS NOT NULL
-		RETURNING run_id`, jobID, c.ID).Scan(&runID)
+		WHERE id = $1 AND computer_id = $2 AND status = 'taken' AND keys_delivered_at IS NULL
+		  AND ((kind = 'run' AND run_id IS NOT NULL) OR (kind = 'test' AND draft_id IS NOT NULL))
+		RETURNING run_id, draft_id`, jobID, c.ID).Scan(&runID, &draftID)
 	if err != nil {
 		writeError(w, http.StatusNotFound, "Trabalho não encontrado.")
 		return
 	}
-	run, err := h.q.GetRun(ctx, runID)
-	if err != nil {
-		internalError(w, "keys run", err)
-		return
+	// The audit names who asked for the run, or the author of the tested draft.
+	var appID, actor int64
+	var draft *sqlc.AppDraft
+	if runID.Valid {
+		run, err := h.q.GetRun(ctx, runID.Int64)
+		if err != nil {
+			internalError(w, "keys run", err)
+			return
+		}
+		appID, actor = run.AppID, run.PersonID
+	} else {
+		d, err := h.q.GetDraftByID(ctx, draftID.Int64)
+		if err != nil {
+			internalError(w, "keys draft", err)
+			return
+		}
+		appID, actor = d.AppID, d.AuthorID.Int64
+		draft = &d
 	}
-	a, err := h.q.GetApp(ctx, run.AppID)
+	a, err := h.q.GetApp(ctx, appID)
 	if err != nil {
 		internalError(w, "keys app", err)
 		return
@@ -408,7 +423,25 @@ func (h *Handler) agentKeys(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, msgKeysLocked)
 		return
 	}
-	h.keyAudit(ctx, run.PersonID, "app_key.delivered", "GET /api/agent/jobs/{id}/keys")
+	if draft != nil {
+		// A test gets only the keys its plan declares: the ones the owner saw
+		// under "Chaves usadas" when confirming.
+		m, err := draftManifest(a, *draft)
+		if err != nil {
+			internalError(w, "keys draft manifest", err)
+			return
+		}
+		declared := map[string]bool{}
+		for _, k := range m.Keys {
+			declared[k.Name] = true
+		}
+		for name := range values {
+			if !declared[name] {
+				delete(values, name)
+			}
+		}
+	}
+	h.keyAudit(ctx, actor, "app_key.delivered", "GET /api/agent/jobs/{id}/keys")
 	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, values)
 }

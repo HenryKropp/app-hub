@@ -3,7 +3,7 @@ package deploy
 import (
 	"context"
 	"fmt"
-	"sort"
+	"github.com/HenryKropp/app-hub/backend/internal/mask"
 	"strings"
 	"time"
 
@@ -141,14 +141,9 @@ func (s *Service) MaskSecrets(ctx context.Context, appID int64, text string) str
 		if !r.IsSecret {
 			continue
 		}
-		v, err := s.vault.Open(r.ValueCipher)
-		if err == nil && len(v) >= 4 {
+		if v, err := s.vault.Open(r.ValueCipher); err == nil {
 			vals = append(vals, v)
 		}
 	}
-	sort.Slice(vals, func(i, j int) bool { return len(vals[i]) > len(vals[j]) }) // longest first
-	for _, v := range vals {
-		text = strings.ReplaceAll(text, v, "••••")
-	}
-	return text
+	return mask.Values(text, vals)
 }

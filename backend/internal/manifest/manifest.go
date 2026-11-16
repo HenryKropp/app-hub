@@ -89,6 +89,8 @@ type Manifest struct {
 	// Keys names the secrets a script reads from its environment. The values
 	// live in the app's vault (cofre), never in the ficha.
 	Keys []Key `yaml:"keys,omitempty" json:"keys"`
+	// Teste is the test plan the Ziv runs before a version goes live.
+	Teste *Teste `yaml:"teste,omitempty" json:"teste,omitempty"`
 }
 
 // Key declares one secret of a script's vault. It never holds the value.
@@ -300,6 +302,7 @@ func (m Manifest) Validate() []string {
 	}
 	errs = append(errs, m.sharedProblems()...)
 	errs = append(errs, m.keyProblems()...)
+	errs = append(errs, m.testeProblems()...)
 	return errs
 }
 

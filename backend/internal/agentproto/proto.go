@@ -10,7 +10,7 @@ import (
 )
 
 // Version is the agent version this Hub expects.
-const Version = "0.3.5"
+const Version = "0.4.0"
 
 // Job kinds.
 const (
@@ -19,6 +19,8 @@ const (
 	KindSendFile     = "send_file"
 	KindUpdate       = "update"
 	KindStop         = "stop"
+	// KindTest runs a draft in test mode (0.4.0+).
+	KindTest = "test"
 )
 
 // Result events.
@@ -87,6 +89,25 @@ type StopPayload struct {
 	RunID int64 `json:"run_id"`
 }
 
+// TestPayload runs a draft's script in test mode: ZIV_TESTE=1 and its own
+// folder under the Agente's state folder, never the official output folder.
+type TestPayload struct {
+	DraftID    int64         `json:"draft_id"`
+	AppID      int64         `json:"app_id"`
+	AppName    string        `json:"app_name"`
+	Script     ScriptPayload `json:"script"`
+	Keys       bool          `json:"keys,omitempty"`
+	TimeoutMin int           `json:"timeout_min"`
+	// KeyValues: memory only, like RunPayload.KeyValues.
+	KeyValues map[string]string `json:"-"`
+}
+
+// Evidence limits: what the test sends back besides the log.
+const (
+	MaxEvidenceBytes = 20 << 20
+	MaxEvidenceFiles = 200
+)
+
 type ChooseFolderPayload struct {
 	Initial string `json:"initial"`
 }
@@ -117,6 +138,8 @@ type Result struct {
 	Folder     string      `json:"folder,omitempty"`
 	Canceled   bool        `json:"canceled,omitempty"`
 	Stopped    bool        `json:"stopped,omitempty"` // run: closed by a stop job
+	// Log is the test's console, already masked (test jobs only).
+	Log string `json:"log,omitempty"`
 }
 
 // UpdatePayload asks the agent to replace itself with the Hub's agent binary.

@@ -25,7 +25,7 @@ func (q *Queries) AppArchived(ctx context.Context, id int64) (bool, error) {
 const archiveApp = `-- name: ArchiveApp :one
 UPDATE apps SET archived_at = now(), archived_by = $2
 WHERE id = $1 AND archived_at IS NULL
-RETURNING id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by
+RETURNING id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by, in_test
 `
 
 type ArchiveAppParams struct {
@@ -55,12 +55,22 @@ func (q *Queries) ArchiveApp(ctx context.Context, arg ArchiveAppParams) (App, er
 		&i.Restricted,
 		&i.ArchivedAt,
 		&i.ArchivedBy,
+		&i.InTest,
 	)
 	return i, err
 }
 
+const clearInTest = `-- name: ClearInTest :exec
+UPDATE apps SET in_test = false, restricted = false WHERE id = $1 AND in_test
+`
+
+func (q *Queries) ClearInTest(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, clearInTest, id)
+	return err
+}
+
 const getApp = `-- name: GetApp :one
-SELECT id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by FROM apps WHERE id = $1
+SELECT id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by, in_test FROM apps WHERE id = $1
 `
 
 func (q *Queries) GetApp(ctx context.Context, id int64) (App, error) {
@@ -85,12 +95,13 @@ func (q *Queries) GetApp(ctx context.Context, id int64) (App, error) {
 		&i.Restricted,
 		&i.ArchivedAt,
 		&i.ArchivedBy,
+		&i.InTest,
 	)
 	return i, err
 }
 
 const getAppByFolder = `-- name: GetAppByFolder :one
-SELECT id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by FROM apps WHERE folder_path = $1
+SELECT id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by, in_test FROM apps WHERE folder_path = $1
 `
 
 func (q *Queries) GetAppByFolder(ctx context.Context, folderPath string) (App, error) {
@@ -115,6 +126,7 @@ func (q *Queries) GetAppByFolder(ctx context.Context, folderPath string) (App, e
 		&i.Restricted,
 		&i.ArchivedAt,
 		&i.ArchivedBy,
+		&i.InTest,
 	)
 	return i, err
 }
@@ -373,6 +385,15 @@ func (q *Queries) PurgeArchivedApp(ctx context.Context, arg PurgeArchivedAppPara
 	return result.RowsAffected(), nil
 }
 
+const setInTest = `-- name: SetInTest :exec
+UPDATE apps SET in_test = true, restricted = true WHERE id = $1
+`
+
+func (q *Queries) SetInTest(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, setInTest, id)
+	return err
+}
+
 const slugExists = `-- name: SlugExists :one
 SELECT EXISTS(SELECT 1 FROM apps WHERE slug = $1 AND folder_path <> $2)
 `
@@ -392,7 +413,7 @@ func (q *Queries) SlugExists(ctx context.Context, arg SlugExistsParams) (bool, e
 const unarchiveApp = `-- name: UnarchiveApp :one
 UPDATE apps SET archived_at = NULL, archived_by = NULL
 WHERE id = $1 AND archived_at IS NOT NULL
-RETURNING id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by
+RETURNING id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by, in_test
 `
 
 func (q *Queries) UnarchiveApp(ctx context.Context, id int64) (App, error) {
@@ -417,6 +438,7 @@ func (q *Queries) UnarchiveApp(ctx context.Context, id int64) (App, error) {
 		&i.Restricted,
 		&i.ArchivedAt,
 		&i.ArchivedBy,
+		&i.InTest,
 	)
 	return i, err
 }
@@ -435,7 +457,7 @@ ON CONFLICT (folder_path) DO UPDATE SET
     backup_id = EXCLUDED.backup_id,
     manifest = EXCLUDED.manifest,
     updated_at = now()
-RETURNING id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by
+RETURNING id, slug, name, summary, kind, language, area, folder_path, owner_id, backup_id, manifest, created_by, created_at, updated_at, area_id, restricted, archived_at, archived_by, in_test
 `
 
 type UpsertAppParams struct {
@@ -488,6 +510,7 @@ func (q *Queries) UpsertApp(ctx context.Context, arg UpsertAppParams) (App, erro
 		&i.Restricted,
 		&i.ArchivedAt,
 		&i.ArchivedBy,
+		&i.InTest,
 	)
 	return i, err
 }

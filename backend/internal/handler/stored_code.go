@@ -157,6 +157,7 @@ type fichaUpdate struct {
 	Entrypoint *string            `json:"entrypoint"` // scripts only; ignored for web
 	Runtime    *manifest.Runtime  `json:"runtime"`    // scripts only; ignored for web
 	Keys       *[]manifest.Key    `json:"keys"`       // scripts only: the vault's key names
+	Teste      *manifest.Teste    `json:"teste"`      // the version's test plan (Etapa 2)
 }
 
 // applyFicha returns m with f's set fields; nil fields keep m's value.
@@ -183,6 +184,10 @@ func applyFicha(m manifest.Manifest, f *fichaUpdate) manifest.Manifest {
 	}
 	if f.Keys != nil { // every kind with a vault (MCP F2)
 		m.Keys = *f.Keys
+	}
+	if f.Teste != nil {
+		t := *f.Teste
+		m.Teste = &t
 	}
 	return m
 }
@@ -240,7 +245,12 @@ func (h *Handler) sendSources(w http.ResponseWriter, r *http.Request) {
 	if _, ok := h.checkSentFiles(w, r, m, b.Files, b.ConfirmSecrets); !ok {
 		return
 	}
-	saved, v, changed, ok := h.applySources(w, r, a, me, b.Files, b.Ficha, b.Note, pgtype.Bool{Bool: false, Valid: true})
+	// A version put live by hand replaces any draft still waiting.
+	saved, v, changed, ok := h.applySources(w, r, a, me, b.Files, b.Ficha, b.Note, pgtype.Bool{Bool: false, Valid: true}, &applyHooks{
+		applied: func(ctx context.Context, _ sqlc.AppVersion, _ bool) error {
+			return h.q.CancelOpenDrafts(ctx, sqlc.CancelOpenDraftsParams{AppID: a.ID, Reason: msgReplaced})
+		},
+	})
 	if !ok {
 		return
 	}
@@ -280,13 +290,21 @@ func validFicha(w http.ResponseWriter, current manifest.Manifest, f *fichaUpdate
 	return m, true
 }
 
+// applyHooks run inside applySources while it holds the app lock: check may
+// refuse (code, message) before anything changes; applied runs right after
+// the version is recorded.
+type applyHooks struct {
+	check   func(ctx context.Context) (code, msg string, err error)
+	applied func(ctx context.Context, v sqlc.AppVersion, changed bool) error
+}
+
 // applySources puts files live as the app's code: it replaces the stored
 // code, rebuilds the folder, records the version (with its test mark) and
 // saves the ficha changes over the app as it is now. It refuses apps whose
 // code the Ziv does not keep and apps with a run going on. The caller has
 // already checked the files (checkSentFiles). ok is false when w was answered.
 func (h *Handler) applySources(w http.ResponseWriter, r *http.Request, a sqlc.App, me sqlc.Person,
-	files map[string]manifest.InputFile, ficha *fichaUpdate, note string, tested pgtype.Bool) (sqlc.App, sqlc.AppVersion, bool, bool) {
+	files map[string]manifest.InputFile, ficha *fichaUpdate, note string, tested pgtype.Bool, hooks *applyHooks) (sqlc.App, sqlc.AppVersion, bool, bool) {
 	ctx := r.Context()
 	if h.shared.Svc != nil { // a test or publish reads the folder: none starts while it is rewritten
 		release, err := h.shared.Svc.Hold(a.ID)
@@ -314,6 +332,15 @@ func (h *Handler) applySources(w http.ResponseWriter, r *http.Request, a sqlc.Ap
 	if err != nil {
 		internalError(w, "get app", err)
 		return a, sqlc.AppVersion{}, false, false
+	}
+	if hooks != nil && hooks.check != nil {
+		if code, msg, err := hooks.check(ctx); err != nil {
+			internalError(w, "apply check", err)
+			return a, sqlc.AppVersion{}, false, false
+		} else if msg != "" {
+			writeJSON(w, http.StatusConflict, map[string]string{"code": code, "error": msg})
+			return a, sqlc.AppVersion{}, false, false
+		}
 	}
 	if err := h.q.ExpireStaleRuns(ctx); err != nil {
 		internalError(w, "expire runs", err)
@@ -360,6 +387,12 @@ func (h *Handler) applySources(w http.ResponseWriter, r *http.Request, a sqlc.Ap
 	if err != nil {
 		internalError(w, "record version", err)
 		return a, sqlc.AppVersion{}, false, false
+	}
+	if hooks != nil && hooks.applied != nil {
+		if err := hooks.applied(ctx, v, changed); err != nil {
+			internalError(w, "apply hook", err)
+			return a, v, changed, false
+		}
 	}
 	unlock()
 	locked = false

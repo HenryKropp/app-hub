@@ -29,6 +29,8 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 		Manifest       manifest.Manifest             `json:"manifest"`
 		Files          map[string]manifest.InputFile `json:"files"`
 		ConfirmSecrets bool                          `json:"confirm_secrets"`
+		// InTest: a new app that only shows up after its first test passes (ADR 044).
+		InTest bool `json:"in_test"`
 	}
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 15<<20))
 	dec.DisallowUnknownFields()
@@ -46,6 +48,10 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	web := m.Kind == manifest.KindWeb
+	if web && b.InTest {
+		writeError(w, http.StatusBadRequest, msgTestKind)
+		return
+	}
 	if web && !h.sharedOn(r.Context()) { // before any write
 		writeJSON(w, http.StatusServiceUnavailable, map[string]string{"code": "shared_runtime_unavailable", "error": msgWebOff})
 		return
@@ -144,6 +150,13 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	success = true
+	if b.InTest {
+		if err := h.q.SetInTest(r.Context(), id); err != nil {
+			_, _ = h.q.DeleteApp(r.Context(), id)
+			internalError(w, "in test", err)
+			return
+		}
+	}
 	if web {
 		// Screen apps keep their code in the shared-app code folder, which
 		// the deploy service accepts in every company.

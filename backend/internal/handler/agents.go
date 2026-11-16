@@ -414,6 +414,8 @@ func (h *Handler) agentResult(w http.ResponseWriter, r *http.Request) {
 	switch j.Kind {
 	case agentproto.KindRun:
 		err = h.onRunResult(ctx, j, res)
+	case agentproto.KindTest:
+		err = h.onTestResult(ctx, j, res)
 	case agentproto.KindSendFile:
 		if res.Event == agentproto.EventMissing || res.Event == agentproto.EventFailed {
 			h.uploads.missing(j.ID)

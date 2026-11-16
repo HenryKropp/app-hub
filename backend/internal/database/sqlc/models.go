@@ -20,6 +20,7 @@ type AgentJob struct {
 	TakenAt         pgtype.Timestamptz `json:"taken_at"`
 	DoneAt          pgtype.Timestamptz `json:"done_at"`
 	KeysDeliveredAt pgtype.Timestamptz `json:"keys_delivered_at"`
+	DraftID         pgtype.Int8        `json:"draft_id"`
 }
 
 type App struct {
@@ -41,6 +42,7 @@ type App struct {
 	Restricted bool               `json:"restricted"`
 	ArchivedAt pgtype.Timestamptz `json:"archived_at"`
 	ArchivedBy pgtype.Int8        `json:"archived_by"`
+	InTest     bool               `json:"in_test"`
 }
 
 type AppChange struct {
@@ -74,6 +76,14 @@ type AppDraft struct {
 	VersionNumber pgtype.Int4        `json:"version_number"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	Stage         string             `json:"stage"`
+	StageSince    pgtype.Timestamptz `json:"stage_since"`
+	TestJobID     pgtype.Int8        `json:"test_job_id"`
+	TestStartedAt pgtype.Timestamptz `json:"test_started_at"`
+	TestExitCode  pgtype.Int4        `json:"test_exit_code"`
+	TestLog       string             `json:"test_log"`
+	TestChecks    []byte             `json:"test_checks"`
+	TestFiles     []byte             `json:"test_files"`
 }
 
 type AppGrant struct {
@@ -93,6 +103,14 @@ type AppSecurity struct {
 	Suspended            bool               `json:"suspended"`
 	ReviewedBy           pgtype.Int8        `json:"reviewed_by"`
 	ReviewedAt           pgtype.Timestamptz `json:"reviewed_at"`
+}
+
+type AppTestPlan struct {
+	AppID       int64              `json:"app_id"`
+	Fingerprint string             `json:"fingerprint"`
+	ComputerID  pgtype.Int8        `json:"computer_id"`
+	ConfirmedBy pgtype.Int8        `json:"confirmed_by"`
+	ConfirmedAt pgtype.Timestamptz `json:"confirmed_at"`
 }
 
 type AppVersion struct {
@@ -236,6 +254,15 @@ type CredentialVault struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type DraftEvidence struct {
+	ID        int64              `json:"id"`
+	DraftID   int64              `json:"draft_id"`
+	Path      string             `json:"path"`
+	Size      int64              `json:"size"`
+	Content   []byte             `json:"content"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type Favorite struct {
 	PersonID  int64              `json:"person_id"`
 	Kind      string             `json:"kind"`
@@ -324,6 +351,15 @@ type MembershipRequest struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	ReviewedAt pgtype.Timestamptz `json:"reviewed_at"`
 	ReviewedBy pgtype.Int8        `json:"reviewed_by"`
+}
+
+type Notice struct {
+	ID        int64              `json:"id"`
+	AppID     int64              `json:"app_id"`
+	Version   int32              `json:"version"`
+	Text      string             `json:"text"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ReadAt    pgtype.Timestamptz `json:"read_at"`
 }
 
 type Pairing struct {

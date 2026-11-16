@@ -156,3 +156,12 @@ func (c *Client) Upload(ctx context.Context, jobID int64, body io.Reader) error 
 	_, err := c.send(ctx, "POST", "/api/agent/jobs/"+strconv.FormatInt(jobID, 10)+"/upload", body, "application/octet-stream", nil)
 	return err
 }
+
+// UploadEvidence sends a test's files as a zip, before its result.
+func (c *Client) UploadEvidence(ctx context.Context, jobID int64, body io.Reader) error {
+	code, err := c.send(ctx, "POST", "/api/agent/jobs/"+strconv.FormatInt(jobID, 10)+"/evidence", body, "application/zip", nil)
+	if err == nil && code >= 300 {
+		err = fmt.Errorf("evidence: status %d", code)
+	}
+	return err
+}

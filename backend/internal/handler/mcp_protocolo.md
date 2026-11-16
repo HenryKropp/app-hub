@@ -108,20 +108,23 @@ Frases curtas sobre o que alguém precisa saber antes de rodar ou manter o app: 
 ### Passo 12 — Conferir se o app roda de verdade
 Para cada caminho que o código usa, confira se ele existe a partir da pasta do app. O que não existe vira ponto de atenção. Você confere lendo; rodar, só na cópia de teste (Passo 2b).
 
+### Passo 12b — Plano de teste (`teste`, só scripts)
+Todo script leva a seção `teste` na ficha: o que o teste acessa, o passo irreversível que ele pula, as entradas da rodada e o que o Ziv confere (`espera`, com pelo menos um `arquivos`). No modo teste o app recebe `ZIV_TESTE=1` e `ZIV_PASTA_TESTE`, faz tudo de verdade e pula só o passo de `pula`. O formato e um exemplo estão na receita (`receita_app_ziv`, seção 4). Mostre o plano à pessoa junto com a ficha.
+
 ### Passo 13 — Validar
-O Ziv valida a ficha quando você chama `registrar_app` e devolve os problemas em português. Se voltar um problema, corrija e chame de novo com o mesmo envio.
+O Ziv valida a ficha quando você chama `enviar_versao` (script) ou `registrar_app` (app com tela) e devolve os problemas em português. Se voltar um problema, corrija e chame de novo com o mesmo envio.
 
 ## 3. Conferir e enviar
 
 1. Mostre à pessoa, por app: nome, descrição, tipo, o que pede e o que entrega, área, pontos de atenção e as chaves que faltam (só os nomes).
 2. Espere "pode registrar". Sem isso, não prepare envio.
-3. Chame `preparar_envio`, troque `<PASTA>` pela pasta do app e rode os comandos do sistema da pessoa.
-4. Quando o curl responder `"recebido": true`, chame `registrar_app` com o `envio` e o `manifesto`. Depois apague o .zip temporário.
-5. Diga o resultado com o link, usando a `mensagem_para_pessoa` da resposta. Se o app ficou esperando aprovação, diga isso também. Num app com tela, siga a seção 5.
+3. Chame `enviar_versao` (script) ou `preparar_envio` (app com tela), troque `<PASTA>` pela pasta do app e rode os comandos do sistema da pessoa.
+4. Quando o curl responder `"recebido": true`, chame de novo `enviar_versao` (script) ou `registrar_app` (app com tela) com o `envio` e o `manifesto`. Depois apague o .zip temporário.
+5. **Script:** o app nasce em teste e só aparece para a equipe depois que o primeiro teste passar. Na primeira vez a resposta traz o link do plano de teste: mande ao responsável pelo app para confirmar. Depois acompanhe com `ver_versao` (`esperar` 30) até dizer "no ar" ou "não passou". Se não passou, leia as conferências e o log, corrija e mande outra versão. **App com tela:** diga o resultado com o link, usando a `mensagem_para_pessoa` da resposta, e siga a seção 5. Se o app ficou esperando aprovação, diga isso também.
 
 **Vários de uma vez:** um resumo e uma confirmação por app, e um `preparar_envio` por app.
 
-**Possível senha:** se `registrar_app` avisar que o código parece ter senhas ou chaves, pergunte à pessoa. Só se ela confirmar, chame de novo com o mesmo envio e `confirmar_segredos: true`. O aviso diz o arquivo e a linha de cada trecho. Se for senha de verdade, mova para o cofre (`keys`, Passo 7) e prepare um envio novo. Se a empresa não permitir confirmar, esse é o único caminho.
+**Possível senha:** se `enviar_versao` ou `registrar_app` avisar que o código parece ter senhas ou chaves, pergunte à pessoa. Só se ela confirmar, chame de novo com o mesmo envio e `confirmar_segredos: true`. O aviso diz o arquivo e a linha de cada trecho. Se for senha de verdade, mova para o cofre (`keys`, Passo 7) e prepare um envio novo. Se a empresa não permitir confirmar, esse é o único caminho.
 
 **Arquivo de início não encontrado:** o .zip precisa ser feito de dentro da pasta do app (`-C "<PASTA>" .`), para os arquivos não ficarem dentro de uma pasta a mais.
 
@@ -129,9 +132,11 @@ O Ziv valida a ficha quando você chama `registrar_app` e devolve os problemas e
 
 1. Leia o app com `ver_app`. Ele mostra `ficha_editavel` (resumo, entradas, saídas, arquivo de início e dependências) quando a pessoa pode mudar o app.
 2. Compare com o que você leu no código e mostre à pessoa, campo por campo, o que muda (antes → depois), junto com um resumo do que mudou no código.
-3. Espere "pode mandar". Então `preparar_envio`, rode os comandos e chame `registrar_app` com `envio`, `app_id`, a `nota` (o que mudou) e, se a ficha muda, o `manifesto` com os campos novos.
+3. Espere "pode mandar". Então, num script, `enviar_versao` com `app_id` (sem envio), rode os comandos e chame `enviar_versao` de novo com `envio`, `app_id`, a `nota` (o que mudou) e, se a ficha muda, o `manifesto` com os campos novos. A versão no ar continua a mesma até o teste da nova passar; acompanhe com `ver_versao`. Num app com tela, `preparar_envio` e `registrar_app` com os mesmos campos.
 4. Numa versão nova só mudam resumo, entradas, saídas e (nos scripts) arquivo de início e dependências. Nome, área, responsável, reserva e acesso só mudam pelo site do Ziv: se a pessoa pedir, diga isso.
 5. Uma versão nova pode precisar de aprovação de novo antes de rodar.
+6. Se o plano de teste muda (o que acessa, o que pula, as chaves), o responsável confirma de novo pelo link que vem na resposta.
+7. Se faltar uma chave obrigatória, o teste não começa: use `enviar_chaves` (ou peça ao dono do app pelo link) e depois chame `enviar_versao` com `app_id` e `versao`, sem envio novo.
 
 ## 5. App com tela: pôr no ar
 
@@ -166,11 +171,17 @@ Mande o manifesto como objeto JSON em `manifesto`:
   "area": "Investimentos",
   "tags": ["cvm", "fundos", "excel"],
   "depends_on": [],
-  "notes": ["O caminho da planilha de saída aponta para a pasta pessoal de uma pessoa."]
+  "notes": ["O caminho da planilha de saída aponta para a pasta pessoal de uma pessoa."],
+  "teste": {
+    "acessa": ["API da CVM (chave CVM_API_KEY)"],
+    "pula": "nada",
+    "entradas": {"cnpjs": "exemplo/cnpjs.xlsx"},
+    "espera": [{"arquivos": "output/rentabilidade_*.xlsx", "no_minimo": 1}]
+  }
 }
 ```
 
-O Ziv recusa sem: nome; tipo válido; arquivo de início; entradas com id, nome, tipo e origem válidos e sem id repetido; `multiple` só em `choice`; `accept` só em entrada de arquivo, no formato `.txt` (até 20 tipos); o app não depende dele mesmo.
+O Ziv recusa sem: nome; tipo válido; arquivo de início; entradas com id, nome, tipo e origem válidos e sem id repetido; `multiple` só em `choice`; `accept` só em entrada de arquivo, no formato `.txt` (até 20 tipos); o app não depende dele mesmo; num script enviado por `enviar_versao`, a seção `teste` (com pelo menos um `arquivos` em `espera`).
 
 ## 7. Limites de leitura
 

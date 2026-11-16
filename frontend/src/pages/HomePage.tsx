@@ -12,6 +12,7 @@ import { has } from "@/lib/permissions"
 import { isLive, relativeTime } from "@/lib/runs"
 import { useRunsMaybe } from "@/lib/runs-context"
 import { cn } from "@/lib/utils"
+import { NoticesCard } from "@/components/NoticesCard"
 
 function greeting(name: string, hour = new Date().getHours()) {
   const g = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite"
@@ -274,6 +275,7 @@ export function HomePage() {
         <p className="mt-1 text-sm text-muted-foreground">{today()}</p>
       </header>
       <LiveNow />
+      <NoticesCard />
       {error && <div className="mt-6"><LoadError message={error} onRetry={() => { setError(""); setTries((n) => n + 1) }} /></div>}
       {home === null && !error && <p className="mt-6 text-sm text-muted-foreground">Carregando…</p>}
 
