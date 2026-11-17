@@ -99,8 +99,8 @@ func TestOpenLinkServesPageAndContent(t *testing.T) {
 	if csp := hd.Get("Content-Security-Policy"); !strings.Contains(csp, "frame-ancestors 'none'") || !strings.Contains(csp, "default-src 'none'") {
 		t.Fatalf("page csp %q", csp)
 	}
-	if hd.Get("Referrer-Policy") != "no-referrer" {
-		t.Fatal("token would leak in Referer")
+	if hd.Get("Referrer-Policy") != "same-origin" {
+		t.Fatal("token would leak in Referer (or the browser would post Origin: null)")
 	}
 	if n, _ := countOpens(t, linkID); n != 0 {
 		t.Fatal("the page itself is not an opening")
@@ -353,6 +353,35 @@ func TestPostFromOtherSiteRefused(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden || len(fm.sent) != 0 {
 		t.Fatalf("cross-site post = %d, sent %d", resp.StatusCode, len(fm.sent))
+	}
+}
+
+// Chrome sends "Origin: null" on a form post from a no-referrer page; the
+// browser-set Sec-Fetch-Site is what tells same-site from cross-site.
+func TestBrowserPostWithNullOriginAccepted(t *testing.T) {
+	_, ana, _, h, id := linksTeam(t)
+	fm := &fakeMail{}
+	h.mail = fm
+	_, path := makeLink(t, ana, id, emailLinkBody())
+	o := newOutside(t, h)
+	for _, c := range []struct {
+		site string
+		want int
+	}{{"same-origin", http.StatusOK}, {"cross-site", http.StatusForbidden}} {
+		req, _ := http.NewRequest("POST", o.srv.URL+path+"/codigo", nil)
+		req.Header.Set("Origin", "null")
+		req.Header.Set("Sec-Fetch-Site", c.site)
+		resp, err := o.c.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != c.want {
+			t.Fatalf("Origin null, Sec-Fetch-Site %s = %d, want %d", c.site, resp.StatusCode, c.want)
+		}
+	}
+	if len(fm.sent) != 1 {
+		t.Fatalf("sent %d codes, want 1", len(fm.sent))
 	}
 }
 

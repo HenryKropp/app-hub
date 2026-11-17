@@ -66,7 +66,7 @@ func externalHeaders(w http.ResponseWriter) {
 	hd.Set("Content-Security-Policy", externalPageCSP)
 	hd.Set("X-Frame-Options", "DENY")
 	hd.Set("X-Content-Type-Options", "nosniff")
-	hd.Set("Referrer-Policy", "no-referrer") // the token is in the address
+	hd.Set("Referrer-Policy", "same-origin") // the token is in the address: never sent to another site
 	hd.Set("Cache-Control", "private, no-store")
 	hd.Set("Content-Type", "text/html; charset=utf-8")
 }
@@ -105,19 +105,19 @@ func (h *Handler) companyName(r *http.Request) string {
 }
 
 // sameSite refuses posts sent by another site (the forms post to themselves).
+// Sec-Fetch-Site is set by the browser and cannot be forged by a page, so it
+// decides when present; some browsers send "Origin: null" on their own form
+// posts, which is fine when Sec-Fetch-Site says same-origin.
 func sameSite(r *http.Request) bool {
-	if o := r.Header.Get("Origin"); o != "" && o != "null" {
-		u, err := url.Parse(o)
-		if err != nil || !strings.EqualFold(u.Host, r.Host) {
-			return false
-		}
-	} else if o == "null" {
-		return false
+	if s := r.Header.Get("Sec-Fetch-Site"); s != "" {
+		return s == "same-origin" || s == "none"
 	}
-	if s := r.Header.Get("Sec-Fetch-Site"); s != "" && s != "same-origin" && s != "none" {
-		return false
+	o := r.Header.Get("Origin")
+	if o == "" {
+		return true
 	}
-	return true
+	u, err := url.Parse(o)
+	return o != "null" && err == nil && strings.EqualFold(u.Host, r.Host)
 }
 
 func remoteHost(r *http.Request) string {

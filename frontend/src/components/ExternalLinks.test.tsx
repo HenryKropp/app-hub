@@ -67,6 +67,15 @@ test("link cancelado não mostra Cancelar nem Copiar", async () => {
   expect(screen.queryByRole("button", { name: "Copiar link" })).not.toBeInTheDocument()
 })
 
+test("data do prazo conforme o estado do link", async () => {
+  showSection({ email_available: false, can_share: true, links: [
+    link({ id: 1, status: "ativo" }), link({ id: 2, status: "vencido" }), link({ id: 3, status: "cancelado" }),
+  ] })
+  expect(await screen.findByText(/vence em/)).toBeInTheDocument()
+  expect(screen.getByText(/venceu em/)).toBeInTheDocument()
+  expect(screen.getByText(/prazo era/)).toBeInTheDocument()
+})
+
 test("seção não aparece sem can_share", async () => {
   const { container } = showSection({ email_available: false, can_share: false, links: [] })
   await waitFor(() => expect(api.artifactLinks).toHaveBeenCalled())

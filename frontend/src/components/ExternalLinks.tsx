@@ -120,7 +120,7 @@ function CreateLinkForm({ artifactId, currentVersion, emailAvailable, onCancel, 
       </fieldset>
       {kind === "email" && (
         <div className="space-y-1.5">
-          <label htmlFor="link-email" className="text-sm font-medium">E-mail de quem vai receber</label>
+          <label htmlFor="link-email" className="block text-sm font-medium">E-mail de quem vai receber</label>
           <Input id="link-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="nome@cliente.com" />
         </div>
       )}
@@ -130,7 +130,7 @@ function CreateLinkForm({ artifactId, currentVersion, emailAvailable, onCancel, 
         <Choice name="content" checked={content === "version"} onChange={() => setContent("version")} label={`Só a versão ${currentVersion}`} hint="O link fica congelado nesta versão." />
       </fieldset>
       <div className="space-y-1.5">
-        <label htmlFor="link-expiry" className="text-sm font-medium">Prazo</label>
+        <label htmlFor="link-expiry" className="block text-sm font-medium">Prazo</label>
         <select id="link-expiry" value={days} onChange={(e) => setDays(Number(e.target.value))} className="h-10 w-full max-w-48 rounded-md border border-input bg-background px-3 text-sm">
           {EXPIRY.map((x) => <option key={x.days} value={x.days}>{x.label}</option>)}
         </select>
@@ -178,7 +178,7 @@ function LinkRow({ link, onCancelled, showArtifact }: { link: ExternalLink; onCa
           )}
           <p className={showArtifact ? "text-muted-foreground" : "font-medium"}>{link.kind === "email" ? link.recipient : "Link aberto"}</p>
           <p className="text-xs text-muted-foreground">
-            {link.content === "latest" ? "Sempre a mais recente" : `Versão ${link.version_number}`} · por {link.created_by_name || "pessoa removida"} · {active ? "vence" : "venceu"} em {formatDate(link.expires_at)}
+            {link.content === "latest" ? "Sempre a mais recente" : `Versão ${link.version_number}`} · por {link.created_by_name || "pessoa removida"} · {active ? "vence em" : link.status === "vencido" ? "venceu em" : "prazo era"} {formatDate(link.expires_at)}
           </p>
           <p className="text-xs text-muted-foreground">
             {link.opens === 0 ? "Ainda não foi aberto" : `${link.opens} ${link.opens === 1 ? "abertura" : "aberturas"}${link.last_opened_at ? `, a última ${formatWhen(link.last_opened_at)}` : ""}`}

@@ -37,6 +37,14 @@ Status: Pending / In Progress / Done / Blocked
 | Salvar manifesto e ficha na pasta do app | Done | Cria só `app-hub.yaml` e `FICHA.md`; recusa sobrescrever arquivo que não é do Ziv |
 | Aviso de duplicado | Done | Por palavras do nome, contra o catálogo e dentro do lote |
 
+## Links externos (2026-11-17, ADR 045)
+
+- [x] Projeto 1: link externo para artifact (código por e-mail ou aberto; mais recente ou versão fixa; prazo; Cancelar; lista no Admin; endereço `link.`). Branch `links-externos`.
+- [ ] Teste do Henry no navegador (link aberto pelo celular, sem login).
+- [ ] Comprar domínio próprio e configurar a Resend (`RESEND_API_KEY`, `MAIL_FROM`) para ligar o código por e-mail em produção.
+- [ ] Ao ligar o e-mail: limite por endereço ler o IP real do Caddy (`X-Forwarded-For`).
+- [ ] Projeto 2: link externo para output de app (um output específico, ou o output mais recente que vai mudando).
+
 ## Prioridade atual (2026-10-01)
 
 Pedido do Henry: **deixar o Ziv redondo com um app só (Eq. Research Files Prep) antes de registrar mais apps.** Fase 4 para apps com janela e `.exe` feita e testada de verdade (2026-09-30). Ordem combinada depois da decisão do Ziv (ADR 005):
