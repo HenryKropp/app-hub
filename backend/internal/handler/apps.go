@@ -565,6 +565,9 @@ func (h *Handler) writeApp(w http.ResponseWriter, r *http.Request, me sqlc.Perso
 		writeNotOnServer(w)
 		return sqlc.App{}, false
 	}
+	if old == nil && h.refuseOffChannel(w, r) { // a new app by folder (ADR 046)
+		return sqlc.App{}, false
+	}
 	m := body.Manifest
 	m.ManifestVersion = manifest.Version
 	m.Name = strings.TrimSpace(m.Name)

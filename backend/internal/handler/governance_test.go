@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -609,5 +610,160 @@ func TestTestedDraftWaitsWhenRuleSaysSo(t *testing.T) {
 	_ = testPool.QueryRow(ctx, "SELECT COALESCE(tested, false) FROM app_versions WHERE app_id = $1 AND number = 2", id).Scan(&tested)
 	if latestVersion(t, id) != 2 || !tested {
 		t.Fatalf("version %d tested %v", latestVersion(t, id), tested)
+	}
+}
+
+// --- Task 6: só pelo Claude e chaves do MCP ---
+
+func onlyClaude(t *testing.T) {
+	t.Helper()
+	exec(t, "UPDATE security_settings SET code_channel = 'mcp'")
+}
+
+func TestOnlyClaudeRefusesSiteUpload(t *testing.T) {
+	_, _, ana, _, _ := govTeam(t)
+	onlyClaude(t)
+	var e struct {
+		Error string `json:"error"`
+	}
+	if code := ana.do("POST", "/api/scripts/import", importBody("Pelo site"), &e); code != http.StatusForbidden || e.Error != msgOnlyClaude {
+		t.Fatalf("import %d %q", code, e.Error)
+	}
+}
+
+func TestOnlyClaudeAcceptsMCP(t *testing.T) {
+	h, _, _, _, _ := govTeam(t)
+	onlyClaude(t)
+	code, raw, err := h.callAPI(withMCPPerson(context.Background(), 2), "POST", "/api/scripts/import", importBody("Pelo Claude"))
+	if err != nil || code != http.StatusCreated {
+		t.Fatalf("%d %s %v", code, raw, err)
+	}
+}
+
+func TestOnlyClaudeKeepsAppRunning(t *testing.T) {
+	h, _, ana, _, id := approvedScript(t, "risk")
+	onlyClaude(t)
+	if r := blockedReason(t, h, id); r != "" {
+		t.Fatalf("approved app blocked %q", r)
+	}
+	// Sending a new version from the site is refused; the old one keeps running.
+	var e struct {
+		Error string `json:"error"`
+	}
+	if code := ana.do("POST", appPath(id, "/sources"), map[string]any{"files": b64files(map[string]string{"main.py": "print(2)"})}, &e); code != http.StatusForbidden || e.Error != msgOnlyClaude {
+		t.Fatalf("sources %d %q", code, e.Error)
+	}
+	if code := ana.do("POST", appPath(id, "/drafts"), map[string]any{"files": b64files(map[string]string{"main.py": "print(2)"})}, &e); code != http.StatusForbidden || e.Error != msgOnlyClaude {
+		t.Fatalf("draft %d %q", code, e.Error)
+	}
+	if r := blockedReason(t, h, id); r != "" {
+		t.Fatalf("blocked %q", r)
+	}
+}
+
+func TestOnlyClaudeFolderVersionHeld(t *testing.T) {
+	h, _, _, leo, id := approvedScript(t, "risk")
+	onlyClaude(t)
+	ctx := context.Background()
+	a, _ := h.q.GetApp(ctx, id)
+	if err := os.WriteFile(filepath.Join(a.FolderPath, "main.py"), []byte("print('pasta')"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := h.checkVersion(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	if r := blockedReason(t, h, id); r != msgOnlyClaude {
+		t.Fatalf("folder version %q", r)
+	}
+	list := approvals(t, leo)
+	if len(list) != 1 {
+		t.Fatalf("approvals %+v", list)
+	}
+	var e struct {
+		Error string `json:"error"`
+	}
+	if code := leo.do("POST", approvalPath(list[0].ID, "approve"), nil, &e); code != http.StatusConflict || e.Error != msgOnlyClaude {
+		t.Fatalf("approve %d %q", code, e.Error)
+	}
+}
+
+func TestOnlyClaudeArtifact(t *testing.T) {
+	h, _, ana, _, _ := govTeam(t)
+	onlyClaude(t)
+	var e struct {
+		Error string `json:"error"`
+	}
+	if code := ana.do("POST", "/api/artifacts", linkBody("Site", "https://exemplo.com/a"), &e); code != http.StatusForbidden || e.Error != msgOnlyClaude {
+		t.Fatalf("artifact %d %q", code, e.Error)
+	}
+	code, raw, err := h.callAPI(withMCPPerson(context.Background(), 2), "POST", "/api/artifacts", linkBody("Claude", "https://exemplo.com/b"))
+	if err != nil || code != http.StatusCreated {
+		t.Fatalf("mcp artifact %d %s %v", code, raw, err)
+	}
+	var d struct {
+		ID int64 `json:"id"`
+	}
+	json.Unmarshal(raw, &d)
+	if code := ana.do("POST", "/api/artifacts/"+itoa(d.ID)+"/versions", linkBody("Claude", "https://exemplo.com/c"), &e); code != http.StatusForbidden || e.Error != msgOnlyClaude {
+		t.Fatalf("artifact version %d %q", code, e.Error)
+	}
+	var ch string
+	if err := testPool.QueryRow(context.Background(), "SELECT channel FROM artifact_versions WHERE artifact_id = $1", d.ID).Scan(&ch); err != nil || ch != "mcp" {
+		t.Fatalf("channel %q %v", ch, err)
+	}
+}
+
+func TestMCPRestrictedRefusesWithoutPerm(t *testing.T) {
+	_, admin, _, bia, _ := govTeam(t)
+	exec(t, "UPDATE security_settings SET mcp_restricted = TRUE")
+	setRole(t, "admin", "manage_roles", "manage_people", "manage_areas", "use_mcp")
+	var e struct {
+		Error string `json:"error"`
+	}
+	if code := bia.do("POST", "/api/mcp/codes", map[string]string{"name": "PC"}, &e); code != http.StatusForbidden || e.Error != msgNoMCP {
+		t.Fatalf("code %d %q", code, e.Error)
+	}
+	newMCPCode(t, admin)
+}
+
+func TestMCPConnectionStopsWhenPermRemoved(t *testing.T) {
+	h, _, _, bia, _ := govTeam(t)
+	out := newMCPCode(t, bia)
+	ctx := context.Background()
+	if _, _, err := h.mcpConnection(ctx, out.Code); err != nil {
+		t.Fatal(err)
+	}
+	exec(t, "UPDATE security_settings SET mcp_restricted = TRUE")
+	if _, _, err := h.mcpConnection(ctx, out.Code); !errors.Is(err, errMCPUnauthorized) {
+		t.Fatalf("still connects: %v", err)
+	}
+}
+
+func TestAdminListsAndRevokesMCP(t *testing.T) {
+	_, admin, _, bia, _ := govTeam(t)
+	newMCPCode(t, bia)
+	var list []struct {
+		ID         int64  `json:"id"`
+		PersonName string `json:"person_name"`
+		Name       string `json:"name"`
+		Revoked    bool   `json:"revoked"`
+	}
+	if code := bia.do("GET", "/api/admin/mcp-connections", nil, nil); code != http.StatusForbidden {
+		t.Fatalf("member lists %d", code)
+	}
+	if code := admin.do("GET", "/api/admin/mcp-connections", nil, &list); code != http.StatusOK || len(list) != 1 || list[0].PersonName != "Bia" || list[0].Name != "Notebook" || list[0].Revoked {
+		t.Fatalf("list %d %+v", code, list)
+	}
+	if code := admin.do("DELETE", "/api/admin/mcp-connections/"+itoa(list[0].ID), nil, nil); code != http.StatusNoContent {
+		t.Fatalf("revoke %d", code)
+	}
+	admin.do("GET", "/api/admin/mcp-connections", nil, &list)
+	if !list[0].Revoked {
+		t.Fatalf("not revoked %+v", list)
+	}
+	var n int
+	testPool.QueryRow(context.Background(), "SELECT count(*) FROM governance_events WHERE kind = 'mcp'").Scan(&n)
+	if n != 1 {
+		t.Fatalf("events %d", n)
 	}
 }

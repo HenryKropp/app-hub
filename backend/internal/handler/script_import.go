@@ -22,7 +22,7 @@ import (
 
 func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 	me, _, ok := h.requirePerm(w, r, access.RegisterApps)
-	if !ok {
+	if !ok || h.refuseOffChannel(w, r) {
 		return
 	}
 	var b struct {

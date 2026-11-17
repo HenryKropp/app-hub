@@ -265,6 +265,13 @@ func (h *Handler) approveOAuthRequest(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if allowed, err := h.mcpAllowed(r.Context(), me); err != nil {
+		internalError(w, "mcp allowed", err)
+		return
+	} else if !allowed {
+		writeError(w, http.StatusForbidden, msgNoMCP)
+		return
+	}
 	code, err := randomID(32)
 	if err != nil {
 		internalError(w, "oauth code", err)
@@ -379,12 +386,20 @@ func (h *Handler) oauthCodeGrant(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "get oauth client", err)
 		return
 	}
-	if _, err := h.q.GetPerson(r.Context(), req.PersonID.Int64); err != nil {
+	person, err := h.q.GetPerson(r.Context(), req.PersonID.Int64)
+	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			oauthError(w, http.StatusBadRequest, "invalid_grant", "A pessoa não está mais no Ziv.")
 			return
 		}
 		internalError(w, "get oauth person", err)
+		return
+	}
+	if allowed, err := h.mcpAllowed(r.Context(), person); err != nil {
+		internalError(w, "mcp allowed", err)
+		return
+	} else if !allowed {
+		oauthError(w, http.StatusForbidden, "access_denied", msgNoMCP)
 		return
 	}
 	access, accessHash, refresh, refreshHash, err := issueTokens()

@@ -147,8 +147,8 @@ func (q *Queries) CreateArtifact(ctx context.Context, arg CreateArtifactParams) 
 }
 
 const createArtifactVersion = `-- name: CreateArtifactVersion :one
-INSERT INTO artifact_versions (artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, embeddable)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO artifact_versions (artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, embeddable, channel)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at, embeddable, approved, channel
 `
 
@@ -164,6 +164,7 @@ type CreateArtifactVersionParams struct {
 	RestoredFrom pgtype.Int4 `json:"restored_from"`
 	AuthorID     pgtype.Int8 `json:"author_id"`
 	Embeddable   bool        `json:"embeddable"`
+	Channel      string      `json:"channel"`
 }
 
 func (q *Queries) CreateArtifactVersion(ctx context.Context, arg CreateArtifactVersionParams) (ArtifactVersion, error) {
@@ -179,6 +180,7 @@ func (q *Queries) CreateArtifactVersion(ctx context.Context, arg CreateArtifactV
 		arg.RestoredFrom,
 		arg.AuthorID,
 		arg.Embeddable,
+		arg.Channel,
 	)
 	var i ArtifactVersion
 	err := row.Scan(

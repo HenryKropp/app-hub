@@ -206,6 +206,9 @@ func (h *Handler) sendSources(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "Você não pode mudar este app.")
 		return
 	}
+	if h.refuseOffChannel(w, r) {
+		return
+	}
 	var b struct {
 		Files          map[string]manifest.InputFile `json:"files"`
 		ConfirmSecrets bool                          `json:"confirm_secrets"`

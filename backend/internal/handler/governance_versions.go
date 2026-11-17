@@ -135,8 +135,17 @@ func (h *Handler) governVersion(ctx context.Context, a sqlc.App, v sqlc.AppVersi
 		logGov("approved risk", a.ID, err)
 		return
 	}
+	off := false
+	if v.Origin == "folder" && v.Channel != "mcp" {
+		gs, err := h.q.GetGovernanceSettings(ctx)
+		if err != nil {
+			logGov("settings", a.ID, err)
+			return
+		}
+		off = gs.CodeChannel == "mcp"
+	}
 	if _, err := h.openRequest(ctx, requestIn{Kind: "app", AppID: a.ID, AreaID: a.AreaID, Reason: governance.ReasonVersion,
-		AppVersion: v.Number, Risk: rs, Added: rs.Added(prev), Channel: v.Channel, Tested: tested, RequesterID: requester, Preapproved: preapproved}); err != nil {
+		AppVersion: v.Number, Risk: rs, Added: rs.Added(prev), Channel: v.Channel, Tested: tested, RequesterID: requester, Preapproved: preapproved, OffChannel: off}); err != nil {
 		logGov("version request", a.ID, err)
 	}
 }

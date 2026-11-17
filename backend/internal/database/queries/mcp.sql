@@ -102,3 +102,13 @@ DELETE FROM mcp_key_uploads WHERE expires_at < now() - interval '1 day' OR used_
 
 -- name: OpenMCPKeyUpload :one
 SELECT id, person_id, app_id FROM mcp_key_uploads WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now();
+
+-- name: ListCompanyMCPConnections :many
+SELECT c.id, c.kind, c.name, c.created_at, c.last_used_at, c.revoked_at, c.person_id, p.name AS person_name
+FROM mcp_connections c JOIN people p ON p.id = c.person_id
+ORDER BY c.revoked_at IS NOT NULL, c.created_at DESC;
+
+-- name: RevokeAnyMCPConnection :one
+UPDATE mcp_connections SET revoked_at = now()
+WHERE id = $1 AND revoked_at IS NULL
+RETURNING person_id, name;

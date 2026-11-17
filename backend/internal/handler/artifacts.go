@@ -226,7 +226,7 @@ func addVersion(ctx context.Context, q *sqlc.Queries, artifactID int64, p prepar
 		return err
 	}
 	params := sqlc.CreateArtifactVersionParams{ArtifactID: artifactID, Number: next, Kind: p.kind, FileName: p.fileName,
-		Size: size, Note: p.note, RestoredFrom: restoredFrom, AuthorID: pgInt8(authorID), BlobSha256: blob}
+		Size: size, Note: p.note, RestoredFrom: restoredFrom, AuthorID: pgInt8(authorID), BlobSha256: blob, Channel: originOf(ctx)}
 	if p.kind == "link" {
 		params.Url = pgtype.Text{String: p.url, Valid: true}
 		params.Embeddable = p.embeddable
@@ -403,6 +403,9 @@ func (h *Handler) createArtifact(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "Você não tem permissão para registrar artifacts.")
 		return
 	}
+	if h.refuseOffChannel(w, r) {
+		return
+	}
 	var b struct {
 		artifactInput
 		Name    string   `json:"name"`
@@ -546,6 +549,9 @@ func (h *Handler) addArtifactVersion(w http.ResponseWriter, r *http.Request) {
 	}
 	if !can.Edit {
 		writeError(w, http.StatusForbidden, "Você não pode mandar uma nova versão deste artifact.")
+		return
+	}
+	if h.refuseOffChannel(w, r) {
 		return
 	}
 	var in artifactInput

@@ -149,6 +149,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/apps/{id}/history", h.appHistory)
 	mux.HandleFunc("GET /api/approvals", h.listApprovals)
 	mux.HandleFunc("GET /api/approvals/count", h.countApprovals)
+	mux.HandleFunc("GET /api/admin/mcp-connections", h.listCompanyMCP)
+	mux.HandleFunc("DELETE /api/admin/mcp-connections/{id}", h.revokeCompanyMCP)
 	mux.HandleFunc("POST /api/approvals/{id}/approve", h.approveRequest)
 	mux.HandleFunc("POST /api/approvals/{id}/reject", h.rejectRequest)
 	mux.HandleFunc("GET /api/apps/{id}/governance", h.getAppGovernance)

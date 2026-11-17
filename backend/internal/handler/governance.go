@@ -69,6 +69,7 @@ type requestIn struct {
 	Risk              risk.Set
 	Added             []string
 	Channel           string
+	OffChannel        bool // a PC-folder version in a "só pelo Claude" company: always waits, never auto
 	Tested            bool
 	RequesterID       int64
 	// Preapproved records the request as "auto" whatever the rule says (a
@@ -142,6 +143,9 @@ func (h *Handler) openRequest(ctx context.Context, in requestIn) (requestOut, er
 	if in.Preapproved && ever {
 		need = governance.Need{}
 	}
+	if in.OffChannel {
+		need = governance.Decide(governance.Every, true, in.Added, gs.ItApproval, governance.ReasonVersion)
+	}
 
 	if in.Kind == "app" {
 		_, err = h.q.ReplaceOpenAppRequest(ctx, pgInt8(in.AppID))
@@ -195,6 +199,9 @@ func (h *Handler) openRequest(ctx context.Context, in requestIn) (requestOut, er
 				return requestOut{}, err
 			}
 			auto = governance.AutoSteps(need.Steps, areaID, hasLeader, approverOf(acc))
+			if in.OffChannel {
+				auto = map[string]string{}
+			}
 		}
 	}
 	allAuto := len(auto) == len(need.Steps)
@@ -266,6 +273,14 @@ func (h *Handler) requestArea(ctx context.Context, req sqlc.ApprovalRequest) (in
 // requestMessage: why the request still holds the item — waiting for the
 // leader, for TI, or refused.
 func (h *Handler) requestMessage(ctx context.Context, req sqlc.ApprovalRequest) (string, error) {
+	if req.Status == "open" {
+		if off, err := h.offChannel(ctx, req); err != nil || off {
+			if off {
+				return msgOnlyClaude, nil
+			}
+			return "", err
+		}
+	}
 	steps, err := h.q.ListApprovalSteps(ctx, req.ID)
 	if err != nil {
 		return "", err
@@ -719,6 +734,13 @@ func (h *Handler) approveRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+	if off, err := h.offChannel(ctx, req); err != nil {
+		internalError(w, "off channel", err)
+		return
+	} else if off {
+		writeError(w, http.StatusConflict, msgOnlyClaude)
+		return
+	}
 	_, leaderStep := mine[governance.StepLeader]
 	if b.Audience != nil && !b.Audience.valid() {
 		b.Audience = nil

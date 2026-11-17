@@ -35,8 +35,8 @@ UPDATE artifacts SET updated_at = now() WHERE id = $1;
 DELETE FROM artifacts WHERE id = $1;
 
 -- name: CreateArtifactVersion :one
-INSERT INTO artifact_versions (artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, embeddable)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO artifact_versions (artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, embeddable, channel)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: ListArtifactVersions :many

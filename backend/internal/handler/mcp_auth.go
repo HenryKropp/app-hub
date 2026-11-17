@@ -76,6 +76,13 @@ func (h *Handler) mcpConnection(ctx context.Context, bearer string) (sqlc.McpCon
 	if err != nil {
 		return sqlc.McpConnection{}, sqlc.Person{}, err
 	}
+	// A company that limits the MCP to some roles drops the connection of
+	// whoever lost the permission (ADR 046).
+	if allowed, err := h.mcpAllowed(ctx, p); err != nil {
+		return sqlc.McpConnection{}, sqlc.Person{}, err
+	} else if !allowed {
+		return sqlc.McpConnection{}, sqlc.Person{}, errMCPUnauthorized
+	}
 	if err := h.q.TouchMCPConnection(ctx, conn.ID); err != nil {
 		return sqlc.McpConnection{}, sqlc.Person{}, err
 	}
@@ -131,6 +138,13 @@ func (h *Handler) createMCPCode(w http.ResponseWriter, r *http.Request) {
 	}
 	if len([]rune(name)) > 80 {
 		writeError(w, http.StatusBadRequest, "O nome pode ter até 80 letras.")
+		return
+	}
+	if allowed, err := h.mcpAllowed(r.Context(), me); err != nil {
+		internalError(w, "mcp allowed", err)
+		return
+	} else if !allowed {
+		writeError(w, http.StatusForbidden, msgNoMCP)
 		return
 	}
 	plain, hash, err := newToken()

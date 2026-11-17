@@ -406,6 +406,52 @@ func (q *Queries) GetPendingMCPAuthRequest(ctx context.Context, id string) (GetP
 	return i, err
 }
 
+const listCompanyMCPConnections = `-- name: ListCompanyMCPConnections :many
+SELECT c.id, c.kind, c.name, c.created_at, c.last_used_at, c.revoked_at, c.person_id, p.name AS person_name
+FROM mcp_connections c JOIN people p ON p.id = c.person_id
+ORDER BY c.revoked_at IS NOT NULL, c.created_at DESC
+`
+
+type ListCompanyMCPConnectionsRow struct {
+	ID         int64              `json:"id"`
+	Kind       string             `json:"kind"`
+	Name       string             `json:"name"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt pgtype.Timestamptz `json:"last_used_at"`
+	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
+	PersonID   int64              `json:"person_id"`
+	PersonName string             `json:"person_name"`
+}
+
+func (q *Queries) ListCompanyMCPConnections(ctx context.Context) ([]ListCompanyMCPConnectionsRow, error) {
+	rows, err := q.db.Query(ctx, listCompanyMCPConnections)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCompanyMCPConnectionsRow
+	for rows.Next() {
+		var i ListCompanyMCPConnectionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Kind,
+			&i.Name,
+			&i.CreatedAt,
+			&i.LastUsedAt,
+			&i.RevokedAt,
+			&i.PersonID,
+			&i.PersonName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMCPConnections = `-- name: ListMCPConnections :many
 SELECT id, person_id, kind, name, client_id, token_hash, access_expires_at, refresh_hash, refresh_expires_at, created_at, last_used_at, revoked_at FROM mcp_connections WHERE person_id = $1 AND revoked_at IS NULL
   AND (refresh_expires_at IS NULL OR refresh_expires_at > now()) ORDER BY id DESC
@@ -489,6 +535,24 @@ func (q *Queries) ReceiveMCPUpload(ctx context.Context, arg ReceiveMCPUploadPara
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const revokeAnyMCPConnection = `-- name: RevokeAnyMCPConnection :one
+UPDATE mcp_connections SET revoked_at = now()
+WHERE id = $1 AND revoked_at IS NULL
+RETURNING person_id, name
+`
+
+type RevokeAnyMCPConnectionRow struct {
+	PersonID int64  `json:"person_id"`
+	Name     string `json:"name"`
+}
+
+func (q *Queries) RevokeAnyMCPConnection(ctx context.Context, id int64) (RevokeAnyMCPConnectionRow, error) {
+	row := q.db.QueryRow(ctx, revokeAnyMCPConnection, id)
+	var i RevokeAnyMCPConnectionRow
+	err := row.Scan(&i.PersonID, &i.Name)
+	return i, err
 }
 
 const revokeMCPConnection = `-- name: RevokeMCPConnection :execrows
