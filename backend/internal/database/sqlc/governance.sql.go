@@ -34,8 +34,9 @@ func (q *Queries) AreaHasLeader(ctx context.Context, areaID int64) (bool, error)
 	return exists, err
 }
 
-const closeApprovalRequest = `-- name: CloseApprovalRequest :exec
-UPDATE approval_requests SET status = $1, closed_at = clock_timestamp() WHERE id = $2
+const closeApprovalRequest = `-- name: CloseApprovalRequest :execrows
+UPDATE approval_requests SET status = $1, closed_at = clock_timestamp()
+WHERE id = $2 AND status = 'open'
 `
 
 type CloseApprovalRequestParams struct {
@@ -43,9 +44,12 @@ type CloseApprovalRequestParams struct {
 	ID     int64  `json:"id"`
 }
 
-func (q *Queries) CloseApprovalRequest(ctx context.Context, arg CloseApprovalRequestParams) error {
-	_, err := q.db.Exec(ctx, closeApprovalRequest, arg.Status, arg.ID)
-	return err
+func (q *Queries) CloseApprovalRequest(ctx context.Context, arg CloseApprovalRequestParams) (int64, error) {
+	result, err := q.db.Exec(ctx, closeApprovalRequest, arg.Status, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const decideApprovalStep = `-- name: DecideApprovalStep :execrows
@@ -97,7 +101,7 @@ func (q *Queries) GetAppGovernance(ctx context.Context, appID int64) (AppGoverna
 }
 
 const getApprovalRequest = `-- name: GetApprovalRequest :one
-SELECT id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at FROM approval_requests WHERE id = $1
+SELECT id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at, audience FROM approval_requests WHERE id = $1
 `
 
 func (q *Queries) GetApprovalRequest(ctx context.Context, id int64) (ApprovalRequest, error) {
@@ -121,12 +125,13 @@ func (q *Queries) GetApprovalRequest(ctx context.Context, id int64) (ApprovalReq
 		&i.RequestedBy,
 		&i.CreatedAt,
 		&i.ClosedAt,
+		&i.Audience,
 	)
 	return i, err
 }
 
 const getApprovalRequestForUpdate = `-- name: GetApprovalRequestForUpdate :one
-SELECT id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at FROM approval_requests WHERE id = $1 FOR UPDATE
+SELECT id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at, audience FROM approval_requests WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) GetApprovalRequestForUpdate(ctx context.Context, id int64) (ApprovalRequest, error) {
@@ -150,6 +155,7 @@ func (q *Queries) GetApprovalRequestForUpdate(ctx context.Context, id int64) (Ap
 		&i.RequestedBy,
 		&i.CreatedAt,
 		&i.ClosedAt,
+		&i.Audience,
 	)
 	return i, err
 }
@@ -180,7 +186,7 @@ func (q *Queries) GetGovernanceSettings(ctx context.Context) (GetGovernanceSetti
 }
 
 const getOpenRequestForApp = `-- name: GetOpenRequestForApp :one
-SELECT id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at FROM approval_requests WHERE app_id = $1 AND status = 'open'
+SELECT id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at, audience FROM approval_requests WHERE app_id = $1 AND status = 'open'
 `
 
 func (q *Queries) GetOpenRequestForApp(ctx context.Context, appID pgtype.Int8) (ApprovalRequest, error) {
@@ -204,12 +210,13 @@ func (q *Queries) GetOpenRequestForApp(ctx context.Context, appID pgtype.Int8) (
 		&i.RequestedBy,
 		&i.CreatedAt,
 		&i.ClosedAt,
+		&i.Audience,
 	)
 	return i, err
 }
 
 const getOpenRequestForArtifact = `-- name: GetOpenRequestForArtifact :one
-SELECT id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at FROM approval_requests WHERE artifact_id = $1 AND status = 'open'
+SELECT id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at, audience FROM approval_requests WHERE artifact_id = $1 AND status = 'open'
 `
 
 func (q *Queries) GetOpenRequestForArtifact(ctx context.Context, artifactID pgtype.Int8) (ApprovalRequest, error) {
@@ -233,6 +240,7 @@ func (q *Queries) GetOpenRequestForArtifact(ctx context.Context, artifactID pgty
 		&i.RequestedBy,
 		&i.CreatedAt,
 		&i.ClosedAt,
+		&i.Audience,
 	)
 	return i, err
 }
@@ -244,7 +252,7 @@ VALUES ($1, $2, $3, $4, $5,
     $6, $7, $8, $9,
     $10, $11, $12, $13, $14,
     CASE WHEN $13::text = 'open' THEN NULL ELSE clock_timestamp() END)
-RETURNING id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at
+RETURNING id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at, audience
 `
 
 type InsertApprovalRequestParams struct {
@@ -300,6 +308,7 @@ func (q *Queries) InsertApprovalRequest(ctx context.Context, arg InsertApprovalR
 		&i.RequestedBy,
 		&i.CreatedAt,
 		&i.ClosedAt,
+		&i.Audience,
 	)
 	return i, err
 }
@@ -355,6 +364,37 @@ func (q *Queries) InsertGovernanceEvent(ctx context.Context, arg InsertGovernanc
 	return err
 }
 
+const latestAppRequest = `-- name: LatestAppRequest :one
+SELECT id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at, audience FROM approval_requests WHERE app_id = $1 AND status <> 'replaced' ORDER BY id DESC LIMIT 1
+`
+
+// The newest request of an app that is not replaced (for the run gate).
+func (q *Queries) LatestAppRequest(ctx context.Context, appID pgtype.Int8) (ApprovalRequest, error) {
+	row := q.db.QueryRow(ctx, latestAppRequest, appID)
+	var i ApprovalRequest
+	err := row.Scan(
+		&i.ID,
+		&i.ItemKind,
+		&i.AppID,
+		&i.ArtifactID,
+		&i.Reason,
+		&i.DraftID,
+		&i.AppVersion,
+		&i.ArtifactVersionID,
+		&i.TargetAreaID,
+		&i.Risk,
+		&i.RiskAdded,
+		&i.Channel,
+		&i.Tested,
+		&i.Status,
+		&i.RequestedBy,
+		&i.CreatedAt,
+		&i.ClosedAt,
+		&i.Audience,
+	)
+	return i, err
+}
+
 const latestApprovedArtifactVersion = `-- name: LatestApprovedArtifactVersion :one
 SELECT id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at, embeddable, approved, channel FROM artifact_versions WHERE artifact_id = $1 AND approved ORDER BY number DESC LIMIT 1
 `
@@ -383,7 +423,7 @@ func (q *Queries) LatestApprovedArtifactVersion(ctx context.Context, artifactID 
 }
 
 const listAppRequests = `-- name: ListAppRequests :many
-SELECT r.id, r.item_kind, r.app_id, r.artifact_id, r.reason, r.draft_id, r.app_version, r.artifact_version_id, r.target_area_id, r.risk, r.risk_added, r.channel, r.tested, r.status, r.requested_by, r.created_at, r.closed_at, COALESCE(p.name, '') AS requested_by_name
+SELECT r.id, r.item_kind, r.app_id, r.artifact_id, r.reason, r.draft_id, r.app_version, r.artifact_version_id, r.target_area_id, r.risk, r.risk_added, r.channel, r.tested, r.status, r.requested_by, r.created_at, r.closed_at, r.audience, COALESCE(p.name, '') AS requested_by_name
 FROM approval_requests r LEFT JOIN people p ON p.id = r.requested_by
 WHERE r.app_id = $1 AND r.status <> 'replaced' ORDER BY r.id DESC LIMIT 200
 `
@@ -406,6 +446,7 @@ type ListAppRequestsRow struct {
 	RequestedBy       pgtype.Int8        `json:"requested_by"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	ClosedAt          pgtype.Timestamptz `json:"closed_at"`
+	Audience          []byte             `json:"audience"`
 	RequestedByName   string             `json:"requested_by_name"`
 }
 
@@ -436,6 +477,7 @@ func (q *Queries) ListAppRequests(ctx context.Context, appID pgtype.Int8) ([]Lis
 			&i.RequestedBy,
 			&i.CreatedAt,
 			&i.ClosedAt,
+			&i.Audience,
 			&i.RequestedByName,
 		); err != nil {
 			return nil, err
@@ -519,7 +561,7 @@ func (q *Queries) ListAreaLeaderIDs(ctx context.Context, areaID int64) ([]int64,
 }
 
 const listArtifactRequests = `-- name: ListArtifactRequests :many
-SELECT r.id, r.item_kind, r.app_id, r.artifact_id, r.reason, r.draft_id, r.app_version, r.artifact_version_id, r.target_area_id, r.risk, r.risk_added, r.channel, r.tested, r.status, r.requested_by, r.created_at, r.closed_at, COALESCE(p.name, '') AS requested_by_name
+SELECT r.id, r.item_kind, r.app_id, r.artifact_id, r.reason, r.draft_id, r.app_version, r.artifact_version_id, r.target_area_id, r.risk, r.risk_added, r.channel, r.tested, r.status, r.requested_by, r.created_at, r.closed_at, r.audience, COALESCE(p.name, '') AS requested_by_name
 FROM approval_requests r LEFT JOIN people p ON p.id = r.requested_by
 WHERE r.artifact_id = $1 AND r.status <> 'replaced' ORDER BY r.id DESC LIMIT 200
 `
@@ -542,6 +584,7 @@ type ListArtifactRequestsRow struct {
 	RequestedBy       pgtype.Int8        `json:"requested_by"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	ClosedAt          pgtype.Timestamptz `json:"closed_at"`
+	Audience          []byte             `json:"audience"`
 	RequestedByName   string             `json:"requested_by_name"`
 }
 
@@ -572,6 +615,7 @@ func (q *Queries) ListArtifactRequests(ctx context.Context, artifactID pgtype.In
 			&i.RequestedBy,
 			&i.CreatedAt,
 			&i.ClosedAt,
+			&i.Audience,
 			&i.RequestedByName,
 		); err != nil {
 			return nil, err
@@ -585,7 +629,7 @@ func (q *Queries) ListArtifactRequests(ctx context.Context, artifactID pgtype.In
 }
 
 const listAutoRequestsSince = `-- name: ListAutoRequestsSince :many
-SELECT id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at FROM approval_requests WHERE status = 'auto' AND created_at > $1 ORDER BY created_at DESC
+SELECT id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at, audience FROM approval_requests WHERE status = 'auto' AND created_at > $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListAutoRequestsSince(ctx context.Context, createdAt pgtype.Timestamptz) ([]ApprovalRequest, error) {
@@ -615,6 +659,7 @@ func (q *Queries) ListAutoRequestsSince(ctx context.Context, createdAt pgtype.Ti
 			&i.RequestedBy,
 			&i.CreatedAt,
 			&i.ClosedAt,
+			&i.Audience,
 		); err != nil {
 			return nil, err
 		}
@@ -682,7 +727,7 @@ func (q *Queries) ListGovernanceEvents(ctx context.Context, arg ListGovernanceEv
 }
 
 const listOpenRequests = `-- name: ListOpenRequests :many
-SELECT id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at FROM approval_requests WHERE status = 'open' ORDER BY created_at
+SELECT id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at, audience FROM approval_requests WHERE status = 'open' ORDER BY created_at
 `
 
 func (q *Queries) ListOpenRequests(ctx context.Context) ([]ApprovalRequest, error) {
@@ -712,6 +757,7 @@ func (q *Queries) ListOpenRequests(ctx context.Context) ([]ApprovalRequest, erro
 			&i.RequestedBy,
 			&i.CreatedAt,
 			&i.ClosedAt,
+			&i.Audience,
 		); err != nil {
 			return nil, err
 		}
@@ -772,7 +818,7 @@ func (q *Queries) ListPendingArtifactIDs(ctx context.Context) ([]int64, error) {
 }
 
 const listRecentRequests = `-- name: ListRecentRequests :many
-SELECT r.id, r.item_kind, r.app_id, r.artifact_id, r.reason, r.draft_id, r.app_version, r.artifact_version_id, r.target_area_id, r.risk, r.risk_added, r.channel, r.tested, r.status, r.requested_by, r.created_at, r.closed_at, COALESCE(p.name, '') AS requested_by_name
+SELECT r.id, r.item_kind, r.app_id, r.artifact_id, r.reason, r.draft_id, r.app_version, r.artifact_version_id, r.target_area_id, r.risk, r.risk_added, r.channel, r.tested, r.status, r.requested_by, r.created_at, r.closed_at, r.audience, COALESCE(p.name, '') AS requested_by_name
 FROM approval_requests r LEFT JOIN people p ON p.id = r.requested_by
 WHERE r.status <> 'replaced' AND r.created_at > now() - interval '90 days'
 ORDER BY r.id DESC LIMIT 200
@@ -796,6 +842,7 @@ type ListRecentRequestsRow struct {
 	RequestedBy       pgtype.Int8        `json:"requested_by"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	ClosedAt          pgtype.Timestamptz `json:"closed_at"`
+	Audience          []byte             `json:"audience"`
 	RequestedByName   string             `json:"requested_by_name"`
 }
 
@@ -826,6 +873,7 @@ func (q *Queries) ListRecentRequests(ctx context.Context) ([]ListRecentRequestsR
 			&i.RequestedBy,
 			&i.CreatedAt,
 			&i.ClosedAt,
+			&i.Audience,
 			&i.RequestedByName,
 		); err != nil {
 			return nil, err
@@ -840,7 +888,7 @@ func (q *Queries) ListRecentRequests(ctx context.Context) ([]ListRecentRequestsR
 
 const replaceOpenAppRequest = `-- name: ReplaceOpenAppRequest :many
 UPDATE approval_requests SET status = 'replaced', closed_at = clock_timestamp()
-WHERE app_id = $1 AND status = 'open' RETURNING id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at
+WHERE app_id = $1 AND status = 'open' RETURNING id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at, audience
 `
 
 func (q *Queries) ReplaceOpenAppRequest(ctx context.Context, appID pgtype.Int8) ([]ApprovalRequest, error) {
@@ -870,6 +918,7 @@ func (q *Queries) ReplaceOpenAppRequest(ctx context.Context, appID pgtype.Int8) 
 			&i.RequestedBy,
 			&i.CreatedAt,
 			&i.ClosedAt,
+			&i.Audience,
 		); err != nil {
 			return nil, err
 		}
@@ -883,7 +932,7 @@ func (q *Queries) ReplaceOpenAppRequest(ctx context.Context, appID pgtype.Int8) 
 
 const replaceOpenArtifactRequest = `-- name: ReplaceOpenArtifactRequest :many
 UPDATE approval_requests SET status = 'replaced', closed_at = clock_timestamp()
-WHERE artifact_id = $1 AND status = 'open' RETURNING id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at
+WHERE artifact_id = $1 AND status = 'open' RETURNING id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at, audience
 `
 
 func (q *Queries) ReplaceOpenArtifactRequest(ctx context.Context, artifactID pgtype.Int8) ([]ApprovalRequest, error) {
@@ -913,6 +962,7 @@ func (q *Queries) ReplaceOpenArtifactRequest(ctx context.Context, artifactID pgt
 			&i.RequestedBy,
 			&i.CreatedAt,
 			&i.ClosedAt,
+			&i.Audience,
 		); err != nil {
 			return nil, err
 		}
@@ -978,6 +1028,20 @@ type SetArtifactVersionRuleParams struct {
 
 func (q *Queries) SetArtifactVersionRule(ctx context.Context, arg SetArtifactVersionRuleParams) error {
 	_, err := q.db.Exec(ctx, setArtifactVersionRule, arg.VersionRule, arg.ID)
+	return err
+}
+
+const setRequestAudience = `-- name: SetRequestAudience :exec
+UPDATE approval_requests SET audience = $2 WHERE id = $1
+`
+
+type SetRequestAudienceParams struct {
+	ID       int64  `json:"id"`
+	Audience []byte `json:"audience"`
+}
+
+func (q *Queries) SetRequestAudience(ctx context.Context, arg SetRequestAudienceParams) error {
+	_, err := q.db.Exec(ctx, setRequestAudience, arg.ID, arg.Audience)
 	return err
 }
 

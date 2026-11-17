@@ -73,8 +73,16 @@ INSERT INTO approval_steps (request_id, step)
 SELECT r.id, 'it' FROM approval_requests r WHERE r.status = 'open' AND r.reason <> 'area'
 ON CONFLICT DO NOTHING;
 
--- name: CloseApprovalRequest :exec
-UPDATE approval_requests SET status = sqlc.arg(status), closed_at = clock_timestamp() WHERE id = sqlc.arg(id);
+-- name: CloseApprovalRequest :execrows
+UPDATE approval_requests SET status = sqlc.arg(status), closed_at = clock_timestamp()
+WHERE id = sqlc.arg(id) AND status = 'open';
+
+-- name: SetRequestAudience :exec
+UPDATE approval_requests SET audience = $2 WHERE id = $1;
+
+-- name: LatestAppRequest :one
+-- The newest request of an app that is not replaced (for the run gate).
+SELECT * FROM approval_requests WHERE app_id = $1 AND status <> 'replaced' ORDER BY id DESC LIMIT 1;
 
 -- name: ReplaceOpenAppRequest :many
 UPDATE approval_requests SET status = 'replaced', closed_at = clock_timestamp()

@@ -62,7 +62,7 @@ func (q *Queries) DeleteOldEvidence(ctx context.Context) error {
 const failDraft = `-- name: FailDraft :exec
 UPDATE app_drafts
 SET status = 'reprovada', stage = '', status_reason = $1, updated_at = clock_timestamp()
-WHERE id = $2 AND status IN ('testando', 'aprovada')
+WHERE id = $2 AND status IN ('testando', 'aprovada', 'aguardando')
 `
 
 type FailDraftParams struct {

@@ -165,6 +165,7 @@ type ApprovalRequest struct {
 	RequestedBy       pgtype.Int8        `json:"requested_by"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	ClosedAt          pgtype.Timestamptz `json:"closed_at"`
+	Audience          []byte             `json:"audience"`
 }
 
 type ApprovalStep struct {

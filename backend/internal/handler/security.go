@@ -319,10 +319,12 @@ func (h *Handler) executionBlock(ctx context.Context, id int64) (string, error) 
 	if suspended {
 		return "Este app foi suspenso pela empresa.", nil
 	}
+	// The old single approval stays until the version paths move to
+	// governance requests (plan Task 5).
 	if s.RequireApproval && !approved {
 		return "Este app está esperando a aprovação de um administrador.", nil
 	}
-	return "", nil
+	return h.governanceBlock(ctx, id)
 }
 
 type auditEvent struct {

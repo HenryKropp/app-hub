@@ -42,7 +42,7 @@ WHERE id = sqlc.arg(id);
 -- name: FailDraft :exec
 UPDATE app_drafts
 SET status = 'reprovada', stage = '', status_reason = sqlc.arg(reason), updated_at = clock_timestamp()
-WHERE id = sqlc.arg(id) AND status IN ('testando', 'aprovada');
+WHERE id = sqlc.arg(id) AND status IN ('testando', 'aprovada', 'aguardando');
 
 -- name: ApproveDraft :execrows
 UPDATE app_drafts

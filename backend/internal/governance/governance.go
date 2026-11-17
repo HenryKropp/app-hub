@@ -53,13 +53,14 @@ func Stricter(a, b Rule) Rule {
 	return a
 }
 
-// Effective is the rule an item follows: its own when stricter than the
-// company's, never a looser one.
+// Effective is the rule an item follows: its own when it has one, else the
+// company's. Who may set an item looser than the company is checked when the
+// rule is saved (CanLoosen): only the admin.
 func Effective(company Rule, item *Rule) Rule {
-	if item == nil {
+	if item == nil || !Valid(string(*item)) {
 		return company
 	}
-	return Stricter(company, *item)
+	return *item
 }
 
 // CanLoosen: only the admin sets an item looser than the company.

@@ -33,9 +33,10 @@ func TestDecide(t *testing.T) {
 	}
 }
 
-func TestEffectiveNeverLooser(t *testing.T) {
+func TestEffectiveItemRuleWins(t *testing.T) {
 	first, every := First, Every
-	if got := Effective(Every, &first); got != Every {
+	// Only the admin can save a looser item rule; once saved, it counts.
+	if got := Effective(Every, &first); got != First {
 		t.Fatalf("company every + item first = %s", got)
 	}
 	if got := Effective(First, &every); got != Every {

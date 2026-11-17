@@ -5,6 +5,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/HenryKropp/app-hub/backend/internal/governance"
+	"github.com/HenryKropp/app-hub/backend/internal/risk"
 	"io"
 	"log/slog"
 	"net/http"
@@ -175,6 +177,13 @@ func (h *Handler) importScript(w http.ResponseWriter, r *http.Request) {
 			slog.Error("import script version", "app", id, "err", err)
 		}
 		number = v.Number
+	}
+	if h.workspace != nil {
+		// Governança (ADR 046): a new app waits for its area leader.
+		if _, err := h.openRequest(r.Context(), requestIn{Kind: "app", AppID: id, AreaID: area.ID, Reason: governance.ReasonNew,
+			AppVersion: number, Risk: risk.Of(m, decoded), RequesterID: me.ID}); err != nil {
+			slog.Error("import script request", "app", id, "err", err)
+		}
 	}
 	blocked, err := h.executionBlock(r.Context(), id)
 	if err != nil {
