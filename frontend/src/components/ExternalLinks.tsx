@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
-import { Copy, Link2, Mail } from "lucide-react"
+import { Copy, Link2, Mail, Share2 } from "lucide-react"
 import { Section } from "@/components/ficha/Part"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { api, type ExternalLink, type ExternalLinkInput } from "@/lib/api"
 import { formatWhen } from "@/lib/runs"
@@ -25,6 +26,10 @@ const STATUS: Record<ExternalLink["status"], { label: string; tone: string }> = 
   fechado: { label: "Fechado: quem criou perdeu o acesso", tone: "text-warn" },
 }
 
+// The share window and the section on the same page are separate components;
+// a link created in one tells the other to reload.
+const LINKS_CHANGED = "ziv:artifact-links-changed"
+
 const formatDate = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })
 
 async function copy(url: string) {
@@ -44,6 +49,11 @@ export function ArtifactLinksSection({ artifactId, currentVersion }: { artifactI
     api.artifactLinks(artifactId).then(setData, (e: Error) => setError(e.message))
   }, [artifactId])
   useEffect(load, [load])
+  useEffect(() => {
+    const reload = (e: Event) => { if ((e as CustomEvent<number>).detail === artifactId) load() }
+    window.addEventListener(LINKS_CHANGED, reload)
+    return () => window.removeEventListener(LINKS_CHANGED, reload)
+  }, [artifactId, load])
 
   if (error) return <Section title="Links externos"><p role="alert" className="text-sm text-destructive">{error}</p></Section>
   if (!data || !data.can_share) return null
@@ -80,12 +90,71 @@ export function ArtifactLinksSection({ artifactId, currentVersion }: { artifactI
   )
 }
 
-function CreateLinkForm({ artifactId, currentVersion, emailAvailable, onCancel, onCreated }: {
+/** "Compartilhar" at the top of the artifact page: the same form, in a window. */
+export function ShareArtifactButton({ artifactId, currentVersion }: { artifactId: number; currentVersion: number }) {
+  const [info, setInfo] = useState<{ email_available: boolean; can_share: boolean } | null>(null)
+  const [open, setOpen] = useState(false)
+  const [created, setCreated] = useState<ExternalLink | null>(null)
+  useEffect(() => {
+    api.artifactLinks(artifactId).then(setInfo, () => setInfo(null))
+  }, [artifactId])
+  if (!info?.can_share) return null
+  const change = (v: boolean) => {
+    setOpen(v)
+    if (!v) setCreated(null)
+  }
+  return (
+    <>
+      <Button type="button" variant="outline" className="h-9 gap-1.5" onClick={() => setOpen(true)}>
+        <Share2 className="size-4" />
+        Compartilhar
+      </Button>
+      <Dialog open={open} onOpenChange={change}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Compartilhar fora da empresa</DialogTitle>
+            <DialogDescription>Um link para quem é de fora abrir este artifact, sem login no Ziv.</DialogDescription>
+          </DialogHeader>
+          {created ? (
+            <>
+              <div className="min-w-0 space-y-2 text-sm">
+                <p className="font-medium">Link criado. Copie e mande para quem vai abrir.</p>
+                <code className="block w-full truncate rounded bg-muted px-2 py-1.5 text-xs" title={created.url}>{created.url}</code>
+                <Button type="button" size="sm" variant="outline" onClick={() => void copy(created.url)}>
+                  <Copy className="size-3.5" />
+                  Copiar link
+                </Button>
+              </div>
+              <DialogFooter>
+                <Button type="button" onClick={() => change(false)}>Pronto</Button>
+              </DialogFooter>
+            </>
+          ) : (
+            <CreateLinkForm
+              bare
+              artifactId={artifactId}
+              currentVersion={currentVersion}
+              emailAvailable={info.email_available}
+              onCancel={() => change(false)}
+              onCreated={(l) => {
+                setCreated(l)
+                window.dispatchEvent(new CustomEvent(LINKS_CHANGED, { detail: artifactId }))
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
+function CreateLinkForm({ artifactId, currentVersion, emailAvailable, onCancel, onCreated, bare }: {
   artifactId: number
   currentVersion: number
   emailAvailable: boolean
   onCancel: () => void
   onCreated: (l: ExternalLink) => void
+  bare?: boolean
 }) {
   const [kind, setKind] = useState<ExternalLinkInput["kind"]>(emailAvailable ? "email" : "open")
   const [email, setEmail] = useState("")
@@ -108,7 +177,7 @@ function CreateLinkForm({ artifactId, currentVersion, emailAvailable, onCancel, 
   }
 
   return (
-    <form onSubmit={submit} className="space-y-5 rounded-xl border border-border p-4">
+    <form onSubmit={submit} className={cn("space-y-5", !bare && "rounded-xl border border-border p-4")}>
       <fieldset className="space-y-2">
         <legend className="mb-1 text-sm font-medium">Quem pode abrir</legend>
         <Choice name="kind" checked={kind === "email"} disabled={!emailAvailable} onChange={() => setKind("email")}
@@ -138,7 +207,7 @@ function CreateLinkForm({ artifactId, currentVersion, emailAvailable, onCancel, 
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <div className="flex gap-2">
         <Button type="submit" disabled={busy}>{busy ? "Criando…" : "Criar link"}</Button>
-        <Button type="button" variant="ghost" onClick={onCancel}>Voltar</Button>
+        <Button type="button" variant="ghost" onClick={onCancel}>{bare ? "Cancelar" : "Voltar"}</Button>
       </div>
     </form>
   )

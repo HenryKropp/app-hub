@@ -8,7 +8,10 @@ import { ALL_CAN, VIEW_ONLY, bia, henry } from "@/test/fixtures"
 import { ARTIFACT_SANDBOX, ArtifactPage, LINK_SANDBOX } from "./ArtifactPage"
 
 vi.mock("@/components/ficha/AccessSection", () => ({ AccessSection: () => <p>Acesso de teste</p> }))
-vi.mock("@/components/ExternalLinks", () => ({ ArtifactLinksSection: ({ currentVersion }: { currentVersion: number }) => <p>Links externos v{currentVersion}</p> }))
+vi.mock("@/components/ExternalLinks", () => ({
+  ArtifactLinksSection: ({ currentVersion }: { currentVersion: number }) => <p>Links externos v{currentVersion}</p>,
+  ShareArtifactButton: ({ currentVersion }: { currentVersion: number }) => <button type="button">Compartilhar v{currentVersion}</button>,
+}))
 
 const art = (over: Partial<ArtifactDetail> = {}): ArtifactDetail => ({
   id: 5, name: "Vendas", summary: "Por região", kind: "file", tags: ["vendas"], area_id: 1, area: "Comercial",
@@ -273,6 +276,7 @@ test("a file artifact shows the external links section with its current version"
   vi.spyOn(api, "artifact").mockResolvedValue(art())
   mount()
   expect(await screen.findByText("Links externos v2")).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "Compartilhar v2" })).toBeInTheDocument()
 })
 
 test("a link artifact has no external links section", async () => {
@@ -282,4 +286,5 @@ test("a link artifact has no external links section", async () => {
   mount()
   await screen.findAllByRole("link", { name: "Abrir" })
   expect(screen.queryByText(/Links externos/)).not.toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: /Compartilhar/ })).not.toBeInTheDocument()
 })

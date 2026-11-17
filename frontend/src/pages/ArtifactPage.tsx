@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react"
-import { ArtifactLinksSection } from "@/components/ExternalLinks"
+import { ArtifactLinksSection, ShareArtifactButton } from "@/components/ExternalLinks"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { ArrowLeft, Download, ExternalLink, Link2 } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -109,6 +109,7 @@ export function ArtifactPage() {
         <div className="flex shrink-0 gap-2">
           {isFile ? (
             <>
+              <ShareArtifactButton artifactId={art.id} currentVersion={art.current} />
               <a href={artifactContentUrl(art.id)} target="_blank" rel="noopener noreferrer" className={outline}>
                 <ExternalLink className="size-4" />
                 Abrir em tela cheia

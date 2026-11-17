@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 import { afterEach, expect, test, vi } from "vitest"
 import { api, type ExternalLink } from "@/lib/api"
-import { ArtifactLinksSection, CompanyLinksPanel } from "./ExternalLinks"
+import { ArtifactLinksSection, CompanyLinksPanel, ShareArtifactButton } from "./ExternalLinks"
 
 afterEach(() => vi.restoreAllMocks())
 
@@ -89,4 +89,39 @@ test("Admin mostra links da empresa com o nome do artifact", async () => {
   expect(a).toHaveAttribute("href", "/artifacts/5")
   expect(screen.getByText("cli@fora.com")).toBeInTheDocument()
   expect(screen.getByText(/2 aberturas/)).toBeInTheDocument()
+})
+
+test("Compartilhar abre a janela, cria o link e mostra Copiar ali mesmo", async () => {
+  vi.spyOn(api, "artifactLinks").mockResolvedValue({ email_available: false, can_share: true, links: [] })
+  const create = vi.spyOn(api, "createArtifactLink").mockResolvedValue(link())
+  render(<MemoryRouter><ShareArtifactButton artifactId={5} currentVersion={2} /></MemoryRouter>)
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole("button", { name: "Compartilhar" }))
+  const dialog = await screen.findByRole("dialog", { name: "Compartilhar fora da empresa" })
+  expect(dialog).toHaveTextContent("Qualquer pessoa com este link consegue abrir.")
+  await user.click(screen.getByRole("button", { name: "Criar link" }))
+  expect(create).toHaveBeenCalledWith(5, { kind: "open", email: "", content: "latest", version: 2, expires_days: 30 })
+  expect(await screen.findByText("https://link.ziv.test/piloto/abc")).toBeInTheDocument()
+  expect(screen.getByRole("button", { name: "Copiar link" })).toBeInTheDocument()
+})
+
+test("Compartilhar não aparece sem can_share", async () => {
+  vi.spyOn(api, "artifactLinks").mockResolvedValue({ email_available: false, can_share: false, links: [] })
+  render(<MemoryRouter><ShareArtifactButton artifactId={5} currentVersion={2} /></MemoryRouter>)
+  await waitFor(() => expect(api.artifactLinks).toHaveBeenCalled())
+  expect(screen.queryByRole("button", { name: "Compartilhar" })).not.toBeInTheDocument()
+})
+
+test("link criado pela janela aparece na lista da página", async () => {
+  vi.spyOn(api, "artifactLinks")
+    .mockResolvedValueOnce({ email_available: false, can_share: true, links: [] })
+    .mockResolvedValueOnce({ email_available: false, can_share: true, links: [] })
+    .mockResolvedValue({ email_available: false, can_share: true, links: [link({ id: 9, url: "https://link.ziv.test/piloto/novo" })] })
+  vi.spyOn(api, "createArtifactLink").mockResolvedValue(link({ id: 9, url: "https://link.ziv.test/piloto/novo" }))
+  render(<MemoryRouter><ShareArtifactButton artifactId={5} currentVersion={2} /><ArtifactLinksSection artifactId={5} currentVersion={2} /></MemoryRouter>)
+  const user = userEvent.setup()
+  await user.click(await screen.findByRole("button", { name: "Compartilhar" }))
+  await user.click(await screen.findByRole("button", { name: "Criar link" }))
+  await user.click(await screen.findByRole("button", { name: "Pronto" }))
+  await waitFor(() => expect(screen.getAllByText("https://link.ziv.test/piloto/novo")).toHaveLength(1))
 })
