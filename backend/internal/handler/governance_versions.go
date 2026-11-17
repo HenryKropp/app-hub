@@ -185,7 +185,7 @@ func (h *Handler) holdDraft(ctx context.Context, a sqlc.App, d sqlc.AppDraft, te
 	if err != nil || !need.Required || !ever {
 		return false, "", err
 	}
-	if err := h.q.SetDraftWaiting(ctx, d.ID); err != nil {
+	if err := h.q.SetDraftWaiting(ctx, sqlc.SetDraftWaitingParams{ID: d.ID}); err != nil {
 		return false, "", err
 	}
 	out, err := h.openRequest(ctx, requestIn{Kind: "app", AppID: a.ID, AreaID: a.AreaID, Reason: governance.ReasonVersion,
@@ -196,6 +196,12 @@ func (h *Handler) holdDraft(ctx context.Context, a sqlc.App, d sqlc.AppDraft, te
 	if out.Applied {
 		// The requester could decide every step: it is already live.
 		return false, "", nil
+	}
+	if out.Waiting != "" {
+		// Claude's ver_versao reads why it waits from here.
+		if err := h.q.SetDraftWaiting(ctx, sqlc.SetDraftWaitingParams{ID: d.ID, StatusReason: out.Waiting}); err != nil {
+			return true, out.Waiting, err
+		}
 	}
 	return true, out.Waiting, nil
 }
@@ -285,7 +291,7 @@ func (h *Handler) holdSources(w http.ResponseWriter, r *http.Request, a sqlc.App
 		internalError(w, "insert draft", err)
 		return
 	}
-	if err := h.q.SetDraftWaiting(ctx, d.ID); err != nil {
+	if err := h.q.SetDraftWaiting(ctx, sqlc.SetDraftWaitingParams{ID: d.ID}); err != nil {
 		internalError(w, "draft waiting", err)
 		return
 	}
@@ -294,6 +300,12 @@ func (h *Handler) holdSources(w http.ResponseWriter, r *http.Request, a sqlc.App
 	if err != nil {
 		internalError(w, "open request", err)
 		return
+	}
+	if out.Waiting != "" {
+		if err := h.q.SetDraftWaiting(ctx, sqlc.SetDraftWaitingParams{ID: d.ID, StatusReason: out.Waiting}); err != nil {
+			internalError(w, "draft waiting", err)
+			return
+		}
 	}
 	latest, _ := h.q.LatestAppVersion(ctx, a.ID)
 	saved, _ := h.q.GetApp(ctx, a.ID)

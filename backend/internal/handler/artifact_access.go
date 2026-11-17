@@ -66,7 +66,7 @@ func (h *Handler) getArtifactAccess(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) setArtifactAccess(w http.ResponseWriter, r *http.Request) {
-	a, _, _, can, ok := h.artifactFor(w, r)
+	a, me, _, can, ok := h.artifactFor(w, r)
 	if !ok {
 		return
 	}
@@ -95,7 +95,12 @@ func (h *Handler) setArtifactAccess(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	err := h.q.InTx(ctx, func(q *sqlc.Queries) error {
+	before, err := h.artifactAccessOf(ctx, a.ID)
+	if err != nil {
+		internalError(w, "artifact access", err)
+		return
+	}
+	err = h.q.InTx(ctx, func(q *sqlc.Queries) error {
 		if err := q.SetArtifactRestricted(ctx, sqlc.SetArtifactRestrictedParams{ID: a.ID, Restricted: b.Restricted}); err != nil {
 			return err
 		}
@@ -117,6 +122,9 @@ func (h *Handler) setArtifactAccess(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internalError(w, "set artifact access", err)
 		return
+	}
+	if after, err := h.artifactAccessOf(ctx, a.ID); err == nil {
+		h.logAudience(ctx, "artifact", a.ID, me.ID, audienceOf(before.Restricted, before.Areas, before.People), audienceOf(after.Restricted, after.Areas, after.People))
 	}
 	h.writeArtifactAccess(w, r, a.ID)
 }

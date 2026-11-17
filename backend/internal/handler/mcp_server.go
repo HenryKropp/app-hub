@@ -30,7 +30,8 @@ Regras:
 2. Para registrar ou atualizar um app a partir de uma pasta, chame formato_do_app e siga o protocolo.
 3. Antes de mexer num app, chame problemas com o app_id e conte à pessoa o que achar. Depois de publicar ou rodar, confira o resultado sozinho.
 4. Se algo falhou, leia o log antes de mandar outra versão.
-5. Fale com a pessoa nas palavras do Ziv (app, app com tela, artifact, execução, cofre, agenda, ficha), sem termos técnicos, e termine com o link. Quando a resposta de uma ferramenta trouxer mensagem_para_pessoa, use essa frase.`
+5. Fale com a pessoa nas palavras do Ziv (app, app com tela, artifact, execução, cofre, agenda, ficha), sem termos técnicos, e termine com o link. Quando a resposta de uma ferramenta trouxer mensagem_para_pessoa, use essa frase.
+6. Se a situacao for "esperando_aprovacao", diga à pessoa quem precisa aprovar, com as palavras de mensagem; não reenvie para tentar passar na frente.`
 
 // mcpPersonFrom is the person a tool call acts for (0 outside MCP).
 func mcpPersonFrom(ctx context.Context) int64 {

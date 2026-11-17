@@ -34,3 +34,7 @@ Use este guia para o HTML ficar com a cara do Ziv e funcionar dentro dele.
 ## Depois de pronto
 
 Publique com a ferramenta publicar_artifact. Para mudar um artifact que já existe, mande o artifact_id dele: o Ziv guarda uma versão nova.
+
+## Aprovação
+
+A empresa pode pedir aprovação antes de algo ir ao ar. Quando a resposta vier com situacao "esperando_aprovacao", diga à pessoa, com as palavras de mensagem, quem precisa aprovar (por exemplo "Aguardando o líder de Research."). Enquanto isso, quem abre continua vendo a versão aprovada. Não tente mandar de novo para "furar a fila": cada envio novo substitui o pedido. Se vier "Recusado por …", conte o motivo e pergunte o que a pessoa quer mudar.

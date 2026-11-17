@@ -11,6 +11,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addITStepToOpen = `-- name: AddITStepToOpen :exec
+INSERT INTO approval_steps (request_id, step)
+SELECT id, 'it' FROM approval_requests WHERE status = 'open'
+ON CONFLICT DO NOTHING
+`
+
+func (q *Queries) AddITStepToOpen(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, addITStepToOpen)
+	return err
+}
+
 const addMissingITStep = `-- name: AddMissingITStep :exec
 INSERT INTO approval_steps (request_id, step)
 SELECT r.id, 'it' FROM approval_requests r WHERE r.status = 'open' AND r.reason <> 'area'
@@ -1064,11 +1075,16 @@ func (q *Queries) SetArtifactVersionRule(ctx context.Context, arg SetArtifactVer
 }
 
 const setDraftWaiting = `-- name: SetDraftWaiting :exec
-UPDATE app_drafts SET status = 'aguardando', stage = '', status_reason = '', updated_at = clock_timestamp() WHERE id = $1
+UPDATE app_drafts SET status = 'aguardando', stage = '', status_reason = $2, updated_at = clock_timestamp() WHERE id = $1
 `
 
-func (q *Queries) SetDraftWaiting(ctx context.Context, id int64) error {
-	_, err := q.db.Exec(ctx, setDraftWaiting, id)
+type SetDraftWaitingParams struct {
+	ID           int64  `json:"id"`
+	StatusReason string `json:"status_reason"`
+}
+
+func (q *Queries) SetDraftWaiting(ctx context.Context, arg SetDraftWaitingParams) error {
+	_, err := q.db.Exec(ctx, setDraftWaiting, arg.ID, arg.StatusReason)
 	return err
 }
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -872,5 +873,130 @@ func TestNoExternalLinkBeforeApproval(t *testing.T) {
 	}
 	if code := ana.do("POST", linksPath(id), openLinkBody(), &e); code != http.StatusConflict || e.Error != "Este artifact ainda espera aprovação." {
 		t.Fatalf("link %d %q", code, e.Error)
+	}
+}
+
+// --- Task 8: configurações, histórico e respostas do MCP ---
+
+type govSettingsJSON struct {
+	ITApproval    bool   `json:"it_approval"`
+	VersionRule   string `json:"version_rule"`
+	CodeChannel   string `json:"code_channel"`
+	MCPRestricted bool   `json:"mcp_restricted"`
+}
+
+func TestSettingsOnlyAdmin(t *testing.T) {
+	_, admin, ana, _, _ := govTeam(t)
+	if code := ana.do("GET", "/api/governance/settings", nil, nil); code != http.StatusForbidden {
+		t.Fatalf("member get %d", code)
+	}
+	want := govSettingsJSON{ITApproval: true, VersionRule: "every", CodeChannel: "mcp", MCPRestricted: true}
+	if code := ana.do("PUT", "/api/governance/settings", want, nil); code != http.StatusForbidden {
+		t.Fatalf("member put %d", code)
+	}
+	if code := admin.do("PUT", "/api/governance/settings", govSettingsJSON{VersionRule: "sempre", CodeChannel: "any"}, nil); code != http.StatusBadRequest {
+		t.Fatalf("bad rule %d", code)
+	}
+	if code := admin.do("PUT", "/api/governance/settings", want, nil); code != http.StatusOK {
+		t.Fatalf("put %d", code)
+	}
+	var got govSettingsJSON
+	if code := admin.do("GET", "/api/governance/settings", nil, &got); code != http.StatusOK || got != want {
+		t.Fatalf("get %d %+v", code, got)
+	}
+	var n int
+	testPool.QueryRow(context.Background(), "SELECT count(*) FROM governance_events WHERE kind = 'settings'").Scan(&n)
+	if n != 1 {
+		t.Fatalf("settings events %d", n)
+	}
+}
+
+func TestTurningITOnAddsStepToOpen(t *testing.T) {
+	_, admin, ana, _, leo := govTeam(t)
+	importFiles(t, ana, map[string]string{"main.py": "print(1)"})
+	put := govSettingsJSON{ITApproval: true, VersionRule: "risk", CodeChannel: "any"}
+	if code := admin.do("PUT", "/api/governance/settings", put, nil); code != http.StatusOK {
+		t.Fatalf("put %d", code)
+	}
+	list := approvals(t, leo)
+	if len(list) != 1 || len(list[0].Steps) != 2 || list[0].Steps[1].Step != "it" {
+		t.Fatalf("steps %+v", list)
+	}
+}
+
+func TestAudienceChangeRecorded(t *testing.T) {
+	_, _, _, leo, id := approvedScript(t, "risk")
+	if code := leo.do("PUT", appPath(id, "/access"), map[string]any{"restricted": false, "area_ids": []int64{}, "person_ids": []int64{}}, nil); code != http.StatusOK {
+		t.Fatalf("access %d", code)
+	}
+	var detail []byte
+	if err := testPool.QueryRow(context.Background(), "SELECT detail FROM governance_events WHERE kind = 'audience' AND app_id = $1 ORDER BY id DESC LIMIT 1", id).Scan(&detail); err != nil {
+		t.Fatal(err)
+	}
+	var d struct {
+		Before struct {
+			Restricted bool `json:"restricted"`
+		} `json:"before"`
+		After struct {
+			Restricted bool `json:"restricted"`
+		} `json:"after"`
+	}
+	if err := json.Unmarshal(detail, &d); err != nil || !d.Before.Restricted || d.After.Restricted {
+		t.Fatalf("detail %s %v", detail, err)
+	}
+}
+
+func TestHistoryAnswersWhoApproved(t *testing.T) {
+	_, admin, _, leo, id := approvedScript(t, "risk")
+	type entry struct {
+		Type    string `json:"type"`
+		Request *struct {
+			Status string `json:"status"`
+			Steps  []struct {
+				Step      string     `json:"step"`
+				Decision  string     `json:"decision"`
+				DecidedBy string     `json:"decided_by"`
+				DecidedAt *time.Time `json:"decided_at"`
+			} `json:"steps"`
+		} `json:"request"`
+		Event *struct {
+			Kind  string `json:"kind"`
+			Actor string `json:"actor"`
+		} `json:"event"`
+	}
+	if code := leo.do("GET", "/api/governance/history", nil, nil); code != http.StatusForbidden {
+		t.Fatalf("leader history %d", code)
+	}
+	for _, path := range []string{"/api/governance/history?item=app:" + itoa(id), "/api/governance/history"} {
+		var out []entry
+		if code := admin.do("GET", path, nil, &out); code != http.StatusOK {
+			t.Fatalf("%s %d", path, code)
+		}
+		found := false
+		for _, e := range out {
+			if e.Type == "request" && e.Request.Status == "approved" && len(e.Request.Steps) == 1 &&
+				e.Request.Steps[0].DecidedBy == "Leo" && e.Request.Steps[0].DecidedAt != nil {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("%s: no approved request by Leo in %+v", path, out)
+		}
+	}
+}
+
+func TestMCPRegistrarSaysWaitingLeader(t *testing.T) {
+	h, _, ana, _, _ := govTeam(t)
+	withShared(t, h)
+	s := toolSession(t, ana)
+	m := scriptManifesto()
+	m["kind"], m["entrypoint"], m["name"] = "web", "app.py", "Painel"
+	envio := sendEnvio(t, h, s, map[string]string{"app.py": "import streamlit as st\nst.write('oi')\n", "requirements.txt": "streamlit\n"})
+	res, text, out := registrar(t, s, map[string]any{"envio": envio, "manifesto": m})
+	if res.IsError {
+		t.Fatalf("registrar: %s", text)
+	}
+	if out["situacao"] != "esperando_aprovacao" || out["mensagem"] != "Aguardando o líder de Research." || !strings.Contains(text, "Aguardando o líder de Research.") {
+		t.Fatalf("%q %+v", text, out)
 	}
 }

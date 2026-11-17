@@ -385,11 +385,7 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 	}
 	waiting := ans.BlockedReason != ""
 	if waiting {
-		if strings.Contains(strings.ToLower(ans.BlockedReason), "aprova") {
-			b.WriteString("\nEstá esperando a aprovação de um administrador; só depois dá para rodar.")
-		} else {
-			b.WriteString("\n" + ans.BlockedReason)
-		}
+		b.WriteString("\n" + ans.BlockedReason)
 	}
 	if web && (in.AppID == 0 || mudou) {
 		fmt.Fprintf(&b, "\nAgora chame publicar_app_com_tela com app_id %d.", ans.ID)
@@ -414,16 +410,20 @@ func (h *Handler) toolRegistrarApp(ctx context.Context, _ *mcp.CallToolRequest, 
 	if a, err := h.q.GetApp(ctx, ans.ID); err == nil {
 		pessoa = msgPessoaApp(manifestOf(a), int32(ans.Version), in.AppID == 0, mudou, web, link)
 		if waiting {
-			pessoa += " Antes de rodar, ele espera a aprovação de um administrador."
+			pessoa += " Antes de rodar: " + ans.BlockedReason
 		}
 		if len(missing) > 0 {
 			pessoa += fmt.Sprintf(" Falta guardar no cofre do app: %s (%s).", strings.Join(missing, ", "), h.mcpLink("/apps/%d#chaves", ans.ID))
 		}
 	}
+	situacao := "registrado"
+	if waiting {
+		situacao = "esperando_aprovacao"
+	}
 	return toolOK(b.String(), map[string]any{
 		"app_id": ans.ID, "versao": ans.Version, "mudou": mudou, "link": link,
-		"esperando_aprovacao": waiting, "deixados_de_fora": dropped, "chaves_faltando": missing,
-		"mensagem_para_pessoa": pessoa,
+		"esperando_aprovacao": waiting, "situacao": situacao, "mensagem": ans.BlockedReason,
+		"deixados_de_fora": dropped, "chaves_faltando": missing, "mensagem_para_pessoa": pessoa,
 	})
 }
 

@@ -886,8 +886,18 @@ func (h *Handler) toolPublicarArtifact(ctx context.Context, _ *mcp.CallToolReque
 		return toolFail(msg)
 	}
 	link := h.mcpLink("/artifacts/%d", d.ID)
+	newest := d.Current
+	if len(d.Versions) > 0 {
+		newest = d.Versions[0].Number
+	}
+	if waiting := h.artifactWaiting(ctx, d.ID); waiting != "" {
+		// The newest version is held for approval (ADR 046).
+		text := fmt.Sprintf("Mandei a versão %d do artifact %q. %s Quem abre continua vendo a versão aprovada até lá.\nLink: %s", newest, d.Name, waiting, link)
+		return toolOK(text, map[string]any{"artifact_id": d.ID, "versao": newest, "link": link, "situacao": "esperando_aprovacao", "mensagem": waiting,
+			"mensagem_para_pessoa": fmt.Sprintf("Mandei o artifact %q para o Ziv. %s Link: %s", d.Name, waiting, link)})
+	}
 	text := fmt.Sprintf("Publiquei o artifact %q, versão %d.\nLink: %s", d.Name, d.Current, link)
-	return toolOK(text, map[string]any{"artifact_id": d.ID, "versao": d.Current, "link": link,
+	return toolOK(text, map[string]any{"artifact_id": d.ID, "versao": d.Current, "link": link, "situacao": "no_ar",
 		"mensagem_para_pessoa": msgPessoaArtifact(d.Name, int32(d.Current), link)})
 }
 

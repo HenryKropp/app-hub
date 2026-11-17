@@ -20,7 +20,7 @@ import (
 // marks, the same settings (filled only on the site) and the same approval.
 
 const (
-	msgTelaAprovacao  = "Esperando a aprovação de um administrador; publico depois que aprovarem."
+	msgTelaAprovacao  = "Publico depois que aprovarem."
 	msgTelaPublicando = "Ainda publicando; chame de novo com esperar 30."
 	// msgTelaLerLog: after a failure, read the log before sending anything again.
 	msgTelaLerLog       = "Antes de mandar outra versão, leia o log acima e corrija a causa no código. Não publique de novo sem mudar nada: o resultado seria o mesmo."
@@ -39,7 +39,8 @@ type publicarTelaIn struct {
 
 type telaOut struct {
 	AppID    int64    `json:"app_id"`
-	Situacao string   `json:"situacao"` // no_ar, erro, publicando, faltam_chaves, pendencias, esperando_aprovacao
+	Situacao string   `json:"situacao"`           // no_ar, erro, publicando, faltam_chaves, pendencias, esperando_aprovacao
+	Mensagem string   `json:"mensagem,omitempty"` // why it waits for approval (ADR 046)
 	Endereco string   `json:"endereco"`
 	Faltam   []string `json:"faltam"`
 	Avisos   []string `json:"avisos"`
@@ -184,9 +185,10 @@ func (h *Handler) toolPublicarTela(ctx context.Context, _ *mcp.CallToolRequest, 
 			return toolFail(busyMsg)
 		}
 		dep = *b
-	case status == http.StatusForbidden && strings.Contains(strings.ToLower(msg), "aprova"):
+	case status == http.StatusForbidden && (strings.Contains(strings.ToLower(msg), "aprova") || strings.HasPrefix(msg, "Aguardando") || strings.HasPrefix(msg, "Recusado")):
 		out.Situacao = "esperando_aprovacao"
-		return toolFailWith(msgTelaAprovacao, out)
+		out.Mensagem = msg
+		return toolFailWith(msg+" "+msgTelaAprovacao, out)
 	default:
 		return toolFail(sharedFailure(status, raw, msg))
 	}

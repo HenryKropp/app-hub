@@ -195,7 +195,7 @@ func (h *Handler) updateSecuritySettings(w http.ResponseWriter, r *http.Request)
 		writeError(w, 400, "A retenção deve ser de 1 a 365 dias.")
 		return
 	}
-	_, err := h.q.SecurityDB().Exec(r.Context(), `WITH settings AS (UPDATE security_settings SET retention_days=$1,require_app_approval=$2,block_embedded_secrets=$3,local_execution_enabled=$4 WHERE id=TRUE RETURNING id), cancelled AS (UPDATE agent_jobs SET status='failed',payload=payload-'script',done_at=now() WHERE NOT $4 AND kind='run' AND status='pending' RETURNING run_id) UPDATE runs SET status='interrupted',finished_at=now(),error_message='Execuções locais desativadas pela empresa.' WHERE id IN(SELECT run_id FROM cancelled)`, s.RetentionDays, s.RequireApproval, s.BlockSecrets, s.LocalExecution)
+	_, err := h.q.SecurityDB().Exec(r.Context(), `WITH settings AS (UPDATE security_settings SET retention_days=$1,block_embedded_secrets=$2,local_execution_enabled=$3 WHERE id=TRUE RETURNING id), cancelled AS (UPDATE agent_jobs SET status='failed',payload=payload-'script',done_at=now() WHERE NOT $3 AND kind='run' AND status='pending' RETURNING run_id) UPDATE runs SET status='interrupted',finished_at=now(),error_message='Execuções locais desativadas pela empresa.' WHERE id IN(SELECT run_id FROM cancelled)`, s.RetentionDays, s.BlockSecrets, s.LocalExecution) // approvals moved to /api/governance/settings (ADR 046)
 	if err != nil {
 		internalError(w, "update security settings", err)
 		return

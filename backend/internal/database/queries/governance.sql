@@ -144,7 +144,7 @@ SELECT app_id FROM app_governance WHERE NOT ever_approved;
 SELECT id FROM artifacts WHERE NOT ever_approved;
 
 -- name: SetDraftWaiting :exec
-UPDATE app_drafts SET status = 'aguardando', stage = '', status_reason = '', updated_at = clock_timestamp() WHERE id = $1;
+UPDATE app_drafts SET status = 'aguardando', stage = '', status_reason = $2, updated_at = clock_timestamp() WHERE id = $1;
 
 -- name: SetRequestAppVersion :exec
 UPDATE approval_requests SET app_version = $2 WHERE id = $1;
@@ -157,3 +157,8 @@ UPDATE apps SET area = $2, area_id = $3, manifest = $4, updated_at = clock_times
 
 -- name: ArtifactHasActiveLink :one
 SELECT EXISTS (SELECT 1 FROM external_links WHERE artifact_id = $1 AND cancelled_at IS NULL AND expires_at > now());
+
+-- name: AddITStepToOpen :exec
+INSERT INTO approval_steps (request_id, step)
+SELECT id, 'it' FROM approval_requests WHERE status = 'open'
+ON CONFLICT DO NOTHING;

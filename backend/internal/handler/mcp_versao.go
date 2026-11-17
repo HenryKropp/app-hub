@@ -68,6 +68,8 @@ func draftSituacao(d draftAnswer) string {
 		return "no ar"
 	case "cancelada":
 		return "cancelada"
+	case "aguardando":
+		return "esperando_aprovacao"
 	}
 	return d.Status
 }

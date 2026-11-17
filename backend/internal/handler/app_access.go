@@ -88,7 +88,7 @@ func (h *Handler) getAppAccess(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) setAppAccess(w http.ResponseWriter, r *http.Request) {
-	a, _, _, can, ok := h.appFor(w, r)
+	a, me, _, can, ok := h.appFor(w, r)
 	if !ok {
 		return
 	}
@@ -117,7 +117,12 @@ func (h *Handler) setAppAccess(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	err := h.q.InTx(ctx, func(q *sqlc.Queries) error {
+	before, err := h.accessOf(ctx, a.ID, a.AreaID)
+	if err != nil {
+		internalError(w, "app access", err)
+		return
+	}
+	err = h.q.InTx(ctx, func(q *sqlc.Queries) error {
 		if err := q.SetAppRestricted(ctx, sqlc.SetAppRestrictedParams{ID: a.ID, Restricted: b.Restricted}); err != nil {
 			return err
 		}
@@ -145,6 +150,7 @@ func (h *Handler) setAppAccess(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "app access", err)
 		return
 	}
+	h.logAudience(ctx, "app", a.ID, me.ID, audienceOf(before.Restricted, before.Areas, before.People), audienceOf(out.Restricted, out.Areas, out.People))
 	writeJSON(w, http.StatusOK, out)
 }
 
