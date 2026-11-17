@@ -9,14 +9,14 @@ import (
 )
 
 func TestConfigHidesSecrets(t *testing.T) {
-	c := Config{Port: "9", SecretKey: "topsecretkey", AppsDBAdminURL: "postgres://admin:dbpass123@db:5432/x",
+	c := Config{Port: "9", SecretKey: "topsecretkey", ResendAPIKey: "re_supersecret", AppsDBAdminURL: "postgres://admin:dbpass123@db:5432/x",
 		DatabaseURL: "postgres://hub:hubpass456@db:5432/hub"}
 	var buf bytes.Buffer
 	slog.New(slog.NewTextHandler(&buf, nil)).Info("cfg", "c", c)
 	slog.New(slog.NewJSONHandler(&buf, nil)).Info("cfg", "c", c)
 	outs := []string{fmt.Sprint(c), fmt.Sprintf("%v %+v %#v %s", c, c, c, c), fmt.Sprintf("%v %+v", &c, &c), buf.String()}
 	for _, out := range outs {
-		for _, secret := range []string{"topsecretkey", "dbpass123", "hubpass456"} {
+		for _, secret := range []string{"topsecretkey", "dbpass123", "hubpass456", "re_supersecret"} {
 			if strings.Contains(out, secret) {
 				t.Fatalf("secret %q shown in %q", secret, out)
 			}

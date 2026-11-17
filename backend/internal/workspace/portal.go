@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/HenryKropp/app-hub/backend/internal/mail"
 	"log/slog"
 	"net/http"
 	"os"
@@ -170,6 +171,7 @@ func (p *Portal) attach(e *entry) {
 	}
 	h := handler.New(sqlc.New(e.pool), cfg)
 	h.SetCredentialKeys(p.credentialKeys)
+	h.SetMail(mail.FromConfig(cfg.ResendAPIKey, cfg.MailFrom, cfg.DevMode))
 	opts := handler.WorkspaceOptions{Slug: e.slug, Name: e.name, BasePath: base, Create: p.create, FindLogins: p.findLogins}
 	slug := e.slug
 	opts.SharedEnabled = func(ctx context.Context) bool { return p.SharedEnabled(ctx, slug) }

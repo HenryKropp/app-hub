@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/HenryKropp/app-hub/backend/internal/mail"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -62,6 +63,8 @@ type Handler struct {
 	// Shared apps (deploy service, supervisor, gateway codes); zero = off.
 	shared         Shared
 	credentialKeys *vault.Keyring
+	// mail sends the external link codes; nil = e-mail is off (ADR 045).
+	mail mail.Sender
 
 	// Says whether a link artifact's site allows being shown in a frame;
 	// tests replace it to stay off the network.
@@ -72,6 +75,8 @@ type Handler struct {
 }
 
 func (h *Handler) SetCredentialKeys(k *vault.Keyring) { h.credentialKeys = k }
+
+func (h *Handler) SetMail(m mail.Sender) { h.mail = m }
 
 func New(q *sqlc.Queries, cfg config.Config) *Handler {
 	return &Handler{
@@ -104,6 +109,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	h.registerCredentials(mux)
 	h.registerKeys(mux)
 	h.registerSettings(mux)
+	h.registerExternalLinks(mux)
 
 	mux.HandleFunc("GET /api/auth/status", h.authStatus)
 	mux.HandleFunc("POST /api/auth/setup", h.setup)

@@ -18,6 +18,10 @@ type Config struct {
 	DevMode     bool
 	SetupCode   string // SETUP_CODE: code for the principal's first access
 
+	// E-mail of external link codes (ADR 045); both empty = e-mail off.
+	ResendAPIKey string // RESEND_API_KEY
+	MailFrom     string // MAIL_FROM, ex.: "Ziv <codigo@ziv.app.br>"
+
 	AgentBinaryPath string
 
 	SecretKey       string // HUB_SECRET_KEY
@@ -65,11 +69,13 @@ func envOr(name, def string) string {
 
 func Load() (Config, error) {
 	cfg := Config{
-		Port:        os.Getenv("PORT"),
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		BaseURL:     os.Getenv("BASE_URL"),
-		DevMode:     os.Getenv("DEV_MODE") != "",
-		SetupCode:   os.Getenv("SETUP_CODE"),
+		Port:         os.Getenv("PORT"),
+		DatabaseURL:  os.Getenv("DATABASE_URL"),
+		BaseURL:      os.Getenv("BASE_URL"),
+		DevMode:      os.Getenv("DEV_MODE") != "",
+		ResendAPIKey: os.Getenv("RESEND_API_KEY"),
+		MailFrom:     os.Getenv("MAIL_FROM"),
+		SetupCode:    os.Getenv("SETUP_CODE"),
 
 		AgentBinaryPath: os.Getenv("AGENT_BINARY_PATH"),
 	}
@@ -121,6 +127,7 @@ func (c Config) redacted() map[string]any {
 	return map[string]any{
 		"Port": c.Port, "DatabaseURL": hideURLPassword(c.DatabaseURL), "BaseURL": c.BaseURL, "DevMode": c.DevMode,
 		"AgentBinaryPath": c.AgentBinaryPath, "SecretKey": hide(c.SecretKey),
+		"ResendAPIKey": hide(c.ResendAPIKey), "MailFrom": c.MailFrom,
 		"AppsDBAdminURL": hideURLPassword(c.AppsDBAdminURL), "AppsDBHost": c.AppsDBHost,
 		"AppsDBContainer": c.AppsDBContainer, "SharedDomain": c.SharedDomain,
 		"SharedDataDir": c.SharedDataDir, "ContainerEngine": c.ContainerEngine,
