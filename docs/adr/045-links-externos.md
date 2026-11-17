@@ -39,9 +39,14 @@ Outputs de apps ficam para o Projeto 2.
   o host. `Referrer-Policy: same-origin`: o token nunca vai para outro site.
   Com `no-referrer`, o Chrome manda `Origin: null` no próprio formulário: o
   teste no navegador de verdade pegou isso e o pedido de código era recusado.
-- **Limite de pedidos de código:** 5 por link e 20 por endereço de rede a cada
-  15 minutos. Atrás do Caddy, o endereço visto é o do Caddy, então o limite por
-  endereço vale para todos juntos; o limite por link continua valendo.
+- **Limites do código.** Cada código aceita 5 tentativas, e a tentativa é
+  reservada no banco antes de comparar (`ReserveExternalLinkCodeTry`): uma
+  rajada de palpites ao mesmo tempo não ganha mais que 5 comparações (a
+  revisão final achou 37 em 40). Pedidos de código: 5 por link e 20 por
+  endereço a cada 15 minutos (na memória). E, no banco, para sobreviver a um
+  reinício: por link, 10 códigos e 20 tentativas em 24 h; por empresa, 200
+  códigos em 24 h (uma só conta de e-mail serve todas). O endereço é o que o
+  Caddy põe em `X-Real-IP`, aceito só quando o pedido vem do próprio servidor.
 - **E-mail pela Resend** (`RESEND_API_KEY`, `MAIL_FROM`). Sem chave, o código
   por e-mail aparece como "Disponível em breve" e só o link aberto é criado.
   Em `DEV_MODE`, o e-mail vai para o log. **Em produção fica desligado até a
@@ -49,7 +54,8 @@ Outputs de apps ficam para o Projeto 2.
 
 ## Consequences
 - Cancelar é imediato; não há como "reabrir" um link: cria-se outro.
-- O limite por endereço atrás do Caddy é fraco; ler `X-Forwarded-For` do Caddy
-  é um ajuste pequeno para quando o e-mail for ligado.
+- Com 20 tentativas por dia, um link de 1 ano aguenta no máximo ~7.300
+  palpites num espaço de 1 milhão: menos de 1% de chance para quem tem o link
+  vazado e não tem o e-mail.
 - Projeto 2 (outputs de apps: um output específico ou o mais recente) reusa as
   mesmas tabelas de regra, sessão e página.

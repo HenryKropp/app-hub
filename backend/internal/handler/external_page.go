@@ -30,8 +30,11 @@ var externalPage = template.Must(template.New("page").Parse(externalPageHTML))
 
 const (
 	linkCookie          = "ziv_link"
-	linkCodesPerLink    = 5  // code requests per link per window
-	linkCodesPerAddress = 20 // code requests per network address per window
+	linkCodesPerLink    = 5   // code requests per link per window
+	linkCodesPerAddress = 20  // code requests per network address per window
+	linkCodesPerDay     = 10  // codes one link may send in 24 hours
+	linkTriesPerDay     = 20  // code tries one link may take in 24 hours, across its codes
+	companyCodesPerDay  = 200 // codes one company may send in 24 hours
 	externalPageCSP     = "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; frame-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
 )
 
@@ -120,12 +123,32 @@ func sameSite(r *http.Request) bool {
 	return o != "null" && err == nil && strings.EqualFold(u.Host, r.Host)
 }
 
+// remoteHost is the visitor's address. Behind Caddy every request comes from
+// loopback, so there the address Caddy puts in X-Real-IP is used; from
+// anywhere else the header is ignored (anyone could send it).
 func remoteHost(r *http.Request) string {
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		return r.RemoteAddr
+		host = r.RemoteAddr
+	}
+	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+		if real := strings.TrimSpace(r.Header.Get("X-Real-IP")); net.ParseIP(real) != nil {
+			return real
+		}
 	}
 	return host
+}
+
+// linkCodeBudgetLeft keeps the daily budgets in the database, so a restart
+// does not reset them: per link, codes sent and tries taken; per company,
+// codes sent (one shared e-mail account serves every company).
+func (h *Handler) linkCodeBudgetLeft(r *http.Request, l sqlc.ExternalLink) bool {
+	use, err := h.q.ExternalLinkCodeUseToday(r.Context(), l.ID)
+	if err != nil || use.Codes >= linkCodesPerDay || use.Tries >= linkTriesPerDay {
+		return false
+	}
+	n, err := h.q.CountCompanyLinkCodesToday(r.Context())
+	return err == nil && n < companyCodesPerDay
 }
 
 // ServeExternal answers one request on the link address for this company.
@@ -229,7 +252,7 @@ func (h *Handler) sendLinkCode(w http.ResponseWriter, r *http.Request, l sqlc.Ex
 	now := time.Now()
 	perLink := !h.linkLimiter.allow(rateKey("link-code", l.Token), linkCodesPerLink, now)
 	perAddress := !h.linkLimiter.allow(rateKey("link-code-address", remoteHost(r)), linkCodesPerAddress, now)
-	if perLink || perAddress {
+	if perLink || perAddress || !h.linkCodeBudgetLeft(r, l) {
 		v.Mode = "limit"
 		renderExternal(w, http.StatusTooManyRequests, v)
 		return
@@ -266,26 +289,29 @@ func (h *Handler) confirmLinkCode(w http.ResponseWriter, r *http.Request, l sqlc
 	r.Body = http.MaxBytesReader(w, r.Body, 4096)
 	typed := strings.TrimSpace(r.PostFormValue("codigo"))
 	v.Mode = "code"
-	c, err := h.q.GetLatestExternalLinkCode(r.Context(), l.ID)
 	now := time.Now()
-	if err != nil || c.UsedAt.Valid || !now.Before(c.ExpiresAt.Time) || c.WrongTries >= extlink.MaxWrongTries {
+	dead := func() {
 		v.Error, v.CodeDead = "Este código não vale mais. Peça um código novo.", true
 		renderExternal(w, http.StatusBadRequest, v)
+	}
+	// The try is taken before comparing (ReserveExternalLinkCodeTry), so no
+	// burst of simultaneous guesses gets more than MaxWrongTries comparisons.
+	c, err := h.q.ReserveExternalLinkCodeTry(r.Context(), sqlc.ReserveExternalLinkCodeTryParams{LinkID: l.ID, MaxTries: extlink.MaxWrongTries})
+	if err != nil {
+		dead()
 		return
 	}
 	if subtle.ConstantTimeCompare([]byte(extlink.Hash(typed)), []byte(c.CodeHash)) != 1 {
-		tries, err := h.q.AddExternalLinkCodeWrongTry(r.Context(), c.ID)
-		if err != nil || tries >= extlink.MaxWrongTries {
-			v.Error, v.CodeDead = "Este código não vale mais. Peça um código novo.", true
-		} else {
-			v.Error = "Código errado. Confira e tente de novo."
+		if c.WrongTries >= extlink.MaxWrongTries {
+			dead()
+			return
 		}
+		v.Error = "Código errado. Confira e tente de novo."
 		renderExternal(w, http.StatusBadRequest, v)
 		return
 	}
 	if n, err := h.q.UseExternalLinkCode(r.Context(), c.ID); err != nil || n != 1 {
-		v.Error, v.CodeDead = "Este código não vale mais. Peça um código novo.", true
-		renderExternal(w, http.StatusBadRequest, v)
+		dead()
 		return
 	}
 	secret := extlink.NewToken()

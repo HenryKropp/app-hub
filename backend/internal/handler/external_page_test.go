@@ -10,8 +10,11 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/HenryKropp/app-hub/backend/internal/extlink"
 )
 
 // outside is a browser of someone outside the company, talking to the link
@@ -401,4 +404,85 @@ func TestSplitLinkPath(t *testing.T) {
 		}
 	}
 	_ = time.Now
+}
+
+// Final review C1: a burst of simultaneous guesses must not get more than
+// five comparisons out of one code.
+func TestConcurrentGuessesCappedAtFive(t *testing.T) {
+	_, ana, _, h, id := linksTeam(t)
+	fm := &fakeMail{}
+	h.mail = fm
+	linkID, path := makeLink(t, ana, id, emailLinkBody())
+	o := newOutside(t, h)
+	o.post(path+"/codigo", nil)
+	wrong := "000000"
+	if sixDigits.FindString(fm.sent[0].text) == wrong {
+		wrong = "111111"
+	}
+	var wg sync.WaitGroup
+	for range 40 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if resp, err := o.c.PostForm(o.srv.URL+path+"/confirmar", url.Values{"codigo": {wrong}}); err == nil {
+				resp.Body.Close()
+			}
+		}()
+	}
+	wg.Wait()
+	var tries int
+	if err := testPool.QueryRow(context.Background(), "SELECT wrong_tries FROM external_link_codes WHERE link_id=$1", linkID).Scan(&tries); err != nil {
+		t.Fatal(err)
+	}
+	if tries != extlink.MaxWrongTries {
+		t.Fatalf("wrong_tries after 40 simultaneous guesses = %d, want %d", tries, extlink.MaxWrongTries)
+	}
+}
+
+// Final review I1: a link has a daily budget of wrong guesses and of codes,
+// kept in the database (survives restarts), across all its codes.
+func TestLinkDailyGuessBudget(t *testing.T) {
+	_, ana, _, h, id := linksTeam(t)
+	h.mail = &fakeMail{}
+	linkID, path := makeLink(t, ana, id, emailLinkBody())
+	exec(t, "INSERT INTO external_link_codes (link_id, code_hash, expires_at, wrong_tries) SELECT $1, 'x', now(), 5 FROM generate_series(1, 4)", linkID)
+	if code, _, body := newOutside(t, h).post(path+"/codigo", nil); code != http.StatusTooManyRequests || !strings.Contains(body, "Muitas tentativas") {
+		t.Fatalf("after 20 wrong guesses today = %d", code)
+	}
+}
+
+func TestLinkDailyCodeBudget(t *testing.T) {
+	_, ana, _, h, id := linksTeam(t)
+	h.mail = &fakeMail{}
+	linkID, path := makeLink(t, ana, id, emailLinkBody())
+	exec(t, "INSERT INTO external_link_codes (link_id, code_hash, expires_at) SELECT $1, 'x', now() FROM generate_series(1, 10)", linkID)
+	if code, _, _ := newOutside(t, h).post(path+"/codigo", nil); code != http.StatusTooManyRequests {
+		t.Fatalf("after 10 codes today = %d", code)
+	}
+}
+
+// Final review I2: behind Caddy every request comes from loopback; the real
+// address is in X-Real-IP, trusted only from loopback.
+func TestRemoteHostBehindCaddy(t *testing.T) {
+	r := httptest.NewRequest("POST", "/", nil)
+	r.RemoteAddr = "127.0.0.1:5555"
+	r.Header.Set("X-Real-IP", "203.0.113.9")
+	if got := remoteHost(r); got != "203.0.113.9" {
+		t.Fatalf("from Caddy = %q", got)
+	}
+	r.RemoteAddr = "198.51.100.7:5555"
+	if got := remoteHost(r); got != "198.51.100.7" {
+		t.Fatalf("forged header from outside = %q", got)
+	}
+}
+
+func TestCompanyDailyCodeCeiling(t *testing.T) {
+	_, ana, _, h, id := linksTeam(t)
+	h.mail = &fakeMail{}
+	other, _ := makeLink(t, ana, id, emailLinkBody())
+	_, path := makeLink(t, ana, id, emailLinkBody())
+	exec(t, "INSERT INTO external_link_codes (link_id, code_hash, expires_at) SELECT $1, 'x', now() FROM generate_series(1, 200)", other)
+	if code, _, _ := newOutside(t, h).post(path+"/codigo", nil); code != http.StatusTooManyRequests {
+		t.Fatalf("after 200 codes today in the company = %d", code)
+	}
 }

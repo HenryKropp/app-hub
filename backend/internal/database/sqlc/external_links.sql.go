@@ -11,17 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const addExternalLinkCodeWrongTry = `-- name: AddExternalLinkCodeWrongTry :one
-UPDATE external_link_codes SET wrong_tries = wrong_tries + 1 WHERE id = $1 RETURNING wrong_tries
-`
-
-func (q *Queries) AddExternalLinkCodeWrongTry(ctx context.Context, id int64) (int32, error) {
-	row := q.db.QueryRow(ctx, addExternalLinkCodeWrongTry, id)
-	var wrong_tries int32
-	err := row.Scan(&wrong_tries)
-	return wrong_tries, err
-}
-
 const cancelExternalLink = `-- name: CancelExternalLink :execrows
 UPDATE external_links SET cancelled_at = now(), cancelled_by = $2 WHERE id = $1 AND cancelled_at IS NULL
 `
@@ -37,6 +26,17 @@ func (q *Queries) CancelExternalLink(ctx context.Context, arg CancelExternalLink
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const countCompanyLinkCodesToday = `-- name: CountCompanyLinkCodesToday :one
+SELECT count(*)::int FROM external_link_codes WHERE created_at > now() - interval '24 hours'
+`
+
+func (q *Queries) CountCompanyLinkCodesToday(ctx context.Context) (int32, error) {
+	row := q.db.QueryRow(ctx, countCompanyLinkCodesToday)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const createExternalLink = `-- name: CreateExternalLink :one
@@ -128,6 +128,24 @@ func (q *Queries) CreateExternalLinkSession(ctx context.Context, arg CreateExter
 	return err
 }
 
+const externalLinkCodeUseToday = `-- name: ExternalLinkCodeUseToday :one
+SELECT count(*)::int AS codes, COALESCE(sum(wrong_tries), 0)::int AS tries
+FROM external_link_codes WHERE link_id = $1 AND created_at > now() - interval '24 hours'
+`
+
+type ExternalLinkCodeUseTodayRow struct {
+	Codes int32 `json:"codes"`
+	Tries int32 `json:"tries"`
+}
+
+// What one link spent in the last 24 hours: codes sent and tries taken.
+func (q *Queries) ExternalLinkCodeUseToday(ctx context.Context, linkID int64) (ExternalLinkCodeUseTodayRow, error) {
+	row := q.db.QueryRow(ctx, externalLinkCodeUseToday, linkID)
+	var i ExternalLinkCodeUseTodayRow
+	err := row.Scan(&i.Codes, &i.Tries)
+	return i, err
+}
+
 const getArtifactVersionByID = `-- name: GetArtifactVersionByID :one
 SELECT id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at, embeddable FROM artifact_versions WHERE id = $1
 `
@@ -217,25 +235,6 @@ func (q *Queries) GetExternalLinkSession(ctx context.Context, arg GetExternalLin
 		&i.SecretHash,
 		&i.Email,
 		&i.ExpiresAt,
-	)
-	return i, err
-}
-
-const getLatestExternalLinkCode = `-- name: GetLatestExternalLinkCode :one
-SELECT id, link_id, code_hash, expires_at, wrong_tries, used_at, created_at FROM external_link_codes WHERE link_id = $1 ORDER BY id DESC LIMIT 1
-`
-
-func (q *Queries) GetLatestExternalLinkCode(ctx context.Context, linkID int64) (ExternalLinkCode, error) {
-	row := q.db.QueryRow(ctx, getLatestExternalLinkCode, linkID)
-	var i ExternalLinkCode
-	err := row.Scan(
-		&i.ID,
-		&i.LinkID,
-		&i.CodeHash,
-		&i.ExpiresAt,
-		&i.WrongTries,
-		&i.UsedAt,
-		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -386,8 +385,35 @@ func (q *Queries) RecordExternalLinkOpen(ctx context.Context, arg RecordExternal
 	return err
 }
 
+const reserveExternalLinkCodeTry = `-- name: ReserveExternalLinkCodeTry :one
+UPDATE external_link_codes SET wrong_tries = wrong_tries + 1
+WHERE id = (SELECT c.id FROM external_link_codes c WHERE c.link_id = $1 ORDER BY c.id DESC LIMIT 1)
+  AND used_at IS NULL AND expires_at > now() AND wrong_tries < $2::int
+RETURNING id, code_hash, wrong_tries
+`
+
+type ReserveExternalLinkCodeTryParams struct {
+	LinkID   int64 `json:"link_id"`
+	MaxTries int32 `json:"max_tries"`
+}
+
+type ReserveExternalLinkCodeTryRow struct {
+	ID         int64  `json:"id"`
+	CodeHash   string `json:"code_hash"`
+	WrongTries int32  `json:"wrong_tries"`
+}
+
+// Takes one of the code's tries before comparing, in one statement, so a burst
+// of simultaneous guesses can never compare more than max_tries times.
+func (q *Queries) ReserveExternalLinkCodeTry(ctx context.Context, arg ReserveExternalLinkCodeTryParams) (ReserveExternalLinkCodeTryRow, error) {
+	row := q.db.QueryRow(ctx, reserveExternalLinkCodeTry, arg.LinkID, arg.MaxTries)
+	var i ReserveExternalLinkCodeTryRow
+	err := row.Scan(&i.ID, &i.CodeHash, &i.WrongTries)
+	return i, err
+}
+
 const useExternalLinkCode = `-- name: UseExternalLinkCode :execrows
-UPDATE external_link_codes SET used_at = now() WHERE id = $1 AND used_at IS NULL
+UPDATE external_link_codes SET used_at = now() WHERE id = $1 AND used_at IS NULL AND expires_at > now()
 `
 
 func (q *Queries) UseExternalLinkCode(ctx context.Context, id int64) (int64, error) {

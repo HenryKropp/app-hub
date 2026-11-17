@@ -12,7 +12,10 @@
 
 zivapp.duckdns.org {
 	respond /__ziv/* 404
-	reverse_proxy localhost:8080
+	reverse_proxy localhost:8080 {
+		# O endereço real de quem pede (o Ziv só confia nele vindo daqui).
+		header_up X-Real-IP {remote_host}
+	}
 }
 
 # Apps com tela: app.zivapp.duckdns.org (principal) e
@@ -24,5 +27,8 @@ https:// {
 		on_demand
 	}
 	respond /__ziv/* 404
-	reverse_proxy localhost:8080
+	reverse_proxy localhost:8080 {
+		# O endereço real de quem pede (o Ziv só confia nele vindo daqui).
+		header_up X-Real-IP {remote_host}
+	}
 }

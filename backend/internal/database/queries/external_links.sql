@@ -35,14 +35,24 @@ UPDATE external_links SET cancelled_at = now(), cancelled_by = $2 WHERE id = $1 
 -- name: CreateExternalLinkCode :one
 INSERT INTO external_link_codes (link_id, code_hash, expires_at) VALUES ($1, $2, $3) RETURNING *;
 
--- name: GetLatestExternalLinkCode :one
-SELECT * FROM external_link_codes WHERE link_id = $1 ORDER BY id DESC LIMIT 1;
-
--- name: AddExternalLinkCodeWrongTry :one
-UPDATE external_link_codes SET wrong_tries = wrong_tries + 1 WHERE id = $1 RETURNING wrong_tries;
+-- name: ReserveExternalLinkCodeTry :one
+-- Takes one of the code's tries before comparing, in one statement, so a burst
+-- of simultaneous guesses can never compare more than max_tries times.
+UPDATE external_link_codes SET wrong_tries = wrong_tries + 1
+WHERE id = (SELECT c.id FROM external_link_codes c WHERE c.link_id = $1 ORDER BY c.id DESC LIMIT 1)
+  AND used_at IS NULL AND expires_at > now() AND wrong_tries < sqlc.arg(max_tries)::int
+RETURNING id, code_hash, wrong_tries;
 
 -- name: UseExternalLinkCode :execrows
-UPDATE external_link_codes SET used_at = now() WHERE id = $1 AND used_at IS NULL;
+UPDATE external_link_codes SET used_at = now() WHERE id = $1 AND used_at IS NULL AND expires_at > now();
+
+-- name: ExternalLinkCodeUseToday :one
+-- What one link spent in the last 24 hours: codes sent and tries taken.
+SELECT count(*)::int AS codes, COALESCE(sum(wrong_tries), 0)::int AS tries
+FROM external_link_codes WHERE link_id = $1 AND created_at > now() - interval '24 hours';
+
+-- name: CountCompanyLinkCodesToday :one
+SELECT count(*)::int FROM external_link_codes WHERE created_at > now() - interval '24 hours';
 
 -- name: CreateExternalLinkSession :exec
 INSERT INTO external_link_sessions (link_id, secret_hash, email, expires_at) VALUES ($1, $2, $3, $4);

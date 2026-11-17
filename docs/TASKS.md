@@ -42,7 +42,6 @@ Status: Pending / In Progress / Done / Blocked
 - [x] Projeto 1: link externo para artifact (código por e-mail ou aberto; mais recente ou versão fixa; prazo; Cancelar; lista no Admin; endereço `link.`). Branch `links-externos`.
 - [ ] Teste do Henry no navegador (link aberto pelo celular, sem login).
 - [ ] Comprar domínio próprio e configurar a Resend (`RESEND_API_KEY`, `MAIL_FROM`) para ligar o código por e-mail em produção.
-- [ ] Ao ligar o e-mail: limite por endereço ler o IP real do Caddy (`X-Forwarded-For`).
 - [ ] Projeto 2: link externo para output de app (um output específico, ou o output mais recente que vai mudando).
 
 ## Prioridade atual (2026-10-01)
