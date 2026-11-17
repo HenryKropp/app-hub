@@ -33,8 +33,10 @@ func TestPortalAdminDashboardAndAppControl(t *testing.T) {
 	if err := json.Unmarshal(b.want("GET", prefix+"/api/admin/overview", nil, 200), &overview); err != nil {
 		t.Fatal(err)
 	}
-	if len(overview.Apps) != 1 || overview.Apps[0].Name != "Dashboard app" || overview.Apps[0].Approved {
-		t.Fatalf("a new app should wait for approval: %+v", overview.Apps)
+	// Governança (ADR 046): alone in an area without leader, the admin's own
+	// app needs no one else's approval.
+	if len(overview.Apps) != 1 || overview.Apps[0].Name != "Dashboard app" || !overview.Apps[0].Approved {
+		t.Fatalf("the admin's own app is approved: %+v", overview.Apps)
 	}
 	if len(overview.Activity) == 0 {
 		t.Fatal("registering an app should show in the activity")
@@ -56,13 +58,8 @@ func TestPortalAdminDashboardAndAppControl(t *testing.T) {
 		c.Approved, c.Suspended, c.CanManage = d.Control.Approved, d.Control.Suspended, d.Control.CanManage
 		return
 	}
-	if c := control(); c.Approved || !c.CanManage {
-		t.Fatalf("before approval: %+v", c)
-	}
-	b.want("POST", app+"/runs", map[string]any{"output_folder": `C:\Results`}, 403)
-	b.want("PUT", app+"/control", map[string]bool{"approved": true}, 200)
-	if c := control(); !c.Approved {
-		t.Fatal("approval did not stick")
+	if c := control(); !c.Approved || !c.CanManage {
+		t.Fatalf("control: %+v", c)
 	}
 	b.want("POST", app+"/runs", map[string]any{"output_folder": `C:\Results`}, 409) // approved; no computer connected
 	b.want("PUT", app+"/control", map[string]bool{"approved": true, "suspended": true}, 200)

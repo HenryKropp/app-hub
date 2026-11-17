@@ -57,15 +57,7 @@ func TestImportViaClaudeMarksChannel(t *testing.T) {
 }
 
 func TestImportAnswersBlockedReason(t *testing.T) {
-	c, h := newPoolClient(t)
-	setupAdmin(t, c)
-	h.SetWorkspace(WorkspaceOptions{Slug: "teste", Name: "Teste"})
-	var before bool
-	_ = testPool.QueryRow(context.Background(), `SELECT require_app_approval FROM security_settings WHERE id = TRUE`).Scan(&before)
-	exec(t, `UPDATE security_settings SET require_app_approval = true WHERE id = TRUE`)
-	t.Cleanup(func() {
-		_, _ = testPool.Exec(context.Background(), `UPDATE security_settings SET require_app_approval = $1 WHERE id = TRUE`, before)
-	})
+	_, _, c, _, _ := govTeam(t) // Ana imports; Research has a leader
 	var out struct {
 		ID            int64  `json:"id"`
 		Version       int32  `json:"version"`
@@ -77,7 +69,7 @@ func TestImportAnswersBlockedReason(t *testing.T) {
 	}
 	b, _ := json.Marshal(e)
 	json.Unmarshal(b, &out)
-	if out.Version != 1 || out.BlockedReason != "Este app está esperando a aprovação de um administrador." {
+	if out.Version != 1 || out.BlockedReason != "Aguardando o líder de Research." {
 		t.Fatalf("%+v", out)
 	}
 }
@@ -276,24 +268,12 @@ func TestSourcesSecretsNeedConfirm(t *testing.T) {
 	}
 }
 
+// A new version of an app still waiting for its first approval goes into
+// its folder and keeps waiting (governança, ADR 046).
 func TestSourcesWaitsApproval(t *testing.T) {
-	c, h := newPoolClient(t)
-	setupAdmin(t, c)
-	h.SetWorkspace(WorkspaceOptions{Slug: "teste", Name: "Teste"})
-	var before bool
-	_ = testPool.QueryRow(context.Background(), `SELECT require_app_approval FROM security_settings WHERE id = TRUE`).Scan(&before)
-	exec(t, `UPDATE security_settings SET require_app_approval = true WHERE id = TRUE`)
-	t.Cleanup(func() {
-		_, _ = testPool.Exec(context.Background(), `UPDATE security_settings SET require_app_approval = $1 WHERE id = TRUE`, before)
-	})
+	_, _, c, _, _ := govTeam(t)
 	id := importFiles(t, c, map[string]string{"main.py": "print(1)"})
-	if code := c.do("PUT", "/api/security/apps/"+itoa(id), map[string]any{"classification": "internal", "purpose": "Teste", "approved": true, "external_domains": []string{}}, nil); code != 200 {
-		t.Fatal("approve", code)
-	}
-	if b, _ := h.executionBlock(context.Background(), id); b != "" {
-		t.Fatal("not approved:", b)
-	}
-	if code, out := send(t, c, id, map[string]string{"main.py": "print(2)"}, nil); code != 200 || out.BlockedReason != "Este app está esperando a aprovação de um administrador." {
+	if code, out := send(t, c, id, map[string]string{"main.py": "print(2)"}, nil); code != 200 || out.Version != 2 || out.BlockedReason != "Aguardando o líder de Research." {
 		t.Fatalf("%d %+v", code, out)
 	}
 }
@@ -576,23 +556,15 @@ func TestSourcesRefusedWhileDeployBusy(t *testing.T) {
 }
 
 func TestPublishWaitsApproval(t *testing.T) {
-	c, h := newPoolClient(t)
-	setupAdmin(t, c)
+	h, _, c, _, _ := govTeam(t) // Ana's app waits for Research's leader
 	withShared(t, h)
-	h.SetWorkspace(WorkspaceOptions{Slug: "teste", Name: "Teste"})
-	var before bool
-	_ = testPool.QueryRow(context.Background(), `SELECT require_app_approval FROM security_settings WHERE id = TRUE`).Scan(&before)
-	exec(t, `UPDATE security_settings SET require_app_approval = true WHERE id = TRUE`)
-	t.Cleanup(func() {
-		_, _ = testPool.Exec(context.Background(), `UPDATE security_settings SET require_app_approval = $1 WHERE id = TRUE`, before)
-	})
 	id := importWeb(t, c, "Notas", nil)
 	d := detail(t, c, id)
 	if code := c.do("PUT", appPath(id, "/shared"), map[string]any{"enabled": true, "updated_at": d.UpdatedAt.Time}, nil); code != http.StatusOK {
 		t.Fatalf("put shared %d", code)
 	}
 	var e map[string]any
-	if code := c.do("POST", appPath(id, "/shared/publish"), nil, &e); code != http.StatusForbidden || e["error"] != "Este app está esperando a aprovação de um administrador." {
+	if code := c.do("POST", appPath(id, "/shared/publish"), nil, &e); code != http.StatusForbidden || e["error"] != "Aguardando o líder de Research." {
 		t.Fatalf("publish %d %+v", code, e)
 	}
 	if code := c.do("POST", appPath(id, "/shared/test"), nil, &e); code != http.StatusAccepted {

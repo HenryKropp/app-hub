@@ -16,7 +16,9 @@ import (
 
 	"github.com/HenryKropp/app-hub/backend/internal/bundle"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
+	"github.com/HenryKropp/app-hub/backend/internal/governance"
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
+	"github.com/HenryKropp/app-hub/backend/internal/risk"
 	"github.com/HenryKropp/app-hub/backend/internal/scanner"
 	"github.com/HenryKropp/app-hub/backend/internal/versions"
 	"github.com/jackc/pgx/v5"
@@ -143,6 +145,7 @@ func (h *Handler) recordSentVersion(ctx context.Context, a sqlc.App, by int64, n
 		return v, false, err
 	}
 	h.storeScan(a.ID, v.Number, snap)
+	h.governVersion(ctx, a, v, by, tested.Bool, false)
 	return v, true, nil
 }
 
@@ -242,8 +245,23 @@ func (h *Handler) sendSources(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if _, ok := h.checkSentFiles(w, r, m, b.Files, b.ConfirmSecrets); !ok {
+	decoded, ok := h.checkSentFiles(w, r, m, b.Files, b.ConfirmSecrets)
+	if !ok {
 		return
+	}
+	if h.governed(r.Context()) {
+		// Governança (ADR 046): when the rule asks, the version waits as a
+		// draft and the approved one keeps running.
+		rs := risk.Of(m, decoded)
+		need, ever, added, err := h.versionNeed(r.Context(), a.ID, rs, governance.ReasonVersion)
+		if err != nil {
+			internalError(w, "version need", err)
+			return
+		}
+		if need.Required && ever {
+			h.holdSources(w, r, a, me, b.Files, b.Ficha, b.Note, rs, added)
+			return
+		}
 	}
 	// A version put live by hand replaces any draft still waiting.
 	saved, v, changed, ok := h.applySources(w, r, a, me, b.Files, b.Ficha, b.Note, pgtype.Bool{Bool: false, Valid: true}, &applyHooks{

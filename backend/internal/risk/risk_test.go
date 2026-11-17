@@ -10,7 +10,7 @@ import (
 func TestOfReadsKeysDomainsBrowser(t *testing.T) {
 	m := manifest.Manifest{Keys: []manifest.Key{{Name: "BTG_SENHA"}}}
 	files := map[string][]byte{
-		"main.py": []byte("from playwright.sync_api import sync_playwright\nrequests.get(\"https://research.btgpactual.com/x\")\n"),
+		"main.py":  []byte("from playwright.sync_api import sync_playwright\nrequests.get(\"https://research.btgpactual.com/x\")\n"),
 		"logo.png": []byte("https://ignored.example.org"),
 	}
 	s := Of(m, files)

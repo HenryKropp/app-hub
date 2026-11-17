@@ -203,7 +203,9 @@ func (h *Handler) testPC(ctx context.Context, appID int64) (sqlc.GetComputerStat
 // Nothing runs when the app is blocked or a key is missing: the draft fails
 // with the reason, as a run would be refused.
 func (h *Handler) queueTest(ctx context.Context, a sqlc.App, d sqlc.AppDraft, m manifest.Manifest, pc sqlc.GetComputerStatusRow, now time.Time) (bool, error) {
-	if reason, err := h.executionBlock(ctx, a.ID); err != nil {
+	// The test runs the draft, not the live version: approvals do not hold
+	// it (ADR 046 lets the PC test happen before approval).
+	if reason, err := h.baseBlock(ctx, a.ID); err != nil {
 		return false, err
 	} else if reason != "" {
 		return h.failDraft(ctx, d, "O teste não rodou: "+reason)
@@ -254,7 +256,18 @@ func (h *Handler) queueTest(ctx context.Context, a sqlc.App, d sqlc.AppDraft, m 
 
 // publishTested puts an approved draft live as "testada" and writes the notice.
 func (h *Handler) publishTested(ctx context.Context, a sqlc.App, d sqlc.AppDraft) (bool, error) {
-	version, refusal, retry, err := h.publishDraftBG(ctx, d)
+	// Governança (ADR 046): when the rule asks, the tested draft waits for
+	// approval instead of going live.
+	if held, _, err := h.holdDraft(ctx, a, d, true, d.AuthorID.Int64); err != nil {
+		return false, err
+	} else if held {
+		if err := h.q.ClearInTest(ctx, a.ID); err != nil {
+			return true, err
+		}
+		return true, h.q.InsertNotice(ctx, sqlc.InsertNoticeParams{AppID: a.ID, Version: 0,
+			Text: a.Name + ": versão nova testada, esperando aprovação."})
+	}
+	version, refusal, retry, err := h.publishDraftBG(ctx, d, true)
 	if err != nil {
 		return false, err
 	}
@@ -279,7 +292,7 @@ func (h *Handler) publishTested(ctx context.Context, a sqlc.App, d sqlc.AppDraft
 // publishDraftBG publishes d outside any request, as its author, through the
 // same publishDraft the site uses (ADR 044: a recorder stands in for the
 // response). retry is true when a run is going on.
-func (h *Handler) publishDraftBG(ctx context.Context, d sqlc.AppDraft) (version int32, refusal string, retry bool, err error) {
+func (h *Handler) publishDraftBG(ctx context.Context, d sqlc.AppDraft, tested bool) (version int32, refusal string, retry bool, err error) {
 	if !d.AuthorID.Valid {
 		return 0, "a versão não tem autor.", false, nil
 	}
@@ -296,7 +309,7 @@ func (h *Handler) publishDraftBG(ctx context.Context, d sqlc.AppDraft) (version 
 	}
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/apps/publish-tested", nil)
-	_, v, _, ok := h.publishDraft(rec, req, a, me, d, true)
+	_, v, _, ok := h.publishDraft(rec, req, a, me, d, tested)
 	if ok {
 		return v.Number, "", false, nil
 	}

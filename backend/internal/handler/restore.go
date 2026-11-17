@@ -160,6 +160,18 @@ func (h *Handler) restoreVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.storeScan(a.ID, v.Number, after) // new number bypasses the old cache entry; keep it fresh anyway
+	if h.governed(ctx) {
+		// Going back to a version approved before asks nothing; to one never
+		// approved, the rule decides (ADR 046).
+		pre, err := h.q.VersionWasApproved(ctx, sqlc.VersionWasApprovedParams{AppID: pgInt8(a.ID), AppVersion: pgInt4(target.Number)})
+		if err != nil {
+			slog.Error("restore approval", "app", a.ID, "err", err)
+		}
+		if g, err := h.q.GetAppGovernance(ctx, a.ID); err == nil && g.ApprovedVersion.Valid && g.ApprovedVersion.Int32 == target.Number {
+			pre = true
+		}
+		h.governVersion(ctx, a, v, me.ID, false, pre)
+	}
 	if err := h.q.CancelOpenDrafts(ctx, sqlc.CancelOpenDraftsParams{AppID: a.ID, Reason: msgReplaced}); err != nil {
 		slog.Error("cancel drafts after restore", "app", a.ID, "err", err)
 	}

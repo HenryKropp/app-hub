@@ -974,6 +974,27 @@ func (q *Queries) ReplaceOpenArtifactRequest(ctx context.Context, artifactID pgt
 	return items, nil
 }
 
+const setAppArea = `-- name: SetAppArea :exec
+UPDATE apps SET area = $2, area_id = $3, manifest = $4, updated_at = clock_timestamp() WHERE id = $1
+`
+
+type SetAppAreaParams struct {
+	ID       int64  `json:"id"`
+	Area     string `json:"area"`
+	AreaID   int64  `json:"area_id"`
+	Manifest []byte `json:"manifest"`
+}
+
+func (q *Queries) SetAppArea(ctx context.Context, arg SetAppAreaParams) error {
+	_, err := q.db.Exec(ctx, setAppArea,
+		arg.ID,
+		arg.Area,
+		arg.AreaID,
+		arg.Manifest,
+	)
+	return err
+}
+
 const setAppVersionRule = `-- name: SetAppVersionRule :exec
 INSERT INTO app_governance (app_id, version_rule) VALUES ($1, $2)
 ON CONFLICT (app_id) DO UPDATE SET version_rule = EXCLUDED.version_rule
@@ -1028,6 +1049,29 @@ type SetArtifactVersionRuleParams struct {
 
 func (q *Queries) SetArtifactVersionRule(ctx context.Context, arg SetArtifactVersionRuleParams) error {
 	_, err := q.db.Exec(ctx, setArtifactVersionRule, arg.VersionRule, arg.ID)
+	return err
+}
+
+const setDraftWaiting = `-- name: SetDraftWaiting :exec
+UPDATE app_drafts SET status = 'aguardando', stage = '', status_reason = '', updated_at = clock_timestamp() WHERE id = $1
+`
+
+func (q *Queries) SetDraftWaiting(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, setDraftWaiting, id)
+	return err
+}
+
+const setRequestAppVersion = `-- name: SetRequestAppVersion :exec
+UPDATE approval_requests SET app_version = $2 WHERE id = $1
+`
+
+type SetRequestAppVersionParams struct {
+	ID         int64       `json:"id"`
+	AppVersion pgtype.Int4 `json:"app_version"`
+}
+
+func (q *Queries) SetRequestAppVersion(ctx context.Context, arg SetRequestAppVersionParams) error {
+	_, err := q.db.Exec(ctx, setRequestAppVersion, arg.ID, arg.AppVersion)
 	return err
 }
 
@@ -1093,4 +1137,20 @@ func (q *Queries) UpsertAppGovernance(ctx context.Context, arg UpsertAppGovernan
 		arg.EverApproved,
 	)
 	return err
+}
+
+const versionWasApproved = `-- name: VersionWasApproved :one
+SELECT EXISTS (SELECT 1 FROM approval_requests WHERE app_id = $1 AND app_version = $2 AND status IN ('approved', 'auto'))
+`
+
+type VersionWasApprovedParams struct {
+	AppID      pgtype.Int8 `json:"app_id"`
+	AppVersion pgtype.Int4 `json:"app_version"`
+}
+
+func (q *Queries) VersionWasApproved(ctx context.Context, arg VersionWasApprovedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, versionWasApproved, arg.AppID, arg.AppVersion)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }

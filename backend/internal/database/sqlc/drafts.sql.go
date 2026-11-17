@@ -28,7 +28,7 @@ func (q *Queries) ApproveDraft(ctx context.Context, id int64) (int64, error) {
 const cancelOpenDrafts = `-- name: CancelOpenDrafts :exec
 UPDATE app_drafts
 SET status = 'cancelada', stage = '', status_reason = $1, updated_at = clock_timestamp()
-WHERE app_id = $2 AND status IN ('rascunho', 'testando', 'aprovada')
+WHERE app_id = $2 AND status IN ('rascunho', 'testando', 'aprovada', 'aguardando')
 `
 
 type CancelOpenDraftsParams struct {

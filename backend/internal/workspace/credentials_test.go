@@ -79,7 +79,7 @@ func TestPortalCredentialVaultLifecycle(t *testing.T) {
 		t.Fatal("plaintext in storage")
 	}
 	b.want("POST", check, map[string]string{"environment": "staging"}, 404)
-	b.want("POST", fmt.Sprintf("/api/apps/%d/credentials/%s/check", otherApp, credential.ID), map[string]string{"environment": "production"}, 403) // other app is unapproved
+	b.want("POST", fmt.Sprintf("/api/apps/%d/credentials/%s/check", otherApp, credential.ID), map[string]string{"environment": "production"}, 404) // the credential belongs to another app
 	b.want("POST", prefix+fmt.Sprintf("/api/apps/%d/credentials/%s/check", tenantApp, credential.ID), map[string]string{"environment": "production"}, 404)
 	b.want("DELETE", prefix+route, nil, 404)
 	tenantList := b.want("GET", prefix+"/api/security/credentials", nil, 200)

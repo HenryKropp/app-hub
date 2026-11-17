@@ -135,6 +135,23 @@ func (h *Handler) publishDraftRoute(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if d.Status != "no_ar" && d.Status != "cancelada" && d.Status != "aguardando" {
+		held, waiting, err := h.holdDraft(r.Context(), a, d, false, me.ID)
+		if err != nil {
+			internalError(w, "hold draft", err)
+			return
+		}
+		if held {
+			latest, _ := h.q.LatestAppVersion(r.Context(), a.ID)
+			writeJSON(w, http.StatusOK, map[string]any{"id": a.ID, "version": latest.Number, "changed": false, "waiting": waiting,
+				"draft_id": d.ID, "blocked_reason": "", "updated_at": a.UpdatedAt.Time})
+			return
+		}
+	}
+	if d.Status == "aguardando" {
+		writeJSON(w, http.StatusConflict, map[string]string{"code": "draft_waiting", "error": "Esta versão está esperando aprovação."})
+		return
+	}
 	saved, v, changed, ok := h.publishDraft(w, r, a, me, d, false)
 	if !ok {
 		return
@@ -176,7 +193,7 @@ func (h *Handler) publishDraft(w http.ResponseWriter, r *http.Request, a sqlc.Ap
 			if err != nil {
 				return "", "", err
 			}
-			if now.Status == "no_ar" || now.Status == "cancelada" || (tested && now.Status != "aprovada") {
+			if now.Status == "no_ar" || now.Status == "cancelada" || (tested && now.Status != "aprovada" && now.Status != "aguardando") {
 				return "draft_closed", "Este rascunho não está mais aberto.", nil
 			}
 			return "", "", nil

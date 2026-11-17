@@ -123,6 +123,7 @@ func (h *Handler) checkVersionLocked(ctx context.Context, a sqlc.App) (sqlc.AppV
 		return v, snap, true, err
 	}
 	h.storeScan(a.ID, v.Number, snap)
+	h.governVersion(ctx, a, v, a.OwnerID, false, false)
 	return v, snap, true, nil
 }
 

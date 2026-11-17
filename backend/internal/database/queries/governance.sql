@@ -142,3 +142,15 @@ SELECT app_id FROM app_governance WHERE NOT ever_approved;
 
 -- name: ListPendingArtifactIDs :many
 SELECT id FROM artifacts WHERE NOT ever_approved;
+
+-- name: SetDraftWaiting :exec
+UPDATE app_drafts SET status = 'aguardando', stage = '', status_reason = '', updated_at = clock_timestamp() WHERE id = $1;
+
+-- name: SetRequestAppVersion :exec
+UPDATE approval_requests SET app_version = $2 WHERE id = $1;
+
+-- name: VersionWasApproved :one
+SELECT EXISTS (SELECT 1 FROM approval_requests WHERE app_id = $1 AND app_version = $2 AND status IN ('approved', 'auto'));
+
+-- name: SetAppArea :exec
+UPDATE apps SET area = $2, area_id = $3, manifest = $4, updated_at = clock_timestamp() WHERE id = $1;

@@ -17,6 +17,7 @@ import (
 
 	"github.com/HenryKropp/app-hub/backend/internal/access"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
+	"github.com/HenryKropp/app-hub/backend/internal/governance"
 	"github.com/HenryKropp/app-hub/backend/internal/hostpath"
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 	"github.com/HenryKropp/app-hub/backend/internal/scanner"
@@ -463,7 +464,7 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 // updateApp saves one part of the ficha (the frontend sends the whole manifest
 // with only that part changed). updated_at guards against a second, stale save.
 func (h *Handler) updateApp(w http.ResponseWriter, r *http.Request) {
-	a, me, _, can, ok := h.appFor(w, r)
+	a, me, acc, can, ok := h.appFor(w, r)
 	if !ok {
 		return
 	}
@@ -494,8 +495,37 @@ func (h *Handler) updateApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "Não consegui ler a pasta do app agora. Nada foi salvo. Confira se o OneDrive está sincronizado e tente de novo.")
 		return
 	}
+	// Governança (ADR 046): moving an approved app to another area waits for
+	// that area's leader; the rest of the ficha is saved now.
+	ctx := r.Context()
+	var moveTo int64
+	if h.governed(ctx) && strings.TrimSpace(body.Manifest.Area) != a.Area {
+		if target, err := h.q.GetAreaByName(ctx, strings.TrimSpace(body.Manifest.Area)); err == nil {
+			ever, _, err := h.itemRule(ctx, "app", a.ID, 0)
+			if err != nil {
+				internalError(w, "item rule", err)
+				return
+			}
+			if ever && !acc.Leads[target.ID] {
+				moveTo = target.ID
+				body.Manifest.Area = a.Area
+			}
+		}
+	}
 	saved, ok := h.writeApp(w, r, me, a.FolderPath, body.appBody, &a)
 	if !ok {
+		return
+	}
+	if moveTo != 0 {
+		if _, err := h.openRequest(ctx, requestIn{Kind: "app", AppID: a.ID, AreaID: a.AreaID, Reason: governance.ReasonArea,
+			TargetAreaID: moveTo, RequesterID: me.ID}); err != nil {
+			internalError(w, "area request", err)
+			return
+		}
+		saved, _ = h.q.GetApp(ctx, a.ID)
+	}
+	if err := h.governFicha(ctx, saved, me.ID); err != nil {
+		internalError(w, "ficha request", err)
 		return
 	}
 	h.writeDetail(w, r, me, saved, http.StatusOK)

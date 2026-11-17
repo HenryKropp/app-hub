@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -37,9 +38,14 @@ const (
 	msgRequestMissing = "Pedido não encontrado."
 )
 
-// errApplyLater marks request kinds whose apply arrives with the paths that
-// create them (drafts and area moves, plan Task 5).
-var errApplyLater = errors.New("governance: apply not wired for this request")
+// errRunGoing: a draft cannot go live while the app runs.
+var errRunGoing = errors.New(msgRunWaiting)
+
+func logGov(what string, appID int64, err error) {
+	slog.Error("governance: "+what, "app", appID, "err", err)
+}
+
+func pgInt4(n int32) pgtype.Int4 { return pgtype.Int4{Int32: n, Valid: true} }
 
 type audienceIn struct {
 	Mode      string  `json:"mode"` // area | company | custom
@@ -65,6 +71,9 @@ type requestIn struct {
 	Channel           string
 	Tested            bool
 	RequesterID       int64
+	// Preapproved records the request as "auto" whatever the rule says (a
+	// restore to a version approved before).
+	Preapproved bool
 }
 
 type requestOut struct {
@@ -130,6 +139,9 @@ func (h *Handler) openRequest(ctx context.Context, in requestIn) (requestOut, er
 	}
 	rule := governance.Effective(governance.Rule(gs.VersionRule), itemRule)
 	need := governance.Decide(rule, ever, in.Added, gs.ItApproval, reason)
+	if in.Preapproved && ever {
+		need = governance.Need{}
+	}
 
 	if in.Kind == "app" {
 		_, err = h.q.ReplaceOpenAppRequest(ctx, pgInt8(in.AppID))
@@ -283,8 +295,10 @@ func (h *Handler) requestMessage(ctx context.Context, req sqlc.ApprovalRequest) 
 }
 
 // governanceBlock: why an app may not run because of approvals ("" = may).
-// A never-approved app waits for its first approval; an approved one is held
-// only by a folder version (no draft) still waiting or refused.
+// A never-approved app waits for its first approval. An approved one runs
+// only while its latest version is the approved one (fail closed: a version
+// recorded by any path is held until a request approves it) and no ficha
+// change that added risk is waiting or refused.
 func (h *Handler) governanceBlock(ctx context.Context, appID int64) (string, error) {
 	g, err := h.q.GetAppGovernance(ctx, appID)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -293,40 +307,59 @@ func (h *Handler) governanceBlock(ctx context.Context, appID int64) (string, err
 		return "", err
 	}
 	req, err := h.q.LatestAppRequest(ctx, pgInt8(appID))
-	if errors.Is(err, pgx.ErrNoRows) {
-		if !g.EverApproved {
-			return "Este app está esperando aprovação.", nil
-		}
-		return "", nil
-	} else if err != nil {
+	hasReq := err == nil
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return "", err
 	}
-	if g.EverApproved && (req.DraftID.Valid || req.Reason == governance.ReasonNew || req.Reason == governance.ReasonArea) {
-		return "", nil
-	}
-	if req.Status != "open" && req.Status != "rejected" {
-		if !g.EverApproved {
-			return "Este app está esperando aprovação.", nil
+	held := func() (string, error) {
+		if hasReq && !req.DraftID.Valid && (req.Status == "open" || req.Status == "rejected") {
+			if msg, err := h.requestMessage(ctx, req); err != nil || msg != "" {
+				return msg, err
+			}
 		}
-		return "", nil
+		return "Esta versão está esperando aprovação.", nil
 	}
-	return h.requestMessage(ctx, req)
+	if !g.EverApproved {
+		return held()
+	}
+	var latest int32
+	if v, err := h.q.LatestAppVersion(ctx, appID); err == nil {
+		latest = v.Number
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return "", err
+	}
+	if !g.ApprovedVersion.Valid || g.ApprovedVersion.Int32 < latest {
+		return held()
+	}
+	if hasReq && req.Reason == governance.ReasonFicha && !req.DraftID.Valid && (req.Status == "open" || req.Status == "rejected") {
+		return h.requestMessage(ctx, req)
+	}
+	return "", nil
 }
 
 // applyRequest makes an approved request real. A nil aud keeps the item's
 // current access.
 func (h *Handler) applyRequest(ctx context.Context, req sqlc.ApprovalRequest, aud *audienceIn, actorID int64) error {
-	if req.DraftID.Valid || req.Reason == governance.ReasonArea {
-		return errApplyLater
+	if req.ItemKind == "app" && req.Reason == governance.ReasonArea {
+		return h.applyAreaRequest(ctx, req, actorID)
+	}
+	if req.ItemKind == "app" && req.DraftID.Valid {
+		return h.applyDraftRequest(ctx, req)
 	}
 	if req.ItemKind == "app" {
 		appID := req.AppID.Int64
-		approvedRisk := req.Risk
-		if len(approvedRisk) == 0 {
-			approvedRisk = []byte("{}")
+		version := req.AppVersion
+		if !version.Valid {
+			// A ficha change or an app without versions: what is live now.
+			version = pgInt4(0)
+			if v, err := h.q.LatestAppVersion(ctx, appID); err == nil {
+				version = pgInt4(v.Number)
+			} else if !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
 		}
-		if err := h.q.UpsertAppGovernance(ctx, sqlc.UpsertAppGovernanceParams{AppID: appID, ApprovedVersion: req.AppVersion,
-			ApprovedRisk: approvedRisk, EverApproved: true}); err != nil {
+		if err := h.q.UpsertAppGovernance(ctx, sqlc.UpsertAppGovernanceParams{AppID: appID, ApprovedVersion: version,
+			ApprovedRisk: nonEmptyJSON(req.Risk), EverApproved: true}); err != nil {
 			return err
 		}
 		if req.Reason == governance.ReasonNew {
@@ -438,12 +471,12 @@ func eventFor(kind string, id int64, what string, actorID int64, detail []byte) 
 // ---- routes ----
 
 type stepJSON struct {
-	Step          string     `json:"step"`
-	Decision      string     `json:"decision"`
-	DecidedBy     string     `json:"decided_by"`
-	DecidedAt     *time.Time `json:"decided_at"`
-	Reason        string     `json:"reason"`
-	OnBehalf      string     `json:"on_behalf"`
+	Step      string     `json:"step"`
+	Decision  string     `json:"decision"`
+	DecidedBy string     `json:"decided_by"`
+	DecidedAt *time.Time `json:"decided_at"`
+	Reason    string     `json:"reason"`
+	OnBehalf  string     `json:"on_behalf"`
 }
 
 type requestJSON struct {
@@ -715,7 +748,10 @@ func (h *Handler) approveRequest(w http.ResponseWriter, r *http.Request) {
 	}
 	if !others {
 		// Apply before recording: if it fails, nothing is decided.
-		if err := h.applyRequest(ctx, req, aud, me.ID); err != nil {
+		if err := h.applyRequest(ctx, req, aud, me.ID); errors.Is(err, errRunGoing) {
+			writeError(w, http.StatusConflict, msgRunWaiting+" para aprovar esta versão.")
+			return
+		} else if err != nil {
 			internalError(w, "apply request", err)
 			return
 		}

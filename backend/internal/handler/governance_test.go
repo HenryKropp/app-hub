@@ -2,9 +2,16 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
+
+	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
+	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 )
 
 // govTeam: admin Henry (1), criador Ana (2), usuário Bia (3, member of
@@ -38,6 +45,7 @@ type approvalJSON struct {
 	Reason    string   `json:"reason"`
 	RiskAdded []string `json:"risk_added"`
 	Status    string   `json:"status"`
+	Tested    bool     `json:"tested"`
 	Steps     []struct {
 		Step     string `json:"step"`
 		Decision string `json:"decision"`
@@ -245,17 +253,23 @@ func TestRejectNeedsReasonAndKeepsOld(t *testing.T) {
 
 func TestRejectedVersionKeepsApprovedOne(t *testing.T) {
 	h, _, ana, _, leo := govTeam(t)
-	id := importTestScript(t, ana)
+	id := importFiles(t, ana, map[string]string{"main.py": "print('v1')"})
 	leo.do("POST", approvalPath(approvals(t, leo)[0].ID, "approve"), areaOnly, nil)
-	// A new folder version that adds risk asks again; rejecting it blocks the
-	// new version only — the approved one stays recorded.
+	// A folder version that adds a site asks again; refusing it holds the
+	// new version — the approved one stays recorded.
 	ctx := context.Background()
-	out, err := h.openRequest(ctx, requestIn{Kind: "app", AppID: id, AreaID: 1, Reason: "version", AppVersion: 2,
-		Added: []string{"site: api.exemplo.com.br"}, Channel: "manual", RequesterID: 2})
-	if err != nil || out.Auto || out.Waiting != "Aguardando o líder de Research." {
-		t.Fatalf("open %+v %v", out, err)
+	a, _ := h.q.GetApp(ctx, id)
+	if err := os.WriteFile(filepath.Join(a.FolderPath, "main.py"), []byte("print('https://api.exemplo.com.br')"), 0o600); err != nil {
+		t.Fatal(err)
 	}
-	if code := leo.do("POST", approvalPath(out.ID, "reject"), map[string]string{"reason": "site novo"}, nil); code != http.StatusOK {
+	if _, _, err := h.checkVersion(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	list := approvals(t, leo)
+	if len(list) != 1 || len(list[0].RiskAdded) != 1 || list[0].RiskAdded[0] != "site: api.exemplo.com.br" {
+		t.Fatalf("approvals %+v", list)
+	}
+	if code := leo.do("POST", approvalPath(list[0].ID, "reject"), map[string]string{"reason": "site novo"}, nil); code != http.StatusOK {
 		t.Fatalf("reject %d", code)
 	}
 	var approved int32
@@ -267,6 +281,9 @@ func TestRejectedVersionKeepsApprovedOne(t *testing.T) {
 	}
 	if r := blockedReason(t, h, id); r != "Recusado por Leo: site novo" {
 		t.Fatalf("blocked %q", r)
+	}
+	if k := homeKinds(getHome(t, ana)); k["approval_pending"] != 1 {
+		t.Fatalf("home %+v", k)
 	}
 }
 
@@ -334,5 +351,263 @@ func TestItemRuleCannotLoosenBelowCompany(t *testing.T) {
 	}
 	if events != 2 {
 		t.Fatalf("rule events %d", events)
+	}
+}
+
+// approvedScript: Ana's script, approved by Leo for the area, under rule.
+func approvedScript(t *testing.T, rule string) (h *Handler, admin, ana, leo *client, id int64) {
+	t.Helper()
+	h, admin, ana, _, leo = govTeam(t)
+	id = importFiles(t, ana, map[string]string{"main.py": "print('v1')"})
+	if code := leo.do("POST", approvalPath(approvals(t, leo)[0].ID, "approve"), areaOnly, nil); code != http.StatusOK {
+		t.Fatalf("approve %d", code)
+	}
+	exec(t, "UPDATE security_settings SET version_rule = $1", rule)
+	return
+}
+
+func latestVersion(t *testing.T, id int64) int32 {
+	t.Helper()
+	var n int32
+	if err := testPool.QueryRow(context.Background(), "SELECT COALESCE(max(number), 0) FROM app_versions WHERE app_id = $1", id).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+type waitingOut struct {
+	Version int32  `json:"version"`
+	Changed bool   `json:"changed"`
+	Waiting string `json:"waiting"`
+	DraftID int64  `json:"draft_id"`
+}
+
+func sendWaiting(t *testing.T, c *client, id int64, files map[string]string) waitingOut {
+	t.Helper()
+	var out waitingOut
+	if code := c.do("POST", appPath(id, "/sources"), map[string]any{"files": b64files(files)}, &out); code != http.StatusOK {
+		t.Fatalf("sources %d", code)
+	}
+	return out
+}
+
+func TestVersionUnderEveryWaitsAndOldKeepsRunning(t *testing.T) {
+	h, _, ana, leo, id := approvedScript(t, "every")
+	out := sendWaiting(t, ana, id, map[string]string{"main.py": "print('v2')"})
+	if out.Waiting != "Aguardando o líder de Research." || out.Changed || out.DraftID == 0 {
+		t.Fatalf("send %+v", out)
+	}
+	if latestVersion(t, id) != 1 || storedNames(t, id)["main.py"] != "print('v1')" {
+		t.Fatal("waiting version went live")
+	}
+	if r := blockedReason(t, h, id); r != "" {
+		t.Fatalf("old version stopped %q", r)
+	}
+	list := approvals(t, leo)
+	if len(list) != 1 || list[0].Reason != "version" {
+		t.Fatalf("approvals %+v", list)
+	}
+	if code := leo.do("POST", approvalPath(list[0].ID, "approve"), nil, nil); code != http.StatusOK {
+		t.Fatalf("approve %d", code)
+	}
+	if latestVersion(t, id) != 2 || storedNames(t, id)["main.py"] != "print('v2')" {
+		t.Fatal("approved version not live")
+	}
+	if r := blockedReason(t, h, id); r != "" {
+		t.Fatalf("blocked %q", r)
+	}
+}
+
+func TestVersionUnderRiskWithoutNewRiskGoesLive(t *testing.T) {
+	h, _, ana, leo, id := approvedScript(t, "risk")
+	out := sendWaiting(t, ana, id, map[string]string{"main.py": "print('v2')"})
+	if out.Waiting != "" || !out.Changed || out.Version != 2 {
+		t.Fatalf("send %+v", out)
+	}
+	if r := blockedReason(t, h, id); r != "" {
+		t.Fatalf("blocked %q", r)
+	}
+	list := approvals(t, leo)
+	if len(list) != 1 || list[0].Status != "auto" {
+		t.Fatalf("auto notice %+v", list)
+	}
+}
+
+func TestVersionAddingDomainNeedsApproval(t *testing.T) {
+	h, _, ana, leo, id := approvedScript(t, "risk")
+	out := sendWaiting(t, ana, id, map[string]string{"main.py": "import requests\nrequests.get('https://xp.com/api')"})
+	if out.Waiting == "" {
+		t.Fatalf("send %+v", out)
+	}
+	list := approvals(t, leo)
+	if len(list) != 1 || len(list[0].RiskAdded) != 1 || list[0].RiskAdded[0] != "site: xp.com" {
+		t.Fatalf("approvals %+v", list)
+	}
+	if r := blockedReason(t, h, id); r != "" {
+		t.Fatalf("old version stopped %q", r)
+	}
+}
+
+func TestNewVersionReplacesOpenRequest(t *testing.T) {
+	_, _, ana, leo, id := approvedScript(t, "every")
+	first := sendWaiting(t, ana, id, map[string]string{"main.py": "print('v2')"})
+	second := sendWaiting(t, ana, id, map[string]string{"main.py": "print('v3')"})
+	list := approvals(t, leo)
+	if len(list) != 1 {
+		t.Fatalf("approvals %+v", list)
+	}
+	var status string
+	if err := testPool.QueryRow(context.Background(), "SELECT status FROM app_drafts WHERE id = $1", first.DraftID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "cancelada" {
+		t.Fatalf("first draft %s", status)
+	}
+	if code := leo.do("POST", approvalPath(list[0].ID, "approve"), nil, nil); code != http.StatusOK {
+		t.Fatalf("approve %d", code)
+	}
+	if latestVersion(t, id) != 2 || storedNames(t, id)["main.py"] != "print('v3')" || second.DraftID == first.DraftID {
+		t.Fatalf("live %d %q", latestVersion(t, id), storedNames(t, id)["main.py"])
+	}
+}
+
+func TestScheduledRunBlockedWhileWaiting(t *testing.T) {
+	h, _, _, _, _ := govTeam(t)
+	now := time.Now()
+	sid, app, _ := dueSchedule(t, h, now, true)
+	ownerOf(t, app, 3)
+	if _, err := h.openRequest(context.Background(), requestIn{Kind: "app", AppID: app, AreaID: 1, Reason: "new", RequesterID: 3}); err != nil {
+		t.Fatal(err)
+	}
+	h.schedulerTick(context.Background(), now)
+	s := readSchedule(t, sid)
+	if s.Runs != 0 || !s.Active || s.Situation != "Aguardando o líder de Research." {
+		t.Fatalf("%+v", s)
+	}
+}
+
+func TestFolderVersionBlocksUntilApproved(t *testing.T) {
+	h, _, _, leo, id := approvedScript(t, "every")
+	a, err := h.q.GetApp(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(a.FolderPath, "main.py"), []byte("print('pasta')"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := h.checkVersion(context.Background(), a); err != nil {
+		t.Fatal(err)
+	}
+	if r := blockedReason(t, h, id); r != "Aguardando o líder de Research." {
+		t.Fatalf("folder version runs %q", r)
+	}
+	if code := leo.do("POST", approvalPath(approvals(t, leo)[0].ID, "approve"), nil, nil); code != http.StatusOK {
+		t.Fatalf("approve %d", code)
+	}
+	if r := blockedReason(t, h, id); r != "" {
+		t.Fatalf("blocked %q", r)
+	}
+}
+
+func TestFichaTextEditNoApproval(t *testing.T) {
+	h, _, ana, leo, id := approvedScript(t, "every")
+	d := detailOf(t, ana, id)
+	d.Manifest.Summary = "Resumo novo"
+	if code, out := putApp(ana, id, d); code != http.StatusOK {
+		t.Fatalf("put %d %v", code, out)
+	}
+	if r := blockedReason(t, h, id); r != "" {
+		t.Fatalf("blocked %q", r)
+	}
+	if got := approvals(t, leo); len(got) != 0 {
+		t.Fatalf("approvals %+v", got)
+	}
+}
+
+func TestFichaNewKeyNeedsApproval(t *testing.T) {
+	h, _, ana, leo, id := approvedScript(t, "risk")
+	d := detailOf(t, ana, id)
+	d.Manifest.Keys = []manifest.Key{{Name: "API_XP"}}
+	if code, out := putApp(ana, id, d); code != http.StatusOK {
+		t.Fatalf("put %d %v", code, out)
+	}
+	list := approvals(t, leo)
+	if len(list) != 1 || list[0].Reason != "ficha" || len(list[0].RiskAdded) != 1 || list[0].RiskAdded[0] != "chave do Cofre: API_XP" {
+		t.Fatalf("approvals %+v", list)
+	}
+	if r := blockedReason(t, h, id); r != "Aguardando o líder de Research." {
+		t.Fatalf("blocked %q", r)
+	}
+	if code := leo.do("POST", approvalPath(list[0].ID, "approve"), nil, nil); code != http.StatusOK {
+		t.Fatalf("approve %d", code)
+	}
+	if r := blockedReason(t, h, id); r != "" {
+		t.Fatalf("still blocked %q", r)
+	}
+}
+
+func TestAreaMoveWaitsForTargetLeader(t *testing.T) {
+	h, admin, _, leo, id := approvedScript(t, "risk")
+	createPersonAs(t, admin, "Caio", "caio@exemplo.com", "usuario")
+	makeLeader(t, 2, 5)
+	caio := admin.fresh()
+	loginAs(t, caio, "caio@exemplo.com")
+	d := detailOf(t, leo, id)
+	d.Manifest.Area = "Investimentos"
+	if code, out := putApp(leo, id, d); code != http.StatusOK {
+		t.Fatalf("put %d %v", code, out)
+	}
+	var area string
+	ctx := context.Background()
+	_ = testPool.QueryRow(ctx, "SELECT area FROM apps WHERE id = $1", id).Scan(&area)
+	if area != "Research" {
+		t.Fatalf("moved before approval: %s", area)
+	}
+	if r := blockedReason(t, h, id); r != "" {
+		t.Fatalf("area move stops the app %q", r)
+	}
+	list := approvals(t, caio)
+	if len(list) != 1 || list[0].Reason != "area" {
+		t.Fatalf("target leader approvals %+v", list)
+	}
+	if code := caio.do("POST", approvalPath(list[0].ID, "approve"), nil, nil); code != http.StatusOK {
+		t.Fatalf("approve %d", code)
+	}
+	_ = testPool.QueryRow(ctx, "SELECT area FROM apps WHERE id = $1", id).Scan(&area)
+	if area != "Investimentos" {
+		t.Fatalf("not moved: %s", area)
+	}
+}
+
+func TestTestedDraftWaitsWhenRuleSaysSo(t *testing.T) {
+	h, _, _, leo, id := approvedScript(t, "every")
+	ctx := context.Background()
+	files, _ := json.Marshal(b64files(map[string]string{"main.py": "print('testada')"}))
+	d, err := h.q.InsertDraft(ctx, sqlc.InsertDraftParams{AppID: id, AuthorID: pgInt8(2), Channel: "mcp", Files: files})
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(t, "UPDATE app_drafts SET status = 'aprovada' WHERE id = $1", d.ID)
+	d, _ = h.q.GetDraftByID(ctx, d.ID)
+	a, _ := h.q.GetApp(ctx, id)
+	if _, err := h.publishTested(ctx, a, d); err != nil {
+		t.Fatal(err)
+	}
+	var status string
+	_ = testPool.QueryRow(ctx, "SELECT status FROM app_drafts WHERE id = $1", d.ID).Scan(&status)
+	if status != "aguardando" || latestVersion(t, id) != 1 {
+		t.Fatalf("draft %s version %d", status, latestVersion(t, id))
+	}
+	list := approvals(t, leo)
+	if len(list) != 1 || !list[0].Tested {
+		t.Fatalf("approvals %+v", list)
+	}
+	if code := leo.do("POST", approvalPath(list[0].ID, "approve"), nil, nil); code != http.StatusOK {
+		t.Fatalf("approve %d", code)
+	}
+	var tested bool
+	_ = testPool.QueryRow(ctx, "SELECT COALESCE(tested, false) FROM app_versions WHERE app_id = $1 AND number = 2", id).Scan(&tested)
+	if latestVersion(t, id) != 2 || !tested {
+		t.Fatalf("version %d tested %v", latestVersion(t, id), tested)
 	}
 }

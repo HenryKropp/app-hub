@@ -169,7 +169,7 @@ func (h *Handler) blocked(ctx context.Context, id int64, reason string) error {
 	if strings.Contains(reason, "suspenso") {
 		return h.pauseBySystem(ctx, id, reason)
 	}
-	if strings.Contains(reason, "aprovação") {
+	if strings.Contains(reason, "aprovação") && !strings.HasPrefix(reason, "Aguardando") {
 		reason = schedWaitApproval
 	}
 	return h.q.SetScheduleSituation(ctx, sqlc.SetScheduleSituationParams{ID: id, Situation: reason})

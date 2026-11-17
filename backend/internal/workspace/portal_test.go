@@ -236,17 +236,16 @@ func TestPortalIsolationSecurityLifecycle(t *testing.T) {
 	if !bytes.Contains(raw, []byte(`"line":1,"name":"PASSWORD"`)) || bytes.Contains(raw, []byte("this-is-a-test-only-password")) {
 		t.Fatalf("blocked secrets must say where, never the value: %s", raw)
 	}
-	// Execution approval is mandatory by default and tied to the reviewed source.
-	b.want("POST", prefix+"/api/apps/1/runs", map[string]any{"output_folder": `C:\Results`}, 403)
+	// Governança (ADR 046): the admin alone approves their own app; a text
+	// change in the ficha asks nothing; suspension still stops it.
+	b.want("POST", prefix+"/api/apps/1/runs", map[string]any{"output_folder": `C:\Results`}, 409) // no agent
 	profile := map[string]any{"classification": "confidential", "purpose": "Internal test processing", "external_domains": []string{"api.example.test"}, "approved": true, "suspended": false}
 	b.want("PUT", prefix+"/api/security/apps/1", profile, 200)
-	b.want("POST", prefix+"/api/apps/1/runs", map[string]any{"output_folder": `C:\Results`}, 409) // no agent
 	tenant := p.entries["second-company"]
 	if _, err = tenant.pool.Exec(ctx, `UPDATE apps SET manifest=jsonb_set(manifest,'{summary}','"changed"') WHERE id=1`); err != nil {
 		t.Fatal(err)
 	}
-	b.want("POST", prefix+"/api/apps/1/runs", map[string]any{"output_folder": `C:\Results`}, 403)
-	b.want("PUT", prefix+"/api/security/apps/1", profile, 200)
+	b.want("POST", prefix+"/api/apps/1/runs", map[string]any{"output_folder": `C:\Results`}, 409)
 	profile["suspended"] = true
 	b.want("PUT", prefix+"/api/security/apps/1", profile, 200)
 	b.want("POST", prefix+"/api/apps/1/runs", map[string]any{"output_folder": `C:\Results`}, 403)

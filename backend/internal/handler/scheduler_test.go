@@ -149,18 +149,15 @@ func TestSchedulerSkipsWhilePreviousRunning(t *testing.T) {
 	}
 }
 
+// An approved app whose new version waits (governança, ADR 046): the
+// schedule skips, stays active and says why.
 func TestSchedulerWaitsOnApproval(t *testing.T) {
 	h := schedulerTeam(t)
 	h.SetWorkspace(WorkspaceOptions{Slug: "teste", Name: "Teste"})
 	now := time.Now()
 	sid, app, _ := dueSchedule(t, h, now, true)
-	var before bool
-	_ = testPool.QueryRow(context.Background(), `SELECT require_app_approval FROM security_settings WHERE id = TRUE`).Scan(&before)
-	exec(t, `UPDATE security_settings SET require_app_approval = true WHERE id = TRUE`)
-	t.Cleanup(func() {
-		_, _ = testPool.Exec(context.Background(), `UPDATE security_settings SET require_app_approval = $1 WHERE id = TRUE`, before)
-	})
-	exec(t, `INSERT INTO app_security (app_id, approved) VALUES ($1, false) ON CONFLICT (app_id) DO UPDATE SET approved = false`, app)
+	exec(t, `INSERT INTO app_governance (app_id, approved_version, ever_approved) VALUES ($1, 0, TRUE)`, app)
+	exec(t, `INSERT INTO app_versions (app_id, number, origin, files, summary) VALUES ($1, 1, 'folder', '{}', '{}')`, app)
 	h.schedulerTick(context.Background(), now)
 	s := readSchedule(t, sid)
 	if s.Runs != 0 || !s.Active || s.Situation != "Esperando aprovação do app" || !s.NextRunAt.After(now) {

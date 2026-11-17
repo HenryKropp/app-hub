@@ -295,6 +295,18 @@ func (h *Handler) allowExecution(w http.ResponseWriter, r *http.Request, id int6
 }
 
 func (h *Handler) executionBlock(ctx context.Context, id int64) (string, error) {
+	if reason, err := h.baseBlock(ctx, id); err != nil || reason != "" {
+		return reason, err
+	}
+	if h.workspace == nil {
+		return "", nil
+	}
+	return h.governanceBlock(ctx, id)
+}
+
+// baseBlock: archived, paused by the company or suspended — everything but
+// approvals (a draft's test on the PC runs before approval, ADR 044/046).
+func (h *Handler) baseBlock(ctx context.Context, id int64) (string, error) {
 	if archived, err := h.isArchived(ctx, id); err != nil {
 		return "", err
 	} else if archived {
@@ -311,20 +323,15 @@ func (h *Handler) executionBlock(ctx context.Context, id int64) (string, error) 
 	if !s.LocalExecution {
 		return "A empresa pausou todos os apps no Admin.", nil
 	}
-	var approved, suspended bool
-	err = h.q.SecurityDB().QueryRow(ctx, `SELECT s.approved AND s.reviewed_manifest_hash=encode(sha256(convert_to(a.manifest::text,'UTF8')),'hex') AND s.reviewed_version=COALESCE((SELECT max(number) FROM app_versions WHERE app_id=a.id),0),s.suspended FROM app_security s JOIN apps a ON a.id=s.app_id WHERE a.id=$1`, id).Scan(&approved, &suspended)
+	var suspended bool
+	err = h.q.SecurityDB().QueryRow(ctx, `SELECT s.suspended FROM app_security s WHERE s.app_id=$1`, id).Scan(&suspended)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return "", err
 	}
 	if suspended {
 		return "Este app foi suspenso pela empresa.", nil
 	}
-	// The old single approval stays until the version paths move to
-	// governance requests (plan Task 5).
-	if s.RequireApproval && !approved {
-		return "Este app está esperando a aprovação de um administrador.", nil
-	}
-	return h.governanceBlock(ctx, id)
+	return "", nil
 }
 
 type auditEvent struct {

@@ -14,7 +14,7 @@ import (
 
 // approvedSQL is true when the app's current manifest and version are the ones
 // an administrator approved; a new version needs a new approval.
-const approvedSQL = `COALESCE(s.approved AND s.reviewed_manifest_hash=encode(sha256(convert_to(a.manifest::text,'UTF8')),'hex') AND s.reviewed_version=COALESCE((SELECT max(number) FROM app_versions WHERE app_id=a.id),0),FALSE)`
+const approvedSQL = `COALESCE((SELECT g.ever_approved AND COALESCE(g.approved_version,-1) >= COALESCE((SELECT max(number) FROM app_versions WHERE app_id=a.id),0) FROM app_governance g WHERE g.app_id=a.id),TRUE)`
 
 type adminApp struct {
 	ID        int64      `json:"id"`

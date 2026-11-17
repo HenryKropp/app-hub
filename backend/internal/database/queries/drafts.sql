@@ -9,7 +9,7 @@ SELECT * FROM app_drafts WHERE app_id = $1 AND id = $2;
 -- name: CancelOpenDrafts :exec
 UPDATE app_drafts
 SET status = 'cancelada', stage = '', status_reason = sqlc.arg(reason), updated_at = clock_timestamp()
-WHERE app_id = sqlc.arg(app_id) AND status IN ('rascunho', 'testando', 'aprovada');
+WHERE app_id = sqlc.arg(app_id) AND status IN ('rascunho', 'testando', 'aprovada', 'aguardando');
 
 -- name: MarkDraftPublished :exec
 UPDATE app_drafts

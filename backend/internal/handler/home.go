@@ -224,22 +224,16 @@ func (h *Handler) homeAttention(r *http.Request, me sqlc.Person, acc *access.Per
 		errCount[e.AppID] = int(e.Errors)
 		errAt[e.AppID] = e.LastAt.Time
 	}
+	// Governança (ADR 046): an app of mine held by an approval (new, a
+	// version or a ficha change waiting or refused).
 	pending := map[int64]bool{}
 	if h.workspace != nil {
-		sec, err := h.securityConfig(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if sec.RequireApproval {
-			admin, err := h.adminApps(ctx)
+		for _, a := range care {
+			msg, err := h.governanceBlock(ctx, a.ID)
 			if err != nil {
 				return nil, err
 			}
-			for _, a := range admin {
-				if !a.Approved && !a.Suspended {
-					pending[a.ID] = true
-				}
-			}
+			pending[a.ID] = msg != ""
 		}
 	}
 	sort.SliceStable(care, func(i, j int) bool { return care[i].Name < care[j].Name })
