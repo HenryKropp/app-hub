@@ -44,7 +44,7 @@ Status: Pending / In Progress / Done / Blocked
 - [x] Página de fora com logo inteiro do Ziv, faixa discreta e cartão "Conheça o Ziv" (escolha do Henry, 2026-11-17).
 - [x] QR Code do link na janela Compartilhar, com tela cheia (pedido do Henry, 2026-11-17).
 - [x] Teste do Henry: criar link e abrir pelo celular, sem login (2026-11-17).
-- [ ] Teste do Henry: ver a página nova de fora e o QR Code (escanear com o celular).
+- [x] Teste do Henry: ver a página nova de fora e o QR Code (escanear com o celular), 2026-11-17.
 - [ ] Comprar domínio próprio e configurar a Resend (`RESEND_API_KEY`, `MAIL_FROM`) para ligar o código por e-mail em produção.
 - [ ] Projeto 2: link externo para output de app (um output específico, ou o output mais recente que vai mudando).
 
