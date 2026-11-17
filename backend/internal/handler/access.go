@@ -138,7 +138,36 @@ func (h *Handler) loadAccess(ctx context.Context, me sqlc.Person) (*access.Perso
 		}
 		p.ArtifactGrants[g.ArtifactID][g.Permission] = true
 	}
+	if err = h.loadPending(ctx, p); err != nil {
+		return nil, err
+	}
 	return p, nil
+}
+
+// loadPending fills what governance (ADR 046) adds: the items never
+// approved yet and whether the company asks TI to approve.
+func (h *Handler) loadPending(ctx context.Context, p *access.Person) error {
+	p.PendingApps, p.PendingArtifacts = map[int64]bool{}, map[int64]bool{}
+	gs, err := h.q.GetGovernanceSettings(ctx)
+	if err != nil {
+		return err
+	}
+	p.ITOn = gs.ItApproval
+	apps, err := h.q.ListPendingAppIDs(ctx)
+	if err != nil {
+		return err
+	}
+	for _, id := range apps {
+		p.PendingApps[id] = true
+	}
+	arts, err := h.q.ListPendingArtifactIDs(ctx)
+	if err != nil {
+		return err
+	}
+	for _, id := range arts {
+		p.PendingArtifacts[id] = true
+	}
+	return nil
 }
 
 func artifactRef(a sqlc.Artifact) access.App {

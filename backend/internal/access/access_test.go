@@ -238,3 +238,80 @@ func TestForArtifactAreaAppOnlyGrantsDoNotReveal(t *testing.T) {
 		}
 	}
 }
+
+// Governança (ADR 046): only the area leader (or manage_areas) chooses who
+// uses an item; owner and backup still care for it.
+func TestAudienceOnlyLeaderOrManageAreas(t *testing.T) {
+	for _, id := range []int64{1, 2} {
+		if c := person(id).For(app); !c.Access || c.Audience {
+			t.Fatalf("owner/backup %d: %+v", id, c)
+		}
+	}
+	l := person(5)
+	l.Leads[1] = true
+	if c := l.For(app); !c.Audience {
+		t.Fatalf("leader: %+v", c)
+	}
+	m := person(6)
+	m.Perms[ManageAreas] = true
+	if c := m.For(app); !c.Audience {
+		t.Fatalf("manage_areas: %+v", c)
+	}
+}
+
+// A never-approved item is seen only by who cares for it, the leader, the
+// auditors (see_all_apps), the admin (manage_roles) and, when the company
+// turned TI on, approve_it. Grants and manage_areas do not reveal it.
+func TestPendingHiddenFromGrantsAndManageAreas(t *testing.T) {
+	g := person(7)
+	g.AppGrants[10] = map[string]bool{GrantEdit: true}
+	g.PendingApps = map[int64]bool{10: true}
+	if c := g.For(app); c.View {
+		t.Fatalf("grant holder sees pending app: %+v", c)
+	}
+	m := person(8)
+	m.Perms[ManageAreas] = true
+	m.PendingApps = map[int64]bool{10: true}
+	if c := m.For(app); c.View {
+		t.Fatalf("manage_areas sees pending app: %+v", c)
+	}
+	v := person(9)
+	v.ViewerApps[10] = true
+	v.PendingApps = map[int64]bool{10: true}
+	if c := v.For(App{ID: 10, AreaID: 1, OwnerID: 1, Restricted: true}); c.View {
+		t.Fatalf("viewer sees pending app: %+v", c)
+	}
+}
+
+func TestPendingVisibleToOwnerLeaderAdminAndIT(t *testing.T) {
+	cases := map[string]*Person{"owner": person(1), "backup": person(2), "leader": person(5), "auditor": person(6), "admin": person(7), "it": person(8)}
+	cases["leader"].Leads[1] = true
+	cases["auditor"].Perms[SeeAllApps] = true
+	cases["admin"].Perms[ManageRoles] = true
+	cases["it"].Perms[ApproveIT] = true
+	cases["it"].ITOn = true
+	for name, p := range cases {
+		p.PendingApps = map[int64]bool{10: true}
+		if c := p.For(app); !c.View {
+			t.Fatalf("%s cannot see pending app: %+v", name, c)
+		}
+	}
+	off := person(8)
+	off.Perms[ApproveIT] = true
+	off.PendingApps = map[int64]bool{10: true}
+	if c := off.For(app); c.View {
+		t.Fatalf("approve_it with TI off sees pending app: %+v", c)
+	}
+}
+
+func TestPendingArtifact(t *testing.T) {
+	g := person(7)
+	g.ArtifactGrants[10] = map[string]bool{GrantEdit: true}
+	g.PendingArtifacts = map[int64]bool{10: true}
+	if c := g.ForArtifact(app); c.View {
+		t.Fatalf("grant holder sees pending artifact: %+v", c)
+	}
+	if c := person(1).ForArtifact(app); !c.View {
+		t.Fatalf("owner cannot see artifact: %+v", c)
+	}
+}

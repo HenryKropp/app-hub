@@ -70,8 +70,8 @@ func (h *Handler) setArtifactAccess(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !can.Access {
-		writeError(w, http.StatusForbidden, "Você não pode mudar quem vê este artifact.")
+	if !can.Audience {
+		writeError(w, http.StatusForbidden, "Quem decide quem usa é o líder da área.")
 		return
 	}
 	var b struct {

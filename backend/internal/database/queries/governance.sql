@@ -128,3 +128,9 @@ SELECT EXISTS (SELECT 1 FROM area_leaders WHERE area_id = $1);
 
 -- name: ListAreaLeaderIDs :many
 SELECT person_id FROM area_leaders WHERE area_id = $1;
+
+-- name: ListPendingAppIDs :many
+SELECT app_id FROM app_governance WHERE NOT ever_approved;
+
+-- name: ListPendingArtifactIDs :many
+SELECT id FROM artifacts WHERE NOT ever_approved;

@@ -35,10 +35,12 @@ func TestRestrictToAreaAndPeople(t *testing.T) {
 	}
 }
 
-func TestOwnerRestrictsButCannotGrant(t *testing.T) {
+// Governança (ADR 046): only the area leader chooses who uses an app; the
+// owner cares for it but neither restricts nor grants.
+func TestOwnerNeitherRestrictsNorGrants(t *testing.T) {
 	_, ana, _, id := team(t)
 	ownerOf(t, id, 2)
-	if code := ana.do("PUT", appPath(id, "/access"), map[string]any{"restricted": true}, nil); code != http.StatusOK {
+	if code := ana.do("PUT", appPath(id, "/access"), map[string]any{"restricted": true}, nil); code != http.StatusForbidden {
 		t.Fatalf("owner restricts = %d", code)
 	}
 	if code := ana.do("PUT", appPath(id, "/grants"), map[string]any{"person_id": 3, "permissions": []string{"edit"}}, nil); code != http.StatusForbidden {

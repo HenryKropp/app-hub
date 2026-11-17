@@ -15,9 +15,13 @@ const (
 	ManageRoles   = "manage_roles"
 	ManageServer  = "manage_server"
 	ShareExternal = "share_external"
+	// Governança (ADR 046): approve as TI, and hold an MCP key when the
+	// company limits it.
+	ApproveIT = "approve_it"
+	UseMCP    = "use_mcp"
 )
 
-var RolePerms = []string{RegisterApps, EditAnyApp, RestoreAnyApp, SeeTechAnyApp, SeeAllRuns, SeeAllApps, ManagePeople, ManageAreas, ManageRoles, ManageServer, ShareExternal}
+var RolePerms = []string{RegisterApps, EditAnyApp, RestoreAnyApp, SeeTechAnyApp, SeeAllRuns, SeeAllApps, ManagePeople, ManageAreas, ManageRoles, ManageServer, ShareExternal, ApproveIT, UseMCP}
 
 // Extra accesses an area leader gives to one person, per app or for the whole area.
 const (
@@ -44,6 +48,12 @@ type Person struct {
 
 	ViewerArtifacts map[int64]bool // restricted artifacts that list the person or one of their areas
 	ArtifactGrants  map[int64]map[string]bool
+
+	// Governança (ADR 046): items never approved yet, and whether the
+	// company asks TI to approve.
+	PendingApps      map[int64]bool
+	PendingArtifacts map[int64]bool
+	ITOn             bool
 }
 
 func (p *Person) Has(perm string) bool { return p.Perms[perm] }
@@ -67,8 +77,11 @@ type Can struct {
 	Restore bool `json:"restore"` // go back to an older version
 	Tech    bool `json:"tech"`    // see the technical part of the ficha
 	Runs    bool `json:"runs"`    // see everyone's runs of this app
-	Access  bool `json:"access"`  // open/restrict the app and choose who sees it
+	Access  bool `json:"access"`  // cares for it: owner, backup, area (and archive, schedules)
 	Grants  bool `json:"grants"`  // give and take extra accesses
+	// Audience: open/restrict it and choose who uses it — only the area
+	// leader or manage_areas (ADR 046).
+	Audience bool `json:"audience"`
 }
 
 // For says what the person may do with one app. A restricted app is seen
@@ -77,7 +90,7 @@ type Can struct {
 // access on it (per app or for its area). The company-wide boxes (edit,
 // restore, technical part, everyone's runs) reach only apps the person sees.
 func (p *Person) For(a App) Can {
-	return p.forItem(a, p.ViewerApps[a.ID], p.AppGrants[a.ID], Grants)
+	return p.forItem(a, p.ViewerApps[a.ID], p.AppGrants[a.ID], Grants, p.PendingApps[a.ID])
 }
 
 // ForArtifact follows the same rules as For, but viewers and per-item grants
@@ -86,7 +99,7 @@ func (p *Person) For(a App) Can {
 // artifacts (edit, restore) reveal a restricted one. Artifacts never run, and Tech
 // (which gates the access section) is just Edit or Restore.
 func (p *Person) ForArtifact(a App) Can {
-	c := p.forItem(a, p.ViewerArtifacts[a.ID], p.ArtifactGrants[a.ID], ArtifactGrants)
+	c := p.forItem(a, p.ViewerArtifacts[a.ID], p.ArtifactGrants[a.ID], ArtifactGrants, p.PendingArtifacts[a.ID])
 	if !c.View {
 		return c
 	}
@@ -97,15 +110,21 @@ func (p *Person) ForArtifact(a App) Can {
 
 // forItem decides for one app or artifact; kinds lists the extra accesses
 // that count for this kind of item (any of them reveals a restricted one).
-func (p *Person) forItem(a App, viewer bool, itemGrants map[string]bool, kinds []string) Can {
+func (p *Person) forItem(a App, viewer bool, itemGrants map[string]bool, kinds []string, pending bool) Can {
 	leader := p.Leads[a.AreaID]
 	cares := leader || a.OwnerID == p.ID || (a.BackupID != 0 && a.BackupID == p.ID)
+	// Never approved: only who cares, the auditors, the admin and (with TI on)
+	// TI see it, so they can approve; no grant or viewer list reveals it.
+	approver := p.Has(ManageRoles) || (p.ITOn && p.Has(ApproveIT))
+	if pending && !(cares || p.Has(SeeAllApps) || approver) {
+		return Can{}
+	}
 	granted := func(g string) bool { return itemGrants[g] || p.AreaGrants[a.AreaID][g] }
 	anyGrant := false
 	for _, g := range kinds {
 		anyGrant = anyGrant || granted(g)
 	}
-	if a.Restricted && !(p.Has(SeeAllApps) || viewer || cares || p.Has(ManageAreas) || anyGrant) {
+	if a.Restricted && !(p.Has(SeeAllApps) || viewer || cares || p.Has(ManageAreas) || anyGrant || (pending && approver)) {
 		return Can{}
 	}
 
@@ -116,5 +135,6 @@ func (p *Person) forItem(a App, viewer bool, itemGrants map[string]bool, kinds [
 	c.Runs = leader || p.Has(SeeAllRuns) || granted(GrantRuns)
 	c.Grants = leader || p.Has(ManageAreas)
 	c.Access = cares || c.Grants
+	c.Audience = c.Grants
 	return c
 }

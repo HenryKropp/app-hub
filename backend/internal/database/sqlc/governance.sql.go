@@ -723,6 +723,54 @@ func (q *Queries) ListOpenRequests(ctx context.Context) ([]ApprovalRequest, erro
 	return items, nil
 }
 
+const listPendingAppIDs = `-- name: ListPendingAppIDs :many
+SELECT app_id FROM app_governance WHERE NOT ever_approved
+`
+
+func (q *Queries) ListPendingAppIDs(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listPendingAppIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var app_id int64
+		if err := rows.Scan(&app_id); err != nil {
+			return nil, err
+		}
+		items = append(items, app_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingArtifactIDs = `-- name: ListPendingArtifactIDs :many
+SELECT id FROM artifacts WHERE NOT ever_approved
+`
+
+func (q *Queries) ListPendingArtifactIDs(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listPendingArtifactIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRecentRequests = `-- name: ListRecentRequests :many
 SELECT r.id, r.item_kind, r.app_id, r.artifact_id, r.reason, r.draft_id, r.app_version, r.artifact_version_id, r.target_area_id, r.risk, r.risk_added, r.channel, r.tested, r.status, r.requested_by, r.created_at, r.closed_at, COALESCE(p.name, '') AS requested_by_name
 FROM approval_requests r LEFT JOIN people p ON p.id = r.requested_by
