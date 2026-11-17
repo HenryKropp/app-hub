@@ -64,7 +64,7 @@ func TestServeLinkStaysInItsCompany(t *testing.T) {
 		t.Fatalf("page %d %s", code, body)
 	}
 	for _, path := range []string{"/aurora/" + token, "/aurora/" + token + "/conteudo", "/nao-existe/" + token, "/horizonte", "/"} {
-		if code, body := getLink(t, srv, path); code != 404 || !strings.Contains(body, "Este link não está mais disponível") {
+		if code, body := getLink(t, srv, path); code != 404 || !strings.Contains(body, "Este link não está mais disponível") || !strings.Contains(body, `class="logo" href="http://localhost/"`) {
 			t.Fatalf("%s = %d %s", path, code, body)
 		}
 	}

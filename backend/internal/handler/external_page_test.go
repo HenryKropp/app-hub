@@ -30,7 +30,7 @@ func newOutside(t *testing.T, h *Handler) *outside {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		slug, token, action, ok := SplitLinkPath(r.URL.Path)
 		if !ok {
-			ExternalUnavailable(w)
+			ExternalUnavailable(w, h.homeURL())
 			return
 		}
 		h.ServeExternal(w, r, slug, token, action)
@@ -484,5 +484,34 @@ func TestCompanyDailyCodeCeiling(t *testing.T) {
 	exec(t, "INSERT INTO external_link_codes (link_id, code_hash, expires_at) SELECT $1, 'x', now() FROM generate_series(1, 200)", other)
 	if code, _, _ := newOutside(t, h).post(path+"/codigo", nil); code != http.StatusTooManyRequests {
 		t.Fatalf("after 200 codes today in the company = %d", code)
+	}
+}
+
+// Henry 2026-11-17: the whole Ziv logo, a quiet bar under the content and a
+// bigger card on the screens where the person waits.
+func TestOutsidePagesShowZivBrand(t *testing.T) {
+	_, ana, _, h, id := linksTeam(t)
+	h.mail = &fakeMail{}
+	o := newOutside(t, h)
+	_, open := makeLink(t, ana, id, openLinkBody())
+	_, body := func() (int, string) { c, _, b := o.get(open); return c, b }()
+	for _, want := range []string{`class="wm"`, "Compartilhado com segurança pelo Ziv", `<a class="more" href="http://hub.test/">Conheça o Ziv</a>`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("content page lacks %q:\n%s", want, body)
+		}
+	}
+	if strings.Contains(body, `class="promo"`) {
+		t.Fatal("content page must not carry the big card")
+	}
+	_, email := makeLink(t, ana, id, emailLinkBody())
+	_, _, ask := o.get(email)
+	_, _, gone := o.get("/principal/naoexiste")
+	for name, b := range map[string]string{"ask": ask, "unavailable": gone} {
+		if !strings.Contains(b, `class="promo"`) || !strings.Contains(b, "Apps e relatórios da empresa num lugar só") || strings.Contains(b, `class="bar"`) {
+			t.Fatalf("%s page brand:\n%s", name, b)
+		}
+		if !strings.Contains(b, `class="logo" href="http://hub.test/"`) {
+			t.Fatalf("%s page logo must go to the Ziv home:\n%s", name, b)
+		}
 	}
 }

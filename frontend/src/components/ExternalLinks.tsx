@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react"
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react"
+import { createPortal } from "react-dom"
+import QRCode from "qrcode"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
-import { Copy, Link2, Mail, Share2 } from "lucide-react"
+import { Copy, Link2, Mail, Maximize2, QrCode, Share2, X } from "lucide-react"
 import { Section } from "@/components/ficha/Part"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -95,13 +97,18 @@ export function ShareArtifactButton({ artifactId, currentVersion }: { artifactId
   const [info, setInfo] = useState<{ email_available: boolean; can_share: boolean } | null>(null)
   const [open, setOpen] = useState(false)
   const [created, setCreated] = useState<ExternalLink | null>(null)
+  const [qr, setQr] = useState("")
+  const [full, setFull] = useState(false)
   useEffect(() => {
     api.artifactLinks(artifactId).then(setInfo, () => setInfo(null))
   }, [artifactId])
   if (!info?.can_share) return null
   const change = (v: boolean) => {
     setOpen(v)
-    if (!v) setCreated(null)
+    if (!v) {
+      setCreated(null)
+      setQr("")
+    }
   }
   return (
     <>
@@ -120,10 +127,27 @@ export function ShareArtifactButton({ artifactId, currentVersion }: { artifactId
               <div className="min-w-0 space-y-2 text-sm">
                 <p className="font-medium">Link criado. Copie e mande para quem vai abrir.</p>
                 <code className="block w-full truncate rounded bg-muted px-2 py-1.5 text-xs" title={created.url}>{created.url}</code>
-                <Button type="button" size="sm" variant="outline" onClick={() => void copy(created.url)}>
-                  <Copy className="size-3.5" />
-                  Copiar link
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button type="button" size="sm" variant="outline" onClick={() => void copy(created.url)}>
+                    <Copy className="size-3.5" />
+                    Copiar link
+                  </Button>
+                  {!qr && (
+                    <Button type="button" size="sm" variant="outline" onClick={() => void QRCode.toString(created.url, { type: "svg", margin: 1 }).then(setQr)}>
+                      <QrCode className="size-3.5" />
+                      QR Code
+                    </Button>
+                  )}
+                </div>
+                {qr && (
+                  <div className="flex flex-col items-center gap-2 pt-2">
+                    <img alt="QR Code do link" src={svgSrc(qr)} className="size-48 rounded bg-white p-2" />
+                    <Button type="button" size="sm" variant="outline" onClick={() => { setOpen(false); setFull(true) }}>
+                      <Maximize2 className="size-3.5" />
+                      Tela cheia
+                    </Button>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button type="button" onClick={() => change(false)}>Pronto</Button>
@@ -144,7 +168,51 @@ export function ShareArtifactButton({ artifactId, currentVersion }: { artifactId
           )}
         </DialogContent>
       </Dialog>
+      {full && qr && <FullscreenQr svg={qr} onClose={() => { setFull(false); setOpen(true) }} />}
     </>
+  )
+}
+
+const svgSrc = (svg: string) => "data:image/svg+xml;utf8," + encodeURIComponent(svg)
+
+// The QR fills the screen so a client can scan it from a phone held up to
+// a monitor or a TV. It also asks the browser for real fullscreen; if the
+// browser says no, the overlay alone still covers the page.
+function FullscreenQr({ svg, onClose }: { svg: string; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const close = useRef(onClose)
+  close.current = onClose
+  useEffect(() => {
+    const el = ref.current
+    const onClose = () => close.current()
+    try {
+      el?.requestFullscreen?.()?.catch(() => {})
+    } catch {
+      // not available: the overlay is enough
+    }
+    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose()
+    const left = () => !document.fullscreenElement && onClose()
+    window.addEventListener("keydown", key)
+    document.addEventListener("fullscreenchange", left)
+    el?.focus()
+    return () => {
+      window.removeEventListener("keydown", key)
+      document.removeEventListener("fullscreenchange", left)
+      if (document.fullscreenElement) void document.exitFullscreen?.().catch(() => {})
+    }
+  }, [])
+  return createPortal(
+    <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label="QR Code em tela cheia"
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-white p-6 text-black outline-none">
+      <img alt="QR Code do link" src={svgSrc(svg)} className="aspect-square w-[min(80vw,75vh)]" />
+      <p className="text-lg">Aponte a câmera do celular para abrir</p>
+      <button type="button" onClick={onClose} aria-label="Fechar tela cheia"
+        className="absolute top-4 right-4 inline-flex items-center gap-1.5 rounded-lg border border-black/20 px-3 py-2 text-sm font-medium hover:bg-black/5">
+        <X className="size-4" />
+        Fechar
+      </button>
+    </div>,
+    document.body,
   )
 }
 

@@ -84,17 +84,22 @@ func renderExternal(w http.ResponseWriter, status int, v externalView) {
 
 // ExternalUnavailable is the one page for every link that does not open:
 // unknown, expired, cancelled or closed look exactly the same.
-func ExternalUnavailable(w http.ResponseWriter) {
-	renderExternal(w, http.StatusNotFound, externalView{Mode: "unavailable", HomeURL: "/"})
+// home is the Ziv's home page (HomeFor), where the logo leads.
+func ExternalUnavailable(w http.ResponseWriter, home string) {
+	renderExternal(w, http.StatusNotFound, externalView{Mode: "unavailable", HomeURL: home})
 }
 
-func (h *Handler) homeURL() string {
-	u, err := url.Parse(h.cfg.BaseURL)
+// HomeFor turns a BASE_URL (perhaps with /w/<company>) into the Ziv's home
+// page. On the link address "/" would stay on link.<domain>, so it never is.
+func HomeFor(baseURL string) string {
+	u, err := url.Parse(baseURL)
 	if err != nil || u.Host == "" {
 		return "/"
 	}
 	return u.Scheme + "://" + u.Host + "/"
 }
+
+func (h *Handler) homeURL() string { return HomeFor(h.cfg.BaseURL) }
 
 func (h *Handler) companyName(r *http.Request) string {
 	name := "Uma empresa"
@@ -154,33 +159,33 @@ func (h *Handler) linkCodeBudgetLeft(r *http.Request, l sqlc.ExternalLink) bool 
 // ServeExternal answers one request on the link address for this company.
 func (h *Handler) ServeExternal(w http.ResponseWriter, r *http.Request, slug, token, action string) {
 	if slug != h.companySlug() {
-		ExternalUnavailable(w)
+		ExternalUnavailable(w, h.homeURL())
 		return
 	}
 	l, err := h.q.GetExternalLinkByToken(r.Context(), token)
 	if errors.Is(err, pgx.ErrNoRows) {
-		ExternalUnavailable(w)
+		ExternalUnavailable(w, h.homeURL())
 		return
 	}
 	if err != nil {
 		slog.Error("external link", "err", err)
-		ExternalUnavailable(w)
+		ExternalUnavailable(w, h.homeURL())
 		return
 	}
 	now := time.Now()
 	state, version, err := h.linkState(r.Context(), l, now)
 	if err != nil {
 		slog.Error("external link state", "err", err)
-		ExternalUnavailable(w)
+		ExternalUnavailable(w, h.homeURL())
 		return
 	}
 	if !extlink.Open(state) {
-		ExternalUnavailable(w)
+		ExternalUnavailable(w, h.homeURL())
 		return
 	}
 	a, err := h.q.GetArtifact(r.Context(), l.ArtifactID)
 	if err != nil {
-		ExternalUnavailable(w)
+		ExternalUnavailable(w, h.homeURL())
 		return
 	}
 	v := externalView{HomeURL: h.homeURL(), CompanyName: h.companyName(r), ArtifactName: a.Name,
@@ -206,7 +211,7 @@ func (h *Handler) ServeExternal(w http.ResponseWriter, r *http.Request, slug, to
 	case action == "confirmar" && r.Method == http.MethodPost && l.Kind == "email":
 		h.confirmLinkCode(w, r, l, v)
 	default:
-		ExternalUnavailable(w)
+		ExternalUnavailable(w, h.homeURL())
 	}
 }
 
@@ -227,7 +232,7 @@ func (h *Handler) serveLinkContent(w http.ResponseWriter, r *http.Request, l sql
 	content, err := h.q.GetCodeBlob(r.Context(), v.BlobSha256.String)
 	if err != nil {
 		slog.Error("external content", "err", err)
-		ExternalUnavailable(w)
+		ExternalUnavailable(w, h.homeURL())
 		return
 	}
 	if err := h.q.RecordExternalLinkOpen(r.Context(), sqlc.RecordExternalLinkOpenParams{LinkID: l.ID, Email: pgtype.Text{String: email, Valid: email != ""}}); err != nil {
@@ -258,14 +263,14 @@ func (h *Handler) sendLinkCode(w http.ResponseWriter, r *http.Request, l sqlc.Ex
 		return
 	}
 	if h.mail == nil {
-		ExternalUnavailable(w)
+		ExternalUnavailable(w, h.homeURL())
 		return
 	}
 	code := extlink.NewCode()
 	if _, err := h.q.CreateExternalLinkCode(r.Context(), sqlc.CreateExternalLinkCodeParams{LinkID: l.ID, CodeHash: extlink.Hash(code),
 		ExpiresAt: pgtype.Timestamptz{Time: now.Add(extlink.CodeTTL), Valid: true}}); err != nil {
 		slog.Error("create link code", "err", err)
-		ExternalUnavailable(w)
+		ExternalUnavailable(w, h.homeURL())
 		return
 	}
 	subject := "Seu código para abrir " + v.ArtifactName
@@ -319,7 +324,7 @@ func (h *Handler) confirmLinkCode(w http.ResponseWriter, r *http.Request, l sqlc
 	if err := h.q.CreateExternalLinkSession(r.Context(), sqlc.CreateExternalLinkSessionParams{LinkID: l.ID, SecretHash: extlink.Hash(secret),
 		Email: l.RecipientEmail.String, ExpiresAt: pgtype.Timestamptz{Time: expires, Valid: true}}); err != nil {
 		slog.Error("create link session", "err", err)
-		ExternalUnavailable(w)
+		ExternalUnavailable(w, h.homeURL())
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: linkCookie, Value: secret, Path: v.Base, Expires: expires, HttpOnly: true,

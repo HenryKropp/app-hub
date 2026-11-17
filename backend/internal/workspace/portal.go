@@ -531,7 +531,7 @@ func splitWorkspacePath(p string) (slug, rest string) {
 func (p *Portal) ServeLink(w http.ResponseWriter, r *http.Request) {
 	slug, token, action, ok := handler.SplitLinkPath(r.URL.Path)
 	if !ok {
-		handler.ExternalUnavailable(w)
+		handler.ExternalUnavailable(w, handler.HomeFor(p.cfg.BaseURL))
 		return
 	}
 	p.mu.RLock()
@@ -541,7 +541,7 @@ func (p *Portal) ServeLink(w http.ResponseWriter, r *http.Request) {
 		e = p.load(r.Context(), slug)
 	}
 	if e == nil || e.h == nil {
-		handler.ExternalUnavailable(w)
+		handler.ExternalUnavailable(w, handler.HomeFor(p.cfg.BaseURL))
 		return
 	}
 	e.h.ServeExternal(w, r, slug, token, action)

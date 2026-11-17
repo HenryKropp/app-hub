@@ -19,8 +19,16 @@ Outputs de apps ficam para o Projeto 2.
 - **Endereço próprio:** `link.<domínio>/<empresa>/<token>`. É outra origem:
   não carrega o cookie do Ziv. O roteador (`gateway.Router.SetLinks`) desvia
   esse host antes dos apps, e o `ask` do Caddy aceita `link.` (o HTTPS sai
-  sozinho). A página é HTML do servidor, **sem JavaScript**, com o logo do
-  Ziv que leva à home. O artifact vai num iframe com o mesmo sandbox da ADR 018.
+  sozinho). A página é HTML do servidor, **sem JavaScript**, com o logo
+  inteiro do Ziv (à direita, leva à home). O artifact vai num iframe com o
+  mesmo sandbox da ADR 018. Embaixo do artifact, uma faixa discreta
+  ("Compartilhado com segurança pelo Ziv · Conheça o Ziv"); nas telas sem
+  artifact (código, link indisponível) vai um cartão maior do Ziv com
+  "Conheça o Ziv" (escolha do Henry, 2026-11-17: opção 1, faixa discreta).
+- **QR Code do link** (pedido do Henry, 2026-11-17): na janela Compartilhar,
+  depois de criar, o botão "QR Code" desenha o QR no navegador (pacote
+  `qrcode`, SVG, nada sai para fora) e "Tela cheia" mostra o QR grande em
+  fundo branco para escanear da tela.
 - **Uma página só para tudo que não abre:** link desconhecido, vencido,
   cancelado ou fechado mostram a mesma tela ("Este link não está mais
   disponível"), com o mesmo código 404.

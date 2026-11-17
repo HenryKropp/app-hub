@@ -13,14 +13,20 @@
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; }
   body { background: var(--bg); color: var(--fg); font: 14px/1.5 "Geist Variable", ui-sans-serif, system-ui, sans-serif; display: flex; flex-direction: column; }
-  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--card); }
-  header a.logo { display: inline-flex; flex: none; }
-  header a.logo svg { width: 32px; height: 32px; display: block; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--card); }
+  header a.logo { display: inline-flex; flex: none; color: var(--fg); order: 2; }
+  .wm { height: 30px; width: auto; display: block; color: var(--fg); }
   header .who { min-width: 0; }
   header .who p { margin: 0; color: var(--muted); font-size: 13px; }
   header .who h1 { margin: 0; font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   iframe { flex: 1; width: 100%; border: 0; background: #fff; }
-  main.box { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px; }
+  main.box { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 48px 16px; }
+  .bar { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 6px 16px; border-top: 1px solid var(--line); background: var(--card); color: var(--muted); font-size: 12px; }
+  .bar a.more { color: var(--muted); text-decoration: underline; }
+  .promo { width: 100%; max-width: 420px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px 24px; }
+  .promo .wm { height: 28px; margin-bottom: 10px; }
+  .promo p { margin: 0 0 14px; font-size: 15px; }
+  .promo a { display: inline-block; font-weight: 600; padding: 9px 14px; border-radius: 8px; background: var(--accent); color: var(--accent-fg); text-decoration: none; }
   .card { width: 100%; max-width: 420px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
   .card h2 { margin: 0 0 8px; font-size: 20px; line-height: 1.3; }
   .card p { margin: 0 0 16px; color: var(--muted); }
@@ -33,9 +39,7 @@
 </head>
 <body>
 <header>
-  <a class="logo" href="{{.HomeURL}}" aria-label="Ziv — página inicial">
-    <svg viewBox="0 0 48 48" role="img" aria-label="Ziv"><rect width="48" height="48" rx="12" fill="#0E3B43"/><g fill="none" stroke="#FF6B4A" stroke-width="1.4" stroke-linecap="round"><path d="M24 6V3.5"/><path d="M18.7 8.2L16.93 6.43"/><path d="M29.3 8.2L31.07 6.43"/></g><path d="M24 22V36" fill="none" stroke="#F4EFE6" stroke-width="5" stroke-linecap="round"/><circle cx="24" cy="13.5" r="4" fill="#FF6B4A"/></svg>
-  </a>
+  <a class="logo" href="{{.HomeURL}}" aria-label="Ziv — página inicial"><svg class="wm" viewBox="0 -6 60 50" role="img" aria-label="Ziv"><g fill="none" stroke="#FF6B4A" stroke-width="1.6" stroke-linecap="round"><path d="M29 1.5V-0.5"/><path d="M24.4 3.4L23 2"/><path d="M33.6 3.4L35 2"/></g><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18H19L4 38H19"/><path d="M29 18V38"/><path d="M39 18L47 38L55 18"/></g><circle cx="29" cy="8" r="4" fill="#FF6B4A"/></svg></a>
   {{if .ArtifactName}}
   <div class="who">
     <p>{{.CompanyName}} compartilhou com você</p>
@@ -45,12 +49,14 @@
 </header>
 {{if eq .Mode "content"}}
 <iframe src="{{.Base}}/conteudo" sandbox="allow-scripts allow-popups allow-forms allow-downloads" title="{{.ArtifactName}}"></iframe>
+<div class="bar"><span>Compartilhado com segurança pelo Ziv ·</span> <a class="more" href="{{.HomeURL}}">Conheça o Ziv</a></div>
 {{else if eq .Mode "ask"}}
 <main class="box"><div class="card">
   <h2>Confirme que é você</h2>
   <p>Este conteúdo foi enviado para {{.Masked}}. Vamos mandar um código de 6 dígitos para esse e-mail.</p>
   <form method="post" action="{{.Base}}/codigo"><button type="submit">Enviar código</button></form>
-</div></main>
+</div>
+<div class="promo"><svg class="wm" viewBox="0 -6 60 50" role="img" aria-label="Ziv"><g fill="none" stroke="#FF6B4A" stroke-width="1.6" stroke-linecap="round"><path d="M29 1.5V-0.5"/><path d="M24.4 3.4L23 2"/><path d="M33.6 3.4L35 2"/></g><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18H19L4 38H19"/><path d="M29 18V38"/><path d="M39 18L47 38L55 18"/></g><circle cx="29" cy="8" r="4" fill="#FF6B4A"/></svg><p>Apps e relatórios da empresa num lugar só, com segurança.</p><a href="{{.HomeURL}}">Conheça o Ziv</a></div></main>
 {{else if eq .Mode "code"}}
 <main class="box"><div class="card">
   <h2>Digite o código</h2>
@@ -63,17 +69,20 @@
   </form>
   {{end}}
   <form method="post" action="{{.Base}}/codigo"><button class="link" type="submit">Enviar outro código</button></form>
-</div></main>
+</div>
+<div class="promo"><svg class="wm" viewBox="0 -6 60 50" role="img" aria-label="Ziv"><g fill="none" stroke="#FF6B4A" stroke-width="1.6" stroke-linecap="round"><path d="M29 1.5V-0.5"/><path d="M24.4 3.4L23 2"/><path d="M33.6 3.4L35 2"/></g><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18H19L4 38H19"/><path d="M29 18V38"/><path d="M39 18L47 38L55 18"/></g><circle cx="29" cy="8" r="4" fill="#FF6B4A"/></svg><p>Apps e relatórios da empresa num lugar só, com segurança.</p><a href="{{.HomeURL}}">Conheça o Ziv</a></div></main>
 {{else if eq .Mode "limit"}}
 <main class="box"><div class="card">
   <h2>Muitas tentativas. Espere alguns minutos.</h2>
   <p>Depois tente de novo por este mesmo link.</p>
-</div></main>
+</div>
+<div class="promo"><svg class="wm" viewBox="0 -6 60 50" role="img" aria-label="Ziv"><g fill="none" stroke="#FF6B4A" stroke-width="1.6" stroke-linecap="round"><path d="M29 1.5V-0.5"/><path d="M24.4 3.4L23 2"/><path d="M33.6 3.4L35 2"/></g><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18H19L4 38H19"/><path d="M29 18V38"/><path d="M39 18L47 38L55 18"/></g><circle cx="29" cy="8" r="4" fill="#FF6B4A"/></svg><p>Apps e relatórios da empresa num lugar só, com segurança.</p><a href="{{.HomeURL}}">Conheça o Ziv</a></div></main>
 {{else}}
 <main class="box"><div class="card">
   <h2>Este link não está mais disponível</h2>
   <p>Peça um link novo a quem enviou.</p>
-</div></main>
+</div>
+<div class="promo"><svg class="wm" viewBox="0 -6 60 50" role="img" aria-label="Ziv"><g fill="none" stroke="#FF6B4A" stroke-width="1.6" stroke-linecap="round"><path d="M29 1.5V-0.5"/><path d="M24.4 3.4L23 2"/><path d="M33.6 3.4L35 2"/></g><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18H19L4 38H19"/><path d="M29 18V38"/><path d="M39 18L47 38L55 18"/></g><circle cx="29" cy="8" r="4" fill="#FF6B4A"/></svg><p>Apps e relatórios da empresa num lugar só, com segurança.</p><a href="{{.HomeURL}}">Conheça o Ziv</a></div></main>
 {{end}}
 </body>
 </html>
