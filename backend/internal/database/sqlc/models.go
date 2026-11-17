@@ -86,6 +86,14 @@ type AppDraft struct {
 	TestFiles     []byte             `json:"test_files"`
 }
 
+type AppGovernance struct {
+	AppID           int64       `json:"app_id"`
+	ApprovedVersion pgtype.Int4 `json:"approved_version"`
+	ApprovedRisk    []byte      `json:"approved_risk"`
+	VersionRule     pgtype.Text `json:"version_rule"`
+	EverApproved    bool        `json:"ever_approved"`
+}
+
 type AppGrant struct {
 	AppID      int64  `json:"app_id"`
 	PersonID   int64  `json:"person_id"`
@@ -139,6 +147,36 @@ type AppViewer struct {
 	PersonID pgtype.Int8 `json:"person_id"`
 }
 
+type ApprovalRequest struct {
+	ID                int64              `json:"id"`
+	ItemKind          string             `json:"item_kind"`
+	AppID             pgtype.Int8        `json:"app_id"`
+	ArtifactID        pgtype.Int8        `json:"artifact_id"`
+	Reason            string             `json:"reason"`
+	DraftID           pgtype.Int8        `json:"draft_id"`
+	AppVersion        pgtype.Int4        `json:"app_version"`
+	ArtifactVersionID pgtype.Int8        `json:"artifact_version_id"`
+	TargetAreaID      pgtype.Int8        `json:"target_area_id"`
+	Risk              []byte             `json:"risk"`
+	RiskAdded         []byte             `json:"risk_added"`
+	Channel           string             `json:"channel"`
+	Tested            bool               `json:"tested"`
+	Status            string             `json:"status"`
+	RequestedBy       pgtype.Int8        `json:"requested_by"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	ClosedAt          pgtype.Timestamptz `json:"closed_at"`
+}
+
+type ApprovalStep struct {
+	RequestID int64              `json:"request_id"`
+	Step      string             `json:"step"`
+	Decision  pgtype.Text        `json:"decision"`
+	DecidedBy pgtype.Int8        `json:"decided_by"`
+	DecidedAt pgtype.Timestamptz `json:"decided_at"`
+	Reason    string             `json:"reason"`
+	OnBehalf  string             `json:"on_behalf"`
+}
+
 type Area struct {
 	ID        int64              `json:"id"`
 	Name      string             `json:"name"`
@@ -162,19 +200,21 @@ type AreaMember struct {
 }
 
 type Artifact struct {
-	ID         int64              `json:"id"`
-	Name       string             `json:"name"`
-	Summary    string             `json:"summary"`
-	Kind       string             `json:"kind"`
-	Tags       []string           `json:"tags"`
-	AreaID     int64              `json:"area_id"`
-	OwnerID    int64              `json:"owner_id"`
-	BackupID   pgtype.Int8        `json:"backup_id"`
-	Restricted bool               `json:"restricted"`
-	Origin     string             `json:"origin"`
-	CreatedBy  int64              `json:"created_by"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	ID           int64              `json:"id"`
+	Name         string             `json:"name"`
+	Summary      string             `json:"summary"`
+	Kind         string             `json:"kind"`
+	Tags         []string           `json:"tags"`
+	AreaID       int64              `json:"area_id"`
+	OwnerID      int64              `json:"owner_id"`
+	BackupID     pgtype.Int8        `json:"backup_id"`
+	Restricted   bool               `json:"restricted"`
+	Origin       string             `json:"origin"`
+	CreatedBy    int64              `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	VersionRule  pgtype.Text        `json:"version_rule"`
+	EverApproved bool               `json:"ever_approved"`
 }
 
 type ArtifactGrant struct {
@@ -204,6 +244,8 @@ type ArtifactVersion struct {
 	AuthorID     pgtype.Int8        `json:"author_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	Embeddable   bool               `json:"embeddable"`
+	Approved     bool               `json:"approved"`
+	Channel      string             `json:"channel"`
 }
 
 type ArtifactViewer struct {
@@ -307,6 +349,17 @@ type Favorite struct {
 	Kind      string             `json:"kind"`
 	ItemID    int64              `json:"item_id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type GovernanceEvent struct {
+	ID         int64              `json:"id"`
+	ItemKind   pgtype.Text        `json:"item_kind"`
+	AppID      pgtype.Int8        `json:"app_id"`
+	ArtifactID pgtype.Int8        `json:"artifact_id"`
+	Kind       string             `json:"kind"`
+	ActorID    pgtype.Int8        `json:"actor_id"`
+	Detail     []byte             `json:"detail"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
 type HubSetting struct {
@@ -501,11 +554,15 @@ type SecurityAudit struct {
 }
 
 type SecuritySetting struct {
-	ID                    bool  `json:"id"`
-	RetentionDays         int32 `json:"retention_days"`
-	RequireAppApproval    bool  `json:"require_app_approval"`
-	BlockEmbeddedSecrets  bool  `json:"block_embedded_secrets"`
-	LocalExecutionEnabled bool  `json:"local_execution_enabled"`
+	ID                    bool   `json:"id"`
+	RetentionDays         int32  `json:"retention_days"`
+	RequireAppApproval    bool   `json:"require_app_approval"`
+	BlockEmbeddedSecrets  bool   `json:"block_embedded_secrets"`
+	LocalExecutionEnabled bool   `json:"local_execution_enabled"`
+	ItApproval            bool   `json:"it_approval"`
+	VersionRule           string `json:"version_rule"`
+	CodeChannel           string `json:"code_channel"`
+	McpRestricted         bool   `json:"mcp_restricted"`
 }
 
 type ServerSetting struct {

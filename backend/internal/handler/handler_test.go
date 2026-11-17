@@ -51,11 +51,12 @@ func TestMain(m *testing.M) {
 // resetSQL empties the Hub and puts back the built-in roles and two areas
 // (Research = 1, Investimentos = 2), so every test starts the same way.
 const resetSQL = `
-TRUNCATE external_link_opens, external_link_sessions, external_link_codes, external_links, mcp_uploads, schedules, mcp_connections, mcp_auth_requests, mcp_clients, favorites, artifact_opens, artifact_grants, artifact_viewers, artifact_versions, artifacts, shared_usage, shared_backups, app_config, shared_apps, shared_deployments, run_files, agent_jobs, runs, app_changes, app_versions, code_blobs, pairings, computers,
+TRUNCATE governance_events, approval_steps, approval_requests, app_governance, external_link_opens, external_link_sessions, external_link_codes, external_links, mcp_uploads, schedules, mcp_connections, mcp_auth_requests, mcp_clients, favorites, artifact_opens, artifact_grants, artifact_viewers, artifact_versions, artifacts, shared_usage, shared_backups, app_config, shared_apps, shared_deployments, run_files, agent_jobs, runs, app_changes, app_versions, code_blobs, pairings, computers,
          app_grants, app_viewers, area_grants, area_leaders, area_members, apps, sessions, people, areas
          RESTART IDENTITY CASCADE;
 DELETE FROM roles WHERE key IS NULL;
 UPDATE roles SET name = 'Administrador', permissions = ARRAY['register_apps','edit_any_app','restore_any_app','see_tech_any_app','see_all_runs','see_all_apps','manage_people','manage_areas','manage_roles','manage_server','share_external'] WHERE key = 'admin';
+UPDATE security_settings SET it_approval = FALSE, version_rule = 'risk', code_channel = 'any', mcp_restricted = FALSE;
 INSERT INTO server_settings (id) VALUES (1) ON CONFLICT (id) DO UPDATE SET monthly_cost_cents = 0;
 UPDATE roles SET name = 'Criador', permissions = ARRAY['register_apps'] WHERE key = 'criador';
 UPDATE roles SET name = 'Usuário', permissions = ARRAY[]::text[] WHERE key = 'usuario';

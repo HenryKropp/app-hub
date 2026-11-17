@@ -357,8 +357,8 @@ func (p *Portal) create(ctx context.Context, name, slug string, me sqlc.Person) 
 		return "", err
 	}
 	q := sqlc.New(e.pool)
-	// Migration 010 inserted the row with approval on; new companies start off.
-	if err = q.DisableAppApprovalByDefault(ctx); err != nil {
+	// Migrations 010/030 left the schema strict; a new company starts light (ADR 046).
+	if err = q.ApplyNewCompanyGovernance(ctx); err != nil {
 		return "", err
 	}
 	role, err := q.GetRoleByKey(ctx, pgtype.Text{String: "admin", Valid: true})

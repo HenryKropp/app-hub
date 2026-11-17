@@ -147,7 +147,7 @@ func (q *Queries) ExternalLinkCodeUseToday(ctx context.Context, linkID int64) (E
 }
 
 const getArtifactVersionByID = `-- name: GetArtifactVersionByID :one
-SELECT id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at, embeddable FROM artifact_versions WHERE id = $1
+SELECT id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at, embeddable, approved, channel FROM artifact_versions WHERE id = $1
 `
 
 func (q *Queries) GetArtifactVersionByID(ctx context.Context, id int64) (ArtifactVersion, error) {
@@ -167,6 +167,8 @@ func (q *Queries) GetArtifactVersionByID(ctx context.Context, id int64) (Artifac
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.Embeddable,
+		&i.Approved,
+		&i.Channel,
 	)
 	return i, err
 }

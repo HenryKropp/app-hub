@@ -54,6 +54,22 @@ func (q *Queries) AddArtifactViewerPerson(ctx context.Context, arg AddArtifactVi
 	return err
 }
 
+const applyNewCompanyGovernance = `-- name: ApplyNewCompanyGovernance :exec
+WITH s AS (
+    UPDATE security_settings
+    SET require_app_approval = FALSE, it_approval = FALSE, version_rule = 'risk',
+        code_channel = 'any', mcp_restricted = FALSE
+    WHERE id RETURNING id
+)
+UPDATE roles SET permissions = array_remove(permissions, 'approve_it') WHERE key = 'admin'
+`
+
+// Migrations 010/030 left a new schema strict; a new company starts light.
+func (q *Queries) ApplyNewCompanyGovernance(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, applyNewCompanyGovernance)
+	return err
+}
+
 const clearArtifactViewers = `-- name: ClearArtifactViewers :exec
 DELETE FROM artifact_viewers WHERE artifact_id = $1
 `
@@ -80,7 +96,7 @@ func (q *Queries) ClearPersonArtifactGrants(ctx context.Context, arg ClearPerson
 const createArtifact = `-- name: CreateArtifact :one
 INSERT INTO artifacts (name, summary, kind, tags, area_id, owner_id, backup_id, restricted, origin, created_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, name, summary, kind, tags, area_id, owner_id, backup_id, restricted, origin, created_by, created_at, updated_at
+RETURNING id, name, summary, kind, tags, area_id, owner_id, backup_id, restricted, origin, created_by, created_at, updated_at, version_rule, ever_approved
 `
 
 type CreateArtifactParams struct {
@@ -124,6 +140,8 @@ func (q *Queries) CreateArtifact(ctx context.Context, arg CreateArtifactParams) 
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.VersionRule,
+		&i.EverApproved,
 	)
 	return i, err
 }
@@ -131,7 +149,7 @@ func (q *Queries) CreateArtifact(ctx context.Context, arg CreateArtifactParams) 
 const createArtifactVersion = `-- name: CreateArtifactVersion :one
 INSERT INTO artifact_versions (artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, embeddable)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at, embeddable
+RETURNING id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at, embeddable, approved, channel
 `
 
 type CreateArtifactVersionParams struct {
@@ -177,6 +195,8 @@ func (q *Queries) CreateArtifactVersion(ctx context.Context, arg CreateArtifactV
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.Embeddable,
+		&i.Approved,
+		&i.Channel,
 	)
 	return i, err
 }
@@ -190,17 +210,8 @@ func (q *Queries) DeleteArtifact(ctx context.Context, id int64) error {
 	return err
 }
 
-const disableAppApprovalByDefault = `-- name: DisableAppApprovalByDefault :exec
-UPDATE security_settings SET require_app_approval = FALSE WHERE id
-`
-
-func (q *Queries) DisableAppApprovalByDefault(ctx context.Context) error {
-	_, err := q.db.Exec(ctx, disableAppApprovalByDefault)
-	return err
-}
-
 const getArtifact = `-- name: GetArtifact :one
-SELECT id, name, summary, kind, tags, area_id, owner_id, backup_id, restricted, origin, created_by, created_at, updated_at FROM artifacts WHERE id = $1
+SELECT id, name, summary, kind, tags, area_id, owner_id, backup_id, restricted, origin, created_by, created_at, updated_at, version_rule, ever_approved FROM artifacts WHERE id = $1
 `
 
 func (q *Queries) GetArtifact(ctx context.Context, id int64) (Artifact, error) {
@@ -220,12 +231,14 @@ func (q *Queries) GetArtifact(ctx context.Context, id int64) (Artifact, error) {
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.VersionRule,
+		&i.EverApproved,
 	)
 	return i, err
 }
 
 const getArtifactVersion = `-- name: GetArtifactVersion :one
-SELECT id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at, embeddable FROM artifact_versions WHERE artifact_id = $1 AND number = $2
+SELECT id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at, embeddable, approved, channel FROM artifact_versions WHERE artifact_id = $1 AND number = $2
 `
 
 type GetArtifactVersionParams struct {
@@ -250,12 +263,14 @@ func (q *Queries) GetArtifactVersion(ctx context.Context, arg GetArtifactVersion
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.Embeddable,
+		&i.Approved,
+		&i.Channel,
 	)
 	return i, err
 }
 
 const latestArtifactVersion = `-- name: LatestArtifactVersion :one
-SELECT id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at, embeddable FROM artifact_versions WHERE artifact_id = $1 ORDER BY number DESC LIMIT 1
+SELECT id, artifact_id, number, kind, url, blob_sha256, file_name, size, note, restored_from, author_id, created_at, embeddable, approved, channel FROM artifact_versions WHERE artifact_id = $1 ORDER BY number DESC LIMIT 1
 `
 
 func (q *Queries) LatestArtifactVersion(ctx context.Context, artifactID int64) (ArtifactVersion, error) {
@@ -275,6 +290,8 @@ func (q *Queries) LatestArtifactVersion(ctx context.Context, artifactID int64) (
 		&i.AuthorID,
 		&i.CreatedAt,
 		&i.Embeddable,
+		&i.Approved,
+		&i.Channel,
 	)
 	return i, err
 }
@@ -582,7 +599,7 @@ func (q *Queries) TouchArtifact(ctx context.Context, id int64) error {
 }
 
 const updateArtifactCare = `-- name: UpdateArtifactCare :one
-UPDATE artifacts SET owner_id = $2, backup_id = $3, area_id = $4, updated_at = now() WHERE id = $1 RETURNING id, name, summary, kind, tags, area_id, owner_id, backup_id, restricted, origin, created_by, created_at, updated_at
+UPDATE artifacts SET owner_id = $2, backup_id = $3, area_id = $4, updated_at = now() WHERE id = $1 RETURNING id, name, summary, kind, tags, area_id, owner_id, backup_id, restricted, origin, created_by, created_at, updated_at, version_rule, ever_approved
 `
 
 type UpdateArtifactCareParams struct {
@@ -614,12 +631,14 @@ func (q *Queries) UpdateArtifactCare(ctx context.Context, arg UpdateArtifactCare
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.VersionRule,
+		&i.EverApproved,
 	)
 	return i, err
 }
 
 const updateArtifactFicha = `-- name: UpdateArtifactFicha :one
-UPDATE artifacts SET name = $2, summary = $3, tags = $4, updated_at = now() WHERE id = $1 RETURNING id, name, summary, kind, tags, area_id, owner_id, backup_id, restricted, origin, created_by, created_at, updated_at
+UPDATE artifacts SET name = $2, summary = $3, tags = $4, updated_at = now() WHERE id = $1 RETURNING id, name, summary, kind, tags, area_id, owner_id, backup_id, restricted, origin, created_by, created_at, updated_at, version_rule, ever_approved
 `
 
 type UpdateArtifactFichaParams struct {
@@ -651,6 +670,8 @@ func (q *Queries) UpdateArtifactFicha(ctx context.Context, arg UpdateArtifactFic
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.VersionRule,
+		&i.EverApproved,
 	)
 	return i, err
 }

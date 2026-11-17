@@ -92,5 +92,12 @@ SELECT DISTINCT v.artifact_id FROM artifact_viewers v
 WHERE v.person_id = sqlc.arg(person_id)
    OR v.area_id IN (SELECT m.area_id FROM area_members m WHERE m.person_id = sqlc.arg(person_id));
 
--- name: DisableAppApprovalByDefault :exec
-UPDATE security_settings SET require_app_approval = FALSE WHERE id;
+-- name: ApplyNewCompanyGovernance :exec
+-- Migrations 010/030 left a new schema strict; a new company starts light.
+WITH s AS (
+    UPDATE security_settings
+    SET require_app_approval = FALSE, it_approval = FALSE, version_rule = 'risk',
+        code_channel = 'any', mcp_restricted = FALSE
+    WHERE id RETURNING id
+)
+UPDATE roles SET permissions = array_remove(permissions, 'approve_it') WHERE key = 'admin';

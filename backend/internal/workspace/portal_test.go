@@ -602,3 +602,81 @@ func TestPortalFindLogins(t *testing.T) {
 	// The search opens no session anywhere.
 	b.want("GET", "/w/alfa/api/apps", nil, 401)
 }
+
+// Governance (ADR 046): a new company starts light — only the area leader
+// approves, versions only when the risk changes, any channel.
+func TestNewCompanyGovernanceDefaults(t *testing.T) {
+	p, pool, _ := testPortal(t)
+	ctx := context.Background()
+	if _, err := p.create(ctx, "Aurora", "aurora", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	var schema string
+	if err := pool.QueryRow(ctx, `SELECT schema_name FROM public.workspace_registry WHERE slug='aurora'`).Scan(&schema); err != nil {
+		t.Fatal(err)
+	}
+	s := pgx.Identifier{schema}.Sanitize()
+	var it, restricted bool
+	var rule, channel string
+	if err := pool.QueryRow(ctx, `SELECT it_approval,version_rule,code_channel,mcp_restricted FROM `+s+`.security_settings`).Scan(&it, &rule, &channel, &restricted); err != nil {
+		t.Fatal(err)
+	}
+	if it || rule != "risk" || channel != "any" || restricted {
+		t.Fatalf("new company governance = it:%v rule:%s channel:%s mcp:%v", it, rule, channel, restricted)
+	}
+	var approveIT, useMCP bool
+	if err := pool.QueryRow(ctx, `SELECT 'approve_it'=ANY(permissions),'use_mcp'=ANY(permissions) FROM `+s+`.roles WHERE key='admin'`).Scan(&approveIT, &useMCP); err != nil {
+		t.Fatal(err)
+	}
+	if approveIT || !useMCP {
+		t.Fatalf("admin approve_it=%v use_mcp=%v, want false/true", approveIT, useMCP)
+	}
+}
+
+// A company that already required approval (Empresa Piloto) keeps it strict: leader +
+// TI (the admin role) and every version. Approved apps stay approved; an app
+// still waiting gets an open request with both steps.
+func TestMigrationKeepsStrictCompany(t *testing.T) {
+	_, pool, srv := testPortal(t)
+	ctx := context.Background()
+	b := browser(t, srv.URL)
+	b.want("POST", "/api/auth/setup", map[string]any{"name": "Test admin", "email": "admin@example.test", "password": "test-password-not-a-real-secret"}, 201)
+	approved := importApp(t, b, "", "Approved app")
+	waiting := importApp(t, b, "", "Waiting app")
+	for _, sql := range []string{
+		`UPDATE security_settings SET require_app_approval=TRUE`,
+		`DELETE FROM app_security`,
+		`INSERT INTO app_security(app_id,approved,reviewed_manifest_hash,reviewed_version,reviewed_at) SELECT a.id,TRUE,encode(sha256(convert_to(a.manifest::text,'UTF8')),'hex'),(SELECT max(number) FROM app_versions WHERE app_id=a.id),now() FROM apps a WHERE a.id=` + strconv.FormatInt(approved, 10),
+		`DROP TABLE governance_events, approval_steps, approval_requests, app_governance`,
+		`UPDATE roles SET permissions=array_remove(array_remove(permissions,'approve_it'),'use_mcp')`,
+		`DELETE FROM schema_migrations WHERE name LIKE '%030_%'`,
+	} {
+		if _, err := pool.Exec(ctx, sql); err != nil {
+			t.Fatal(sql, err)
+		}
+	}
+	if err := database.Migrate(ctx, pool); err != nil {
+		t.Fatal(err)
+	}
+	var it bool
+	var rule string
+	if err := pool.QueryRow(ctx, `SELECT it_approval,version_rule FROM security_settings`).Scan(&it, &rule); err != nil || !it || rule != "every" {
+		t.Fatalf("strict company: it=%v rule=%s err=%v", it, rule, err)
+	}
+	var approveIT bool
+	if err := pool.QueryRow(ctx, `SELECT 'approve_it'=ANY(permissions) FROM roles WHERE key='admin'`).Scan(&approveIT); err != nil || !approveIT {
+		t.Fatalf("admin approve_it=%v err=%v", approveIT, err)
+	}
+	var ok bool
+	if err := pool.QueryRow(ctx, `SELECT g.approved_version=(SELECT max(number) FROM app_versions WHERE app_id=g.app_id) AND g.ever_approved FROM app_governance g WHERE g.app_id=$1`, approved).Scan(&ok); err != nil || !ok {
+		t.Fatalf("approved app not carried over: %v %v", ok, err)
+	}
+	var open int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM approval_requests WHERE app_id=$1 AND status='open'`, approved).Scan(&open); err != nil || open != 0 {
+		t.Fatalf("approved app has %d open requests (%v)", open, err)
+	}
+	var steps []string
+	if err := pool.QueryRow(ctx, `SELECT array_agg(st.step ORDER BY st.step) FROM approval_requests r JOIN approval_steps st ON st.request_id=r.id WHERE r.app_id=$1 AND r.status='open' AND r.reason='new'`, waiting).Scan(&steps); err != nil || strings.Join(steps, ",") != "it,leader" {
+		t.Fatalf("waiting app steps=%v err=%v", steps, err)
+	}
+}
