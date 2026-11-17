@@ -767,3 +767,110 @@ func TestAdminListsAndRevokesMCP(t *testing.T) {
 		t.Fatalf("events %d", n)
 	}
 }
+
+// --- Task 7: artifacts e links externos ---
+
+func addArtifactVersionT(t *testing.T, c *client, id int64, content string) {
+	t.Helper()
+	body := fileBody("Relatório", "rel.html", []byte(content))
+	if code := c.do("POST", "/api/artifacts/"+itoa(id)+"/versions", body, nil); code != http.StatusOK && code != http.StatusCreated {
+		t.Fatalf("add version %d", code)
+	}
+}
+
+func artifactCurrent(t *testing.T, c *client, id int64) int32 {
+	t.Helper()
+	var d artifactDetailJSON
+	if code := c.do("GET", "/api/artifacts/"+itoa(id), nil, &d); code != http.StatusOK {
+		t.Fatalf("get artifact %d", code)
+	}
+	return d.Current
+}
+
+// approvedArtifact: Ana's HTML artifact, approved by Leo for the area.
+func approvedArtifact(t *testing.T, rule string) (h *Handler, ana, bia, leo *client, id int64) {
+	t.Helper()
+	h, _, ana, bia, leo = govTeam(t)
+	h.cfg.SharedDomain = "ziv.test"
+	setRole(t, "criador", "register_apps", "share_external")
+	id = createArtifact(t, ana, fileBody("Relatório", "rel.html", []byte(pageHTML))).ID
+	if code := leo.do("POST", approvalPath(approvals(t, leo)[0].ID, "approve"), areaOnly, nil); code != http.StatusOK {
+		t.Fatalf("approve %d", code)
+	}
+	exec(t, "UPDATE security_settings SET version_rule = $1", rule)
+	return
+}
+
+func TestNewArtifactWaitsForLeader(t *testing.T) {
+	_, _, ana, bia, leo := govTeam(t)
+	id := createArtifact(t, ana, fileBody("Relatório", "rel.html", []byte(pageHTML))).ID
+	if code := bia.do("GET", "/api/artifacts/"+itoa(id), nil, nil); code != http.StatusNotFound {
+		t.Fatalf("pending artifact visible %d", code)
+	}
+	list := approvals(t, leo)
+	if len(list) != 1 || list[0].Kind != "artifact" || list[0].Reason != "new" {
+		t.Fatalf("approvals %+v", list)
+	}
+	if code := leo.do("POST", approvalPath(list[0].ID, "approve"), areaOnly, nil); code != http.StatusOK {
+		t.Fatalf("approve %d", code)
+	}
+	if n := artifactCurrent(t, bia, id); n != 1 {
+		t.Fatalf("current %d", n)
+	}
+}
+
+func TestArtifactVersionRiskOnlyWithExternalLink(t *testing.T) {
+	_, ana, bia, leo, id := approvedArtifact(t, "risk")
+	addArtifactVersionT(t, ana, id, "<html>v2</html>")
+	if n := artifactCurrent(t, bia, id); n != 2 {
+		t.Fatalf("v2 without link should go live, current %d", n)
+	}
+	if code := ana.do("POST", linksPath(id), openLinkBody(), nil); code != http.StatusCreated {
+		t.Fatalf("link %d", code)
+	}
+	addArtifactVersionT(t, ana, id, "<html>v3</html>")
+	if n := artifactCurrent(t, bia, id); n != 2 {
+		t.Fatalf("v3 with link should wait, current %d", n)
+	}
+	list := approvals(t, leo)
+	if len(list) != 2 || list[0].Status != "open" || len(list[0].RiskAdded) != 1 || list[0].RiskAdded[0] != "tem link externo ativo" || list[1].Status != "auto" {
+		t.Fatalf("approvals %+v", list)
+	}
+}
+
+func TestExternalLatestShowsLastApproved(t *testing.T) {
+	h, ana, _, leo, id := approvedArtifact(t, "every")
+	if code := ana.do("POST", linksPath(id), openLinkBody(), nil); code != http.StatusCreated {
+		t.Fatalf("link %d", code)
+	}
+	addArtifactVersionT(t, ana, id, "<html>v2</html>")
+	ctx := context.Background()
+	var linkID int64
+	testPool.QueryRow(ctx, "SELECT id FROM external_links WHERE artifact_id = $1", id).Scan(&linkID)
+	l, err := h.q.GetExternalLink(ctx, linkID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, v, err := h.linkState(ctx, l, time.Now()); err != nil || v.Number != 1 {
+		t.Fatalf("link shows %d %v", v.Number, err)
+	}
+	if code := leo.do("POST", approvalPath(approvals(t, leo)[0].ID, "approve"), nil, nil); code != http.StatusOK {
+		t.Fatalf("approve %d", code)
+	}
+	if _, v, err := h.linkState(ctx, l, time.Now()); err != nil || v.Number != 2 {
+		t.Fatalf("link shows %d %v", v.Number, err)
+	}
+}
+
+func TestNoExternalLinkBeforeApproval(t *testing.T) {
+	h, _, ana, _, _ := govTeam(t)
+	h.cfg.SharedDomain = "ziv.test"
+	setRole(t, "criador", "register_apps", "share_external")
+	id := createArtifact(t, ana, fileBody("Relatório", "rel.html", []byte(pageHTML))).ID
+	var e struct {
+		Error string `json:"error"`
+	}
+	if code := ana.do("POST", linksPath(id), openLinkBody(), &e); code != http.StatusConflict || e.Error != "Este artifact ainda espera aprovação." {
+		t.Fatalf("link %d %q", code, e.Error)
+	}
+}

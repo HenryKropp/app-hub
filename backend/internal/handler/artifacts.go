@@ -68,6 +68,7 @@ type artifactVersionJSON struct {
 	RestoredFrom *int32    `json:"restored_from"`
 	CreatedAt    time.Time `json:"created_at"`
 	Embeddable   bool      `json:"embeddable"` // a link whose site lets the Ziv show it inside the page
+	Approved     bool      `json:"approved"`   // false: waiting for approval or refused (ADR 046)
 }
 
 type artifactDetailJSON struct {
@@ -215,15 +216,15 @@ func (h *Handler) prepareVersion(w http.ResponseWriter, r *http.Request, in arti
 // addVersion stores p as the next version of the artifact and makes the
 // artifact's kind follow it. Run inside a transaction. The artifact row is
 // locked first so two uploads at once take numbers one after the other.
-func addVersion(ctx context.Context, q *sqlc.Queries, artifactID int64, p preparedVersion, authorID int64, restoredFrom pgtype.Int4, blob pgtype.Text, size int64) error {
+func addVersion(ctx context.Context, q *sqlc.Queries, artifactID int64, p preparedVersion, authorID int64, restoredFrom pgtype.Int4, blob pgtype.Text, size int64) (sqlc.ArtifactVersion, error) {
 	if err := q.LockArtifact(ctx, artifactID); err != nil {
-		return err
+		return sqlc.ArtifactVersion{}, err
 	}
 	next := int32(1)
 	if last, err := q.LatestArtifactVersion(ctx, artifactID); err == nil {
 		next = last.Number + 1
 	} else if !errors.Is(err, pgx.ErrNoRows) {
-		return err
+		return sqlc.ArtifactVersion{}, err
 	}
 	params := sqlc.CreateArtifactVersionParams{ArtifactID: artifactID, Number: next, Kind: p.kind, FileName: p.fileName,
 		Size: size, Note: p.note, RestoredFrom: restoredFrom, AuthorID: pgInt8(authorID), BlobSha256: blob, Channel: originOf(ctx)}
@@ -235,15 +236,16 @@ func addVersion(ctx context.Context, q *sqlc.Queries, artifactID int64, p prepar
 		sum := sha256.Sum256(p.content)
 		sha := hex.EncodeToString(sum[:])
 		if err := q.PutCodeBlob(ctx, sqlc.PutCodeBlobParams{Sha256: sha, Content: p.content, Size: int64(len(p.content))}); err != nil {
-			return err
+			return sqlc.ArtifactVersion{}, err
 		}
 		params.BlobSha256 = pgtype.Text{String: sha, Valid: true}
 		params.Size = int64(len(p.content))
 	}
-	if _, err := q.CreateArtifactVersion(ctx, params); err != nil {
-		return err
+	v, err := q.CreateArtifactVersion(ctx, params)
+	if err != nil {
+		return v, err
 	}
-	return q.SetArtifactKind(ctx, sqlc.SetArtifactKindParams{ID: artifactID, Kind: p.kind})
+	return v, q.SetArtifactKind(ctx, sqlc.SetArtifactKindParams{ID: artifactID, Kind: p.kind})
 }
 
 // artifactFor loads the artifact in the URL and what me can do with it. An
@@ -311,16 +313,22 @@ func (h *Handler) artifactDetail(ctx context.Context, a sqlc.Artifact, can acces
 		return d, err
 	}
 	for _, v := range versions {
+		if !v.Approved && !can.Edit && !can.Access {
+			continue // waiting or refused: only who edits or cares for it sees it (ADR 046)
+		}
 		out := artifactVersionJSON{Number: v.Number, Kind: v.Kind, URL: v.Url.String, FileName: v.FileName, Size: v.Size,
-			Note: v.Note, AuthorName: v.AuthorName.String, CreatedAt: v.CreatedAt.Time, Embeddable: v.Embeddable}
+			Note: v.Note, AuthorName: v.AuthorName.String, CreatedAt: v.CreatedAt.Time, Embeddable: v.Embeddable, Approved: v.Approved}
 		if v.RestoredFrom.Valid {
 			n := v.RestoredFrom.Int32
 			out.RestoredFrom = &n
 		}
 		d.Versions = append(d.Versions, out)
 	}
-	if len(d.Versions) > 0 {
-		d.Current = d.Versions[0].Number
+	for _, v := range d.Versions {
+		if v.Approved {
+			d.Current = v.Number // what everyone sees: the newest approved
+			break
+		}
 	}
 	d.Version = d.Current
 	return d, nil
@@ -430,20 +438,33 @@ func (h *Handler) createArtifact(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var id int64
+	var (
+		art sqlc.Artifact
+		v   sqlc.ArtifactVersion
+	)
 	err = h.q.InTx(ctx, func(q *sqlc.Queries) error {
-		a, err := q.CreateArtifact(ctx, sqlc.CreateArtifactParams{Name: name, Summary: strings.TrimSpace(b.Summary), Kind: p.kind,
+		var err error
+		art, err = q.CreateArtifact(ctx, sqlc.CreateArtifactParams{Name: name, Summary: strings.TrimSpace(b.Summary), Kind: p.kind,
 			Tags: normalizeTags(b.Tags), AreaID: b.AreaID, OwnerID: me.ID, Origin: originOf(ctx), CreatedBy: me.ID})
 		if err != nil {
 			return err
 		}
-		id = a.ID
-		return addVersion(ctx, q, a.ID, p, me.ID, pgtype.Int4{}, pgtype.Text{}, 0)
+		if h.governed(ctx) {
+			// Hidden until its first approval (ADR 046); an "auto" request
+			// approves it right below.
+			if err := q.SetArtifactEverApproved(ctx, sqlc.SetArtifactEverApprovedParams{ID: art.ID, EverApproved: false}); err != nil {
+				return err
+			}
+		}
+		v, err = addVersion(ctx, q, art.ID, p, me.ID, pgtype.Int4{}, pgtype.Text{}, 0)
+		return err
 	})
 	if err != nil {
 		internalError(w, "create artifact", err)
 		return
 	}
+	id := art.ID
+	h.governArtifactVersion(ctx, art, v, me.ID, false)
 	h.writeArtifactDetail(w, r, me, id, http.StatusCreated)
 }
 
@@ -563,24 +584,31 @@ func (h *Handler) addArtifactVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+	var v sqlc.ArtifactVersion
 	err := h.q.InTx(ctx, func(q *sqlc.Queries) error {
-		return addVersion(ctx, q, a.ID, p, me.ID, pgtype.Int4{}, pgtype.Text{}, 0)
+		var err error
+		v, err = addVersion(ctx, q, a.ID, p, me.ID, pgtype.Int4{}, pgtype.Text{}, 0)
+		return err
 	})
 	if err != nil {
 		internalError(w, "add artifact version", err)
 		return
 	}
+	h.governArtifactVersion(ctx, a, v, me.ID, false)
 	h.writeArtifactDetail(w, r, me, a.ID, http.StatusOK)
 }
 
-// artifactVersionNumber loads version raw (the latest when empty), answering 404 itself.
-func (h *Handler) artifactVersionNumber(w http.ResponseWriter, r *http.Request, raw string, artifactID int64) (sqlc.ArtifactVersion, bool) {
+// artifactVersionNumber loads version raw (the latest when empty), answering
+// 404 itself. Without seeAll only approved versions exist (ADR 046).
+func (h *Handler) artifactVersionNumber(w http.ResponseWriter, r *http.Request, raw string, artifactID int64, seeAll bool) (sqlc.ArtifactVersion, bool) {
 	var (
 		v   sqlc.ArtifactVersion
 		err error
 	)
-	if raw == "" {
+	if raw == "" && seeAll {
 		v, err = h.q.LatestArtifactVersion(r.Context(), artifactID)
+	} else if raw == "" {
+		v, err = h.q.LatestApprovedArtifactVersion(r.Context(), artifactID)
 	} else {
 		n, perr := strconv.ParseInt(raw, 10, 32)
 		if perr != nil {
@@ -597,6 +625,10 @@ func (h *Handler) artifactVersionNumber(w http.ResponseWriter, r *http.Request, 
 		internalError(w, "get artifact version", err)
 		return v, false
 	}
+	if !seeAll && !v.Approved {
+		writeError(w, http.StatusNotFound, "Versão não encontrada.")
+		return v, false
+	}
 	return v, true
 }
 
@@ -609,19 +641,24 @@ func (h *Handler) restoreArtifactVersion(w http.ResponseWriter, r *http.Request)
 		writeError(w, http.StatusForbidden, "Você não pode voltar versões deste artifact.")
 		return
 	}
-	old, ok := h.artifactVersionNumber(w, r, r.PathValue("n"), a.ID)
+	old, ok := h.artifactVersionNumber(w, r, r.PathValue("n"), a.ID, true)
 	if !ok {
 		return
 	}
 	ctx := r.Context()
 	p := preparedVersion{kind: old.Kind, url: old.Url.String, fileName: old.FileName, embeddable: old.Embeddable && !h.zivHost(old.Url.String)}
+	var v sqlc.ArtifactVersion
 	err := h.q.InTx(ctx, func(q *sqlc.Queries) error {
-		return addVersion(ctx, q, a.ID, p, me.ID, pgtype.Int4{Int32: old.Number, Valid: true}, old.BlobSha256, old.Size)
+		var err error
+		v, err = addVersion(ctx, q, a.ID, p, me.ID, pgtype.Int4{Int32: old.Number, Valid: true}, old.BlobSha256, old.Size)
+		return err
 	})
 	if err != nil {
 		internalError(w, "restore artifact version", err)
 		return
 	}
+	// Going back to an approved version asks nothing (ADR 046).
+	h.governArtifactVersion(ctx, a, v, me.ID, old.Approved)
 	h.writeArtifactDetail(w, r, me, a.ID, http.StatusOK)
 }
 
@@ -651,11 +688,11 @@ func (h *Handler) deleteArtifact(w http.ResponseWriter, r *http.Request) {
 // the CSP sandbox (without allow-same-origin) puts it in an opaque origin, so
 // even opened directly it cannot act as the viewer on the Hub.
 func (h *Handler) artifactContent(w http.ResponseWriter, r *http.Request) {
-	a, _, _, _, ok := h.artifactFor(w, r)
+	a, _, _, can, ok := h.artifactFor(w, r)
 	if !ok {
 		return
 	}
-	v, ok := h.artifactVersionNumber(w, r, r.URL.Query().Get("v"), a.ID)
+	v, ok := h.artifactVersionNumber(w, r, r.URL.Query().Get("v"), a.ID, can.Edit || can.Access)
 	if !ok {
 		return
 	}

@@ -332,7 +332,7 @@ func (q *Queries) ListArtifactGrants(ctx context.Context, artifactID int64) ([]L
 
 const listArtifactVersions = `-- name: ListArtifactVersions :many
 SELECT v.id, v.artifact_id, v.number, v.kind, v.url, v.blob_sha256, v.file_name, v.size, v.note,
-       v.restored_from, v.author_id, p.name AS author_name, v.created_at, v.embeddable
+       v.restored_from, v.author_id, p.name AS author_name, v.created_at, v.embeddable, v.approved
 FROM artifact_versions v
 LEFT JOIN people p ON p.id = v.author_id
 WHERE v.artifact_id = $1
@@ -354,6 +354,7 @@ type ListArtifactVersionsRow struct {
 	AuthorName   pgtype.Text        `json:"author_name"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	Embeddable   bool               `json:"embeddable"`
+	Approved     bool               `json:"approved"`
 }
 
 func (q *Queries) ListArtifactVersions(ctx context.Context, artifactID int64) ([]ListArtifactVersionsRow, error) {
@@ -380,6 +381,7 @@ func (q *Queries) ListArtifactVersions(ctx context.Context, artifactID int64) ([
 			&i.AuthorName,
 			&i.CreatedAt,
 			&i.Embeddable,
+			&i.Approved,
 		); err != nil {
 			return nil, err
 		}
@@ -436,7 +438,7 @@ const listArtifacts = `-- name: ListArtifacts :many
 SELECT a.id, a.name, a.summary, a.kind, a.tags, a.area_id, ar.name AS area_name,
        a.owner_id, o.name AS owner_name, a.backup_id, a.restricted, a.origin,
        a.created_by, a.created_at, a.updated_at,
-       COALESCE((SELECT max(v.number) FROM artifact_versions v WHERE v.artifact_id = a.id), 0)::int AS current_version
+       COALESCE((SELECT max(v.number) FROM artifact_versions v WHERE v.artifact_id = a.id AND v.approved), 0)::int AS current_version
 FROM artifacts a
 JOIN areas ar ON ar.id = a.area_id
 JOIN people o ON o.id = a.owner_id

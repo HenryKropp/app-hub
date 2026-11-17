@@ -34,6 +34,17 @@ func (q *Queries) AreaHasLeader(ctx context.Context, areaID int64) (bool, error)
 	return exists, err
 }
 
+const artifactHasActiveLink = `-- name: ArtifactHasActiveLink :one
+SELECT EXISTS (SELECT 1 FROM external_links WHERE artifact_id = $1 AND cancelled_at IS NULL AND expires_at > now())
+`
+
+func (q *Queries) ArtifactHasActiveLink(ctx context.Context, artifactID int64) (bool, error) {
+	row := q.db.QueryRow(ctx, artifactHasActiveLink, artifactID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const closeApprovalRequest = `-- name: CloseApprovalRequest :execrows
 UPDATE approval_requests SET status = $1, closed_at = clock_timestamp()
 WHERE id = $2 AND status = 'open'

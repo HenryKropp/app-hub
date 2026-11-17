@@ -154,3 +154,6 @@ SELECT EXISTS (SELECT 1 FROM approval_requests WHERE app_id = $1 AND app_version
 
 -- name: SetAppArea :exec
 UPDATE apps SET area = $2, area_id = $3, manifest = $4, updated_at = clock_timestamp() WHERE id = $1;
+
+-- name: ArtifactHasActiveLink :one
+SELECT EXISTS (SELECT 1 FROM external_links WHERE artifact_id = $1 AND cancelled_at IS NULL AND expires_at > now());

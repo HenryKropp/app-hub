@@ -98,12 +98,13 @@ func (h *Handler) linkState(ctx context.Context, l sqlc.ExternalLink, now time.T
 	if l.VersionID.Valid {
 		v, err = h.q.GetArtifactVersionByID(ctx, l.VersionID.Int64)
 	} else {
-		v, err = h.q.LatestArtifactVersion(ctx, l.ArtifactID)
+		// "A mais recente" outside is the newest approved one (ADR 046).
+		v, err = h.q.LatestApprovedArtifactVersion(ctx, l.ArtifactID)
 	}
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return s, v, err
 	}
-	s.ContentIsFile = err == nil && v.ArtifactID == l.ArtifactID && v.Kind == "file" && v.BlobSha256.Valid
+	s.ContentIsFile = err == nil && v.ArtifactID == l.ArtifactID && v.Approved && v.Kind == "file" && v.BlobSha256.Valid
 	return s, v, nil
 }
 
@@ -226,6 +227,10 @@ func (h *Handler) createArtifactLink(w http.ResponseWriter, r *http.Request) {
 	}
 	if a.Kind != "file" {
 		writeError(w, http.StatusBadRequest, "Só artifacts de arquivo HTML podem ser mandados para fora. Para um link, mande o próprio endereço.")
+		return
+	}
+	if !a.EverApproved {
+		writeError(w, http.StatusConflict, "Este artifact ainda espera aprovação.")
 		return
 	}
 	if !extlink.ValidExpiry(in.ExpiresDays) {

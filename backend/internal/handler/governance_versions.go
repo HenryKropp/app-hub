@@ -328,3 +328,28 @@ func (h *Handler) governFicha(ctx context.Context, a sqlc.App, requester int64) 
 		Risk: merged, Added: added, RequesterID: requester})
 	return err
 }
+
+// governArtifactVersion opens the request for artifact version v (ADR 046).
+// The version is held (approved=false) until the request is approved, which
+// happens at once when the rule asks nothing. Its only risk is reaching
+// people outside: an active external link.
+func (h *Handler) governArtifactVersion(ctx context.Context, a sqlc.Artifact, v sqlc.ArtifactVersion, requester int64, preapproved bool) {
+	if !h.governed(ctx) {
+		return
+	}
+	if err := h.q.SetArtifactVersionApproved(ctx, sqlc.SetArtifactVersionApprovedParams{ID: v.ID, Approved: false}); err != nil {
+		logGov("hold artifact version", a.ID, err)
+		return
+	}
+	added := []string{}
+	if open, err := h.q.ArtifactHasActiveLink(ctx, a.ID); err != nil {
+		logGov("artifact links", a.ID, err)
+		return
+	} else if open {
+		added = append(added, "tem link externo ativo")
+	}
+	if _, err := h.openRequest(ctx, requestIn{Kind: "artifact", ArtifactID: a.ID, AreaID: a.AreaID, Reason: governance.ReasonVersion,
+		ArtifactVersionID: v.ID, Added: added, Channel: v.Channel, RequesterID: requester, Preapproved: preapproved}); err != nil {
+		logGov("artifact request", a.ID, err)
+	}
+}
