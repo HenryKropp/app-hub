@@ -143,6 +143,10 @@ func insertWebApp(t *testing.T, pool *pgxpool.Pool, dir string) int64 {
 		VALUES ('notas', 'Notas', 'web', 'Research', $1, $2, $3, $4, $3) RETURNING id`, areaID, dir, personID, raw).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
+	// Every app has a governance row (ADR 046); this one is already approved.
+	if _, err := pool.Exec(ctx, `INSERT INTO app_governance (app_id, approved_version, ever_approved) VALUES ($1, 0, TRUE)`, id); err != nil {
+		t.Fatal(err)
+	}
 	return id
 }
 

@@ -26,9 +26,14 @@ func (q *Queries) ApproveDraft(ctx context.Context, id int64) (int64, error) {
 }
 
 const cancelOpenDrafts = `-- name: CancelOpenDrafts :exec
-UPDATE app_drafts
-SET status = 'cancelada', stage = '', status_reason = $1, updated_at = clock_timestamp()
-WHERE app_id = $2 AND status IN ('rascunho', 'testando', 'aprovada', 'aguardando')
+WITH cancelled AS (
+    UPDATE app_drafts
+    SET status = 'cancelada', stage = '', status_reason = $1, updated_at = clock_timestamp()
+    WHERE app_drafts.app_id = $2 AND app_drafts.status IN ('rascunho', 'testando', 'aprovada', 'aguardando')
+    RETURNING id
+)
+UPDATE approval_requests SET status = 'replaced', closed_at = clock_timestamp()
+WHERE status = 'open' AND draft_id IN (SELECT id FROM cancelled)
 `
 
 type CancelOpenDraftsParams struct {
@@ -36,6 +41,7 @@ type CancelOpenDraftsParams struct {
 	AppID  int64  `json:"app_id"`
 }
 
+// A cancelled waiting draft also closes its approval request (ADR 046).
 func (q *Queries) CancelOpenDrafts(ctx context.Context, arg CancelOpenDraftsParams) error {
 	_, err := q.db.Exec(ctx, cancelOpenDrafts, arg.Reason, arg.AppID)
 	return err

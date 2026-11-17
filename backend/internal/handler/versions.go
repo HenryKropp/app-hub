@@ -123,7 +123,13 @@ func (h *Handler) checkVersionLocked(ctx context.Context, a sqlc.App) (sqlc.AppV
 		return v, snap, true, err
 	}
 	h.storeScan(a.ID, v.Number, snap)
-	h.governVersion(ctx, a, v, a.OwnerID, false, false)
+	// A change found in the PC folder has no known author: it is never
+	// approved in the owner's name (ADR 046).
+	requester := a.OwnerID
+	if origin == "folder" {
+		requester = 0
+	}
+	h.governVersion(ctx, a, v, requester, false, false)
 	return v, snap, true, nil
 }
 

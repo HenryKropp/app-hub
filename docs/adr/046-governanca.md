@@ -48,6 +48,19 @@ quem usava. Desenho aprovado em 2026-11-17
   aparece para quem criou, quem aprova e quem audita.
 - **Rascunhos (ADR 043/044)**: a versão testada que a regra manda aprovar
   fica "aguardando"; o pedido diz que o teste passou.
+- **Ficha que ganha risco** (chave do Cofre, 24h no servidor), por qualquer
+  caminho que salva a ficha: o app **pausa** até o líder decidir. Isso se
+  afasta do desenho (que mantinha a ficha aprovada valendo num rascunho):
+  a ficha é o arquivo na pasta e o app roda o que está lá, então mantê-la
+  seria um rascunho só de ficha. Quem muda a ficha escolhe a hora; o pedido
+  diz o risco que entrou.
+- **Revisão final (2026-11-17):** a checagem de ficha e de troca de área
+  vale em todo caminho que salva a ficha; troca de área de artifact também
+  espera o líder novo; app sem registro de governança fica retido; pedido
+  substituído ou que perdeu o rascunho não aprova a versão mais nova; versão
+  achada na pasta não é aprovada em nome do dono; "só pelo Claude" recusa
+  voltar para uma versão da pasta nunca aprovada; a empresa apertar a regra
+  alcança itens com regra mais frouxa.
 - **MCP:** as ferramentas respondem com a situação do pedido ("Aguardando o
   líder de Research.").
 - **Tela:** página **Aprovações** com contador no menu, bloco "Esperando sua

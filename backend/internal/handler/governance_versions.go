@@ -259,6 +259,27 @@ func (h *Handler) applyAreaRequest(ctx context.Context, req sqlc.ApprovalRequest
 	return h.q.InsertGovernanceEvent(ctx, eventFor("app", a.ID, "area", actorID, detail))
 }
 
+// applyArtifactAreaRequest moves the artifact to the approved area.
+func (h *Handler) applyArtifactAreaRequest(ctx context.Context, req sqlc.ApprovalRequest, actorID int64) error {
+	a, err := h.q.GetArtifact(ctx, req.ArtifactID.Int64)
+	if err != nil {
+		return err
+	}
+	from, err := h.q.GetArea(ctx, a.AreaID)
+	if err != nil {
+		return err
+	}
+	to, err := h.q.GetArea(ctx, req.TargetAreaID.Int64)
+	if err != nil {
+		return err
+	}
+	if err := h.q.SetArtifactArea(ctx, sqlc.SetArtifactAreaParams{ID: a.ID, AreaID: to.ID}); err != nil {
+		return err
+	}
+	detail, _ := json.Marshal(map[string]string{"before": from.Name, "after": to.Name})
+	return h.q.InsertGovernanceEvent(ctx, eventFor("artifact", a.ID, "area", actorID, detail))
+}
+
 func nonEmptyJSON(b []byte) []byte {
 	if len(b) == 0 {
 		return []byte("{}")
@@ -336,8 +357,23 @@ func (h *Handler) governFicha(ctx context.Context, a sqlc.App, requester int64) 
 	if len(added) == 0 {
 		return nil
 	}
+	// A version already waiting holds the app; once it is decided the ficha
+	// is checked again (approveRequest), so this risk is not lost.
+	if open, err := h.q.GetOpenRequestForApp(ctx, pgInt8(a.ID)); err == nil && open.Reason != governance.ReasonArea {
+		return nil
+	} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	// The request names the version live now: approving it approves that
+	// one, never a newer version that arrives meanwhile.
+	var live int32
+	if v, err := h.q.LatestAppVersion(ctx, a.ID); err == nil {
+		live = v.Number
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
 	_, err = h.openRequest(ctx, requestIn{Kind: "app", AppID: a.ID, AreaID: a.AreaID, Reason: governance.ReasonFicha,
-		Risk: merged, Added: added, RequesterID: requester})
+		Risk: merged, Added: added, RequesterID: requester, AppVersion: live})
 	return err
 }
 

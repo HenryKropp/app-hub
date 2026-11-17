@@ -13,7 +13,7 @@ import (
 
 const addITStepToOpen = `-- name: AddITStepToOpen :exec
 INSERT INTO approval_steps (request_id, step)
-SELECT id, 'it' FROM approval_requests WHERE status = 'open'
+SELECT id, 'it' FROM approval_requests WHERE status = 'open' AND reason <> 'area'
 ON CONFLICT DO NOTHING
 `
 
@@ -54,6 +54,31 @@ func (q *Queries) ArtifactHasActiveLink(ctx context.Context, artifactID int64) (
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const clearLooserAppRules = `-- name: ClearLooserAppRules :exec
+UPDATE app_governance SET version_rule = NULL
+WHERE version_rule IS NOT NULL
+  AND (CASE version_rule WHEN 'every' THEN 3 WHEN 'risk' THEN 2 ELSE 1 END)
+    < (CASE $1::text WHEN 'every' THEN 3 WHEN 'risk' THEN 2 ELSE 1 END)
+`
+
+// The company tightened its rule: items with a looser one follow the company.
+func (q *Queries) ClearLooserAppRules(ctx context.Context, company string) error {
+	_, err := q.db.Exec(ctx, clearLooserAppRules, company)
+	return err
+}
+
+const clearLooserArtifactRules = `-- name: ClearLooserArtifactRules :exec
+UPDATE artifacts SET version_rule = NULL
+WHERE version_rule IS NOT NULL
+  AND (CASE version_rule WHEN 'every' THEN 3 WHEN 'risk' THEN 2 ELSE 1 END)
+    < (CASE $1::text WHEN 'every' THEN 3 WHEN 'risk' THEN 2 ELSE 1 END)
+`
+
+func (q *Queries) ClearLooserArtifactRules(ctx context.Context, company string) error {
+	_, err := q.db.Exec(ctx, clearLooserArtifactRules, company)
+	return err
 }
 
 const closeApprovalRequest = `-- name: CloseApprovalRequest :execrows
@@ -908,6 +933,16 @@ func (q *Queries) ListRecentRequests(ctx context.Context) ([]ListRecentRequestsR
 	return items, nil
 }
 
+const reopenApprovalRequest = `-- name: ReopenApprovalRequest :exec
+UPDATE approval_requests SET status = 'open', closed_at = NULL WHERE id = $1 AND status = 'approved'
+`
+
+// Undo a close whose apply failed: the decision did not happen.
+func (q *Queries) ReopenApprovalRequest(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, reopenApprovalRequest, id)
+	return err
+}
+
 const replaceOpenAppRequest = `-- name: ReplaceOpenAppRequest :many
 UPDATE approval_requests SET status = 'replaced', closed_at = clock_timestamp()
 WHERE app_id = $1 AND status = 'open' RETURNING id, item_kind, app_id, artifact_id, reason, draft_id, app_version, artifact_version_id, target_area_id, risk, risk_added, channel, tested, status, requested_by, created_at, closed_at, audience
@@ -1029,6 +1064,20 @@ type SetAppVersionRuleParams struct {
 
 func (q *Queries) SetAppVersionRule(ctx context.Context, arg SetAppVersionRuleParams) error {
 	_, err := q.db.Exec(ctx, setAppVersionRule, arg.AppID, arg.VersionRule)
+	return err
+}
+
+const setArtifactArea = `-- name: SetArtifactArea :exec
+UPDATE artifacts SET area_id = $2, updated_at = now() WHERE id = $1
+`
+
+type SetArtifactAreaParams struct {
+	ID     int64 `json:"id"`
+	AreaID int64 `json:"area_id"`
+}
+
+func (q *Queries) SetArtifactArea(ctx context.Context, arg SetArtifactAreaParams) error {
+	_, err := q.db.Exec(ctx, setArtifactArea, arg.ID, arg.AreaID)
 	return err
 }
 

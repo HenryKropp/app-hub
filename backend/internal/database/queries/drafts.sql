@@ -7,9 +7,15 @@ RETURNING *;
 SELECT * FROM app_drafts WHERE app_id = $1 AND id = $2;
 
 -- name: CancelOpenDrafts :exec
-UPDATE app_drafts
-SET status = 'cancelada', stage = '', status_reason = sqlc.arg(reason), updated_at = clock_timestamp()
-WHERE app_id = sqlc.arg(app_id) AND status IN ('rascunho', 'testando', 'aprovada', 'aguardando');
+-- A cancelled waiting draft also closes its approval request (ADR 046).
+WITH cancelled AS (
+    UPDATE app_drafts
+    SET status = 'cancelada', stage = '', status_reason = sqlc.arg(reason), updated_at = clock_timestamp()
+    WHERE app_drafts.app_id = sqlc.arg(app_id) AND app_drafts.status IN ('rascunho', 'testando', 'aprovada', 'aguardando')
+    RETURNING id
+)
+UPDATE approval_requests SET status = 'replaced', closed_at = clock_timestamp()
+WHERE status = 'open' AND draft_id IN (SELECT id FROM cancelled);
 
 -- name: MarkDraftPublished :exec
 UPDATE app_drafts

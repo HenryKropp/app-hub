@@ -10,7 +10,7 @@ import { AccessSection } from "@/components/ficha/AccessSection"
 import { EditLink, Section } from "@/components/ficha/Part"
 import { ArtifactSourceField, ClaudeLinkHint, isClaudeLink, readAsBase64, sourceReady, type ArtifactSource } from "@/components/ArtifactSourceField"
 import { FavoriteStar } from "@/components/FavoriteStar"
-import { ApiError, api, artifactContentUrl, workspaceBasePath, type Area, type ArtifactDetail, type ItemGovernance, type PersonRow } from "@/lib/api"
+import { ApiError, api, artifactContentUrl, type Area, type ArtifactDetail, type ItemGovernance, type PersonRow } from "@/lib/api"
 import { RuleSection } from "@/components/governance/RuleSection"
 import { HistoryList } from "@/components/governance/HistoryList"
 import { useAuth } from "@/lib/auth"
@@ -63,15 +63,14 @@ export function ArtifactPage() {
   useEffect(load, [load])
 
   const loaded = !!art
-  // Approvals (ADR 046) exist only in a company portal.
-  const governed = workspaceBasePath() !== ""
+  // Approvals (ADR 046): the server answers 404 where a company has none.
   const artVersion = art?.versions.length
   useEffect(() => {
-    if (!governed || !loaded) return
+    if (!loaded) return
     let gone = false
     api.artifactGovernance(id).then((g) => !gone && setGov(g), () => !gone && setGov(null))
     return () => { gone = true }
-  }, [governed, loaded, id, artVersion])
+  }, [loaded, id, artVersion])
   useEffect(() => {
     if (loaded && hash === "#acesso") document.getElementById("acesso")?.scrollIntoView?.()
   }, [loaded, hash])

@@ -464,7 +464,7 @@ func (h *Handler) saveApp(w http.ResponseWriter, r *http.Request) {
 // updateApp saves one part of the ficha (the frontend sends the whole manifest
 // with only that part changed). updated_at guards against a second, stale save.
 func (h *Handler) updateApp(w http.ResponseWriter, r *http.Request) {
-	a, me, acc, can, ok := h.appFor(w, r)
+	a, me, _, can, ok := h.appFor(w, r)
 	if !ok {
 		return
 	}
@@ -495,37 +495,8 @@ func (h *Handler) updateApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "Não consegui ler a pasta do app agora. Nada foi salvo. Confira se o OneDrive está sincronizado e tente de novo.")
 		return
 	}
-	// Governança (ADR 046): moving an approved app to another area waits for
-	// that area's leader; the rest of the ficha is saved now.
-	ctx := r.Context()
-	var moveTo int64
-	if h.governed(ctx) && strings.TrimSpace(body.Manifest.Area) != a.Area {
-		if target, err := h.q.GetAreaByName(ctx, strings.TrimSpace(body.Manifest.Area)); err == nil {
-			ever, _, err := h.itemRule(ctx, "app", a.ID, 0)
-			if err != nil {
-				internalError(w, "item rule", err)
-				return
-			}
-			if ever && !acc.Leads[target.ID] {
-				moveTo = target.ID
-				body.Manifest.Area = a.Area
-			}
-		}
-	}
 	saved, ok := h.writeApp(w, r, me, a.FolderPath, body.appBody, &a)
 	if !ok {
-		return
-	}
-	if moveTo != 0 {
-		if _, err := h.openRequest(ctx, requestIn{Kind: "app", AppID: a.ID, AreaID: a.AreaID, Reason: governance.ReasonArea,
-			TargetAreaID: moveTo, RequesterID: me.ID}); err != nil {
-			internalError(w, "area request", err)
-			return
-		}
-		saved, _ = h.q.GetApp(ctx, a.ID)
-	}
-	if err := h.governFicha(ctx, saved, me.ID); err != nil {
-		internalError(w, "ficha request", err)
 		return
 	}
 	h.writeDetail(w, r, me, saved, http.StatusOK)
@@ -614,6 +585,31 @@ func (h *Handler) writeApp(w http.ResponseWriter, r *http.Request, me sqlc.Perso
 		internalError(w, "get area", err)
 		return sqlc.App{}, false
 	}
+	// Governança (ADR 046), on every route that saves the ficha: moving an
+	// approved app to an area the person does not lead waits for that area's
+	// leader (the rest is saved now); risk added to the ficha asks approval.
+	ctx := r.Context()
+	var moveTo int64
+	if old != nil && h.governed(ctx) && area.ID != old.AreaID {
+		ever, _, err := h.itemRule(ctx, "app", old.ID, 0)
+		if err != nil {
+			internalError(w, "item rule", err)
+			return sqlc.App{}, false
+		}
+		acc, err := h.loadAccess(ctx, me)
+		if err != nil {
+			internalError(w, "load access", err)
+			return sqlc.App{}, false
+		}
+		if ever && !acc.Leads[area.ID] {
+			moveTo = area.ID
+			m.Area = old.Area
+			if area, err = h.q.GetArea(ctx, old.AreaID); err != nil {
+				internalError(w, "get area", err)
+				return sqlc.App{}, false
+			}
+		}
+	}
 
 	base := m.ID
 	if base == "" {
@@ -672,9 +668,33 @@ func (h *Handler) writeApp(w http.ResponseWriter, r *http.Request, me sqlc.Perso
 			return sqlc.App{}, false
 		}
 	}
+	if old == nil && h.governed(ctx) {
+		// Pending from the start: hidden and held even if no version is
+		// recorded yet (an unreadable folder).
+		if err := h.q.UpsertAppGovernance(ctx, sqlc.UpsertAppGovernanceParams{AppID: a.ID, ApprovedRisk: []byte("{}")}); err != nil {
+			internalError(w, "app governance", err)
+			return sqlc.App{}, false
+		}
+	}
 	// Ficha change is recorded before the check, so "Ficha criada" precedes versão 1.
-	if _, _, err := h.checkVersion(context.WithoutCancel(r.Context()), a); err != nil {
+	if _, _, err := h.checkVersion(context.WithoutCancel(ctx), a); err != nil {
 		slog.Error("version check", "app", a.ID, "err", err)
+	}
+	if old != nil {
+		if moveTo != 0 {
+			if _, err := h.openRequest(ctx, requestIn{Kind: "app", AppID: a.ID, AreaID: a.AreaID, Reason: governance.ReasonArea,
+				TargetAreaID: moveTo, RequesterID: me.ID}); err != nil {
+				internalError(w, "area request", err)
+				return sqlc.App{}, false
+			}
+		}
+		if err := h.governFicha(ctx, a, me.ID); err != nil {
+			internalError(w, "ficha request", err)
+			return sqlc.App{}, false
+		}
+		if fresh, err := h.q.GetApp(ctx, a.ID); err == nil {
+			a = fresh
+		}
 	}
 	return a, true
 }

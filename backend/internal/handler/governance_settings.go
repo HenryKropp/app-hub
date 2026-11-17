@@ -68,6 +68,16 @@ func (h *Handler) updateGovernanceSettings(w http.ResponseWriter, r *http.Reques
 			VersionRule: b.VersionRule, CodeChannel: b.CodeChannel, McpRestricted: b.MCPRestricted}); err != nil {
 			return err
 		}
+		if governance.Stricter(governance.Rule(b.VersionRule), governance.Rule(before.VersionRule)) == governance.Rule(b.VersionRule) &&
+			b.VersionRule != before.VersionRule {
+			// Tightened: an item with a looser rule follows the company now.
+			if err := q.ClearLooserAppRules(ctx, b.VersionRule); err != nil {
+				return err
+			}
+			if err := q.ClearLooserArtifactRules(ctx, b.VersionRule); err != nil {
+				return err
+			}
+		}
 		if b.ITApproval && !before.ItApproval {
 			// What is already waiting now also waits for TI.
 			if err := q.AddITStepToOpen(ctx); err != nil {

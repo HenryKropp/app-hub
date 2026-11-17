@@ -116,6 +116,24 @@ func (h *Handler) restoreVersion(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// "Só pelo Claude": a version that came from the PC folder and was never
+	// approved can't come back through a restore (ADR 046).
+	if target.Origin == "folder" {
+		if open, err := h.channelAllowed(r.Context()); err != nil {
+			internalError(w, "code channel", err)
+			return
+		} else if !open {
+			was, err := h.q.VersionWasApproved(r.Context(), sqlc.VersionWasApprovedParams{AppID: pgInt8(a.ID), AppVersion: pgInt4(target.Number)})
+			if err != nil {
+				internalError(w, "version approved", err)
+				return
+			}
+			if !was {
+				writeError(w, http.StatusForbidden, msgOnlyClaude)
+				return
+			}
+		}
+	}
 	defer h.lockApp(a.ID)()
 	_, snap, ok := h.prepareRestore(w, r, a, target)
 	if !ok {

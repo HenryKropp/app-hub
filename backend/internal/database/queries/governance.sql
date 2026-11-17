@@ -160,5 +160,25 @@ SELECT EXISTS (SELECT 1 FROM external_links WHERE artifact_id = $1 AND cancelled
 
 -- name: AddITStepToOpen :exec
 INSERT INTO approval_steps (request_id, step)
-SELECT id, 'it' FROM approval_requests WHERE status = 'open'
+SELECT id, 'it' FROM approval_requests WHERE status = 'open' AND reason <> 'area'
 ON CONFLICT DO NOTHING;
+
+-- name: ReopenApprovalRequest :exec
+-- Undo a close whose apply failed: the decision did not happen.
+UPDATE approval_requests SET status = 'open', closed_at = NULL WHERE id = $1 AND status = 'approved';
+
+-- name: ClearLooserAppRules :exec
+-- The company tightened its rule: items with a looser one follow the company.
+UPDATE app_governance SET version_rule = NULL
+WHERE version_rule IS NOT NULL
+  AND (CASE version_rule WHEN 'every' THEN 3 WHEN 'risk' THEN 2 ELSE 1 END)
+    < (CASE sqlc.arg(company)::text WHEN 'every' THEN 3 WHEN 'risk' THEN 2 ELSE 1 END);
+
+-- name: ClearLooserArtifactRules :exec
+UPDATE artifacts SET version_rule = NULL
+WHERE version_rule IS NOT NULL
+  AND (CASE version_rule WHEN 'every' THEN 3 WHEN 'risk' THEN 2 ELSE 1 END)
+    < (CASE sqlc.arg(company)::text WHEN 'every' THEN 3 WHEN 'risk' THEN 2 ELSE 1 END);
+
+-- name: SetArtifactArea :exec
+UPDATE artifacts SET area_id = $2, updated_at = now() WHERE id = $1;

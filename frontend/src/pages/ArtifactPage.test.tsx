@@ -288,3 +288,18 @@ test("a link artifact has no external links section", async () => {
   expect(screen.queryByText(/Links externos/)).not.toBeInTheDocument()
   expect(screen.queryByRole("button", { name: /Compartilhar/ })).not.toBeInTheDocument()
 })
+
+test("the principal company (no /w/ path) still shows the approval state", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art())
+  vi.spyOn(api, "artifactGovernance").mockResolvedValue({
+    rule_company: "risk", rule_item: "", rule_effective: "risk", it_on: false,
+    open_request: {
+      id: 3, kind: "artifact", item_id: 5, item_name: "Relatório", area: "Research", area_id: 1, reason: "new", risk_added: [],
+      channel: "manual", tested: false, status: "open", requested_by: "Ana", created_at: "2026-11-17T10:00:00Z", steps: [], my_steps: [],
+      waiting: "Aguardando o líder de Research.",
+    },
+    history: [], can_loosen: false, can_change: false,
+  })
+  mount()
+  expect(await screen.findByText(/Aguardando o líder de Research/)).toBeInTheDocument()
+})

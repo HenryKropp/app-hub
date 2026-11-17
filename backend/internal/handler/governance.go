@@ -41,6 +41,9 @@ const (
 // errRunGoing: a draft cannot go live while the app runs.
 var errRunGoing = errors.New(msgRunWaiting)
 
+// errStaleRequest: the request no longer names what it approves.
+var errStaleRequest = errors.New("stale approval request")
+
 func logGov(what string, appID int64, err error) {
 	slog.Error("governance: "+what, "app", appID, "err", err)
 }
@@ -317,6 +320,11 @@ func (h *Handler) requestMessage(ctx context.Context, req sqlc.ApprovalRequest) 
 func (h *Handler) governanceBlock(ctx context.Context, appID int64) (string, error) {
 	g, err := h.q.GetAppGovernance(ctx, appID)
 	if errors.Is(err, pgx.ErrNoRows) {
+		// Every app has a row since migration 030 and new ones get it when
+		// created; none in a governed company means never approved.
+		if h.governed(ctx) {
+			return "Esta versão está esperando aprovação.", nil
+		}
 		return "", nil
 	} else if err != nil {
 		return "", err
@@ -365,12 +373,20 @@ func (h *Handler) applyRequest(ctx context.Context, req sqlc.ApprovalRequest, au
 		appID := req.AppID.Int64
 		version := req.AppVersion
 		if !version.Valid {
-			// A ficha change or an app without versions: what is live now.
-			version = pgInt4(0)
-			if v, err := h.q.LatestAppVersion(ctx, appID); err == nil {
-				version = pgInt4(v.Number)
-			} else if !errors.Is(err, pgx.ErrNoRows) {
+			// Only an app never approved (the leader sees its latest
+			// version) or one without versions approves "what is there";
+			// any other request names its version, so a request that lost
+			// it (its draft deleted) never approves an unseen version.
+			v, err := h.q.LatestAppVersion(ctx, appID)
+			switch {
+			case errors.Is(err, pgx.ErrNoRows):
+				version = pgInt4(0)
+			case err != nil:
 				return err
+			case req.Reason == governance.ReasonNew:
+				version = pgInt4(v.Number)
+			default:
+				return errStaleRequest
 			}
 		}
 		if err := h.q.UpsertAppGovernance(ctx, sqlc.UpsertAppGovernanceParams{AppID: appID, ApprovedVersion: version,
@@ -390,6 +406,9 @@ func (h *Handler) applyRequest(ctx context.Context, req sqlc.ApprovalRequest, au
 		return nil
 	}
 	artID := req.ArtifactID.Int64
+	if req.Reason == governance.ReasonArea {
+		return h.applyArtifactAreaRequest(ctx, req, actorID)
+	}
 	if req.ArtifactVersionID.Valid {
 		if err := h.q.SetArtifactVersionApproved(ctx, sqlc.SetArtifactVersionApprovedParams{ID: req.ArtifactVersionID.Int64, Approved: true}); err != nil {
 			return err
@@ -781,11 +800,30 @@ func (h *Handler) approveRequest(w http.ResponseWriter, r *http.Request) {
 		_ = json.Unmarshal(req.Audience, aud)
 	}
 	if !others {
-		// Apply before recording: if it fails, nothing is decided.
-		if err := h.applyRequest(ctx, req, aud, me.ID); errors.Is(err, errRunGoing) {
+		// Close first, only if still open: a request replaced meanwhile (a
+		// newer version arrived) is not applied. If applying fails, it is
+		// reopened and nothing is decided.
+		if n, err := h.q.CloseApprovalRequest(ctx, sqlc.CloseApprovalRequestParams{Status: "approved", ID: req.ID}); err != nil {
+			internalError(w, "close request", err)
+			return
+		} else if n == 0 {
+			writeError(w, http.StatusConflict, msgResolved)
+			return
+		}
+		err := h.applyRequest(ctx, req, aud, me.ID)
+		if err != nil {
+			if rerr := h.q.ReopenApprovalRequest(ctx, req.ID); rerr != nil {
+				slog.Error("reopen request", "request", req.ID, "err", rerr)
+			}
+		}
+		switch {
+		case errors.Is(err, errRunGoing):
 			writeError(w, http.StatusConflict, msgRunWaiting+" para aprovar esta versão.")
 			return
-		} else if err != nil {
+		case errors.Is(err, errStaleRequest):
+			writeError(w, http.StatusConflict, msgResolved)
+			return
+		case err != nil:
 			internalError(w, "apply request", err)
 			return
 		}
@@ -806,9 +844,13 @@ func (h *Handler) approveRequest(w http.ResponseWriter, r *http.Request) {
 	status := "open"
 	if !others {
 		status = "approved"
-		if _, err := h.q.CloseApprovalRequest(ctx, sqlc.CloseApprovalRequestParams{Status: status, ID: req.ID}); err != nil {
-			internalError(w, "close request", err)
-			return
+		if req.ItemKind == "app" {
+			// A ficha that gained risk while this request waited is checked now.
+			if a, err := h.q.GetApp(ctx, req.AppID.Int64); err == nil {
+				if err := h.governFicha(ctx, a, req.RequestedBy.Int64); err != nil {
+					slog.Error("ficha recheck", "app", a.ID, "err", err)
+				}
+			}
 		}
 	}
 	req.Status = status
@@ -947,6 +989,10 @@ func (h *Handler) getAppGovernance(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) getArtifactGovernance(w http.ResponseWriter, r *http.Request) {
 	a, _, acc, can, ok := h.artifactFor(w, r)
 	if !ok {
+		return
+	}
+	if !h.governed(r.Context()) {
+		writeError(w, http.StatusNotFound, "Esta empresa não tem aprovações.")
 		return
 	}
 	out, err := h.itemGovernance(r.Context(), "artifact", a.ID, acc, can)

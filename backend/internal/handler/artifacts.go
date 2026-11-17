@@ -23,6 +23,7 @@ import (
 
 	"github.com/HenryKropp/app-hub/backend/internal/access"
 	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
+	"github.com/HenryKropp/app-hub/backend/internal/governance"
 	"github.com/HenryKropp/app-hub/backend/internal/scanner"
 )
 
@@ -490,7 +491,7 @@ func (h *Handler) getArtifact(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) updateArtifact(w http.ResponseWriter, r *http.Request) {
-	a, me, _, can, ok := h.artifactFor(w, r)
+	a, me, acc, can, ok := h.artifactFor(w, r)
 	if !ok {
 		return
 	}
@@ -545,6 +546,19 @@ func (h *Handler) updateArtifact(w http.ResponseWriter, r *http.Request) {
 		}
 		careParams.AreaID = *b.AreaID
 	}
+	// Governança (ADR 046): moving an approved artifact to an area the person
+	// does not lead waits for that area's leader; the rest is saved now.
+	var moveTo int64
+	if careParams.AreaID != a.AreaID && h.governed(ctx) {
+		ever, _, err := h.itemRule(ctx, "artifact", 0, a.ID)
+		if err != nil {
+			internalError(w, "item rule", err)
+			return
+		}
+		if ever && !acc.Leads[careParams.AreaID] {
+			moveTo, careParams.AreaID = careParams.AreaID, a.AreaID
+		}
+	}
 	err := h.q.InTx(ctx, func(q *sqlc.Queries) error {
 		if _, err := q.UpdateArtifactFicha(ctx, sqlc.UpdateArtifactFichaParams{ID: a.ID, Name: name,
 			Summary: strings.TrimSpace(b.Summary), Tags: normalizeTags(b.Tags)}); err != nil {
@@ -559,6 +573,13 @@ func (h *Handler) updateArtifact(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		internalError(w, "update artifact", err)
 		return
+	}
+	if moveTo != 0 {
+		if _, err := h.openRequest(ctx, requestIn{Kind: "artifact", ArtifactID: a.ID, AreaID: a.AreaID, Reason: governance.ReasonArea,
+			TargetAreaID: moveTo, RequesterID: me.ID}); err != nil {
+			internalError(w, "area request", err)
+			return
+		}
 	}
 	h.writeArtifactDetail(w, r, me, a.ID, http.StatusOK)
 }
