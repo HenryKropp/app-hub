@@ -440,6 +440,25 @@ export type CredentialEvent = {
   id: number; credential_id: string; actor_id: number; revision: number; action: string; created_at: string
 }
 
+export type ExternalLink = {
+  id: number
+  url: string
+  kind: "open" | "email"
+  recipient: string
+  content: "latest" | "version"
+  version_number: number
+  created_by_name: string
+  created_at: string
+  expires_at: string
+  status: "ativo" | "vencido" | "cancelado" | "fechado"
+  opens: number
+  last_opened_at: string | null
+  artifact_id: number
+  artifact_name?: string
+}
+export type ArtifactLinks = { email_available: boolean; can_share: boolean; links: ExternalLink[] }
+export type ExternalLinkInput = { kind: "open" | "email"; email: string; content: "latest" | "version"; version: number; expires_days: number }
+
 export const api = {
   credentials: () => request<{ available: boolean; credentials: CredentialMeta[] }>("GET", "/api/security/credentials"),
   createCredential: (b: CredentialInput) => request<CredentialMeta>("POST", "/api/security/credentials", b),
@@ -553,6 +572,10 @@ export const api = {
     request<ArtifactDetail>("POST", `/api/artifacts/${id}/versions`, b),
   restoreArtifact: (id: number, n: number) => request<ArtifactDetail>("POST", `/api/artifacts/${id}/versions/${n}/restore`),
   deleteArtifact: (id: number) => request<void>("DELETE", `/api/artifacts/${id}`),
+  artifactLinks: (id: number) => request<ArtifactLinks>("GET", `/api/artifacts/${id}/links`),
+  createArtifactLink: (id: number, b: ExternalLinkInput) => request<ExternalLink>("POST", `/api/artifacts/${id}/links`, b),
+  cancelLink: (id: number) => request<void>("POST", `/api/links/${id}/cancel`),
+  companyLinks: () => request<{ links: ExternalLink[] }>("GET", "/api/links"),
   artifactAccess: (id: number) => request<AppAccess>("GET", `/api/artifacts/${id}/access`),
   setArtifactAccess: (id: number, b: { restricted: boolean; area_ids: number[]; person_ids: number[] }) =>
     request<AppAccess>("PUT", `/api/artifacts/${id}/access`, b),

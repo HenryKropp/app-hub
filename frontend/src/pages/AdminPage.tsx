@@ -3,6 +3,7 @@ import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { CircleCheck, CirclePause, Clock, Monitor, TriangleAlert } from "lucide-react"
 import { LoadError, PageHeader } from "@/components/bits"
+import { CompanyLinksPanel } from "@/components/ExternalLinks"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { api, ApiError, type AdminApp, type AdminEvent, type AdminOverview, type CompanyShared, type SecuritySettings } from "@/lib/api"
@@ -133,6 +134,7 @@ export function AdminPage() {
         </div>
       </div>
 
+      <CompanyLinksPanel />
       <CompanyControls settings={settings} onSaved={(s) => setData({ ...data, settings: s })} />
       <Companies />
     </>

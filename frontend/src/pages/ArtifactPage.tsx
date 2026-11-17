@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react"
+import { ArtifactLinksSection } from "@/components/ExternalLinks"
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom"
 import { ArrowLeft, Download, ExternalLink, Link2 } from "lucide-react"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -155,6 +156,7 @@ export function ArtifactPage() {
       <div className="mt-8">
         <AboutSection art={art} onSaved={setArt} />
         <VersionsSection art={art} onChanged={setArt} />
+        {isFile && <ArtifactLinksSection artifactId={art.id} currentVersion={art.current} />}
         {art.can.tech && person && (
           <div id="acesso">
             <AccessSection target={{ kind: "artifact", id: art.id, can: art.can, areaName: art.area }} me={person} />

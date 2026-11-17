@@ -8,6 +8,7 @@ import { ALL_CAN, VIEW_ONLY, bia, henry } from "@/test/fixtures"
 import { ARTIFACT_SANDBOX, ArtifactPage, LINK_SANDBOX } from "./ArtifactPage"
 
 vi.mock("@/components/ficha/AccessSection", () => ({ AccessSection: () => <p>Acesso de teste</p> }))
+vi.mock("@/components/ExternalLinks", () => ({ ArtifactLinksSection: ({ currentVersion }: { currentVersion: number }) => <p>Links externos v{currentVersion}</p> }))
 
 const art = (over: Partial<ArtifactDetail> = {}): ArtifactDetail => ({
   id: 5, name: "Vendas", summary: "Por região", kind: "file", tags: ["vendas"], area_id: 1, area: "Comercial",
@@ -266,4 +267,19 @@ test("a manual artifact has no pelo Claude", async () => {
   mount()
   expect(await screen.findByRole("heading", { level: 1 })).toBeInTheDocument()
   expect(screen.queryByText("pelo Claude")).not.toBeInTheDocument()
+})
+
+test("a file artifact shows the external links section with its current version", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(art())
+  mount()
+  expect(await screen.findByText("Links externos v2")).toBeInTheDocument()
+})
+
+test("a link artifact has no external links section", async () => {
+  vi.spyOn(api, "artifact").mockResolvedValue(
+    art({ kind: "link", versions: [{ number: 1, kind: "link", url: "https://exemplo.com", file_name: "", size: 0, note: "", author_name: "Ana", restored_from: null, created_at: "2026-11-02T10:00:00Z" }], current: 1, version: 1 }),
+  )
+  mount()
+  await screen.findAllByRole("link", { name: "Abrir" })
+  expect(screen.queryByText(/Links externos/)).not.toBeInTheDocument()
 })

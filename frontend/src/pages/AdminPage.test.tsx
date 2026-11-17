@@ -5,6 +5,8 @@ import { afterEach, expect, test, vi } from "vitest"
 import { api, ApiError, type AdminOverview } from "@/lib/api"
 import { AdminPage } from "./AdminPage"
 
+vi.mock("@/components/ExternalLinks", () => ({ CompanyLinksPanel: () => <p>Painel de links externos</p> }))
+
 afterEach(() => vi.restoreAllMocks())
 
 const settings = { retention_days: 30, require_app_approval: true, block_embedded_secrets: true, local_execution_enabled: true }
@@ -74,4 +76,10 @@ test("no Empresas section outside the principal company", async () => {
   renderPage()
   expect(await screen.findByRole("heading", { name: "Apps por área" })).toBeInTheDocument()
   expect(screen.queryByRole("heading", { name: "Empresas" })).not.toBeInTheDocument()
+})
+
+test("Admin shows the company's external links panel", async () => {
+  vi.spyOn(api, "adminOverview").mockResolvedValue(overview())
+  render(<MemoryRouter><AdminPage /></MemoryRouter>)
+  expect(await screen.findByText("Painel de links externos")).toBeInTheDocument()
 })
