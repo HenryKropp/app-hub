@@ -4,7 +4,7 @@ const ALL = ["register_apps", "edit_any_app", "restore_any_app", "see_tech_any_a
 export const henry: Person = { id: 1, name: "Henry", email: "henry@exemplo.com", role_id: 1, role_name: "Administrador", permissions: ALL, leads: [], areas: [], sees_others_runs: true }
 export const ana: Person = { id: 2, name: "Ana", email: "ana@exemplo.com", role_id: 2, role_name: "Criador", permissions: ["register_apps"], leads: [], areas: [1], sees_others_runs: false }
 export const bia: Person = { id: 3, name: "Bia", email: "bia@exemplo.com", role_id: 3, role_name: "Usuário", permissions: [], leads: [], areas: [2], sees_others_runs: false }
-export const ALL_CAN: Can = { view: true, edit: true, restore: true, tech: true, runs: true, access: true, grants: true }
+export const ALL_CAN: Can = { view: true, edit: true, restore: true, tech: true, runs: true, access: true, grants: true, audience: true }
 export const VIEW_ONLY: Can = { view: true, edit: false, restore: false, tech: false, runs: false, access: false, grants: false }
 
 export const row = (p: Person): PersonRow => ({ id: p.id, name: p.name, email: p.email, role_id: p.role_id, role_name: p.role_name, area_ids: p.areas })

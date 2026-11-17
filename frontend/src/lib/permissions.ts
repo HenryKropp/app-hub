@@ -12,6 +12,8 @@ export const PERMISSIONS: { key: string; label: string; hint: string }[] = [
   { key: "manage_roles", label: "Cuidar dos cargos", hint: "Cria cargos e escolhe o que cada um pode" },
   { key: "manage_server", label: "Cuidar do servidor", hint: "Vê gastos e uso do servidor, muda limites e para qualquer app compartilhado" },
   { key: "share_external", label: "Compartilhar fora da empresa", hint: "Cria links de artifacts que abrem sem login, para gente de fora" },
+  { key: "approve_it", label: "Aprovar pela TI", hint: "Aprova apps e versões quando a empresa liga a aprovação da TI" },
+  { key: "use_mcp", label: "Conectar o Claude", hint: "Tem chave do MCP quando a empresa restringe quem conecta o Claude" },
 ]
 
 export const GRANTS: { key: string; label: string }[] = [

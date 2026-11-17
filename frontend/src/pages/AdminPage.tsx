@@ -4,6 +4,7 @@ import { toast } from "sonner"
 import { CircleCheck, CirclePause, Clock, Monitor, TriangleAlert } from "lucide-react"
 import { LoadError, PageHeader } from "@/components/bits"
 import { CompanyLinksPanel } from "@/components/ExternalLinks"
+import { GovernancePanel } from "@/components/governance/GovernancePanel"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { api, ApiError, type AdminApp, type AdminEvent, type AdminOverview, type CompanyShared, type SecuritySettings } from "@/lib/api"
@@ -135,6 +136,7 @@ export function AdminPage() {
       </div>
 
       <CompanyLinksPanel />
+      <GovernancePanel />
       <CompanyControls settings={settings} onSaved={(s) => setData({ ...data, settings: s })} />
       <Companies />
     </>
@@ -223,12 +225,6 @@ function CompanyControls({ settings, onSaved }: { settings: SecuritySettings; on
           <Button size="sm" variant={settings.local_execution_enabled ? "outline" : "default"} disabled={busy} onClick={togglePause}>
             {settings.local_execution_enabled ? "Pausar todos" : "Retomar apps"}
           </Button>
-        </Control>
-        <Control title="Aprovar apps novos antes de rodarem" text="Com isto ligado, um app novo ou com código alterado só roda depois que um administrador aprova.">
-          <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
-            <input type="checkbox" className="size-4 accent-foreground" checked={settings.require_app_approval} disabled={busy} onChange={(e) => void save({ ...settings, require_app_approval: e.target.checked })} />
-            {settings.require_app_approval ? "Ligado" : "Desligado"}
-          </label>
         </Control>
         <Control title="Apagar histórico antigo" text="Apaga o registro das execuções terminadas há mais dias do que o número ao lado.">
           <div className="flex items-center gap-2">

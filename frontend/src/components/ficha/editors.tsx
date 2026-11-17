@@ -27,7 +27,7 @@ export function choiceProblems(inputs: AppInput[]): string[] {
 }
 
 /** areaLocked: only who cares for the app's access may move it to another area. */
-export function IdentityEditor({ value: m, onChange, areas, asks, areaLocked }: Edit<Manifest> & { areas: Area[]; asks?: Set<string>; areaLocked?: boolean }) {
+export function IdentityEditor({ value: m, onChange, areas, asks, areaLocked, originalArea }: Edit<Manifest> & { areas: Area[]; asks?: Set<string>; areaLocked?: boolean; originalArea?: string }) {
   const set = <K extends keyof Manifest>(k: K, v: Manifest[K]) => onChange({ ...m, [k]: v })
   const known = areas.some((a) => a.name === m.area)
   const ask = asks ?? new Set<string>()
@@ -65,6 +65,9 @@ export function IdentityEditor({ value: m, onChange, areas, asks, areaLocked }: 
               </option>
             ))}
           </NativeSelect>
+          {originalArea !== undefined && originalArea !== "" && m.area !== originalArea && (
+            <p className="mt-1 text-xs text-muted-foreground">Se você não lidera a área nova, a mudança espera o líder dela.</p>
+          )}
         </Field>
       )}
     </div>

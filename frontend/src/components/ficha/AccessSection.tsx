@@ -30,7 +30,7 @@ type GrantDraft = GrantForm & { from?: { person_id: number; whole_area: boolean 
 const BLANK: GrantDraft = { person_id: 0, permissions: [], whole_area: false }
 
 // AccessSection says who sees the app and who has extra accesses. Those who
-// take care of access (can.access) change who sees it; only leaders (can.grants)
+// lead the area (can.audience, ADR 046) change who sees it; only leaders (can.grants)
 // give and take extra accesses.
 export type AccessTarget = { kind: "app" | "artifact"; id: number; can: Can; areaName: string }
 
@@ -180,8 +180,9 @@ export function AccessSection({ target, me }: { target: AccessTarget; me: Person
           <div>
             <p className="flex flex-wrap items-baseline gap-x-3">
               <span>Quem vê: {access.restricted ? `só ${names([...access.areas, ...access.people]) || "ninguém além de quem cuida"}` : "Todos"}</span>
-              {can.access && <EditLink part="Quem vê" onClick={() => setViewers(current)} />}
+              {can.audience && <EditLink part="Quem vê" onClick={() => setViewers(current)} />}
             </p>
+            {!can.audience && can.access && <p className="mt-1 text-muted-foreground">Quem decide quem usa é o líder da área.</p>}
             {access.restricted && <p className="mt-1 text-muted-foreground">Líderes, responsável e reserva sempre veem.</p>}
           </div>
         )}

@@ -10,7 +10,9 @@ import { AccessSection } from "@/components/ficha/AccessSection"
 import { EditLink, Section } from "@/components/ficha/Part"
 import { ArtifactSourceField, ClaudeLinkHint, isClaudeLink, readAsBase64, sourceReady, type ArtifactSource } from "@/components/ArtifactSourceField"
 import { FavoriteStar } from "@/components/FavoriteStar"
-import { ApiError, api, artifactContentUrl, type Area, type ArtifactDetail, type PersonRow } from "@/lib/api"
+import { ApiError, api, artifactContentUrl, workspaceBasePath, type Area, type ArtifactDetail, type ItemGovernance, type PersonRow } from "@/lib/api"
+import { RuleSection } from "@/components/governance/RuleSection"
+import { HistoryList } from "@/components/governance/HistoryList"
 import { useAuth } from "@/lib/auth"
 import { has } from "@/lib/permissions"
 import { parseTags } from "@/lib/tags"
@@ -49,6 +51,7 @@ export function ArtifactPage() {
   const [art, setArt] = useState<ArtifactDetail | null>(null)
   const [error, setError] = useState("")
   const [notFound, setNotFound] = useState(false)
+  const [gov, setGov] = useState<ItemGovernance | null>(null)
 
   const load = useCallback(() => {
     setError("")
@@ -60,6 +63,15 @@ export function ArtifactPage() {
   useEffect(load, [load])
 
   const loaded = !!art
+  // Approvals (ADR 046) exist only in a company portal.
+  const governed = workspaceBasePath() !== ""
+  const artVersion = art?.versions.length
+  useEffect(() => {
+    if (!governed || !loaded) return
+    let gone = false
+    api.artifactGovernance(id).then((g) => !gone && setGov(g), () => !gone && setGov(null))
+    return () => { gone = true }
+  }, [governed, loaded, id, artVersion])
   useEffect(() => {
     if (loaded && hash === "#acesso") document.getElementById("acesso")?.scrollIntoView?.()
   }, [loaded, hash])
@@ -154,6 +166,12 @@ export function ArtifactPage() {
         </>
       )}
 
+      {gov?.open_request && (
+        <p role="status" className="mt-6 flex flex-wrap items-baseline justify-between gap-3 rounded-xl border border-warn/35 bg-warn-soft px-4 py-3 text-sm">
+          <span><span className="font-medium">Esperando aprovação.</span> <span className="text-muted-foreground">{gov.open_request.waiting || "Uma versão espera aprovação."}</span></span>
+          <Link to="/aprovacoes" className="underline-offset-4 hover:underline">Ver em Aprovações</Link>
+        </p>
+      )}
       <div className="mt-8">
         <AboutSection art={art} onSaved={setArt} />
         <VersionsSection art={art} onChanged={setArt} />
@@ -162,6 +180,14 @@ export function ArtifactPage() {
           <div id="acesso">
             <AccessSection target={{ kind: "artifact", id: art.id, can: art.can, areaName: art.area }} me={person} />
           </div>
+        )}
+        {gov && art.can.tech && (
+          <Section title="Aprovações">
+            <div className="flex flex-col gap-5">
+              <RuleSection kind="artifact" id={art.id} gov={gov} onChanged={setGov} />
+              {gov.history.length > 0 && <HistoryList requests={gov.history} />}
+            </div>
+          </Section>
         )}
         {(art.can.access || has(person, "manage_roles")) && (
           <Section title="Apagar">
@@ -457,6 +483,7 @@ function VersionsSection({ art, onChanged }: { art: ArtifactDetail; onChanged: (
                 <p className="font-medium">
                   Versão {v.number}
                   {isCurrent && <span className="ml-2 rounded-full bg-accent px-2 py-0.5 text-xs font-normal text-muted-foreground">atual</span>}
+                  {v.approved === false && <span className="ml-2 rounded-full border border-border px-2 py-0.5 text-xs font-normal text-muted-foreground">esperando aprovação</span>}
                   {v.restored_from != null && <span className="ml-2 font-normal text-muted-foreground">(cópia da versão {v.restored_from})</span>}
                 </p>
                 {v.note && <p>{v.note}</p>}

@@ -139,3 +139,13 @@ it("on an artifact, Mudar prefills only the accesses an artifact offers", async 
   await vi.waitFor(() => expect(set).toHaveBeenCalledTimes(1))
   expect(set).toHaveBeenCalledWith(7, { person_id: 3, permissions: ["edit", "restore"], whole_area: true })
 })
+
+it("the owner sees who uses it but only the area leader changes it", async () => {
+  vi.spyOn(api, "appAccess").mockResolvedValue({ restricted: false, areas: [], people: [], grants: [], area_grants: [] })
+  vi.spyOn(api, "areas").mockResolvedValue([])
+  vi.spyOn(api, "people").mockResolvedValue([])
+  render(<AccessSection target={target(detail({ can: { ...ALL_CAN, grants: false, audience: false } }))} me={ana} />)
+  expect(await screen.findByText(/Quem vê: Todos/)).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Editar Quem vê" })).toBeNull()
+  expect(screen.getByText("Quem decide quem usa é o líder da área.")).toBeInTheDocument()
+})

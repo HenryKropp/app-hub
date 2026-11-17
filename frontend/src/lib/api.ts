@@ -4,7 +4,7 @@ export type Person = {
   leads: number[]; areas: number[]; sees_others_runs: boolean
 }
 export type PersonRow = { id: number; name: string; email: string; role_id: number; role_name: string; area_ids: number[] }
-export type Can = { view: boolean; edit: boolean; restore: boolean; tech: boolean; runs: boolean; access: boolean; grants: boolean }
+export type Can = { view: boolean; edit: boolean; restore: boolean; tech: boolean; runs: boolean; access: boolean; grants: boolean; audience?: boolean }
 export type RoleInfo = { id: number; key: string; name: string; permissions: string[]; people_count: number }
 export type NameRef = { id: number; name: string }
 export type Area = { id: number; name: string; app_count: number; leaders: NameRef[]; members: NameRef[] }
@@ -317,6 +317,15 @@ export type ApprovalRequest = {
   steps: ApprovalStep[]; waiting?: string; my_steps: string[]
 }
 export type ApprovalAudience = { mode: "area" | "company" | "custom"; area_ids: number[]; person_ids: number[] }
+export type VersionRule = "every" | "risk" | "first"
+export type ItemGovernance = {
+  rule_company: VersionRule; rule_item: VersionRule | ""; rule_effective: VersionRule; it_on: boolean
+  open_request: ApprovalRequest | null; history: ApprovalRequest[]; can_loosen: boolean; can_change: boolean
+}
+export type GovernanceSettings = { it_approval: boolean; version_rule: VersionRule; code_channel: "any" | "mcp"; mcp_restricted: boolean }
+export type GovernanceEvent = { id: number; kind: string; item_kind: string; item_id: number; actor: string; detail: unknown; created_at: string }
+export type GovernanceEntry = { type: "request" | "event"; at: string; request?: ApprovalRequest; event?: GovernanceEvent }
+export type CompanyMCP = { id: number; kind: string; name: string; person_id: number; person_name: string; created_at: string; last_used_at: string | null; revoked: boolean }
 export type SecuritySettings = { retention_days: number; require_app_approval: boolean; block_embedded_secrets: boolean; local_execution_enabled: boolean }
 export type SecurityApp = { id: number; name: string; classification: string; purpose: string; external_domains: string[]; approved: boolean; suspended: boolean }
 export type SecurityInfo = {
@@ -379,6 +388,7 @@ export type TeamHome = {
 export type ArtifactVersion = {
   number: number; kind: "link" | "file"; url: string; file_name: string; size: number; note: string
   author_name: string; restored_from: number | null; created_at: string
+  approved?: boolean // false = waits for approval; only who cares for it sees such versions (ADR 046)
   embeddable?: boolean // a link whose site lets the Ziv show it inside the page
 }
 export type ArtifactDetail = ArtifactSummary & {
@@ -557,6 +567,15 @@ export const api = {
   setGrants: (id: number, b: { person_id: number; permissions: string[]; whole_area: boolean }) =>
     request<AppAccess>("PUT", `/api/apps/${id}/grants`, b),
   home: () => request<Home>("GET", "/api/home"),
+  appGovernance: (id: number) => request<ItemGovernance>("GET", `/api/apps/${id}/governance`),
+  artifactGovernance: (id: number) => request<ItemGovernance>("GET", `/api/artifacts/${id}/governance`),
+  setAppRule: (id: number, rule: VersionRule | null) => request<ItemGovernance>("PUT", `/api/apps/${id}/governance/rule`, { rule }),
+  setArtifactRule: (id: number, rule: VersionRule | null) => request<ItemGovernance>("PUT", `/api/artifacts/${id}/governance/rule`, { rule }),
+  governanceSettings: () => request<GovernanceSettings>("GET", "/api/governance/settings"),
+  saveGovernanceSettings: (b: GovernanceSettings) => request<GovernanceSettings>("PUT", "/api/governance/settings", b),
+  governanceHistory: (item?: string) => request<GovernanceEntry[]>("GET", `/api/governance/history${item ? `?item=${encodeURIComponent(item)}` : ""}`),
+  companyMCP: () => request<CompanyMCP[]>("GET", "/api/admin/mcp-connections"),
+  revokeCompanyMCP: (id: number) => request<void>("DELETE", `/api/admin/mcp-connections/${id}`),
   approvals: () => request<ApprovalRequest[]>("GET", "/api/approvals"),
   approvalsCount: () => request<{ count: number }>("GET", "/api/approvals/count"),
   approveRequest: (id: number, audience?: ApprovalAudience) => request<{ status: string; waiting: string }>("POST", `/api/approvals/${id}/approve`, audience ? { audience } : {}),

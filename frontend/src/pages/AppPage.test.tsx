@@ -37,6 +37,7 @@ const mockApp = (d: AppDetail) => {
   vi.spyOn(api, "apps").mockResolvedValue([])
   vi.spyOn(api, "appAccess").mockResolvedValue({ restricted: false, areas: [], people: [], grants: [], area_grants: [] })
   vi.spyOn(api.settings, "list").mockResolvedValue({ items: [], can_manage: true, missing: [], locked: false })
+  vi.spyOn(api, "appGovernance").mockRejectedValue(new Error("fora de uma empresa"))
 }
 const base = mockApp
 
@@ -295,16 +296,17 @@ it("Escolher in Para resolver opens Quem cuida for editing in Documentação", a
   expect(within(screen.getByRole("tabpanel", { name: "Documentação" })).getByRole("button", { name: "Salvar" })).toBeInTheDocument()
 })
 
-it("an app waiting approval says so next to the name and is approved on Início", async () => {
+it("an app waiting approval says who is missing; approving happens in Aprovações", async () => {
   const d = detail({ backup_id: 2, manifest: { ...detail().manifest, backup: { id: 2, name: "Bia", email: "bia@x.com" }, summary: "Faz algo." } as AppDetail["manifest"], control: { require_approval: true, approved: false, suspended: false, can_manage: true } as AppDetail["control"] })
   mockApp(d)
-  const set = vi.spyOn(api, "setAppControl").mockResolvedValue({ ...d.control!, approved: true })
+  const open = { id: 4, kind: "app" as const, item_id: 3, item_name: d.manifest.name, area: "Research", area_id: 1, reason: "new" as const, risk_added: [], channel: "mcp",
+    tested: true, status: "open", requested_by: "Ana", created_at: "2026-11-17T10:00:00Z", steps: [], my_steps: [], waiting: "Aguardando o líder de Research." }
+  vi.spyOn(api, "appGovernance").mockResolvedValue({ rule_company: "risk", rule_item: "", rule_effective: "risk", it_on: false, open_request: open, history: [open], can_loosen: true, can_change: true })
   renderPage(henry)
   expect(await screen.findByRole("button", { name: "Esperando aprovação" })).toBeInTheDocument()
-  await userEvent.click(screen.getByRole("button", { name: "Aprovar" }))
-  expect(set).toHaveBeenCalledWith(3, { approved: true, suspended: false })
-  expect(await screen.findByRole("tablist", { name: "Partes do app" })).toBeInTheDocument()
-  expect(screen.queryByRole("button", { name: "Esperando aprovação" })).toBeNull()
+  expect(await screen.findByText("Aguardando o líder de Research.")).toBeInTheDocument()
+  expect(screen.queryByRole("button", { name: "Aprovar" })).toBeNull()
+  expect(screen.getAllByRole("link", { name: "Ver em Aprovações" })[0]).toHaveAttribute("href", "/aprovacoes")
 })
 
 it("saves with the version the edit started from, so a change in between gets the conflict", async () => {

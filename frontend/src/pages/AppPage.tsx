@@ -10,6 +10,8 @@ import { BuildEditor, choiceProblems, DependsEditor, IdentityEditor, InputsEdito
 import { EditLink, Part, SaveBar, Section } from "@/components/ficha/Part"
 import { BuildView, InputList, Notes, OtherApps, OutputList, People, RunList } from "@/components/ficha/views"
 import { MakeShared, SharedSection } from "@/components/ficha/shared/SharedSection"
+import { RuleSection } from "@/components/governance/RuleSection"
+import { HistoryList } from "@/components/governance/HistoryList"
 import { AppControlBar } from "@/components/ficha/AppControl"
 import { ArchiveApp } from "@/components/ficha/ArchiveApp"
 import { TodoList, type Todo } from "@/components/ficha/TodoList"
@@ -19,7 +21,7 @@ import { Tech } from "@/components/ficha/shared/Tech"
 import { FavoriteStar } from "@/components/FavoriteStar"
 import { ScheduleDialog } from "@/components/ScheduleDialog"
 import { SchedulesSection } from "@/components/SchedulesSection"
-import { api, openSharedUrl, type AppDetail, type AppSummary, type Area, type Manifest, type PersonRow, type RunSummary } from "@/lib/api"
+import { api, openSharedUrl, type AppDetail, type AppSummary, type Area, type ItemGovernance, type Manifest, type PersonRow, type RunSummary } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { useRuns } from "@/lib/runs-context"
 import { formatWhen } from "@/lib/runs"
@@ -42,6 +44,7 @@ export function AppPage() {
   const { id } = useParams()
   const { person } = useAuth()
   const [app, setApp] = useState<AppDetail | null>(null)
+  const [gov, setGov] = useState<ItemGovernance | null>(null)
   const [error, setError] = useState("")
   const [readable, setReadable] = useState(true)
   const [historyKey, setHistoryKey] = useState(0)
@@ -87,9 +90,20 @@ export function AppPage() {
     }
   }, [id, tries])
 
+  // Approvals (ADR 046): only in a company portal, where the app has a control.
+  const governed = !!app?.control
+  const appKey = app?.id
+  useEffect(() => {
+    if (!governed || appKey == null) return
+    let gone = false
+    api.appGovernance(appKey).then((g) => !gone && setGov(g), () => !gone && setGov(null))
+    return () => { gone = true }
+  }, [governed, appKey, historyKey, app?.updated_at])
+
   // Another app on the same page: forget the open part and where the person was.
   useEffect(() => {
     setApp(null)
+    setGov(null)
     setRuns(null)
     setOpen(null)
     setDraft(null)
@@ -205,7 +219,7 @@ export function AppPage() {
   }
 
   const control = app.control ?? null
-  const waitingApproval = !!control && control.require_approval && !control.approved
+  const waitingApproval = !!control && (gov ? !!gov.open_request : !control.approved)
 
   // Who takes care of the app sees the tabs and buttons of caring; everyone else only uses it.
   const serverPart = can.restore && (!!app.shared || m.kind === "web")
@@ -407,7 +421,7 @@ export function AppPage() {
       {panel("inicio", (
         <div className="flex flex-col">
           {/* Only a stop shows here; approving or suspending a running app lives in Configurações. */}
-          {(control?.suspended || waitingApproval) && <AppControlBar className="mb-6" appId={app.id} control={control} onChanged={(c) => setApp({ ...app, control: c })} />}
+          {(control?.suspended || waitingApproval) && <AppControlBar className="mb-6" appId={app.id} control={control} gov={gov} onChanged={(c) => setApp({ ...app, control: c })} />}
           {!readable && !cares && (
             <p role="alert" className="mb-4 flex gap-2 text-sm text-warn">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" /> Não consegui ler a pasta do app agora.
@@ -446,7 +460,7 @@ export function AppPage() {
           {open === "sobre" && draft ? (
             <Section title="Sobre">
               <div className="flex max-w-2xl flex-col gap-3" role="group" aria-label="Sobre">
-                <IdentityEditor value={draft.manifest} onChange={(v) => setDraft({ ...draft, manifest: v })} areas={lists.areas} areaLocked={!can.access} />
+                <IdentityEditor value={draft.manifest} onChange={(v) => setDraft({ ...draft, manifest: v })} areas={lists.areas} areaLocked={!can.access} originalArea={m.area} />
                 <SaveBar dirty={dirty} onSave={save} onCancel={close} extra={<Button size="sm" variant="outline" onClick={reload}>Recarregar</Button>} />
               </div>
             </Section>
@@ -511,8 +525,9 @@ export function AppPage() {
         <div className="flex flex-col gap-8">
           {hasSettings && <SettingsSection appId={app.id} kind={m.kind} onChanged={() => sharedChanged()} />}
           {control?.can_manage && !control.suspended && !waitingApproval && (
-            <AppControlBar className="" appId={app.id} control={control} onChanged={(c) => setApp({ ...app, control: c })} />
+            <AppControlBar className="" appId={app.id} control={control} gov={gov} onChanged={(c) => setApp({ ...app, control: c })} />
           )}
+          {gov && <RuleSection kind="app" id={app.id} gov={gov} onChanged={setGov} />}
           {can.tech && person && <AccessSection target={{ kind: "app", id: app.id, can: app.can, areaName: app.manifest.area }} me={person} />}
           {/* Arquivar (ADR 031): only the owner or an administrator. */}
           {can.access && <ArchiveApp appId={app.id} name={m.name} shared={!!app.shared && app.shared.status !== "draft"} />}
@@ -535,7 +550,15 @@ export function AppPage() {
       ))}
 
       {can.tech && panel("historico", (
-        <HistoryTimeline preview={5} appId={app.id} canEdit={can.edit} canRestore={can.restore} reloadKey={historyKey} onChanged={() => void api.app(app.id).then(setApp, () => {})} />
+        <div className="flex flex-col gap-8">
+          <HistoryTimeline preview={5} appId={app.id} canEdit={can.edit} canRestore={can.restore} reloadKey={historyKey} onChanged={() => void api.app(app.id).then(setApp, () => {})} />
+          {gov && gov.history.length > 0 && (
+            <section aria-labelledby="aprovacoes-app">
+              <h3 id="aprovacoes-app" className="mb-2.5 font-heading text-base">Aprovações</h3>
+              <HistoryList requests={gov.history} />
+            </section>
+          )}
+        </div>
       ))}
 
       {/* Who only uses the app has no Configurações tab; the owner may still archive. */}
