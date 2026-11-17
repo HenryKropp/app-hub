@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
 import { BadgeCheck, History, House, LayoutDashboard, LibraryBig, ListChecks, PanelsTopLeft, LogOut, Server, Settings, Users } from "lucide-react"
 import { api, workspaceBasePath, type Person } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
-import { canSeeServer, canSeeTeam, has } from "@/lib/permissions"
+import { canSeeServer, canSeeTeam, has, mayApprove } from "@/lib/permissions"
 import { RunsProvider, useRuns } from "@/lib/runs-context"
 import { isLive } from "@/lib/runs"
 import { cn } from "@/lib/utils"
@@ -19,9 +19,7 @@ import { RunStrip } from "./RunStrip"
 import { AgentBanner } from "./AgentDownload"
 import { ComputerStatusProvider } from "@/lib/computer-status"
 
-/** Leaders, TI approvers and admins always see Aprovações; others once something waits for them. */
-const mayApprove = (p: Person) => p.leads.length > 0 || has(p, "approve_it") || has(p, "manage_roles")
-
+// Aprovações: leaders, TI approvers and admins always; others once something waits for them.
 const NAV = [
   { to: "/", label: "Home", icon: House, show: (_p: Person) => true },
   { to: "/apps", label: "Apps", icon: LibraryBig, show: (_p: Person) => true },

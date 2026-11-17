@@ -9,7 +9,7 @@ const req = (o: Partial<ApprovalRequest> = {}): ApprovalRequest => ({
   id: 7, kind: "app", item_id: 12, item_name: "Baixar Relatórios", area: "Research", area_id: 1,
   reason: "version", risk_added: [], channel: "mcp", tested: true, status: "open", requested_by: "Ana",
   created_at: new Date(Date.now() - 2 * 3600_000).toISOString(),
-  steps: [{ step: "leader", decision: "pending", decided_by: "", reason: "", on_behalf: false }],
+  steps: [{ step: "leader", decision: "", decided_by: "", reason: "", on_behalf: "" }],
   my_steps: ["leader"], ...o,
 })
 

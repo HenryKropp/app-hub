@@ -27,7 +27,7 @@ test("the bar never approves; it says who is missing and points to Aprovações"
 })
 
 test("a refused request shows the reason", () => {
-  const refused = req({ status: "rejected", steps: [{ step: "leader", decision: "rejected", decided_by: "Paulo", reason: "site desconhecido", on_behalf: false }] })
+  const refused = req({ status: "rejected", steps: [{ step: "leader", decision: "rejected", decided_by: "Paulo", reason: "site desconhecido", on_behalf: "" }] })
   mount(<AppControlBar appId={7} control={base} gov={gov({ open_request: null, history: [refused] })} onChanged={() => {}} />)
   expect(screen.getByText(/Paulo recusou: site desconhecido/)).toBeInTheDocument()
 })
@@ -52,4 +52,9 @@ test("people who can't manage see why the app can't run, without buttons", () =>
 test("an approved app shows nothing to people who can't manage", () => {
   const { container } = mount(<AppControlBar appId={7} control={{ ...base, approved: true, can_manage: false }} gov={gov({ open_request: null, history: [] })} onChanged={() => {}} />)
   expect(container).toBeEmptyDOMElement()
+})
+
+test("someone who never approves gets no link to Aprovações", () => {
+  mount(<AppControlBar appId={7} control={{ ...base, can_manage: false }} gov={gov()} canApprove={false} onChanged={() => {}} />)
+  expect(screen.queryByRole("link", { name: "Ver em Aprovações" })).not.toBeInTheDocument()
 })

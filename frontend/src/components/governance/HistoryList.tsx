@@ -1,6 +1,6 @@
 import type { ApprovalRequest } from "@/lib/api"
 import { formatWhen } from "@/lib/runs"
-import { reasonLabel } from "./RequestCard"
+import { ON_BEHALF, reasonLabel } from "./RequestCard"
 
 const STATUS: Record<string, string> = { open: "esperando", approved: "aprovado", rejected: "recusado", auto: "foi ao ar com aviso", superseded: "substituído por um pedido mais novo" }
 const STEP: Record<string, string> = { leader: "líder", it: "TI" }
@@ -21,7 +21,7 @@ export function HistoryList({ requests }: { requests: ApprovalRequest[] }) {
           </p>
           {r.steps.filter((s) => s.decision).map((s) => (
             <p key={s.step} className="mt-0.5 text-xs">
-              {s.decision === "approved" ? "Aprovado" : "Recusado"} por {s.decided_by || "—"} ({STEP[s.step] ?? s.step}{s.on_behalf ? ", no lugar do líder" : ""})
+              {s.decision === "approved" ? "Aprovado" : "Recusado"} por {s.decided_by || "—"} ({STEP[s.step] ?? s.step}{s.on_behalf ? `, ${ON_BEHALF[s.on_behalf] ?? s.on_behalf}` : ""})
               {s.decided_at ? `, ${formatWhen(s.decided_at)}` : ""}{s.reason ? `: ${s.reason}` : ""}
             </p>
           ))}

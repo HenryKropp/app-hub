@@ -309,7 +309,7 @@ export type AdminApp = { id: number; name: string; area: string; owner: string; 
 export type AdminComputer = { id: number; name: string; person: string; agent_version: string; last_seen_at: string | null; connected: boolean; outdated: boolean }
 export type AdminEvent = { kind: "app_registered" | "app_updated" | "app_approved" | "app_suspended" | "app_unapproved" | "person_joined"; name: string; actor: string; at: string; app_id: number | null }
 export type AdminOverview = { settings: SecuritySettings; apps: AdminApp[]; top_people: { name: string; runs_30d: number }[]; computers: AdminComputer[]; activity: AdminEvent[] }
-export type ApprovalStep = { step: "leader" | "it"; decision: string; decided_by: string; decided_at?: string | null; reason: string; on_behalf: boolean }
+export type ApprovalStep = { step: "leader" | "it"; decision: string; decided_by: string; decided_at?: string | null; reason: string; on_behalf: "" | "admin_no_leader" | "self" }
 export type ApprovalRequest = {
   id: number; kind: "app" | "artifact"; item_id: number; item_name: string; area: string; area_id: number
   reason: "new" | "version" | "ficha" | "area"; risk_added: string[]; channel: string; tested: boolean

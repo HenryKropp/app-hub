@@ -277,7 +277,9 @@ export function HomePage() {
     )
   }
   const unstar = (it: HomeItem) => setHome((h) => h && { ...h, favorites: h.favorites.filter((f) => !(f.kind === it.kind && f.id === it.id)) })
-  const warnings = home ? cleanWarnings(home.attention, connected === false) : []
+  // What waits for me already shows under "Esperando sua aprovação".
+  const mine = new Set(waiting.filter((r) => r.kind === "app").map((r) => r.item_id))
+  const warnings = home ? cleanWarnings(home.attention, connected === false).filter((w) => !(w.kind === "approval_pending" && w.app_id != null && mine.has(w.app_id))) : []
 
   return (
     <>

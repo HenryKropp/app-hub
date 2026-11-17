@@ -195,3 +195,13 @@ test("no approval block when nothing waits", async () => {
   await screen.findByText(/Marque apps/)
   expect(screen.queryByRole("heading", { name: "Esperando sua aprovação" })).not.toBeInTheDocument()
 })
+
+test("a pending app I approve shows once, in the approval block", async () => {
+  vi.spyOn(api, "home").mockResolvedValue({ ...empty, attention: [{ kind: "approval_pending", app_id: 12, app_name: "Baixar Relatórios" }] })
+  vi.spyOn(api, "approvals").mockResolvedValue([
+    { id: 7, kind: "app", item_id: 12, item_name: "Baixar Relatórios", area: "Research", area_id: 1, reason: "new", risk_added: [], channel: "mcp", tested: true, status: "open", requested_by: "Ana", created_at: now(), steps: [], my_steps: ["leader"] },
+  ])
+  mount()
+  await screen.findByRole("heading", { name: "Esperando sua aprovação" })
+  expect(screen.queryByRole("heading", { name: "Atenção" })).not.toBeInTheDocument()
+})

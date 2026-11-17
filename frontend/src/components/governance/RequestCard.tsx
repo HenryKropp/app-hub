@@ -10,10 +10,12 @@ const REASON: Record<string, string> = { new: "novo", version: "versão nova", f
 export const reasonLabel = (r: ApprovalRequest) => REASON[r.reason] ?? r.reason
 const channelLabel = (c: string) => (c === "mcp" ? "pelo Claude" : c === "folder" ? "da pasta do PC" : "pela tela")
 const STEP: Record<string, string> = { leader: "Líder", it: "TI" }
+/** Why someone other than the step's owner decided it (ADR 046). */
+export const ON_BEHALF: Record<string, string> = { admin_no_leader: "administrador, a área não tem líder", self: "quem pediu é o líder" }
 
 function StepState({ s }: { s: ApprovalStep }) {
   const who = s.decided_by ? ` ${s.decided_by}` : ""
-  const text = s.decision === "approved" ? `✓${who}${s.on_behalf ? " (no lugar do líder)" : ""}` : s.decision === "rejected" ? `recusou${who}` : "— esperando"
+  const text = s.decision === "approved" ? `✓${who}${s.on_behalf ? ` (${ON_BEHALF[s.on_behalf] ?? s.on_behalf})` : ""}` : s.decision === "rejected" ? `recusou${who}` : "— esperando"
   return (
     <span className="whitespace-nowrap">
       <span className="font-medium">{STEP[s.step] ?? s.step}</span>{" "}

@@ -31,3 +31,5 @@ export const canSeeTeam = (p: Person | null | undefined) =>
   has(p, "manage_people") || has(p, "manage_areas") || has(p, "manage_roles") || (p?.leads.length ?? 0) > 0
 export const canSeeServer = (p: Person | null | undefined) => has(p, "manage_server")
 export const permLabel = (key: string) => PERMISSIONS.find((x) => x.key === key)?.label ?? GRANTS.find((x) => x.key === key)?.label ?? key
+/** Leaders, TI approvers and admins decide approvals (ADR 046). */
+export const mayApprove = (p: Person | null | undefined) => (p?.leads.length ?? 0) > 0 || has(p, "approve_it") || has(p, "manage_roles")

@@ -11,8 +11,8 @@ import { cn } from "@/lib/utils"
  * approve, or who refused and why); approving happens only in Aprovações
  * (ADR 046). Administrators suspend and reactivate it here.
  */
-export function AppControlBar({ appId, control, gov, onChanged, className = "mb-8" }: {
-  appId: number; control?: AppControl | null; gov?: ItemGovernance | null; onChanged: (c: AppControl) => void; className?: string
+export function AppControlBar({ appId, control, gov, canApprove = true, onChanged, className = "mb-8" }: {
+  appId: number; control?: AppControl | null; gov?: ItemGovernance | null; canApprove?: boolean; onChanged: (c: AppControl) => void; className?: string
 }) {
   const [busy, setBusy] = useState(false)
   if (!control) return null
@@ -61,7 +61,7 @@ export function AppControlBar({ appId, control, gov, onChanged, className = "mb-
         <span><span className="font-medium">{state.title}.</span> <span className="text-muted-foreground">{state.text}</span></span>
       </p>
       <div className="flex shrink-0 items-center gap-3">
-        {pending && <Link to="/aprovacoes" className="text-sm underline-offset-4 hover:underline">Ver em Aprovações</Link>}
+        {pending && canApprove && <Link to="/aprovacoes" className="text-sm underline-offset-4 hover:underline">Ver em Aprovações</Link>}
         {control.can_manage && (control.suspended ? (
           <Button size="sm" disabled={busy} onClick={() => void set({ approved: control.approved, suspended: false })}>Reativar</Button>
         ) : (

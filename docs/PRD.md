@@ -278,6 +278,17 @@ Quem pode rodar um script pode agendá-lo para rodar sozinho no próprio computa
 - **Quem vê:** cada pessoa vê os seus agendamentos. Quem cuida do app vê todos e pode pausar ou apagar, sem ver os dados dos outros.
 - **Depois:** rodar no servidor (para apps que não precisam do PC) e e-mail opcional com o resultado.
 
+
+### 3.17 Governança e aprovações (construído em 2026-11, ADR 046)
+Cada empresa decide quem aprova o que entra no ar, quem usa e por onde o código chega.
+- **Líder da área sempre aprova** app e artifact novos, e escolhe quem usa: só a área, a área e mais áreas ou pessoas, ou a empresa toda. Depois, mudar o público é só dele (ou de quem gerencia áreas).
+- **TI também aprova**, se a empresa ligar (cargo com "Aprovar pela TI").
+- **Versões novas:** toda versão, só quando muda o risco (chaves do Cofre, sites novos, navegador, 24h no servidor) ou só a primeira. Um app importante pode ser mais rígido; afrouxar abaixo da empresa, só o administrador. Enquanto a versão nova espera, a aprovada continua rodando.
+- **Só pelo Claude:** a empresa pode recusar código vindo do site ou da pasta do PC, e limitar quem tem chave do MCP (cargo com "Conectar o Claude"). O Admin lista e cancela chaves.
+- **Onde aparece:** página **Aprovações** (com contador no menu) e bloco no Início; na página do item, "Aguardando o líder de Research" / "Aguardando a TI" / "Fulano recusou: motivo"; histórico por item e da empresa no Admin.
+- **Começo:** empresa nova = só líder, "só quando muda o risco", qualquer caminho. Empresa Piloto = líder + TI + toda versão.
+- **Depois:** aviso por e-mail aos aprovadores, quando houver domínio próprio.
+
 ---
 
 ## 4. Fluxos principais

@@ -49,6 +49,17 @@ Status: Pending / In Progress / Done / Blocked
 - [ ] Projeto 2: link externo para output de app (um output específico, ou o output mais recente que vai mudando).
   - **Em espera (Henry, 2026-11-17):** sem caso real ainda; antes, melhorar acessos, segurança e dados. Achado para quando voltar: o Ziv não guarda os arquivos que os apps geram (ficam no PC); o caminho barato é o resultado virar versão nova de um artifact (só HTML) e reusar o link do Projeto 1.
 
+## Governança e aprovações (2026-11-17, ADR 046)
+
+- [x] Pedidos de aprovação com etapas: líder da área sempre, TI se a empresa ligar; o líder escolhe quem usa. Branch `governanca`.
+- [x] Regra de versões da empresa (toda / só risco / só a primeira) e por item, mais rígida; afrouxar só o administrador.
+- [x] "Só pelo Claude" e chaves do MCP limitadas por cargo, com lista e Cancelar no Admin.
+- [x] Artifacts no mesmo fluxo; link externo só de versão aprovada.
+- [x] Página Aprovações, bloco no Início, situação e histórico no app e no artifact, seção Governança no Admin.
+- [x] Teste no navegador do fluxo inteiro na empresa Teste (`e2e/governanca.mjs`).
+- [ ] Revisão final do código, ir ao ar (com OK do Henry) e teste do Henry.
+- [ ] Aviso por e-mail aos aprovadores, depois do domínio próprio.
+
 ## Prioridade atual (2026-10-01)
 
 Pedido do Henry: **deixar o Ziv redondo com um app só (Eq. Research Files Prep) antes de registrar mais apps.** Fase 4 para apps com janela e `.exe` feita e testada de verdade (2026-09-30). Ordem combinada depois da decisão do Ziv (ADR 005):

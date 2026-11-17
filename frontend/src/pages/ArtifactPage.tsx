@@ -14,7 +14,7 @@ import { ApiError, api, artifactContentUrl, workspaceBasePath, type Area, type A
 import { RuleSection } from "@/components/governance/RuleSection"
 import { HistoryList } from "@/components/governance/HistoryList"
 import { useAuth } from "@/lib/auth"
-import { has } from "@/lib/permissions"
+import { has, mayApprove } from "@/lib/permissions"
 import { parseTags } from "@/lib/tags"
 import { cn } from "@/lib/utils"
 
@@ -169,7 +169,7 @@ export function ArtifactPage() {
       {gov?.open_request && (
         <p role="status" className="mt-6 flex flex-wrap items-baseline justify-between gap-3 rounded-xl border border-warn/35 bg-warn-soft px-4 py-3 text-sm">
           <span><span className="font-medium">Esperando aprovação.</span> <span className="text-muted-foreground">{gov.open_request.waiting || "Uma versão espera aprovação."}</span></span>
-          <Link to="/aprovacoes" className="underline-offset-4 hover:underline">Ver em Aprovações</Link>
+          {mayApprove(person) && <Link to="/aprovacoes" className="underline-offset-4 hover:underline">Ver em Aprovações</Link>}
         </p>
       )}
       <div className="mt-8">
@@ -181,12 +181,10 @@ export function ArtifactPage() {
             <AccessSection target={{ kind: "artifact", id: art.id, can: art.can, areaName: art.area }} me={person} />
           </div>
         )}
-        {gov && art.can.tech && (
+        {gov && art.can.tech && <RuleSection kind="artifact" id={art.id} gov={gov} onChanged={setGov} />}
+        {gov && art.can.tech && gov.history.length > 0 && (
           <Section title="Aprovações">
-            <div className="flex flex-col gap-5">
-              <RuleSection kind="artifact" id={art.id} gov={gov} onChanged={setGov} />
-              {gov.history.length > 0 && <HistoryList requests={gov.history} />}
-            </div>
+            <HistoryList requests={gov.history} />
           </Section>
         )}
         {(art.can.access || has(person, "manage_roles")) && (

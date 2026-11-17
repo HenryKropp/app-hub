@@ -10,6 +10,7 @@ import { BuildEditor, choiceProblems, DependsEditor, IdentityEditor, InputsEdito
 import { EditLink, Part, SaveBar, Section } from "@/components/ficha/Part"
 import { BuildView, InputList, Notes, OtherApps, OutputList, People, RunList } from "@/components/ficha/views"
 import { MakeShared, SharedSection } from "@/components/ficha/shared/SharedSection"
+import { mayApprove } from "@/lib/permissions"
 import { RuleSection } from "@/components/governance/RuleSection"
 import { HistoryList } from "@/components/governance/HistoryList"
 import { AppControlBar } from "@/components/ficha/AppControl"
@@ -421,7 +422,7 @@ export function AppPage() {
       {panel("inicio", (
         <div className="flex flex-col">
           {/* Only a stop shows here; approving or suspending a running app lives in Configurações. */}
-          {(control?.suspended || waitingApproval) && <AppControlBar className="mb-6" appId={app.id} control={control} gov={gov} onChanged={(c) => setApp({ ...app, control: c })} />}
+          {(control?.suspended || waitingApproval) && <AppControlBar className="mb-6" appId={app.id} control={control} gov={gov} canApprove={mayApprove(person)} onChanged={(c) => setApp({ ...app, control: c })} />}
           {!readable && !cares && (
             <p role="alert" className="mb-4 flex gap-2 text-sm text-warn">
               <TriangleAlert className="mt-0.5 size-4 shrink-0" /> Não consegui ler a pasta do app agora.
@@ -525,7 +526,7 @@ export function AppPage() {
         <div className="flex flex-col gap-8">
           {hasSettings && <SettingsSection appId={app.id} kind={m.kind} onChanged={() => sharedChanged()} />}
           {control?.can_manage && !control.suspended && !waitingApproval && (
-            <AppControlBar className="" appId={app.id} control={control} gov={gov} onChanged={(c) => setApp({ ...app, control: c })} />
+            <AppControlBar className="" appId={app.id} control={control} gov={gov} canApprove={mayApprove(person)} onChanged={(c) => setApp({ ...app, control: c })} />
           )}
           {gov && <RuleSection kind="app" id={app.id} gov={gov} onChanged={setGov} />}
           {can.tech && person && <AccessSection target={{ kind: "app", id: app.id, can: app.can, areaName: app.manifest.area }} me={person} />}

@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { toast } from "sonner"
 import { NativeSelect } from "@/components/bits"
+import { Section } from "@/components/ficha/Part"
 import { api, type ItemGovernance, type VersionRule } from "@/lib/api"
 
 export const RULES: { key: VersionRule; label: string; hint: string }[] = [
@@ -34,23 +35,24 @@ export function RuleSection({ kind, id, gov, onChanged }: { kind: "app" | "artif
   }
 
   return (
-    <section aria-labelledby={`regra-${kind}-${id}`} className="text-sm">
-      <h3 id={`regra-${kind}-${id}`} className="font-heading text-base">Aprovação de versões</h3>
-      <p className="mt-1 text-muted-foreground">
-        O líder da área aprova{gov.it_on ? " e a TI também" : ""}. Padrão da empresa: {ruleLabel(company).toLowerCase()}.
-      </p>
-      {gov.can_change ? (
-        <div className="mt-3 flex flex-col gap-1.5">
-          <label htmlFor={`regra-sel-${kind}-${id}`} className="font-medium">Versão nova precisa de aprovação</label>
-          <NativeSelect id={`regra-sel-${kind}-${id}`} className="max-w-xs" value={gov.rule_item} disabled={busy} onChange={(e) => void save(e.target.value)}>
-            <option value="">Igual à empresa ({ruleLabel(company).toLowerCase()})</option>
-            {options.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
-          </NativeSelect>
-          <p className="text-xs text-muted-foreground">{RULES.find((r) => r.key === gov.rule_effective)?.hint}</p>
-        </div>
-      ) : (
-        <p className="mt-3">Versão nova precisa de aprovação: <span className="font-medium">{ruleLabel(gov.rule_effective)}</span>{gov.rule_item ? " (regra deste item)" : ""}.</p>
-      )}
-    </section>
+    <Section title="Aprovação de versões" id={`regra-${kind}-${id}`}>
+      <div className="text-sm">
+        <p className="text-muted-foreground">
+          O líder da área aprova{gov.it_on ? " e a TI também" : ""}. Padrão da empresa: {ruleLabel(company).toLowerCase()}.
+        </p>
+        {gov.can_change ? (
+          <div className="mt-3 flex flex-col gap-1.5">
+            <label htmlFor={`regra-sel-${kind}-${id}`} className="font-medium">Versão nova precisa de aprovação</label>
+            <NativeSelect id={`regra-sel-${kind}-${id}`} className="max-w-xs" value={gov.rule_item} disabled={busy} onChange={(e) => void save(e.target.value)}>
+              <option value="">Igual à empresa ({ruleLabel(company).toLowerCase()})</option>
+              {options.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+            </NativeSelect>
+            <p className="text-xs text-muted-foreground">{RULES.find((r) => r.key === gov.rule_effective)?.hint}</p>
+          </div>
+        ) : (
+          <p className="mt-3">Versão nova precisa de aprovação: <span className="font-medium">{ruleLabel(gov.rule_effective)}</span>{gov.rule_item ? " (regra deste item)" : ""}.</p>
+        )}
+      </div>
+    </Section>
   )
 }
