@@ -47,6 +47,7 @@ Status: Pending / In Progress / Done / Blocked
 - [x] Teste do Henry: ver a página nova de fora e o QR Code (escanear com o celular), 2026-11-17.
 - [ ] Comprar domínio próprio e configurar a Resend (`RESEND_API_KEY`, `MAIL_FROM`) para ligar o código por e-mail em produção.
 - [ ] Projeto 2: link externo para output de app (um output específico, ou o output mais recente que vai mudando).
+  - **Em espera (Henry, 2026-11-17):** sem caso real ainda; antes, melhorar acessos, segurança e dados. Achado para quando voltar: o Ziv não guarda os arquivos que os apps geram (ficam no PC); o caminho barato é o resultado virar versão nova de um artifact (só HTML) e reusar o link do Projeto 1.
 
 ## Prioridade atual (2026-10-01)
 
