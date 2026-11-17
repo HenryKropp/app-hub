@@ -18,6 +18,7 @@ const asPerson = (p: Person) =>
 beforeEach(() => {
   asPerson(bia)
   vi.spyOn(api, "homeTeam").mockRejectedValue(new Error("404"))
+  vi.spyOn(api, "approvals").mockResolvedValue([])
 })
 afterEach(() => vi.restoreAllMocks())
 
@@ -174,4 +175,23 @@ test("no Rodando agora line when nothing runs", async () => {
   )
   await screen.findByText(/Marque apps e artifacts/)
   expect(screen.queryByRole("list", { name: "Rodando agora" })).toBeNull()
+})
+
+test("shows what waits for my approval", async () => {
+  vi.spyOn(api, "home").mockResolvedValue(empty)
+  vi.spyOn(api, "approvals").mockResolvedValue([
+    { id: 7, kind: "app", item_id: 12, item_name: "Baixar Relatórios", area: "Research", area_id: 1, reason: "version", risk_added: [], channel: "mcp", tested: true, status: "open", requested_by: "Ana", created_at: now(), steps: [], my_steps: ["leader"] },
+  ])
+  mount()
+  expect(await screen.findByRole("heading", { name: "Esperando sua aprovação" })).toBeInTheDocument()
+  expect(screen.getByRole("link", { name: /Baixar Relatórios/ })).toHaveAttribute("href", "/aprovacoes")
+  expect(screen.getByRole("link", { name: "Ver todas" })).toHaveAttribute("href", "/aprovacoes")
+})
+
+test("no approval block when nothing waits", async () => {
+  vi.spyOn(api, "home").mockResolvedValue(empty)
+  vi.spyOn(api, "approvals").mockResolvedValue([])
+  mount()
+  await screen.findByText(/Marque apps/)
+  expect(screen.queryByRole("heading", { name: "Esperando sua aprovação" })).not.toBeInTheDocument()
 })

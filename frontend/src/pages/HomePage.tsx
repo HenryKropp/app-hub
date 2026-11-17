@@ -5,7 +5,8 @@ import { FavoriteStar } from "@/components/FavoriteStar"
 import { LoadError, Playing, RunState } from "@/components/bits"
 import { Elapsed } from "@/components/Elapsed"
 import { Badge } from "@/components/ui/badge"
-import { api, type Home, type HomeItem, type HomeWarning, type TeamHome } from "@/lib/api"
+import { api, type ApprovalRequest, type Home, type HomeItem, type HomeWarning, type TeamHome } from "@/lib/api"
+import { reasonLabel } from "@/components/governance/RequestCard"
 import { useAuth } from "@/lib/auth"
 import { useComputerStatus } from "@/lib/computer-status"
 import { has } from "@/lib/permissions"
@@ -234,6 +235,7 @@ export function HomePage() {
   const { connected } = useComputerStatus()
   const [home, setHome] = useState<Home | null>(null)
   const [team, setTeam] = useState<TeamHome | null>(null)
+  const [waiting, setWaiting] = useState<ApprovalRequest[]>([])
   const [error, setError] = useState("")
   const [tries, setTries] = useState(0)
   const admin = has(person, "manage_roles")
@@ -244,6 +246,15 @@ export function HomePage() {
     api.home().then(
       (h) => !gone && setHome(h),
       (e: Error) => !gone && setError(e.message),
+    )
+    return () => { gone = true }
+  }, [tries])
+
+  useEffect(() => {
+    let gone = false
+    api.approvals().then(
+      (l) => !gone && setWaiting(l.filter((r) => r.status === "open" && r.my_steps.length > 0)),
+      () => {}, // the block just stays hidden
     )
     return () => { gone = true }
   }, [tries])
@@ -300,6 +311,23 @@ export function HomePage() {
                     </li>
                   )
                 })}
+              </ul>
+            </Section>
+          )}
+
+          {waiting.length > 0 && (
+            <Section title="Esperando sua aprovação" count={waiting.length} className="mt-8"
+              action={<Link to="/aprovacoes" className={moreLink}>Ver todas</Link>}>
+              <ul className={box}>
+                {waiting.slice(0, 5).map((r) => (
+                  <li key={r.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                    <Link to="/aprovacoes" className="min-w-0 flex-1 truncate hover:underline">
+                      <span className="font-medium">{r.item_name}</span>
+                      <span className="text-muted-foreground"> · {reasonLabel(r)} · {r.area}</span>
+                    </Link>
+                    <span className="shrink-0 text-xs text-muted-foreground">{relativeTime(r.created_at)}</span>
+                  </li>
+                ))}
               </ul>
             </Section>
           )}

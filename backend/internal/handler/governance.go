@@ -500,6 +500,7 @@ type requestJSON struct {
 	ItemID      int64      `json:"item_id"`
 	ItemName    string     `json:"item_name"`
 	Area        string     `json:"area"`
+	AreaID      int64      `json:"area_id"`
 	Reason      string     `json:"reason"`
 	RiskAdded   []string   `json:"risk_added"`
 	Channel     string     `json:"channel"`
@@ -509,11 +510,12 @@ type requestJSON struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	Steps       []stepJSON `json:"steps"`
 	Waiting     string     `json:"waiting,omitempty"`
+	MySteps     []string   `json:"my_steps"` // the undecided steps the viewer may decide (Aprovações)
 }
 
 func (h *Handler) requestView(ctx context.Context, req sqlc.ApprovalRequest) (requestJSON, error) {
 	out := requestJSON{ID: req.ID, Kind: req.ItemKind, Reason: req.Reason, Channel: req.Channel, Tested: req.Tested,
-		Status: req.Status, CreatedAt: req.CreatedAt.Time, RiskAdded: []string{}, Steps: []stepJSON{}}
+		Status: req.Status, CreatedAt: req.CreatedAt.Time, RiskAdded: []string{}, Steps: []stepJSON{}, MySteps: []string{}}
 	_ = json.Unmarshal(req.RiskAdded, &out.RiskAdded)
 	if req.ItemKind == "app" {
 		a, err := h.q.GetApp(ctx, req.AppID.Int64)
@@ -528,11 +530,11 @@ func (h *Handler) requestView(ctx context.Context, req sqlc.ApprovalRequest) (re
 		}
 		out.ItemID, out.ItemName = a.ID, a.Name
 	}
-	_, area, _, err := h.requestArea(ctx, req)
+	areaID, area, _, err := h.requestArea(ctx, req)
 	if err != nil {
 		return out, err
 	}
-	out.Area = area
+	out.Area, out.AreaID = area, areaID
 	if req.RequestedBy.Valid {
 		if p, err := h.q.GetPerson(ctx, req.RequestedBy.Int64); err == nil {
 			out.RequestedBy = p.Name
@@ -624,6 +626,16 @@ func (h *Handler) listApprovals(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			internalError(w, "approval view", err)
 			return
+		}
+		mine, _, err := h.mySteps(ctx, req, acc)
+		if err != nil {
+			internalError(w, "approval steps", err)
+			return
+		}
+		for _, s := range v.Steps {
+			if _, ok := mine[s.Step]; ok {
+				v.MySteps = append(v.MySteps, s.Step)
+			}
 		}
 		out = append(out, v)
 	}

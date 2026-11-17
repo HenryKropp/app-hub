@@ -22,6 +22,7 @@ import { SettingsPage } from "@/pages/SettingsPage"
 import { VersionPage } from "@/pages/VersionPage"
 import { TestPlanPage } from "@/pages/TestPlanPage"
 import { SetupPage } from "@/pages/SetupPage"
+import { ApprovalsPage } from "@/pages/ApprovalsPage"
 import { AdminPage } from "@/pages/AdminPage"
 import { PRODUCT_NAME } from "@/lib/brand"
 import { CompanyEntryPage } from "@/pages/CompanyEntryPage"
@@ -85,6 +86,7 @@ function Routed() {
         <Route path="pessoas" element={<Navigate to="/equipe" replace />} />
         <Route path="configuracoes" element={<SettingsPage />} />
         <Route path="admin" element={<AdminPage />} />
+        <Route path="aprovacoes" element={<ApprovalsPage />} />
         <Route path="seguranca" element={<Navigate to="/admin" replace />} />
         <Route path="comecar" element={<SetupPage />} />
         <Route path="meu-computador" element={<Navigate to="/configuracoes" replace />} />

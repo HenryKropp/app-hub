@@ -85,3 +85,26 @@ test("sidebar has Home and Apps, no Catálogo; Apps stays on inside an app", asy
   expect(screen.getByRole("link", { name: "Apps" })).toHaveAttribute("aria-current", "page")
   expect(screen.getByRole("link", { name: "Home" })).not.toHaveAttribute("aria-current")
 })
+
+test("Aprovações shows with a count when something waits for me", async () => {
+  vi.spyOn(api, "activeRuns").mockResolvedValue([])
+  vi.spyOn(api, "approvalsCount").mockResolvedValue({ count: 3 })
+  mount(bia)
+  expect(await screen.findByLabelText("3 esperando você")).toHaveTextContent("3")
+  expect(screen.getByRole("link", { name: /Aprovações/ })).toHaveAttribute("href", "/aprovacoes")
+})
+
+test("Aprovações stays hidden for someone who never approves and has nothing waiting", async () => {
+  vi.spyOn(api, "activeRuns").mockResolvedValue([])
+  const count = vi.spyOn(api, "approvalsCount").mockResolvedValue({ count: 0 })
+  mount(bia)
+  await vi.waitFor(() => expect(count).toHaveBeenCalled())
+  expect(screen.queryByRole("link", { name: /Aprovações/ })).not.toBeInTheDocument()
+})
+
+test("an admin always sees Aprovações", async () => {
+  vi.spyOn(api, "activeRuns").mockResolvedValue([])
+  vi.spyOn(api, "approvalsCount").mockResolvedValue({ count: 0 })
+  mount(henry)
+  expect(screen.getByRole("link", { name: /Aprovações/ })).toBeInTheDocument()
+})

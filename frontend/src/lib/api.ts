@@ -309,6 +309,14 @@ export type AdminApp = { id: number; name: string; area: string; owner: string; 
 export type AdminComputer = { id: number; name: string; person: string; agent_version: string; last_seen_at: string | null; connected: boolean; outdated: boolean }
 export type AdminEvent = { kind: "app_registered" | "app_updated" | "app_approved" | "app_suspended" | "app_unapproved" | "person_joined"; name: string; actor: string; at: string; app_id: number | null }
 export type AdminOverview = { settings: SecuritySettings; apps: AdminApp[]; top_people: { name: string; runs_30d: number }[]; computers: AdminComputer[]; activity: AdminEvent[] }
+export type ApprovalStep = { step: "leader" | "it"; decision: string; decided_by: string; decided_at?: string | null; reason: string; on_behalf: boolean }
+export type ApprovalRequest = {
+  id: number; kind: "app" | "artifact"; item_id: number; item_name: string; area: string; area_id: number
+  reason: "new" | "version" | "ficha" | "area"; risk_added: string[]; channel: string; tested: boolean
+  status: "open" | "approved" | "rejected" | "auto" | "superseded" | string; requested_by: string; created_at: string
+  steps: ApprovalStep[]; waiting?: string; my_steps: string[]
+}
+export type ApprovalAudience = { mode: "area" | "company" | "custom"; area_ids: number[]; person_ids: number[] }
 export type SecuritySettings = { retention_days: number; require_app_approval: boolean; block_embedded_secrets: boolean; local_execution_enabled: boolean }
 export type SecurityApp = { id: number; name: string; classification: string; purpose: string; external_domains: string[]; approved: boolean; suspended: boolean }
 export type SecurityInfo = {
@@ -549,6 +557,10 @@ export const api = {
   setGrants: (id: number, b: { person_id: number; permissions: string[]; whole_area: boolean }) =>
     request<AppAccess>("PUT", `/api/apps/${id}/grants`, b),
   home: () => request<Home>("GET", "/api/home"),
+  approvals: () => request<ApprovalRequest[]>("GET", "/api/approvals"),
+  approvalsCount: () => request<{ count: number }>("GET", "/api/approvals/count"),
+  approveRequest: (id: number, audience?: ApprovalAudience) => request<{ status: string; waiting: string }>("POST", `/api/approvals/${id}/approve`, audience ? { audience } : {}),
+  rejectRequest: (id: number, reason: string) => request<{ status: string }>("POST", `/api/approvals/${id}/reject`, { reason }),
   notices: () => request<Notice[]>("GET", "/api/notices"),
   readNotice: (id: number) => request<void>("POST", `/api/notices/${id}/read`),
   testPlan: {

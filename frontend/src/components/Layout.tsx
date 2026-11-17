@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react"
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
-import { History, House, LayoutDashboard, LibraryBig, ListChecks, PanelsTopLeft, LogOut, Server, Settings, Users } from "lucide-react"
+import { BadgeCheck, History, House, LayoutDashboard, LibraryBig, ListChecks, PanelsTopLeft, LogOut, Server, Settings, Users } from "lucide-react"
 import { api, workspaceBasePath, type Person } from "@/lib/api"
 import { useAuth } from "@/lib/auth"
 import { canSeeServer, canSeeTeam, has } from "@/lib/permissions"
@@ -18,11 +19,15 @@ import { RunStrip } from "./RunStrip"
 import { AgentBanner } from "./AgentDownload"
 import { ComputerStatusProvider } from "@/lib/computer-status"
 
+/** Leaders, TI approvers and admins always see Aprovações; others once something waits for them. */
+const mayApprove = (p: Person) => p.leads.length > 0 || has(p, "approve_it") || has(p, "manage_roles")
+
 const NAV = [
   { to: "/", label: "Home", icon: House, show: (_p: Person) => true },
   { to: "/apps", label: "Apps", icon: LibraryBig, show: (_p: Person) => true },
   { to: "/artifacts", label: "Artifacts", icon: PanelsTopLeft, show: (_p: Person) => true },
   { to: "/execucoes", label: "Minhas execuções", icon: History, show: (_p: Person) => true },
+  { to: "/aprovacoes", label: "Aprovações", icon: BadgeCheck, show: (p: Person) => mayApprove(p) },
   { to: "/equipe", label: "Equipe", icon: Users, show: canSeeTeam },
   { to: "/admin", label: "Admin", icon: LayoutDashboard, show: (p: Person) => has(p, "manage_roles") },
   { to: "/servidor", label: "Servidor", icon: Server, show: canSeeServer },
@@ -57,6 +62,12 @@ function Shell() {
   // Pages that already are about connecting the computer skip the strip.
   const agentStrip = !["/comecar", "/conectar", "/configuracoes"].includes(path)
   const openCount = useRuns().active.filter((r) => isLive(r.status)).length
+  const [approvals, setApprovals] = useState(0)
+  useEffect(() => {
+    let gone = false
+    api.approvalsCount().then((c) => !gone && setApprovals(c.count), () => {})
+    return () => { gone = true }
+  }, [path])
   if (!person) return null
 
   const logout = async () => {
@@ -98,7 +109,7 @@ function Shell() {
         </div>
 
         <nav className="flex gap-0.5 overflow-x-auto px-3 pb-3 [mask-image:linear-gradient(to_right,black_85%,transparent)] md:flex-col md:overflow-visible md:pb-0 md:[mask-image:none]">
-          {NAV.filter((n) => n.show(person)).map(({ to, label, icon: Icon }) => (
+          {NAV.filter((n) => n.show(person) || (n.to === "/aprovacoes" && approvals > 0)).map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -109,6 +120,11 @@ function Shell() {
                 <>
                   <Icon className={cn("size-4", (isActive || (to === "/apps" && inCatalog)) && "text-foreground")} />
                   {label}
+                  {to === "/aprovacoes" && approvals > 0 && (
+                    <span aria-label={`${approvals} esperando você`} className="ml-auto rounded-full bg-foreground px-1.5 text-xs font-medium text-background tabular-nums">
+                      {approvals}
+                    </span>
+                  )}
                   {to === "/execucoes" && openCount > 0 && (
                     <span aria-label={`${openCount} ${openCount === 1 ? "aberto" : "abertos"} agora`} className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-foreground">
                       <Playing />
