@@ -14,9 +14,10 @@ const (
 	ManageAreas   = "manage_areas"
 	ManageRoles   = "manage_roles"
 	ManageServer  = "manage_server"
+	ShareExternal = "share_external"
 )
 
-var RolePerms = []string{RegisterApps, EditAnyApp, RestoreAnyApp, SeeTechAnyApp, SeeAllRuns, SeeAllApps, ManagePeople, ManageAreas, ManageRoles, ManageServer}
+var RolePerms = []string{RegisterApps, EditAnyApp, RestoreAnyApp, SeeTechAnyApp, SeeAllRuns, SeeAllApps, ManagePeople, ManageAreas, ManageRoles, ManageServer, ShareExternal}
 
 // Extra accesses an area leader gives to one person, per app or for the whole area.
 const (

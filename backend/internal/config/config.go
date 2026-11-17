@@ -46,7 +46,7 @@ type Config struct {
 }
 
 // builtinReservedSlugs are addresses public signup can never take.
-var builtinReservedSlugs = []string{"principal", "admin", "api", "app", "apps", "w", "www", "ziv", "suporte", "ajuda", "entrar", "login", "cadastro", "acesso", "convite"}
+var builtinReservedSlugs = []string{"principal", "admin", "api", "app", "apps", "w", "www", "ziv", "suporte", "ajuda", "entrar", "login", "cadastro", "acesso", "convite", "link"}
 
 func envInt(name string, def int) int {
 	var n int

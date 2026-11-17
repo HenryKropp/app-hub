@@ -11,6 +11,7 @@ export const PERMISSIONS: { key: string; label: string; hint: string }[] = [
   { key: "manage_areas", label: "Cuidar das áreas", hint: "Cria áreas e escolhe os líderes" },
   { key: "manage_roles", label: "Cuidar dos cargos", hint: "Cria cargos e escolhe o que cada um pode" },
   { key: "manage_server", label: "Cuidar do servidor", hint: "Vê gastos e uso do servidor, muda limites e para qualquer app compartilhado" },
+  { key: "share_external", label: "Compartilhar fora da empresa", hint: "Cria links de artifacts que abrem sem login, para gente de fora" },
 ]
 
 export const GRANTS: { key: string; label: string }[] = [

@@ -46,3 +46,13 @@ func TestDefaultsUseZivNamesAndAreNotExplicit(t *testing.T) {
 		t.Errorf("explicit: %+v", cfg)
 	}
 }
+
+func TestLinkIsReservedSlug(t *testing.T) {
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.ReservedSlugs["link"] {
+		t.Fatal(`"link" must be a reserved company address`)
+	}
+}

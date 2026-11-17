@@ -263,6 +263,45 @@ type DraftEvidence struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type ExternalLink struct {
+	ID             int64              `json:"id"`
+	Token          string             `json:"token"`
+	ArtifactID     int64              `json:"artifact_id"`
+	VersionID      pgtype.Int8        `json:"version_id"`
+	Kind           string             `json:"kind"`
+	RecipientEmail pgtype.Text        `json:"recipient_email"`
+	CreatedBy      pgtype.Int8        `json:"created_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	CancelledAt    pgtype.Timestamptz `json:"cancelled_at"`
+	CancelledBy    pgtype.Int8        `json:"cancelled_by"`
+}
+
+type ExternalLinkCode struct {
+	ID         int64              `json:"id"`
+	LinkID     int64              `json:"link_id"`
+	CodeHash   string             `json:"code_hash"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	WrongTries int32              `json:"wrong_tries"`
+	UsedAt     pgtype.Timestamptz `json:"used_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type ExternalLinkOpen struct {
+	ID       int64              `json:"id"`
+	LinkID   int64              `json:"link_id"`
+	OpenedAt pgtype.Timestamptz `json:"opened_at"`
+	Email    pgtype.Text        `json:"email"`
+}
+
+type ExternalLinkSession struct {
+	ID         int64              `json:"id"`
+	LinkID     int64              `json:"link_id"`
+	SecretHash string             `json:"secret_hash"`
+	Email      string             `json:"email"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+}
+
 type Favorite struct {
 	PersonID  int64              `json:"person_id"`
 	Kind      string             `json:"kind"`
