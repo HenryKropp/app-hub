@@ -220,3 +220,33 @@ func TestPageWritesHTML(t *testing.T) {
 		t.Fatalf("%d %s", w.Code, w.Body.String())
 	}
 }
+
+func TestLinkHostWinsOverSharedApp(t *testing.T) {
+	g, b := setup(t)
+	r := NewRouter("localhost:8080")
+	r.Set("principal", g)
+	r.SetLinks(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte("links")) }))
+	w := serve(r.Root(hubMux()), "LINK.localhost:8080", "/principal/abc")
+	if w.Body.String() != "links" || len(b.lookups()) != 0 {
+		t.Fatalf("body %q lookups %v", w.Body.String(), b.lookups())
+	}
+}
+
+func TestLinkHostWithoutHandlerIsNotFound(t *testing.T) {
+	r := NewRouter("localhost:8080")
+	if w := serve(r.Root(hubMux()), "link.localhost:8080", "/x/y"); w.Code != http.StatusNotFound {
+		t.Fatalf("status %d", w.Code)
+	}
+}
+
+func TestAskAcceptsLinkHost(t *testing.T) {
+	r := NewRouter("ziv.test")
+	r.SetLinks(http.NotFoundHandler())
+	req := httptest.NewRequest("GET", "http://127.0.0.1"+AskPath+"?domain=link.ziv.test", nil)
+	req.RemoteAddr = "127.0.0.1:5555"
+	w := httptest.NewRecorder()
+	r.Root(hubMux()).ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("ask link host = %d", w.Code)
+	}
+}

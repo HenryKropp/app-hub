@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{{if .ArtifactName}}{{.ArtifactName}} · {{end}}Ziv</title>
+<style>
+  :root { --bg: #fafafa; --fg: #111; --muted: #666; --line: #e4e4e4; --card: #fff; --accent: #111; --accent-fg: #fff; --warn: #a33; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d0d0d; --fg: #f2f2f2; --muted: #a0a0a0; --line: #2a2a2a; --card: #161616; --accent: #f2f2f2; --accent-fg: #111; --warn: #f08a8a; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--fg); font: 14px/1.5 "Geist Variable", ui-sans-serif, system-ui, sans-serif; display: flex; flex-direction: column; }
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--card); }
+  header a.logo { display: inline-flex; flex: none; }
+  header a.logo svg { width: 32px; height: 32px; display: block; }
+  header .who { min-width: 0; }
+  header .who p { margin: 0; color: var(--muted); font-size: 13px; }
+  header .who h1 { margin: 0; font-size: 16px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  iframe { flex: 1; width: 100%; border: 0; background: #fff; }
+  main.box { flex: 1; display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px; }
+  .card { width: 100%; max-width: 420px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
+  .card h2 { margin: 0 0 8px; font-size: 18px; }
+  .card p { margin: 0 0 16px; color: var(--muted); }
+  .card p.err { color: var(--warn); }
+  label { display: block; font-weight: 600; margin-bottom: 6px; }
+  input { width: 100%; font: inherit; font-size: 20px; letter-spacing: 6px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--fg); margin-bottom: 16px; }
+  button { font: inherit; font-weight: 600; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-fg); cursor: pointer; width: 100%; }
+  button.link { background: none; color: var(--fg); border: 0; padding: 8px 0 0; font-weight: 400; text-decoration: underline; }
+</style>
+</head>
+<body>
+<header>
+  <a class="logo" href="{{.HomeURL}}" aria-label="Ziv — página inicial">
+    <svg viewBox="0 0 48 48" role="img" aria-label="Ziv"><rect width="48" height="48" rx="12" fill="#0E3B43"/><g fill="none" stroke="#FF6B4A" stroke-width="1.4" stroke-linecap="round"><path d="M24 6V3.5"/><path d="M18.7 8.2L16.93 6.43"/><path d="M29.3 8.2L31.07 6.43"/></g><path d="M24 22V36" fill="none" stroke="#F4EFE6" stroke-width="5" stroke-linecap="round"/><circle cx="24" cy="13.5" r="4" fill="#FF6B4A"/></svg>
+  </a>
+  {{if .ArtifactName}}
+  <div class="who">
+    <p>{{.CompanyName}} compartilhou com você</p>
+    <h1>{{.ArtifactName}}</h1>
+  </div>
+  {{end}}
+</header>
+{{if eq .Mode "content"}}
+<iframe src="{{.Base}}/conteudo" sandbox="allow-scripts allow-popups allow-forms allow-downloads" title="{{.ArtifactName}}"></iframe>
+{{else if eq .Mode "ask"}}
+<main class="box"><div class="card">
+  <h2>Confirme que é você</h2>
+  <p>Este conteúdo foi enviado para {{.Masked}}. Vamos mandar um código de 6 dígitos para esse e-mail.</p>
+  <form method="post" action="{{.Base}}/codigo"><button type="submit">Enviar código</button></form>
+</div></main>
+{{else if eq .Mode "code"}}
+<main class="box"><div class="card">
+  <h2>Digite o código</h2>
+  {{if .Error}}<p class="err">{{.Error}}</p>{{else}}<p>Mandamos um código para {{.Masked}}. Ele vale por 10 minutos.</p>{{end}}
+  {{if not .CodeDead}}
+  <form method="post" action="{{.Base}}/confirmar">
+    <label for="codigo">Código</label>
+    <input id="codigo" name="codigo" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus>
+    <button type="submit">Abrir</button>
+  </form>
+  {{end}}
+  <form method="post" action="{{.Base}}/codigo"><button class="link" type="submit">Enviar outro código</button></form>
+</div></main>
+{{else if eq .Mode "limit"}}
+<main class="box"><div class="card">
+  <h2>Muitas tentativas. Espere alguns minutos.</h2>
+  <p>Depois tente de novo por este mesmo link.</p>
+</div></main>
+{{else}}
+<main class="box"><div class="card">
+  <h2>Este link não está mais disponível</h2>
+  <p>Peça um link novo a quem enviou.</p>
+</div></main>
+{{end}}
+</body>
+</html>

@@ -86,6 +86,7 @@ func main() {
 	defer portal.Close()
 	portalRef.Store(portal)
 	router.SetLoader(portal.Load)
+	router.SetLinks(http.HandlerFunc(portal.ServeLink))
 	// The Hub (UI, API, Agente) answers right away; each company's app
 	// addresses answer "Ligando o app…" until the group has reconciled it.
 	go group.Loop(ctx)

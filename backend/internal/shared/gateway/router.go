@@ -28,6 +28,9 @@ type Router struct {
 	mu       sync.RWMutex
 	gateways map[string]*Gateway
 	loader   func(ctx context.Context, company string) bool
+	// links serves link.<domain>: artifacts opened from outside the company
+	// without a login (ADR 045). It wins over a shared app named "link".
+	links http.Handler
 }
 
 func NewRouter(domain string) *Router {
@@ -47,6 +50,22 @@ func (r *Router) SetLoader(fn func(ctx context.Context, company string) bool) {
 	r.mu.Lock()
 	r.loader = fn
 	r.mu.Unlock()
+}
+
+// SetLinks registers the handler of link.<domain>.
+func (r *Router) SetLinks(h http.Handler) {
+	r.mu.Lock()
+	r.links = h
+	r.mu.Unlock()
+}
+
+func (r *Router) linksFor(host string) (http.Handler, bool) {
+	if !strings.EqualFold(host, "link."+r.domain) {
+		return nil, false
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.links, true
 }
 
 func (r *Router) gateway(ctx context.Context, company string) *Gateway {
@@ -90,6 +109,14 @@ func (r *Router) Root(hub http.Handler) http.Handler {
 			r.ask(w, req)
 			return
 		}
+		if h, isLink := r.linksFor(req.Host); isLink {
+			if h == nil {
+				http.NotFound(w, req)
+				return
+			}
+			h.ServeHTTP(w, req)
+			return
+		}
 		if g, isApp := r.route(req.Context(), req.Host); isApp {
 			if g == nil {
 				Page(w, req, http.StatusNotFound, "App não encontrado", "Este endereço não é de nenhum app compartilhado do Ziv.", "")
@@ -116,6 +143,10 @@ func (r *Router) ask(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	domain := req.URL.Query().Get("domain")
+	if h, isLink := r.linksFor(domain); isLink && h != nil {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	if g, _ := r.route(req.Context(), domain); g != nil && g.Known(req.Context(), domain) {
 		w.WriteHeader(http.StatusOK)
 		return

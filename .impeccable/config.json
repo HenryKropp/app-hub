@@ -29,6 +29,12 @@
         ],
         "createdAt": "2026-11-05T14:17:09.827Z",
         "reason": "Claude: throwaway brainstorm mockup of header sizes, already decided; bars use fixed height with 16px side padding"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "variable",
+        "createdAt": "2026-11-17T17:12:32.817Z",
+        "reason": "Claude: false positive — token parsed from 'Geist Variable', the DESIGN.md font"
       }
     ]
   }

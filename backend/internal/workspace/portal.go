@@ -37,6 +37,7 @@ type entry struct {
 	key                string // tenant.KeyOf(schema): names the company's containers, databases and folders
 	pool               *pgxpool.Pool
 	http               http.Handler
+	h                  *handler.Handler
 }
 type Portal struct {
 	cfg            config.Config
@@ -179,6 +180,7 @@ func (p *Portal) attach(e *entry) {
 		opts.Companies, opts.SetCompanyShared = p.Companies, p.SetCompanyShared
 	}
 	h.SetWorkspace(opts)
+	e.h = h
 	key, keyErr := tenant.KeyOf(e.schema)
 	e.key = key
 	if p.shared != nil {
@@ -521,6 +523,28 @@ func splitWorkspacePath(p string) (slug, rest string) {
 		return slug, "/" + tail
 	}
 	return "principal", p
+}
+
+// ServeLink answers link.<domain>/<company>/<token>[/<action>]: an artifact
+// opened from outside the company (ADR 045). Each company answers only for
+// links in its own schema.
+func (p *Portal) ServeLink(w http.ResponseWriter, r *http.Request) {
+	slug, token, action, ok := handler.SplitLinkPath(r.URL.Path)
+	if !ok {
+		handler.ExternalUnavailable(w)
+		return
+	}
+	p.mu.RLock()
+	e := p.entries[slug]
+	p.mu.RUnlock()
+	if e == nil {
+		e = p.load(r.Context(), slug)
+	}
+	if e == nil || e.h == nil {
+		handler.ExternalUnavailable(w)
+		return
+	}
+	e.h.ServeExternal(w, r, slug, token, action)
 }
 
 func (p *Portal) ServeHTTP(w http.ResponseWriter, r *http.Request) {

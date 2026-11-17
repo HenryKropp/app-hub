@@ -65,6 +65,8 @@ type Handler struct {
 	credentialKeys *vault.Keyring
 	// mail sends the external link codes; nil = e-mail is off (ADR 045).
 	mail mail.Sender
+	// linkLimiter counts code requests on the link address.
+	linkLimiter securityLimiter
 
 	// Says whether a link artifact's site allows being shown in a frame;
 	// tests replace it to stay off the network.
