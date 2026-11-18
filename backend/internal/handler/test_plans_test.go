@@ -24,6 +24,7 @@ type testPlanJSON struct {
 	Confirmed   *struct {
 		By         string `json:"by"`
 		ComputerID int64  `json:"computer_id"`
+		Via        string `json:"via"`
 	} `json:"confirmed"`
 	Matches   bool `json:"matches"`
 	Computers []struct {
@@ -209,7 +210,7 @@ func TestConfirmMovesDraftOn(t *testing.T) {
 	if code := c.do("POST", appPathf(appID, "/test-plan/confirm"), map[string]any{"fingerprint": p.Fingerprint, "computer_id": p.Computers[0].ID}, &after); code != http.StatusOK {
 		t.Fatalf("confirm %d", code)
 	}
-	if after.Confirmed == nil || !after.Matches || after.Confirmed.ComputerID != p.Computers[0].ID {
+	if after.Confirmed == nil || !after.Matches || after.Confirmed.ComputerID != p.Computers[0].ID || after.Confirmed.Via != "site" {
 		t.Fatalf("%+v", after)
 	}
 	// The PC never said hello: the draft waits for it.
