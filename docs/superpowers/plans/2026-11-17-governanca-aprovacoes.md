@@ -341,3 +341,71 @@ Mensagens fixas:
 - [ ] **Step 3:** ADR 046 (contexto, decisões do Henry, minhas decisões do desenho, alternativas descartadas: remendo e motor genérico); PRD (seção de governança); TASKS (projeto feito, pendências: e-mail aos aprovadores depois do domínio).
 - [ ] **Step 4:** Testes completos: `cd backend && mise x -- go test ./...` (um processo) e `cd frontend && mise x -- npx vitest run && mise x -- npx tsc -b` → PASS.
 - [ ] **Step 5:** Commit `governança: teste no navegador, ADR 046 e documentos` e push do branch.
+
+---
+
+## Registro da execução (2026-11-17/18)
+
+Decisões tomadas durante a construção e a revisão final (cada uma com o custo se estiver errada), e pontos menores adiados.
+
+### Decisões
+
+- Task 1: Ruling: resetSQL keeps role perms without use_mcp — tests asserting exact perm lists broke; use_mcp only matters when mcp_restricted is on (Task 6 tests set it) — cost: none expected
+- Task 2: Ruling: browser detected by own regex (playwright/selenium/pyppeteer/puppeteer) instead of recipes.Detect — Detect needs a versions.Folder and is for server recipes; cost if wrong: a browser use via another lib is missed by 'só risco'
+- Task 3: Ruling: kept Can.Access = "cares" (old meaning) and added Can.Audience (leader||manage_areas) instead of plan's Care/Access rename — Access is used by archive, schedules, handsOver; renaming risked silent permission changes. Frontend must use can.audience for the audience editor (Task 10) — cost if wrong: owner UI shows an editor that 403s.
+- Task 3: Ruling: pending items live in Person.PendingApps/PendingArtifacts (loaded in loadAccess) instead of App.Pending — avoids touching every appRef/artifactRef call — cost: one extra query per request.
+- Task 3: Ruling: AutoSteps takes areaHasLeader too — needed for one-person company (admin alone, area without leader) — cost: none.
+- Task 3: Ruling: pending + restricted is still visible to admin/TI approvers — they must see it to approve.
+- Task 4: Ruling: governance.Effective now returns the item's own rule when set (was: stricter of the two) — spec says the admin may loosen an item below the company; a looser rule that never takes effect contradicts it. Guard is at save time (CanLoosen) — cost if wrong: none, only admin can save looser.
+- Task 4: Ruling: openRequest/applyRequest take no pgx.Tx — handler uses pool queries; concurrency is a per-request lock (lockApp(-id), lockApp is non-reentrant and publishDraft takes lockApp(appID)) plus conditional UPDATEs (CloseApprovalRequest/DecideApprovalStep only on open/undecided) — cost if wrong: a crash between apply and record leaves the request open (re-approvable; apply is idempotent).
+- Task 4: Ruling: migration 031 adds approval_requests.audience — the leader's audience must survive until TI approves; 030 was already applied in dev.
+- Task 4: Ruling: requestIn.RequesterID int64 instead of access.Person — openRequest loads access itself — cost: one query.
+- Task 4: Ruling: an item never approved keeps reason "new" whatever arrives (a version on a pending app replaces its open request as "new") — otherwise a no-risk version would auto-approve a never-approved app.
+- Task 4: Ruling: when every step is auto (requester is the leader / one-person company), the item keeps the access it was created with (no forced "só a área") — leader can change it in Acesso; forcing "área" hid apps from the company in the principal-company credential test and changed today's behavior — cost if wrong: a leader's own new app is visible company-wide by default (as today).
+- Task 4: Ruling: the old require_app_approval gate stays in executionBlock until Task 5 moves version paths to requests (TestSchedulerWaitsOnApproval/TestSourcesWaitsApproval/TestPublishWaitsApproval depend on it); governance tests set require_app_approval=false like a new company.
+- Task 4: Ruling: applyRequest for draft and area requests returns errApplyLater — wired in Task 5 with its own tests.
+- Task 4: Ruling: FailDraft also accepts status 'aguardando' (reject a waiting draft).
+- Task 5: Ruling: executionBlock keeps its signature (no personID); the PC-draft test path uses baseBlock to skip approvals — simpler call sites — cost if wrong: a PC draft test of a held app could run unapproved code (only by its own creator, on their PC).
+- Task 5: Ruling: run gate fails closed via approved_version >= latest version — any new version without approval holds runs — cost if wrong: an unexpected version row blocks runs until approved.
+- Task 5: Ruling: a ficha edit that adds risk is saved and the app held until approved (no ficha-only draft) — simpler; mirrors folder versions — cost if wrong: app stops running while the ficha waits.
+- Task 5: Ruling: restoring to a never-approved version follows the rule; restoring to an approved one is preapproved — cost if wrong: an extra approval round.
+- Task 5: Ruling: PUT control still accepts `approved` but ignores it; admin approvedSQL now reads app_governance — cost if wrong: old admin toggle looks like it does nothing (frontend to drop it in Task 10).
+- Task 5: Ruling: a never-approved app's new versions go into its folder and keep waiting on the "new" request — cost if wrong: leader approves a later version than the one first requested (they see the latest).
+- Task 5: Ruling: a leader moving an app into an area they lead applies directly; otherwise an 'area' request to the target leader — cost if wrong: none expected.
+- Task 6: Ruling: off-channel = a version with origin 'folder' (PC folder) in a "só pelo Claude" company; restores and sent versions are not off-channel — restore is an in-Ziv action and approved targets are preapproved — cost if wrong: a site restore to a never-approved version follows the normal rule instead of being refused.
+- Task 6: Ruling: also check use_mcp on the OAuth consent screen (approveOAuthRequest), not only on the token exchange — clearer message to the person — cost if wrong: none.
+- Task 6: Ruling: channel checks apply even without a workspace (default 'any' keeps old behavior) — cost if wrong: none.
+- Task 7: Ruling: waiting/refused artifact versions are visible (detail list and ?v=) to who edits or cares for the item (can.Edit || can.Access), so the leader can preview before deciding; other viewers see only approved versions — cost if wrong: an IT approver without access can't preview the HTML.
+- Task 7: Ruling: catalog list "version" = newest approved for everyone — cost if wrong: the author sees the older number in the list until approved.
+- Task 7: Ruling: artifact restore to an approved version is preapproved (uses the version's approved flag) — cost if wrong: none.
+- Task 8: Ruling: turning TI off leaves the IT steps already open (approve_it holders can still decide them) — removing them would need applying requests outside a decision — cost if wrong: some requests opened before the change still wait for TI.
+- Task 8: Ruling: history is only for manage_roles (company-wide audit); the per-item history in /api/{apps|artifacts}/{id}/governance stays for who sees the item — cost if wrong: a leader can't open the company-wide history.
+- Task 8: Ruling: added rule 6 to the always-read MCP instructions besides the guia section (the guia is the visual artifacts guide, read on demand) — cost if wrong: none.
+- Task 8: Ruling: held drafts store the waiting message in status_reason so ver_versao says who must approve — cost if wrong: none.
+- Task 9: Ruling: the card needs the request's area id (custom audience excludes it) and which steps the viewer decides (Aprovar shows only then; audience asked only of the leader) — added area_id and my_steps to the approvals JSON — cost if wrong: two extra fields, none.
+- Task 9: Ruling: Aprovações menu shows for leaders, approve_it, manage_roles, or anyone with count>0; Home block lists only open requests with my_steps — cost if wrong: a non-approver sees the item once something waits for them, which is the point.
+- Task 10: Ruling: brief says audience editing needs can.access, but the backend (Task 4) gates PUT access on can.audience — the UI uses can.audience (Can type gained optional audience) — cost if wrong: an owner who should edit sees read-only text.
+- Task 10: Ruling: AppControlBar derives "waiting" from GET /api/apps/{id}/governance open_request (falls back to control.approved without it); the old require_app_approval toggle and the bar's Aprovar button are gone; a refused last request shows "<who> recusou: <reason>" — cost if wrong: one extra GET per app page.
+- Task 10: Ruling: ClaudeConnect already shows the server's 403 message (msgNoMCP) on code creation — no change to ClaudeConnections — cost if wrong: none.
+- Task 10: Ruling: artifact governance is fetched only in a company portal (workspaceBasePath() !== ""); the area-change notice reads "Se você não lidera a área nova, a mudança espera o líder dela." because a leader moving into an area they lead applies directly (Task 5 ruling) — cost if wrong: copy only.
+- Task 10: Ruling: the governance UI got its own GovernancePanel component in Admin (settings, MCP keys, history) instead of growing CompanyControls — cost if wrong: none.
+- Task 11: Ruling: e2e runs in empresa Teste on isolated DEV_MODE servers 8094/5194 (never 8080) and restores the company settings in finally — cost if wrong: none.
+- Task 11: Ruling: "Ana roda" is checked via control.approved plus the run response not mentioning approval (no paired computer → 400) — cost if wrong: a run gate regression on a real PC is caught only by Henry's hands-on.
+- Task 11: Ruling: after screenshots — on_behalf shown as labels (string union), the "Ver em Aprovações" link only for who may approve (mayApprove in permissions.ts), Home drops approval_pending warnings already in the approval block, RuleSection uses the ficha Section — cost if wrong: none.
+- Final: Ruling: I7 implemented as "tightening clears looser item rules", which also clears an admin's deliberate loosening — simplest, no new column — cost if wrong: the admin re-loosens that item after tightening the company.
+- Final: Ruling: I8 (risky ficha pauses the approved app) kept and documented in ADR 046 — the ficha is the folder file the app runs; holding it would need a ficha-only draft — cost if wrong: the app stops for users while the leader decides on a new key/24h.
+- Final: Ruling: I11 re-graded Minor — artifact version is approved=true for milliseconds between commit and the hold, and stays approved only if that update errors — cost if wrong: an always-latest link may serve an unreviewed version in that window.
+- Final: Ruling: governFicha skips while another (non-area) request is open and runs again after each approval — avoids a ficha request replacing a version request — cost if wrong: none expected.
+- Final: Ruling: sharedrun test fixture now inserts an approved app_governance row (apps inserted by raw SQL had none and are now held) — cost if wrong: none.
+
+### Menores adiados
+
+- migration doesn't record "aprovado antes da governança" requests; never-approved Empresa Piloto apps become hidden instead of keeping today's audience
+- AddMissingITStep is unused (AddITStepToOpen now excludes area moves too) — delete the duplicate
+- a pending app can't be run by its creator or approvers to test (only the PC draft test) — confirm intended
+- after an area move, a restricted app's viewer list keeps the old area id
+- vault keys added on the site (putKey) don't count as risk
+- approve_it holders see restricted app names in the "foram ao ar com aviso" list even with TI off
+- decidableRequests does ~4 queries per open request on every route change
+- openRequest replace+insert is not one transaction (concurrent insert → version held with no open request until the next version)
+- artifact versions inserted approved=true until the post-commit hold (I11)
