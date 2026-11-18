@@ -5,15 +5,26 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
+
+// skipWithoutShell: o podman falso é um script /bin/sh, que o Windows não
+// executa. O podman de verdade só roda no servidor Linux.
+func skipWithoutShell(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("no Windows: o podman falso é um script /bin/sh")
+	}
+}
 
 // fakePodman writes a stand-in podman binary: `container inspect` answers
 // with an empty label (an unlabelled container, like app-hub-db) and every
 // call is appended to the returned log file.
 func fakePodman(t *testing.T) (bin, logFile string) {
 	t.Helper()
+	skipWithoutShell(t)
 	dir := t.TempDir()
 	logFile = filepath.Join(dir, "calls.log")
 	bin = filepath.Join(dir, "podman")
@@ -119,6 +130,7 @@ func TestNetworksOnlyTheHubs(t *testing.T) {
 // an old label =5 (the format asks for all of them, separated by "|").
 func legacyPodman(t *testing.T) (bin, logFile string) {
 	t.Helper()
+	skipWithoutShell(t)
 	dir := t.TempDir()
 	logFile = filepath.Join(dir, "calls.log")
 	bin = filepath.Join(dir, "podman")

@@ -84,7 +84,9 @@ func TestScanCodeTooBigOrWithNulIsBinary(t *testing.T) {
 		big[i] = 'a'
 	}
 	write(t, root, "big.py", string(big))
-	write(t, root, "nul.py", "a\x00b")
+	// "nulo.py", não "nul.py": no Windows NUL é nome reservado (o aparelho nulo)
+	// e o arquivo nunca seria criado.
+	write(t, root, "nulo.py", "a\x00b")
 	snap, contents, err := Scan(LocalFolder{Root: root}, nil, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -129,6 +131,7 @@ func TestScanTouchedFileSameContent(t *testing.T) {
 }
 
 func TestScanFailsInsteadOfDroppingFiles(t *testing.T) {
+	skipOnWindows(t, "chmod não tranca pasta")
 	if os.Geteuid() == 0 {
 		t.Skip("root ignores permissions")
 	}

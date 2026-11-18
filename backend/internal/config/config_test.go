@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -38,7 +39,7 @@ func TestDefaultsUseZivNamesAndAreNotExplicit(t *testing.T) {
 	if cfg.AppsDBContainer != "ziv-db" || cfg.AppsDBContainerExplicit {
 		t.Errorf("container %q explicit=%v", cfg.AppsDBContainer, cfg.AppsDBContainerExplicit)
 	}
-	if !strings.HasSuffix(cfg.SharedDataDir, "/.local/share/ziv/shared") || cfg.SharedDataDirExplicit {
+	if !strings.HasSuffix(cfg.SharedDataDir, filepath.FromSlash("/.local/share/ziv/shared")) || cfg.SharedDataDirExplicit {
 		t.Errorf("data dir %q explicit=%v", cfg.SharedDataDir, cfg.SharedDataDirExplicit)
 	}
 	t.Setenv("APPS_DB_CONTAINER", "meu-db")
@@ -48,6 +49,7 @@ func TestDefaultsUseZivNamesAndAreNotExplicit(t *testing.T) {
 }
 
 func TestLinkIsReservedSlug(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x") // Load recusa sem banco; o teste não abre conexão
 	cfg, err := Load()
 	if err != nil {
 		t.Fatal(err)

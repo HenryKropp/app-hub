@@ -3,6 +3,7 @@ package stage
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
@@ -64,6 +65,9 @@ func TestCopyOwnDockerfile(t *testing.T) {
 }
 
 func TestCopyKeepsExecutableBit(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no Windows: arquivo não tem bit de executável")
+	}
 	src := t.TempDir()
 	write(t, src, "Dockerfile", "FROM y\nCMD ./start.sh\n")
 	write(t, src, "start.sh", "#!/bin/sh\nexec python app.py\n")

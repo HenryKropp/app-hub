@@ -1,6 +1,9 @@
 package tenant
 
-import "testing"
+import (
+	"path/filepath"
+	"testing"
+)
 
 func TestKeyOf(t *testing.T) {
 	k, err := KeyOf("tenant_0123456789abcdef01234567")
@@ -28,7 +31,7 @@ func TestPrincipalNamesUnchanged(t *testing.T) {
 
 func TestCompanyNames(t *testing.T) {
 	c := Tenant{Slug: "teste", Key: "w0123456789a"}
-	if c.AppsDomain("zivapp.duckdns.org") != "teste.zivapp.duckdns.org" || c.DataDir("/d") != "/d/workspaces/w0123456789a" ||
+	if c.AppsDomain("zivapp.duckdns.org") != "teste.zivapp.duckdns.org" || c.DataDir("/d") != filepath.Join("/d", "workspaces", "w0123456789a") ||
 		c.DBPrefix() != "app_w0123456789a_" || c.ContainerName("notas", 7, false) != "ziv-w0123456789a-notas-7" ||
 		c.ContainerName("notas", 7, true) != "ziv-w0123456789a-notas-teste-7" ||
 		c.ImageTag("notas", 7) != "localhost/ziv/w0123456789a/notas:7" || c.Principal() {

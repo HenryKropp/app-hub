@@ -90,6 +90,7 @@ func TestApplyRestoreStopsOnFirstFailure(t *testing.T) {
 }
 
 func TestApplyRestoreWriteFailureLeavesOtherFilesAlone(t *testing.T) {
+	skipOnWindows(t, "chmod 0o555 não deixa a pasta só de leitura")
 	root := t.TempDir()
 	write(t, root, "ro/a.py", "1\n")
 	write(t, root, "b.py", "2\n")
@@ -238,6 +239,7 @@ func TestRestoreCodeRewriteDoesNotTrash(t *testing.T) {
 
 // If moving the unsaved file to the trash fails, it is not overwritten.
 func TestRestoreMoveFailureKeepsUnsavedFile(t *testing.T) {
+	skipOnWindows(t, "chmod 0o555 não deixa a pasta só de leitura")
 	root := t.TempDir()
 	write(t, root, "ro/dados.json", "{}\n")
 	f := LocalFolder{Root: root}

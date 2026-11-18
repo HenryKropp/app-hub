@@ -17,6 +17,7 @@ type walked struct {
 }
 
 func TestWalkReportsTree(t *testing.T) {
+	skipOnWindows(t, "criar link simbólico exige administrador")
 	root := t.TempDir()
 	mk := func(rel, content string) {
 		p := filepath.Join(root, filepath.FromSlash(rel))
@@ -90,6 +91,7 @@ func TestWalkReturnsFnError(t *testing.T) {
 }
 
 func TestWalkUnreadableDirIsError(t *testing.T) {
+	skipOnWindows(t, "chmod não tranca pasta")
 	if os.Geteuid() == 0 {
 		t.Skip("root ignores permissions")
 	}

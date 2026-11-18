@@ -131,7 +131,8 @@ func TestAgentTestJobSendsEvidenceBeforeResult(t *testing.T) {
 		t.Fatalf("evidence not sent before the result: %q", hub.uploads[11])
 	}
 	r := hub.results[11][0]
-	if r.Event != agentproto.EventFinished || r.Log != "ok\n" || !slices.Contains(paths(r.Files), "a.pdf") {
+	// No Windows o print do Python termina a linha com \r\n.
+	if r.Event != agentproto.EventFinished || strings.ReplaceAll(r.Log, "\r\n", "\n") != "ok\n" || !slices.Contains(paths(r.Files), "a.pdf") {
 		t.Fatalf("%+v", r)
 	}
 	if _, err := os.Stat(filepath.Join(TestFolder(state, 3, 7), "a.pdf")); err != nil {

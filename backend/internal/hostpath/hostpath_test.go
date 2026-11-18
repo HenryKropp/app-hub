@@ -1,8 +1,14 @@
 package hostpath
 
-import "testing"
+import (
+	"runtime"
+	"testing"
+)
 
 func TestToLocalAndBack(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no Windows os caminhos passam sem tradução (só o servidor no WSL traduz)")
+	}
 	cases := map[string]string{
 		`C:\Users\Henry\OneDrive - Empresa Piloto\8. Programação`: "/mnt/c/Users/Henry/OneDrive - Empresa Piloto/8. Programação",
 		`"D:\apps\"`:                         "/mnt/d/apps",
