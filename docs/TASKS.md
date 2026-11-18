@@ -62,6 +62,12 @@ Status: Pending / In Progress / Done / Blocked
 - [ ] Resto do teste do Henry (rodar o app aprovado, recusar, só pelo Claude).
 - [ ] Aviso por e-mail aos aprovadores, depois do domínio próprio.
 
+## Confirmar o plano de teste no chat (2026-11-18, ADR 047)
+
+- [x] Sessões do MCP guardadas e presas à pessoa do token.
+- [x] Caixa no Claude Code (enviar_versao e ver_versao); link de reserva; o site mostra "pelo Claude Code".
+- [ ] Revisão final, ir ao ar (com OK do Henry) e teste do Henry no Claude Code do Windows.
+
 ## Prioridade atual (2026-10-01)
 
 Pedido do Henry: **deixar o Ziv redondo com um app só (Eq. Research Files Prep) antes de registrar mais apps.** Fase 4 para apps com janela e `.exe` feita e testada de verdade (2026-09-30). Ordem combinada depois da decisão do Ziv (ADR 005):
