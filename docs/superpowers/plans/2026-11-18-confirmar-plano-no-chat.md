@@ -16,7 +16,7 @@
 - Client without elicitation capability, decline, cancel or any elicit error → today's link message, nothing confirmed.
 - PC choice limited to the confirmer's own non-revoked computers (same as `planChanger`). One PC → pre-selected.
 - Fingerprint is computed when the box is built and checked again on accept (`msgPlanChanged` if it moved).
-- All user text in Portuguese, plain; never write the forbidden names (see memory "sem Alis no GitHub").
+- All user text in Portuguese, plain; never write the forbidden names (see the project memory on names).
 
 ## Review Focus
 - Session hijack: a session ID used with another person's token must be refused.
