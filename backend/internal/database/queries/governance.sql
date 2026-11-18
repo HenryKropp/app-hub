@@ -182,3 +182,7 @@ WHERE version_rule IS NOT NULL
 
 -- name: SetArtifactArea :exec
 UPDATE artifacts SET area_id = $2, updated_at = now() WHERE id = $1;
+
+-- name: MarkOpenNewRequestTested :exec
+-- A new app's first version passed its test after the request was opened.
+UPDATE approval_requests SET tested = TRUE WHERE app_id = $1 AND status = 'open' AND reason = 'new';

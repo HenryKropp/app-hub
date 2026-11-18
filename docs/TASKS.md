@@ -57,7 +57,9 @@ Status: Pending / In Progress / Done / Blocked
 - [x] Artifacts no mesmo fluxo; link externo só de versão aprovada.
 - [x] Página Aprovações, bloco no Início, situação e histórico no app e no artifact, seção Governança no Admin.
 - [x] Teste no navegador do fluxo inteiro na empresa Teste (`e2e/governanca.mjs`).
-- [ ] Revisão final do código, ir ao ar (com OK do Henry) e teste do Henry.
+- [x] Revisão final do código e no ar (2026-11-18).
+- [x] Teste no ar (2026-11-18): app novo pelo Claude esperou a líder de Research e ela aprovou. Corrigido: o ver_versao dizia "no ar" num app novo ainda sem aprovação; o pedido mostrava "sem teste" depois do teste passar.
+- [ ] Resto do teste do Henry (rodar o app aprovado, recusar, só pelo Claude).
 - [ ] Aviso por e-mail aos aprovadores, depois do domínio próprio.
 
 ## Prioridade atual (2026-10-01)

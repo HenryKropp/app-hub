@@ -933,6 +933,16 @@ func (q *Queries) ListRecentRequests(ctx context.Context) ([]ListRecentRequestsR
 	return items, nil
 }
 
+const markOpenNewRequestTested = `-- name: MarkOpenNewRequestTested :exec
+UPDATE approval_requests SET tested = TRUE WHERE app_id = $1 AND status = 'open' AND reason = 'new'
+`
+
+// A new app's first version passed its test after the request was opened.
+func (q *Queries) MarkOpenNewRequestTested(ctx context.Context, appID pgtype.Int8) error {
+	_, err := q.db.Exec(ctx, markOpenNewRequestTested, appID)
+	return err
+}
+
 const reopenApprovalRequest = `-- name: ReopenApprovalRequest :exec
 UPDATE approval_requests SET status = 'open', closed_at = NULL WHERE id = $1 AND status = 'approved'
 `

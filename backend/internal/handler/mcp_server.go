@@ -130,6 +130,8 @@ var mcpRoutes = []string{
 	"DELETE /api/apps/{id}/keys/{name}",
 	// problemas (MCP F3a): the person's own schedules, read only
 	"GET /api/me/schedules",
+	// ver_versao (ADR 046): read only, who still has to approve the app
+	"GET /api/apps/{id}/governance",
 }
 
 var errMCPRoute = errors.New("mcp: rota não liberada para o Claude")

@@ -2,11 +2,14 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/HenryKropp/app-hub/backend/internal/database/sqlc"
 	"github.com/HenryKropp/app-hub/backend/internal/manifest"
 )
 
@@ -227,5 +230,50 @@ func TestArtifactGovernanceOnlyInACompany(t *testing.T) {
 	id := createArtifact(t, c, fileBody("Relatório", "rel.html", []byte(pageHTML))).ID
 	if code := c.do("GET", "/api/artifacts/"+itoa(id)+"/governance", nil, nil); code != http.StatusNotFound {
 		t.Fatalf("ungoverned %d", code)
+	}
+}
+
+// Henry's hands-on (2026-11-18): a new app's tested version went "no ar" in
+// ver_versao while the app still waited for the leader.
+func TestVerVersaoNewAppSaysWaitingLeader(t *testing.T) {
+	_, _, ana, _, _ := govTeam(t)
+	s := toolSession(t, ana)
+	id := importFiles(t, ana, map[string]string{"main.py": "print('v1')"})
+	_, out := sendDraft(t, ana, id, map[string]string{"main.py": "print('v2')"}, nil)
+	exec(t, "UPDATE app_drafts SET status = 'no_ar', version_number = 2 WHERE id = $1", out.DraftID)
+	res, text, got := callTool(t, s, "ver_versao", map[string]any{"app_id": id, "versao": out.DraftID})
+	if res.IsError {
+		t.Fatalf("%s", text)
+	}
+	if got["situacao"] != "esperando_aprovacao" || got["mensagem"] != "Aguardando o líder de Research." ||
+		!strings.Contains(text, "Aguardando o líder de Research.") || strings.Contains(text, ": no ar") {
+		t.Fatalf("%q %+v", text, got)
+	}
+}
+
+// Henry's hands-on (2026-11-18): the leader saw "sem teste" on a new app
+// whose first version had passed Claude's test.
+func TestNewAppRequestShowsTestedAfterDraftPasses(t *testing.T) {
+	h, _, ana, _, leo := govTeam(t)
+	id := importFiles(t, ana, map[string]string{"main.py": "print('v1')"})
+	ctx := context.Background()
+	// Claude registers the app and tests the same files: no new version.
+	files, _ := json.Marshal(b64files(map[string]string{"main.py": "print('v1')"}))
+	d, err := h.q.InsertDraft(ctx, sqlc.InsertDraftParams{AppID: id, AuthorID: pgInt8(2), Channel: "mcp", Files: files})
+	if err != nil {
+		t.Fatal(err)
+	}
+	exec(t, "UPDATE app_drafts SET status = 'aprovada' WHERE id = $1", d.ID)
+	d, _ = h.q.GetDraftByID(ctx, d.ID)
+	a, _ := h.q.GetApp(ctx, id)
+	if _, err := h.publishTested(ctx, a, d); err != nil {
+		t.Fatal(err)
+	}
+	if latestVersion(t, id) != 1 {
+		t.Fatalf("version %d", latestVersion(t, id))
+	}
+	list := approvals(t, leo)
+	if len(list) != 1 || list[0].Reason != "new" || !list[0].Tested {
+		t.Fatalf("approvals %+v", list)
 	}
 }

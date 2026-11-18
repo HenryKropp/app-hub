@@ -317,15 +317,37 @@ func (h *Handler) toolVerVersao(ctx context.Context, _ *mcp.CallToolRequest, in 
 	h.toolAPI(ctx, "GET", fmt.Sprintf("/api/apps/%d", in.AppID), nil, &app)
 
 	situacao := draftSituacao(d)
+	// A new app's tested version is kept, but the app itself still waits
+	// for its first approval (ADR 046): say who is missing, not "no ar".
+	waiting := ""
+	if d.Status == "no_ar" {
+		var gov struct {
+			OpenRequest *struct {
+				Waiting string `json:"waiting"`
+			} `json:"open_request"`
+		}
+		if _, _, msg := h.toolAPI(ctx, "GET", fmt.Sprintf("/api/apps/%d/governance", in.AppID), nil, &gov); msg == "" && gov.OpenRequest != nil {
+			waiting = gov.OpenRequest.Waiting
+		}
+	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "Versão %d do %s: %s", d.ID, app.Manifest.Name, situacao)
-	if d.StageLabel != "" {
-		b.WriteString(" — " + d.StageLabel)
+	if waiting != "" {
+		situacao = "esperando_aprovacao"
+		fmt.Fprintf(&b, "Versão %d do %s: testada e guardada", d.ID, app.Manifest.Name)
+		if d.VersionNumber != nil {
+			fmt.Fprintf(&b, " (versão %d do app)", *d.VersionNumber)
+		}
+		b.WriteString(", mas o app ainda não está no ar. " + waiting + " Ninguém roda o app até lá.")
+	} else {
+		fmt.Fprintf(&b, "Versão %d do %s: %s", d.ID, app.Manifest.Name, situacao)
+		if d.StageLabel != "" {
+			b.WriteString(" — " + d.StageLabel)
+		}
+		if d.Status == "no_ar" && d.VersionNumber != nil {
+			fmt.Fprintf(&b, " (versão %d do app)", *d.VersionNumber)
+		}
+		b.WriteString(".")
 	}
-	if d.Status == "no_ar" && d.VersionNumber != nil {
-		fmt.Fprintf(&b, " (versão %d do app)", *d.VersionNumber)
-	}
-	b.WriteString(".")
 	if d.StatusReason != "" {
 		b.WriteString("\nMotivo: " + d.StatusReason)
 	}
@@ -369,7 +391,7 @@ func (h *Handler) toolVerVersao(ctx context.Context, _ *mcp.CallToolRequest, in 
 	return toolOK(b.String(), map[string]any{
 		"app_id": in.AppID, "versao": d.ID, "situacao": situacao, "etapa": d.StageLabel, "motivo": d.StatusReason,
 		"terminou": !draftLive(d.Status), "conferencias": d.Checks, "arquivos": files, "log": log, "confirmar": confirm,
-		"versao_no_ar": d.VersionNumber,
+		"versao_no_ar": d.VersionNumber, "mensagem": waiting,
 	})
 }
 

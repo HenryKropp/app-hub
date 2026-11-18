@@ -277,6 +277,10 @@ func (h *Handler) publishTested(ctx context.Context, a sqlc.App, d sqlc.AppDraft
 	if refusal != "" {
 		return h.failDraft(ctx, d, "Não consegui publicar: "+refusal)
 	}
+	// The leader of a new app sees that its first version passed the test.
+	if err := h.q.MarkOpenNewRequestTested(ctx, pgInt8(a.ID)); err != nil {
+		return true, err
+	}
 	if err := h.q.ClearInTest(ctx, a.ID); err != nil {
 		return true, err
 	}
