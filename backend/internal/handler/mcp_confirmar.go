@@ -43,6 +43,12 @@ func (h *Handler) askPlanInChat(ctx context.Context, ss *mcp.ServerSession, appI
 	if err != nil || v.Plan == nil || len(v.Computers) == 0 {
 		return false, ""
 	}
+	// One box per plan and person: after Recusar, closing or the timeout,
+	// following up with ver_versao gives the link instead of a new box.
+	asked := fmt.Sprintf("%d:%d:%s", appID, me.ID, v.Fingerprint)
+	if _, done := h.planBoxes.LoadOrStore(asked, true); done {
+		return false, ""
+	}
 
 	var msg strings.Builder
 	fmt.Fprintf(&msg, "Confirmar o plano de teste de %q?\nO teste roda no seu computador.", a.Name)
@@ -92,9 +98,18 @@ func (h *Handler) askPlanInChat(ctx context.Context, ss *mcp.ServerSession, appI
 		}
 		pc = id
 	}
-	// The box may stay open for minutes: check the plan against the app as
-	// it is now, not as it was when the box opened.
+	// The box may stay open for minutes: check the plan, the person and the
+	// PC as they are now, not as they were when the box opened.
 	if a, err = h.q.GetApp(ctx, appID); err != nil {
+		return false, ""
+	}
+	if me, err = h.q.GetPerson(ctx, me.ID); err != nil {
+		return false, ""
+	}
+	if acc, err = h.loadAccess(ctx, me); err != nil || !ownerOrAdmin(acc, me, a) {
+		return false, ""
+	}
+	if c, err := h.q.GetComputer(ctx, pc); err != nil || c.PersonID != me.ID || c.RevokedAt.Valid {
 		return false, ""
 	}
 	code, refusal, err := h.confirmTestPlanAs(ctx, a, me, pc, v.Fingerprint, planViaClaudeCode)

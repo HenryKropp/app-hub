@@ -21,13 +21,24 @@ abrir um link.
   recusando o MCP.
 - O MCP deixou de ser "sem sessão": as sessões duram até 30 minutos parado e
   ficam presas à pessoa do token (o SDK recusa a mesma sessão com outro token).
-- Ao aceitar, o Ziv relê o app e confere a impressão do plano de novo: se o
-  plano mudou com a caixa aberta, recusa.
+- Ao aceitar, o Ziv relê o app e confere de novo a impressão do plano, se a
+  pessoa ainda é dona ou administradora e se o PC escolhido ainda é dela e
+  não foi cancelado. Se algo mudou com a caixa aberta, recusa.
+- A caixa aparece uma vez por plano e por pessoa: quem recusa, fecha ou deixa
+  passar os 10 minutos recebe o link nas próximas consultas (`ver_versao`),
+  até o plano mudar ou o Ziv reiniciar.
 
 ## Rationale
-A resposta da caixa vem do programa (Claude Code), digitada pela pessoa; o
-modelo não consegue responder por ela. É a mesma garantia do site sem sair
-do chat.
+A resposta da caixa vem do programa (Claude Code), digitada pela pessoa; no
+uso normal o modelo não responde por ela.
+
+**Risco aceito pelo Henry (revisão final, 2026-11-18):** o Ziv confia em quem
+responde pela conexão aberta com a chave do MCP da pessoa. Essa chave fica num
+arquivo do computador dela. Um Claude com acesso ao terminal poderia, de
+propósito, ler a chave, abrir a própria conexão e responder "Confirmar". Antes
+disso, a chave do MCP sozinha nunca confirmava (o site pede o login no
+navegador). O Henry escolheu a caixa com "Confirmar" mesmo assim, em vez de
+uma caixa que só abre o site.
 
 ## Trade-offs
 **Pros:**
@@ -42,5 +53,8 @@ do chat.
   continua o link.
 
 ## Alternatives Considered
+- **Caixa que abre o site (modo link da elicitation):** o Claude nunca
+  confirmaria, mas é um clique a mais e não sabemos se o Claude Code mostra
+  essa caixa. O Henry preferiu a caixa com "Confirmar".
 - **"Sim" no chat e o Claude confirma:** o Claude poderia se liberar sozinho.
 - **Código digitado pela pessoa no chat:** o Claude veria o código.

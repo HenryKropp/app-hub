@@ -160,3 +160,47 @@ func TestChatConfirmChoosesPC(t *testing.T) {
 		t.Fatalf("options %v chosen %q", options, name)
 	}
 }
+
+func TestChatConfirmAskedOnceAfterDecline(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	pairComputer(t, c, "PC")
+	s, asked := elicitSession(t, c, decline)
+	appID, draftID, _ := enviarNovo(t, h, s)
+	// Following up with ver_versao must not bring the box back.
+	_, text, _ := callTool(t, s, "ver_versao", map[string]any{"app_id": appID, "versao": draftID})
+	if asked.Load() != 1 || planVia(t, appID) != "" || !strings.Contains(text, "/plano-de-teste") {
+		t.Fatalf("asked %d via %q text %q", asked.Load(), planVia(t, appID), text)
+	}
+}
+
+func TestChatConfirmPCRevokedWhileOpen(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	pairComputer(t, c, "PC")
+	s, _ := elicitSession(t, c, func(r *mcp.ElicitRequest) (*mcp.ElicitResult, error) {
+		exec(t, "UPDATE computers SET revoked_at = now()")
+		return accept(r)
+	})
+	appID, _, text := enviarNovo(t, h, s)
+	if planVia(t, appID) != "" || !strings.Contains(text, planLink) {
+		t.Fatalf("via %q text %q", planVia(t, appID), text)
+	}
+}
+
+func TestChatConfirmNoLongerOwnerWhileOpen(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	pairComputer(t, c, "PC")
+	createPersonAs(t, c, "Ana", "ana@exemplo.com", "criador")
+	s, _ := elicitSession(t, c, func(r *mcp.ElicitRequest) (*mcp.ElicitResult, error) {
+		// The app goes to Ana and the person stops being admin.
+		exec(t, "UPDATE apps SET owner_id = 2")
+		exec(t, "UPDATE people SET role_id = (SELECT id FROM roles WHERE key = 'usuario') WHERE id = 1")
+		return accept(r)
+	})
+	appID, _, text := enviarNovo(t, h, s)
+	if planVia(t, appID) != "" || !strings.Contains(text, planLink) {
+		t.Fatalf("via %q text %q", planVia(t, appID), text)
+	}
+}
