@@ -13,7 +13,7 @@ for (const [theme, viewport, tag] of [["light", { width: 1280, height: 800 }, "d
   const ctx = await browser.newContext({ viewport, colorScheme: theme })
   await ctx.addInitScript((t) => localStorage.setItem("apphub-theme", t), theme)
   const page = await ctx.newPage()
-  await page.request.post(`${BASE}/api/dev/login`, { headers: { Origin: BASE }, data: { email: "admin@exemplo.com" } })
+  await page.request.post(`${BASE}/api/dev/login`, { headers: { Origin: BASE }, data: { email: (process.env.ZIV_ADMIN_EMAIL ?? "admin@exemplo.com") } })
   await page.route("**/api/runs/active", (route) => route.fulfill({ json: [run(1, "Contador de palavras", "done", 3), run(2, "Olá Ziv", "done", 1)] }))
   await page.goto(`${BASE}/`)
   await page.getByText("Baixar tudo").waitFor()

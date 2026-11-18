@@ -17,7 +17,7 @@ const hdr = { Origin: BASE }
 const themed = async (viewport, theme) => {
   const ctx = await browser.newContext({ viewport, colorScheme: theme })
   await ctx.addInitScript((t) => { try { localStorage.setItem("apphub-theme", t) } catch { /* ignore */ } }, theme)
-  const r = await ctx.request.post(`${W}/api/dev/login`, { headers: hdr, data: { email: "admin@exemplo.com" } })
+  const r = await ctx.request.post(`${W}/api/dev/login`, { headers: hdr, data: { email: (process.env.ZIV_ADMIN_EMAIL ?? "admin@exemplo.com") } })
   if (!r.ok()) throw new Error("login " + r.status())
   return ctx
 }

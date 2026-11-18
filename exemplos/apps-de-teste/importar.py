@@ -15,7 +15,7 @@ import urllib.request
 from pathlib import Path
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:5173"
-EMAIL = sys.argv[2] if len(sys.argv) > 2 else "admin@exemplo.com"
+EMAIL = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("ZIV_ADMIN_EMAIL", "admin@exemplo.com")
 AQUI = Path(__file__).parent
 
 

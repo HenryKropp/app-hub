@@ -2,7 +2,6 @@
 # Fonte da verdade: scripts/deploy-gcp.sh copia este arquivo para
 # /etc/caddy/Caddyfile e recarrega o Caddy quando ele muda.
 {
-	email admin@exemplo.com
 	on_demand_tls {
 		# O Ziv só aprova certificado para endereços que existem
 		# (app da principal ou app.empresa de uma empresa ligada).

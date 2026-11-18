@@ -20,7 +20,7 @@ else { const x=cv.getContext("2d"); d.forEach((v,i)=>{x.fillStyle="#7c3aed";x.fi
 
 const browser = await chromium.launch()
 const login = async (ctx) => {
-  const r = await ctx.request.post(`${BASE}/api/dev/login`, { headers: { Origin: BASE }, data: { email: "admin@exemplo.com" } })
+  const r = await ctx.request.post(`${BASE}/api/dev/login`, { headers: { Origin: BASE }, data: { email: (process.env.ZIV_ADMIN_EMAIL ?? "admin@exemplo.com") } })
   if (!r.ok()) throw new Error("login " + r.status())
 }
 const seedCtx = await browser.newContext()

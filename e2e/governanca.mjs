@@ -42,7 +42,7 @@ const ok = async (ctx, method, path, data) => {
 }
 
 // ---- people and areas ----
-const admin = await as("admin@exemplo.com")
+const admin = await as((process.env.ZIV_ADMIN_EMAIL ?? "admin@exemplo.com"))
 const roles = await ok(admin, "GET", "/api/roles")
 const role = (key) => roles.find((r) => r.key === key)?.id ?? fail(`role ${key}`)
 const person = async (name, email, roleKey) => {
@@ -150,7 +150,7 @@ try {
 
   // 8. Screens: the app (Configurações, Histórico) and Admin → Governança.
   for (const [tag, viewport] of [["1280", { width: 1280, height: 720 }], ["375", { width: 375, height: 812 }]]) {
-    const ctx = await as("admin@exemplo.com", viewport)
+    const ctx = await as((process.env.ZIV_ADMIN_EMAIL ?? "admin@exemplo.com"), viewport)
     const page = await ctx.newPage()
     await page.goto(`${W}/apps/${id}`)
     await page.getByRole("tab", { name: "Configurações" }).click()

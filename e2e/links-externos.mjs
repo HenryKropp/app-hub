@@ -16,7 +16,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>body{font-
 
 const browser = await chromium.launch()
 const login = async (ctx) => {
-  const r = await ctx.request.post(`${BASE}/api/dev/login`, { headers: { Origin: BASE }, data: { email: "admin@exemplo.com" } })
+  const r = await ctx.request.post(`${BASE}/api/dev/login`, { headers: { Origin: BASE }, data: { email: (process.env.ZIV_ADMIN_EMAIL ?? "admin@exemplo.com") } })
   if (!r.ok()) throw new Error("login " + r.status())
 }
 const seed = await browser.newContext()

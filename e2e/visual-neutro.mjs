@@ -43,7 +43,7 @@ for (const [sizeName, viewport] of Object.entries(sizes)) {
     await ctx.close()
 
     const lctx = await themed(viewport, theme)
-    const r = await lctx.request.post(`${BASE}/api/dev/login`, { headers: { Origin: LOGIN_ORIGIN }, data: { email: "admin@exemplo.com" } })
+    const r = await lctx.request.post(`${BASE}/api/dev/login`, { headers: { Origin: LOGIN_ORIGIN }, data: { email: (process.env.ZIV_ADMIN_EMAIL ?? "admin@exemplo.com") } })
     if (!r.ok()) throw new Error("login " + r.status())
     const apps = await (await lctx.request.get(`${BASE}/api/apps`)).json()
     const list = [...privatePages]

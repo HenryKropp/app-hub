@@ -11,7 +11,7 @@ for (const [theme, viewport, tag] of [["light", { width: 1280, height: 900 }, "d
   const ctx = await browser.newContext({ viewport, colorScheme: theme })
   await ctx.addInitScript((t) => localStorage.setItem("apphub-theme", t), theme)
   const page = await ctx.newPage()
-  await page.request.post(`${BASE}/api/dev/login`, { headers: { Origin: BASE }, data: { email: "admin@exemplo.com" } })
+  await page.request.post(`${BASE}/api/dev/login`, { headers: { Origin: BASE }, data: { email: (process.env.ZIV_ADMIN_EMAIL ?? "admin@exemplo.com") } })
   await page.route(`**/api/apps/${APP}`, async (route) => {
     if (route.request().method() !== "GET") return route.continue()
     const res = await route.fetch()

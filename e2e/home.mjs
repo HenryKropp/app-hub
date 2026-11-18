@@ -22,7 +22,7 @@ const login = async (ctx, email) => {
 }
 const hdr = { Origin: BASE }
 const seedCtx = await browser.newContext()
-const me = await login(seedCtx, "admin@exemplo.com")
+const me = await login(seedCtx, (process.env.ZIV_ADMIN_EMAIL ?? "admin@exemplo.com"))
 const api = seedCtx.request
 const artifactIds = []
 const favorites = []
@@ -78,7 +78,7 @@ try {
   for (const [theme, viewport, tag] of [["light", { width: 1280, height: 900 }, "desk"], ["dark", { width: 1280, height: 900 }, "dark"], ["light", { width: 390, height: 844 }, "celular"]]) {
     const ctx = await browser.newContext({ viewport, colorScheme: theme })
     await ctx.addInitScript((t) => localStorage.setItem("apphub-theme", t), theme)
-    await login(ctx, "admin@exemplo.com")
+    await login(ctx, (process.env.ZIV_ADMIN_EMAIL ?? "admin@exemplo.com"))
     await shoot(ctx, "home-admin", "/", homeReady, tag)
     await shoot(ctx, "apps-catalogo", "/apps", (p) => p.getByText(app.name).first().waitFor(), tag)
     if (tag === "desk") {

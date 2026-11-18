@@ -16,7 +16,7 @@ const sql = (q) => execFileSync("podman", ["exec", "ziv-db", "psql", "-U", "post
 const browser = await chromium.launch()
 const ctx = await browser.newContext()
 const hdr = { Origin: BASE }
-const r0 = await ctx.request.post(`${BASE}/api/dev/login`, { headers: hdr, data: { email: "admin@exemplo.com" } })
+const r0 = await ctx.request.post(`${BASE}/api/dev/login`, { headers: hdr, data: { email: (process.env.ZIV_ADMIN_EMAIL ?? "admin@exemplo.com") } })
 if (!r0.ok()) throw new Error("login " + r0.status())
 const api = ctx.request
 const made = []
