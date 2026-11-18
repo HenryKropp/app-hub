@@ -85,7 +85,7 @@ func (h *Handler) toolEnviarVersao(ctx context.Context, req *mcp.CallToolRequest
 		if _, _, msg := h.toolAPI(ctx, "GET", fmt.Sprintf("/api/apps/%d", in.AppID), nil, &cur); msg != "" {
 			return toolFail(msg)
 		}
-		return h.startVersaoTest(ctx, in.AppID, in.Versao, cur.Manifest.Name, false, nil, nil, bundle.Result{})
+		return h.startVersaoTest(ctx, in.AppID, in.Versao, cur.Manifest.Name, false, nil, req.Session, bundle.Result{})
 	}
 	if in.AppID == 0 && len(in.Manifesto) == 0 {
 		return toolFail("Para um app novo, mande o manifesto em manifesto, no formato de formato_do_app, com a seção teste.")
@@ -191,12 +191,12 @@ func (h *Handler) toolEnviarVersao(ctx context.Context, req *mcp.CallToolRequest
 	if len(ignored) > 0 {
 		b.WriteString("\n" + msgSiteOnly)
 	}
-	return h.startVersaoTest(ctx, appID, created.DraftID, name, true, &b, nil, res)
+	return h.startVersaoTest(ctx, appID, created.DraftID, name, true, &b, req.Session, res)
 }
 
 // startVersaoTest starts the test of draft d and says the next step. head is
 // what was already said about the sending.
-func (h *Handler) startVersaoTest(ctx context.Context, appID, draftID int64, name string, sentNow bool, head *strings.Builder, _ any, res bundle.Result) (*mcp.CallToolResult, any, error) {
+func (h *Handler) startVersaoTest(ctx context.Context, appID, draftID int64, name string, sentNow bool, head *strings.Builder, ss *mcp.ServerSession, res bundle.Result) (*mcp.CallToolResult, any, error) {
 	var b strings.Builder
 	if head != nil {
 		b.WriteString(head.String())
@@ -222,12 +222,12 @@ func (h *Handler) startVersaoTest(ctx context.Context, appID, draftID int64, nam
 		return toolFail("O teste não começou: " + msg)
 	}
 
-	confirm := ""
-	if d.ConfirmURL != "" {
-		confirm = h.mcpLink("%s", d.ConfirmURL)
-	}
+	confirm, chatNote := h.planConfirm(ctx, ss, appID, d.ConfirmURL)
 	if !sentNow {
 		fmt.Fprintf(&b, "Comecei o teste da versão %d do %q.", d.ID, name)
+	}
+	if chatNote != "" {
+		b.WriteString("\n" + chatNote)
 	}
 	if confirm != "" {
 		fmt.Fprintf(&b, "\nMande este link ao responsável pelo app para confirmar o plano de teste: %s. Depois acompanhe com ver_versao.", confirm)
@@ -286,7 +286,7 @@ type verVersaoIn struct {
 	Esperar int   `json:"esperar,omitempty" jsonschema:"segundos para esperar uma mudança, até 30"`
 }
 
-func (h *Handler) toolVerVersao(ctx context.Context, _ *mcp.CallToolRequest, in verVersaoIn) (*mcp.CallToolResult, any, error) {
+func (h *Handler) toolVerVersao(ctx context.Context, req *mcp.CallToolRequest, in verVersaoIn) (*mcp.CallToolResult, any, error) {
 	route := fmt.Sprintf("/api/apps/%d/drafts/%d", in.AppID, in.Versao)
 	var d draftAnswer
 	if _, _, msg := h.toolAPI(ctx, "GET", route, nil, &d); msg != "" {
@@ -380,9 +380,11 @@ func (h *Handler) toolVerVersao(ctx context.Context, _ *mcp.CallToolRequest, in 
 	if log != "" {
 		b.WriteString("\nLog (senhas trocadas por ••••):\n" + log)
 	}
-	confirm := ""
-	if d.ConfirmURL != "" {
-		confirm = h.mcpLink("%s", d.ConfirmURL)
+	confirm, chatNote := h.planConfirm(ctx, req.Session, in.AppID, d.ConfirmURL)
+	if chatNote != "" {
+		b.WriteString("\n" + chatNote)
+	}
+	if confirm != "" {
 		fmt.Fprintf(&b, "\nO plano de teste espera confirmação: mande este link ao responsável pelo app: %s", confirm)
 	}
 	if draftLive(d.Status) && confirm == "" {
@@ -424,4 +426,18 @@ func (h *Handler) toolBaixarArquivoTeste(ctx context.Context, _ *mcp.CallToolReq
 		return toolFail("Não consegui abrir este app agora.")
 	}
 	return toolOK(fmt.Sprintf("Arquivo %s do teste:\n%s", in.Caminho, content), map[string]any{"caminho": in.Caminho, "tamanho": len(raw), "conteudo": content})
+}
+
+// planConfirm handles a draft waiting for its test plan: it asks in the chat
+// first (askPlanInChat) and falls back to the site link. link is "" when the
+// plan was confirmed or nothing waits; note is what to tell the person.
+func (h *Handler) planConfirm(ctx context.Context, ss *mcp.ServerSession, appID int64, confirmURL string) (link, note string) {
+	if confirmURL == "" {
+		return "", ""
+	}
+	ok, refusal := h.askPlanInChat(ctx, ss, appID)
+	if ok {
+		return "", msgPlanConfirmedChat
+	}
+	return h.mcpLink("%s", confirmURL), refusal
 }
