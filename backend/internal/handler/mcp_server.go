@@ -10,8 +10,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -46,14 +49,17 @@ func (h *Handler) newMCPServer() *mcp.Server {
 	return s
 }
 
-// mcpHTTP is the /mcp endpoint: a stateless MCP server behind a bearer check.
+// mcpHTTP is the /mcp endpoint: an MCP server behind a bearer check. It keeps
+// sessions so a tool can ask the person in the chat (elicitation, plano de
+// teste); each session belongs to the person whose token opened it.
 func (h *Handler) mcpHTTP() http.Handler {
 	return h.mcpHTTPFor(h.newMCPServer())
 }
 
 func (h *Handler) mcpHTTPFor(s *mcp.Server) http.Handler {
 	sdk := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, &mcp.StreamableHTTPOptions{
-		Stateless: true,
+		// Idle sessions close; Claude starts a new one on its own.
+		SessionTimeout: 30 * time.Minute,
 		// The endpoint needs a bearer token, and behind a proxy on the same
 		// machine the public Host is never localhost.
 		DisableLocalhostProtection: true,
@@ -62,6 +68,12 @@ func (h *Handler) mcpHTTPFor(s *mcp.Server) http.Handler {
 		MaxRequestBodyBytes:          maxArtifactBody + 1<<20,
 		PropagateRequestCancellation: true,
 	})
+	// The token was already checked below; this only tells the SDK whose
+	// session it is, so another person's token can't use it.
+	bound := auth.RequireBearerToken(func(ctx context.Context, _ string, _ *http.Request) (*auth.TokenInfo, error) {
+		id, _ := mcpPersonID(ctx)
+		return &auth.TokenInfo{UserID: strconv.FormatInt(id, 10), Expiration: time.Now().Add(time.Hour)}, nil
+	}, nil)(sdk)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		scheme, token, _ := strings.Cut(r.Header.Get("Authorization"), " ")
 		if !strings.EqualFold(scheme, "Bearer") || !strings.HasPrefix(token, "ziv_") {
@@ -77,7 +89,7 @@ func (h *Handler) mcpHTTPFor(s *mcp.Server) http.Handler {
 			writeError(w, http.StatusUnauthorized, "Conecte o Claude ao Ziv de novo.")
 			return
 		}
-		sdk.ServeHTTP(w, r.WithContext(withMCPPerson(r.Context(), p.ID)))
+		bound.ServeHTTP(w, r.WithContext(withMCPPerson(r.Context(), p.ID)))
 	})
 }
 

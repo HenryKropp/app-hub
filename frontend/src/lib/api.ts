@@ -221,7 +221,7 @@ export type OpenDraft = { id: number; stage: string; stage_label: string }
 export type TestPlan = {
   plan: { acessa: string[]; pula: string; keys: string[]; place: string } | null
   fingerprint: string
-  confirmed: { by: string; at: string; computer_id: number | null } | null
+  confirmed: { by: string; at: string; computer_id: number | null; via?: "site" | "claude_code" } | null
   matches: boolean
   computers: { id: number; name: string; connected: boolean; outdated: boolean }[]
   can_confirm: boolean

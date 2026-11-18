@@ -12,7 +12,7 @@ import (
 )
 
 const getTestPlan = `-- name: GetTestPlan :one
-SELECT app_id, fingerprint, computer_id, confirmed_by, confirmed_at FROM app_test_plans WHERE app_id = $1
+SELECT app_id, fingerprint, computer_id, confirmed_by, confirmed_at, confirmed_via FROM app_test_plans WHERE app_id = $1
 `
 
 func (q *Queries) GetTestPlan(ctx context.Context, appID int64) (AppTestPlan, error) {
@@ -24,6 +24,7 @@ func (q *Queries) GetTestPlan(ctx context.Context, appID int64) (AppTestPlan, er
 		&i.ComputerID,
 		&i.ConfirmedBy,
 		&i.ConfirmedAt,
+		&i.ConfirmedVia,
 	)
 	return i, err
 }
@@ -46,18 +47,19 @@ func (q *Queries) SetTestPlanComputer(ctx context.Context, arg SetTestPlanComput
 }
 
 const upsertTestPlan = `-- name: UpsertTestPlan :one
-INSERT INTO app_test_plans (app_id, fingerprint, computer_id, confirmed_by, confirmed_at)
-VALUES ($1, $2, $3, $4, now())
+INSERT INTO app_test_plans (app_id, fingerprint, computer_id, confirmed_by, confirmed_at, confirmed_via)
+VALUES ($1, $2, $3, $4, now(), COALESCE(NULLIF($5::text, ''), 'site'))
 ON CONFLICT (app_id) DO UPDATE SET fingerprint = EXCLUDED.fingerprint, computer_id = EXCLUDED.computer_id,
-    confirmed_by = EXCLUDED.confirmed_by, confirmed_at = now()
-RETURNING app_id, fingerprint, computer_id, confirmed_by, confirmed_at
+    confirmed_by = EXCLUDED.confirmed_by, confirmed_at = now(), confirmed_via = EXCLUDED.confirmed_via
+RETURNING app_id, fingerprint, computer_id, confirmed_by, confirmed_at, confirmed_via
 `
 
 type UpsertTestPlanParams struct {
-	AppID       int64       `json:"app_id"`
-	Fingerprint string      `json:"fingerprint"`
-	ComputerID  pgtype.Int8 `json:"computer_id"`
-	ConfirmedBy pgtype.Int8 `json:"confirmed_by"`
+	AppID        int64       `json:"app_id"`
+	Fingerprint  string      `json:"fingerprint"`
+	ComputerID   pgtype.Int8 `json:"computer_id"`
+	ConfirmedBy  pgtype.Int8 `json:"confirmed_by"`
+	ConfirmedVia string      `json:"confirmed_via"`
 }
 
 func (q *Queries) UpsertTestPlan(ctx context.Context, arg UpsertTestPlanParams) (AppTestPlan, error) {
@@ -66,6 +68,7 @@ func (q *Queries) UpsertTestPlan(ctx context.Context, arg UpsertTestPlanParams) 
 		arg.Fingerprint,
 		arg.ComputerID,
 		arg.ConfirmedBy,
+		arg.ConfirmedVia,
 	)
 	var i AppTestPlan
 	err := row.Scan(
@@ -74,6 +77,7 @@ func (q *Queries) UpsertTestPlan(ctx context.Context, arg UpsertTestPlanParams) 
 		&i.ComputerID,
 		&i.ConfirmedBy,
 		&i.ConfirmedAt,
+		&i.ConfirmedVia,
 	)
 	return i, err
 }

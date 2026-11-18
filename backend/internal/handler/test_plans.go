@@ -220,6 +220,7 @@ type planConfirmed struct {
 	By         string    `json:"by"`
 	At         time.Time `json:"at"`
 	ComputerID *int64    `json:"computer_id"`
+	Via        string    `json:"via"` // site, claude_code
 }
 
 type planShown struct {
@@ -263,7 +264,7 @@ func (h *Handler) testPlanView(ctx context.Context, a sqlc.App, me sqlc.Person, 
 	}
 	stored, err := h.q.GetTestPlan(ctx, a.ID)
 	if err == nil {
-		c := &planConfirmed{At: stored.ConfirmedAt.Time}
+		c := &planConfirmed{At: stored.ConfirmedAt.Time, Via: stored.ConfirmedVia}
 		if stored.ConfirmedBy.Valid {
 			if p, err := h.q.GetPerson(ctx, stored.ConfirmedBy.Int64); err == nil {
 				c.By = p.Name
@@ -359,31 +360,45 @@ func (h *Handler) confirmTestPlan(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	ctx := r.Context()
-	m, _, err := h.planSource(ctx, a)
+	code, msg, err := h.confirmTestPlanAs(r.Context(), a, me, pc, fingerprint, planViaSite)
 	if err != nil {
-		internalError(w, "plan source", err)
+		internalError(w, "confirm test plan", err)
 		return
 	}
-	if m.Teste == nil {
-		writeCoded(w, http.StatusConflict, "test_plan_missing", msgTestPlanMissing)
-		return
-	}
-	if fingerprint != testplan.Fingerprint(m, testplan.PlacePC) {
-		writeCoded(w, http.StatusConflict, "plan_changed", msgPlanChanged)
-		return
-	}
-	if _, err := h.q.UpsertTestPlan(ctx, sqlc.UpsertTestPlanParams{
-		AppID: a.ID, Fingerprint: fingerprint, ComputerID: pgtype.Int8{Int64: pc, Valid: true}, ConfirmedBy: pgtype.Int8{Int64: me.ID, Valid: true},
-	}); err != nil {
-		internalError(w, "upsert test plan", err)
-		return
-	}
-	if err := h.advanceWaiting(ctx, a.ID); err != nil {
-		internalError(w, "advance draft", err)
+	if code != "" {
+		writeCoded(w, http.StatusConflict, code, msg)
 		return
 	}
 	h.writeTestPlan(w, r, a, me, acc)
+}
+
+const (
+	planViaSite       = "site"
+	planViaClaudeCode = "claude_code"
+)
+
+// confirmTestPlanAs stores me's confirmation of a's test plan, on PC pc, and
+// moves a waiting draft on. The caller already checked that me is the owner
+// or an admin and that pc is me's. code is "" on success, else the refusal
+// (test_plan_missing, plan_changed) with its message.
+func (h *Handler) confirmTestPlanAs(ctx context.Context, a sqlc.App, me sqlc.Person, pc int64, fingerprint, via string) (code, msg string, err error) {
+	m, _, err := h.planSource(ctx, a)
+	if err != nil {
+		return "", "", err
+	}
+	if m.Teste == nil {
+		return "test_plan_missing", msgTestPlanMissing, nil
+	}
+	if fingerprint != testplan.Fingerprint(m, testplan.PlacePC) {
+		return "plan_changed", msgPlanChanged, nil
+	}
+	if _, err := h.q.UpsertTestPlan(ctx, sqlc.UpsertTestPlanParams{
+		AppID: a.ID, Fingerprint: fingerprint, ComputerID: pgtype.Int8{Int64: pc, Valid: true}, ConfirmedBy: pgtype.Int8{Int64: me.ID, Valid: true},
+		ConfirmedVia: via,
+	}); err != nil {
+		return "", "", err
+	}
+	return "", "", h.advanceWaiting(ctx, a.ID)
 }
 
 // setTestComputer is PUT /api/apps/{id}/test-plan/computer: another PC for

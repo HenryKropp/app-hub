@@ -289,6 +289,9 @@ Cada empresa decide quem aprova o que entra no ar, quem usa e por onde o código
 - **Começo:** empresa nova = só líder, "só quando muda o risco", qualquer caminho. Empresa Piloto = líder + TI + toda versão.
 - **Depois:** aviso por e-mail aos aprovadores, quando houver domínio próprio.
 
+### 3.18 Confirmar o plano de teste no chat (construído em 2026-11, ADR 047)
+Quando o Claude manda a versão de um app e o teste precisa da confirmação do plano, o Ziv abre uma **caixa no Claude Code** para o dono do app ou um administrador: chaves que o teste usa, sites, o que pula e em qual computador roda. Confirmar começa o teste na hora; recusar ou fechar não muda nada. Só a pessoa responde a caixa, nunca o Claude. Onde não há caixa (por exemplo, o claude.ai), continua o link para o site. O site mostra "confirmado pelo Claude Code".
+
 ---
 
 ## 4. Fluxos principais

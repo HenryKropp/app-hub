@@ -114,11 +114,12 @@ type AppSecurity struct {
 }
 
 type AppTestPlan struct {
-	AppID       int64              `json:"app_id"`
-	Fingerprint string             `json:"fingerprint"`
-	ComputerID  pgtype.Int8        `json:"computer_id"`
-	ConfirmedBy pgtype.Int8        `json:"confirmed_by"`
-	ConfirmedAt pgtype.Timestamptz `json:"confirmed_at"`
+	AppID        int64              `json:"app_id"`
+	Fingerprint  string             `json:"fingerprint"`
+	ComputerID   pgtype.Int8        `json:"computer_id"`
+	ConfirmedBy  pgtype.Int8        `json:"confirmed_by"`
+	ConfirmedAt  pgtype.Timestamptz `json:"confirmed_at"`
+	ConfirmedVia string             `json:"confirmed_via"`
 }
 
 type AppVersion struct {

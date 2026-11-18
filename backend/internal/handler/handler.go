@@ -51,6 +51,9 @@ type Handler struct {
 
 	uploads *uploadHub
 
+	// Test-plan boxes already shown in Claude Code (app:person:fingerprint).
+	planBoxes sync.Map
+
 	// One version check per app at a time.
 	locksMu sync.Mutex
 	locks   map[int64]*sync.Mutex
