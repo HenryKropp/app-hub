@@ -82,7 +82,7 @@ export function TestPlanPage() {
           </dl>
 
           {confirmed && (
-            <p className="text-sm">Plano confirmado por {confirmed.by || "alguém da equipe"} em {ddmm(confirmed.at)}.</p>
+            <p className="text-sm">Plano confirmado por {confirmed.by || "alguém da equipe"}{confirmed.via === "claude_code" ? " pelo Claude Code" : ""} em {ddmm(confirmed.at)}.</p>
           )}
 
           {!plan.can_confirm ? (

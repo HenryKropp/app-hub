@@ -63,3 +63,9 @@ test("already confirmed changes only the PC", async () => {
   await user.click(screen.getByRole("button", { name: "Trocar o PC de teste" }))
   expect(setPC).toHaveBeenCalledWith(4, 8)
 })
+
+test("a plan confirmed in the Claude Code chat says so", async () => {
+  vi.spyOn(api.testPlan, "get").mockResolvedValue(plan({ confirmed: { by: "Henry", at: "2026-11-18T12:00:00Z", computer_id: 7, via: "claude_code" }, matches: true }))
+  mount()
+  expect(await screen.findByText(/Plano confirmado por Henry pelo Claude Code em 18\/11/)).toBeInTheDocument()
+})
