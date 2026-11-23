@@ -66,7 +66,8 @@ Status: Pending / In Progress / Done / Blocked
 
 - [x] Sessões do MCP guardadas e presas à pessoa do token.
 - [x] Caixa no Claude Code (enviar_versao e ver_versao); link de reserva; o site mostra "pelo Claude Code".
-- [ ] Revisão final, ir ao ar (com OK do Henry) e teste do Henry no Claude Code do Windows.
+- [x] Revisão final e no ar (356b331).
+- [ ] Teste do Henry no Claude Code do Windows.
 
 ## Prioridade atual (2026-10-01)
 

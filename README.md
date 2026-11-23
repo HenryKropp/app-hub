@@ -5,17 +5,25 @@ Antes chamado App Hub.
 Plataforma para empresas registrarem, compartilharem e executarem microapps.
 Cada app tem responsável, ficha, permissões, entradas e histórico.
 
-## Estado atual — 26/10/2026
+## Estado atual — 23/11/2026
 
-- Interface web em React/Vite, servidor em Go e banco PostgreSQL.
-- Ambiente de desenvolvimento no Replit; execução local no Windows pelo Agente
-  do Ziv.
-- Importação de scripts Python e JavaScript pelo navegador, com formulário de
-  entradas, envio de arquivos, preparação de dependências e coleta de resultados.
-- Catálogo, cargos, áreas, controle de acesso e histórico de versões.
-- A execução completa dos scripts em Windows **ainda não foi validada**. No teste
-  guiado, o agente encontrou uma barreira de acesso ao endereço privado de
-  desenvolvimento do Replit antes de conseguir conectar.
+- No ar 24h em servidor gratuito no Google Cloud (ADR 022); desenvolvimento
+  local. Interface em React/Vite, servidor em Go, banco PostgreSQL.
+- Portal multiempresa com isolamento por empresa; catálogo, página do app em
+  abas, cargos, áreas, apps abertos ou restritos.
+- Agente no Windows validado de verdade: roda scripts e programas, atualiza
+  sozinho, vários apps ao mesmo tempo, Parar.
+- Apps com tela no servidor (compartilhados pela empresa), com navegador
+  automático; agendamento; cofre de senhas por app.
+- Versões com histórico e voltar atrás; rascunho; teste de script no PC antes de
+  publicar; governança com aprovação do líder e, opcionalmente, da TI.
+- MCP: o Claude cria, registra, testa, roda e publica apps; artifacts com link
+  externo.
+- Ainda não: login com Google/Microsoft, rodar pelo celular sem o Agente,
+  instalação na nuvem do cliente, e-mail em produção (falta domínio próprio),
+  instalador único e assinatura digital.
+
+A lista de tarefas, com o que está pendente, fica em [docs/TASKS.md](docs/TASKS.md).
 
 Ter código implementado não significa que todos os cenários foram verificados.
 Consulte os [limites de verificação](docs/SCRIPTS.md#limites-da-verificação).
@@ -65,7 +73,7 @@ No próprio computador (Windows com Git Bash, Mac ou Linux), use
 | [Replit](replit.md) | Instruções de execução neste ambiente |
 | [Decisões de arquitetura](docs/adr/) | Decisões e justificativas; algumas descrevem fases anteriores |
 | [Protocolo de registro](docs/PROTOCOLO-REGISTRO.md) | Registro e análise dos apps |
-| [Roadmap histórico](docs/TASKS.md) | Etapas do piloto; não é uma lista atualizada das tarefas do projeto |
+| [Tarefas](docs/TASKS.md) | Tarefas por projeto, com o que está feito e o que falta |
 | [Planos e especificações](docs/superpowers/) | Desenhos e planos de implementação por etapa |
 
 As especificações v1/v2 e os planos antigos são histórico, não prova de
