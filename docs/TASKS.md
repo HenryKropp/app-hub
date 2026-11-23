@@ -37,6 +37,17 @@ Status: Pending / In Progress / Done / Blocked
 | Salvar manifesto e ficha na pasta do app | Done | Cria só `app-hub.yaml` e `FICHA.md`; recusa sobrescrever arquivo que não é do Ziv |
 | Aviso de duplicado | Done | Por palavras do nome, contra o catálogo e dentro do lote |
 
+## Roteiro de segurança e governança (2026-11-23)
+
+Roteiro aprovado pelo Henry: `docs/superpowers/specs/2026-11-23-roteiro-seguranca.md`.
+Cada fase ganha o próprio desenho antes de construir.
+
+- [ ] Fase 0: fechar furos já encontrados (limite de tentativas global atrás do Caddy, contêineres alcançam o servidor e a internet, cópias sem criptografia na mesma VM, chave do cofre junto do banco, tokens do MCP sem prazo, atualização do Agente sem assinatura própria). **Próximo.**
+- [ ] Fase 1: quem entra (Google/Microsoft, segundo fator, recuperar senha, sessão que expira, revisão de acessos).
+- [ ] Fase 2: dados que saem (sites liberados por app com bloqueio, o que vai para a IA e painel de uso, LGPD).
+- [ ] Fase 3: onde os dados moram (servidor no Brasil → híbrido na nuvem do cliente → Ziv inteiro no cliente).
+- [ ] Fase 4: prova para a TI (documento de segurança, DPA com cláusulas da ANPD, anexo CMN 4.893, suboperadores, questionário, plano de incidentes, teste de invasão, ISO 27001).
+
 ## Links externos (2026-11-17, ADR 045)
 
 - [x] Projeto 1: link externo para artifact (código por e-mail ou aberto; mais recente ou versão fixa; prazo; Cancelar; lista no Admin; endereço `link.`). Branch `links-externos`.
