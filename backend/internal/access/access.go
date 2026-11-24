@@ -54,16 +54,20 @@ type Person struct {
 	PendingApps      map[int64]bool
 	PendingArtifacts map[int64]bool
 	ITOn             bool
+
+	// Disabled (Fase 0, ADR 048): the person was turned off. They may do
+	// nothing, whatever their role, areas or ownerships say.
+	Disabled bool
 }
 
-func (p *Person) Has(perm string) bool { return p.Perms[perm] }
+func (p *Person) Has(perm string) bool { return !p.Disabled && p.Perms[perm] }
 
 // CanRegister: the role allows it, or the person leads an area.
-func (p *Person) CanRegister() bool { return p.Has(RegisterApps) || len(p.Leads) > 0 }
+func (p *Person) CanRegister() bool { return p.Has(RegisterApps) || (!p.Disabled && len(p.Leads) > 0) }
 
 // SeesTeam: Equipe shows for whoever manages people, areas or roles, or leads an area.
 func (p *Person) SeesTeam() bool {
-	return p.Has(ManagePeople) || p.Has(ManageAreas) || p.Has(ManageRoles) || len(p.Leads) > 0
+	return p.Has(ManagePeople) || p.Has(ManageAreas) || p.Has(ManageRoles) || (!p.Disabled && len(p.Leads) > 0)
 }
 
 type App struct {
@@ -111,6 +115,9 @@ func (p *Person) ForArtifact(a App) Can {
 // forItem decides for one app or artifact; kinds lists the extra accesses
 // that count for this kind of item (any of them reveals a restricted one).
 func (p *Person) forItem(a App, viewer bool, itemGrants map[string]bool, kinds []string, pending bool) Can {
+	if p.Disabled {
+		return Can{}
+	}
 	leader := p.Leads[a.AreaID]
 	cares := leader || a.OwnerID == p.ID || (a.BackupID != 0 && a.BackupID == p.ID)
 	// Never approved: only who cares, the auditors, the admin and (with TI on)

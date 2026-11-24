@@ -28,6 +28,13 @@ func TestTokenStoredProtected(t *testing.T) {
 	if got := LoadToken(old); got != "ziv_antigo" {
 		t.Fatalf("old file = %q", got)
 	}
+	// Reading alone leaves the old form: if this update rolls back, the
+	// previous Agente (which reads only "token") must still find it.
+	raw, _ = os.ReadFile(filepath.Join(old, "agente.json"))
+	if !strings.Contains(string(raw), `"token":"ziv_antigo"`) {
+		t.Fatalf("old file rewritten before the update was confirmed: %s", raw)
+	}
+	ProtectToken(old) // after the first good hello
 	raw, _ = os.ReadFile(filepath.Join(old, "agente.json"))
 	if runtime.GOOS == "windows" && strings.Contains(string(raw), "ziv_antigo") {
 		t.Fatalf("old plain file not upgraded: %s", raw)

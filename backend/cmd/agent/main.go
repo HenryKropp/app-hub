@@ -116,6 +116,7 @@ func main() {
 		time.Sleep(5 * time.Second)
 	}
 	connected.Store(true)
+	agent.ProtectToken(dir) // this version works here: no rollback will need the plain token
 	exe, err := os.Executable()
 	if err != nil {
 		slog.Warn("cannot locate the running agent; self-update may fail", "err", err)

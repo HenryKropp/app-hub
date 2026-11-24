@@ -230,7 +230,7 @@ func Pair(ctx context.Context, c *Client, name string, open func(string) error) 
 
 // state is agente.json. On Windows the token is kept sealed with DPAPI
 // (Protected, base64), never as plain text; Token is the older plain form,
-// read once and rewritten sealed (Fase 0 de segurança).
+// rewritten sealed once this Agente has connected (Fase 0 de segurança).
 type state struct {
 	Token     string `json:"token,omitempty"`
 	Protected string `json:"token_protegido,omitempty"`
@@ -257,12 +257,24 @@ func LoadToken(dir string) string {
 		}
 		return string(plain)
 	}
-	if s.Token != "" {
-		if err := SaveToken(dir, s.Token); err != nil {
-			slog.Warn("protect agent token", "err", err)
-		}
-	}
 	return s.Token
+}
+
+// ProtectToken rewrites an old plain token sealed. It runs only after the
+// first good hello: until then an update may still roll back to an Agente
+// that reads only the plain form (Fase 0 final review).
+func ProtectToken(dir string) {
+	b, err := os.ReadFile(filepath.Join(dir, "agente.json"))
+	if err != nil {
+		return
+	}
+	var s state
+	if json.Unmarshal(b, &s) != nil || s.Protected != "" || s.Token == "" {
+		return
+	}
+	if err := SaveToken(dir, s.Token); err != nil {
+		slog.Warn("protect agent token", "err", err)
+	}
 }
 
 func SaveToken(dir, token string) error {

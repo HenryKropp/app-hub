@@ -78,8 +78,10 @@ O Claude faz, com o seu "pode" explícito:
 4. Tirar o cron antigo do `pg_dumpall` (`crontab -e`). Depois que a cópia
    nova chegar ao bucket, apagar as cópias antigas em texto aberto de
    `~/backups`.
-5. Conferir o isolamento de dentro de uma caixa de app:
-   - o Ziv na 8080 não responde;
+5. Conferir o isolamento de dentro de uma caixa de app (antes, anotar a
+   versão do Podman e a configuração de rede):
+   - o Ziv na 8080 não responde, nem por `127.0.0.1` nem pelo endereço da
+     máquina. Se responder, parar e corrigir antes de seguir;
    - o Postgres na 5433 responde;
    - um `X-Real-IP` falso não muda o endereço registrado.
 6. Fechar o Postgres para fora: hoje ele está publicado em `0.0.0.0:5433`.

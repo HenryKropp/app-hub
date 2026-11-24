@@ -18,4 +18,6 @@ fi
 if [[ ! -x generated-artifacts/app-hub-server ]] || [[ -n "$(find backend -type f \( -name '*.go' -o -name '*.sql' -o -name 'go.mod' -o -name 'go.sum' \) -newer generated-artifacts/app-hub-server -print -quit 2>/dev/null)" ]]; then
   (cd backend && go build -o ../generated-artifacts/app-hub-server ./cmd/server)
 fi
+# Replit reaches the server from outside the machine (ADR 048 default is 127.0.0.1).
+export LISTEN_HOST="${LISTEN_HOST:-0.0.0.0}"
 exec ./generated-artifacts/app-hub-server

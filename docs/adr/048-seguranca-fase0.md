@@ -46,8 +46,12 @@ Este ADR registra as decisões de arquitetura; os detalhes estão no desenho.
   1.27.4 fixado (`toolchain`).
 
 ## Rationale
-- Quem tomar o servidor não deve conseguir rodar código nos PCs pareados, nem
-  ler cópias antigas. Por isso as duas chaves privadas ficam fora dele.
+- Quem tomar o servidor não deve conseguir trocar o programa do Agente nos
+  PCs pareados, nem ler cópias antigas. Por isso as duas chaves privadas
+  ficam fora dele. **Risco que fica:** as execuções, os testes e os apps de
+  tela levam o código do app até o Agente, e esse código não é assinado.
+  Quem tomar o servidor ainda pode agendar ou mandar rodar código nos PCs.
+  Fechar isso pede código aprovado e assinado, numa fase seguinte.
 - A troca de chave precisa ser possível antes de ser necessária. Um KMS
   agora ganharia pouco, porque quem toma a VM pega a chave do mesmo jeito.
   Ele vem na Fase 3, com o servidor no Brasil.
@@ -65,7 +69,10 @@ Este ADR registra as decisões de arquitetura; os detalhes estão no desenho.
   conectar de novo.
 - Fica pendente o teste na VM (precisa do "pode" do Henry): caixas sem acesso
   ao Ziv, com acesso ao Postgres, e se `X-Real-IP` falso de uma caixa é
-  recusado. Também ficam pendentes o Postgres fechado para fora e
+  recusado. O Ziv confia em `X-Real-IP` só quando o pedido vem de
+  `127.0.0.1`. Dependendo da versão e da configuração de rede do Podman, uma
+  caixa pode chegar como `127.0.0.1`. Se o teste mostrar isso, a confiança
+  passa a ser um segredo que só o Caddy manda. Também ficam pendentes o Postgres fechado para fora e
   `--read-only` nas caixas.
 
 Relacionados: ADR 010, 016, 022, 025, 027, 046.

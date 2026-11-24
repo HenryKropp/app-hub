@@ -315,3 +315,21 @@ func TestPendingArtifact(t *testing.T) {
 		t.Fatalf("owner cannot see artifact: %+v", c)
 	}
 }
+
+// A disabled person (Fase 0, ADR 048) keeps nothing: not the open apps, not
+// what they own, not their role. Every path that loads access is closed at once.
+func TestDisabledPersonCanNothing(t *testing.T) {
+	p := person(1) // owner of app
+	p.Perms[ManageRoles] = true
+	p.Leads[1] = true
+	p.Disabled = true
+	if c := p.For(app); c != (Can{}) {
+		t.Fatalf("app: %+v", c)
+	}
+	if c := p.ForArtifact(app); c != (Can{}) {
+		t.Fatalf("artifact: %+v", c)
+	}
+	if p.Has(ManageRoles) || p.CanRegister() || p.SeesTeam() {
+		t.Fatal("role still counts")
+	}
+}

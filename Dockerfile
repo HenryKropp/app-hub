@@ -22,4 +22,7 @@ COPY --from=backend-build /server ./server
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 EXPOSE 80
 ENV PORT=80
+# Inside a container the server must answer outside its own loopback (ADR 048
+# made 127.0.0.1 the default for the VM, where Caddy is in front).
+ENV LISTEN_HOST=0.0.0.0
 CMD ["./server"]
