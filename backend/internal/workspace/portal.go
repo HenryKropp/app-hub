@@ -580,6 +580,7 @@ func (p *Portal) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+	handler.SiteCSP(w.Header())
 	clean := path.Clean("/" + r.URL.Path)
 	if strings.HasPrefix(clean, "/assets/") {
 		http.ServeFile(w, r, filepath.Join("frontend/dist", filepath.FromSlash(strings.TrimPrefix(clean, "/"))))

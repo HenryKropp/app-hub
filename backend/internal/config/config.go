@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -12,11 +13,17 @@ import (
 )
 
 type Config struct {
-	Port        string
-	DatabaseURL string
-	BaseURL     string
-	DevMode     bool
-	SetupCode   string // SETUP_CODE: code for the principal's first access
+	Port string
+	// ListenHost is where the server answers (LISTEN_HOST, default
+	// 127.0.0.1): only Caddy on the same machine reaches it, not app boxes.
+	ListenHost string
+	// OAuthRedirectHosts are extra hosts an OAuth client may return to,
+	// besides Claude and this computer (OAUTH_REDIRECT_HOSTS, comma separated).
+	OAuthRedirectHosts []string
+	DatabaseURL        string
+	BaseURL            string
+	DevMode            bool
+	SetupCode          string // SETUP_CODE: code for the principal's first access
 
 	// E-mail of external link codes (ADR 045); both empty = e-mail off.
 	ResendAPIKey string // RESEND_API_KEY
@@ -82,6 +89,12 @@ func Load() (Config, error) {
 	if cfg.Port == "" {
 		cfg.Port = "8080"
 	}
+	cfg.ListenHost = envOr("LISTEN_HOST", "127.0.0.1")
+	for _, h := range strings.Split(os.Getenv("OAUTH_REDIRECT_HOSTS"), ",") {
+		if h = strings.ToLower(strings.TrimSpace(h)); h != "" {
+			cfg.OAuthRedirectHosts = append(cfg.OAuthRedirectHosts, h)
+		}
+	}
 	if cfg.DatabaseURL == "" {
 		return cfg, errors.New("DATABASE_URL is required")
 	}
@@ -109,6 +122,9 @@ func Load() (Config, error) {
 	}
 	return cfg, nil
 }
+
+// ListenAddr is the address the HTTP server listens on.
+func (c Config) ListenAddr() string { return net.JoinHostPort(c.ListenHost, c.Port) }
 
 // SecureCookies is true when the Hub is served over HTTPS.
 func (c Config) SecureCookies() bool {

@@ -81,3 +81,30 @@ func TestAuditRecordsOrigin(t *testing.T) {
 		t.Fatalf("export %v %v", e, err)
 	}
 }
+
+// Over HTTPS every answer tells the browser to use HTTPS only (HSTS).
+func TestStrictTransport(t *testing.T) {
+	ok := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	for base, want := range map[string]string{"https://zivapp.test": "max-age=31536000", "http://localhost:8080": ""} {
+		rec := httptest.NewRecorder()
+		StrictTransport(config.Config{BaseURL: base}, ok).ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+		if got := rec.Header().Get("Strict-Transport-Security"); got != want {
+			t.Fatalf("%s: HSTS %q, want %q", base, got, want)
+		}
+	}
+}
+
+// The site itself runs only its own scripts (CSP script-src 'self').
+func TestSiteCSP(t *testing.T) {
+	h := http.Header{}
+	SiteCSP(h)
+	csp := h.Get("Content-Security-Policy")
+	for _, want := range []string{"script-src 'self'", "object-src 'none'", "base-uri 'self'", "frame-ancestors 'none'"} {
+		if !strings.Contains(csp, want) {
+			t.Fatalf("CSP %q lacks %q", csp, want)
+		}
+	}
+	if strings.Contains(csp, "unsafe-eval") || strings.Contains(csp, "script-src 'self' 'unsafe-inline'") {
+		t.Fatalf("CSP allows inline or eval scripts: %q", csp)
+	}
+}

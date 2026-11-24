@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/HenryKropp/app-hub/backend/internal/handler"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -92,7 +93,7 @@ func main() {
 	go group.Loop(ctx)
 
 	// Hosts under SHARED_APPS_DOMAIN go to their company's gateway; the rest is the portal.
-	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router.Root(portal), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 90 * time.Second, MaxHeaderBytes: 1 << 20}
+	srv := &http.Server{Addr: cfg.ListenAddr(), Handler: handler.StrictTransport(cfg, router.Root(portal)), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 90 * time.Second, MaxHeaderBytes: 1 << 20}
 	stopped := make(chan struct{})
 	go func() {
 		defer close(stopped)

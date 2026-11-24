@@ -679,3 +679,16 @@ func TestMigrationKeepsStrictCompany(t *testing.T) {
 		t.Fatalf("waiting app steps=%v err=%v", steps, err)
 	}
 }
+
+// The site page runs only its own scripts (Fase 0 de segurança).
+func TestSitePageHasScriptPolicy(t *testing.T) {
+	_, _, srv := testPortal(t)
+	res, err := http.Get(srv.URL + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if csp := res.Header.Get("Content-Security-Policy"); !strings.Contains(csp, "script-src 'self'") {
+		t.Fatalf("site CSP %q", csp)
+	}
+}
