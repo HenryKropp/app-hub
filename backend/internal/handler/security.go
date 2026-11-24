@@ -340,11 +340,13 @@ type auditEvent struct {
 	Action  string    `json:"action"`
 	Route   string    `json:"route"`
 	Status  int       `json:"status"`
+	IP      string    `json:"ip"`
+	Agent   string    `json:"user_agent"`
 	Created time.Time `json:"created_at"`
 }
 
 func (h *Handler) auditEvents(ctx context.Context) ([]auditEvent, error) {
-	rows, err := h.q.SecurityDB().Query(ctx, `SELECT id,actor_id,action,route,status,created_at FROM security_audit ORDER BY id DESC LIMIT 100`)
+	rows, err := h.q.SecurityDB().Query(ctx, `SELECT id,actor_id,action,route,status,ip,user_agent,created_at FROM security_audit ORDER BY id DESC LIMIT 100`)
 	if err != nil {
 		return nil, err
 	}
@@ -352,7 +354,7 @@ func (h *Handler) auditEvents(ctx context.Context) ([]auditEvent, error) {
 	out := []auditEvent{}
 	for rows.Next() {
 		var e auditEvent
-		if err := rows.Scan(&e.ID, &e.Actor, &e.Action, &e.Route, &e.Status, &e.Created); err != nil {
+		if err := rows.Scan(&e.ID, &e.Actor, &e.Action, &e.Route, &e.Status, &e.IP, &e.Agent, &e.Created); err != nil {
 			return nil, err
 		}
 		out = append(out, e)

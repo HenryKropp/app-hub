@@ -9,7 +9,6 @@ import (
 	"io"
 	"log/slog"
 	"mime"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -122,6 +121,7 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 func (h *Handler) Secure(next http.Handler) http.Handler {
 	limiter := &securityLimiter{}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = r.WithContext(withAuditOrigin(r.Context(), r))
 		NoFraming(w.Header())
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "no-referrer")
@@ -167,11 +167,9 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 		limited = limited || r.URL.Path == "/oauth/authorize"
 		accountKey := ""
 		if limited {
-			// Never trust arbitrary X-Forwarded-For supplied by clients.
-			host, _, err := net.SplitHostPort(r.RemoteAddr)
-			if err != nil {
-				host = r.RemoteAddr
-			}
+			// The visitor's real address: X-Real-IP only when Caddy (loopback)
+			// sent it, never a header from anywhere else.
+			host := remoteHost(r)
 			limit := signupAttempts
 			if r.URL.Path == "/api/auth/login" || r.URL.Path == "/api/entry/invitations/preview" || r.URL.Path == "/api/agent/pair/start" || r.URL.Path == "/oauth/token" || r.URL.Path == "/oauth/authorize" {
 				limit = addressAttempts
@@ -241,7 +239,8 @@ func (h *Handler) Secure(next http.Handler) http.Handler {
 // the event id. No body, query, cookie, password, token or source text goes in.
 func (h *Handler) auditStart(ctx context.Context, actor *int64, action string) (int64, error) {
 	var eventID int64
-	err := h.q.SecurityDB().QueryRow(ctx, `INSERT INTO security_audit(actor_id,action) VALUES($1,$2) RETURNING id`, actor, action).Scan(&eventID)
+	o, _ := ctx.Value(auditOriginKey{}).(auditOriginValue)
+	err := h.q.SecurityDB().QueryRow(ctx, `INSERT INTO security_audit(actor_id,action,ip,user_agent) VALUES($1,$2,$3,$4) RETURNING id`, actor, action, o.ip, o.userAgent).Scan(&eventID)
 	return eventID, err
 }
 
