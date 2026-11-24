@@ -342,6 +342,7 @@ func (q *Queries) GetComputer(ctx context.Context, id int64) (Computer, error) {
 
 const getComputerByToken = `-- name: GetComputerByToken :one
 SELECT id, person_id, name, token_hash, agent_version, last_seen_at, created_at, revoked_at, can_update, can_stop FROM computers WHERE token_hash = $1 AND revoked_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM people p WHERE p.id = computers.person_id AND p.disabled_at IS NOT NULL)
 `
 
 func (q *Queries) GetComputerByToken(ctx context.Context, tokenHash string) (Computer, error) {
@@ -621,6 +622,29 @@ UPDATE computers SET revoked_at = now() WHERE id = $1
 
 func (q *Queries) RevokeComputer(ctx context.Context, id int64) error {
 	_, err := q.db.Exec(ctx, revokeComputer, id)
+	return err
+}
+
+const revokeIdleComputers = `-- name: RevokeIdleComputers :execrows
+UPDATE computers SET revoked_at = now()
+WHERE revoked_at IS NULL AND COALESCE(last_seen_at, created_at) < $1::timestamptz
+`
+
+// A computer silent for 90 days must be paired again (Fase 0 de segurança).
+func (q *Queries) RevokeIdleComputers(ctx context.Context, before pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeIdleComputers, before)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const revokePersonComputers = `-- name: RevokePersonComputers :exec
+UPDATE computers SET revoked_at = now() WHERE person_id = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) RevokePersonComputers(ctx context.Context, personID int64) error {
+	_, err := q.db.Exec(ctx, revokePersonComputers, personID)
 	return err
 }
 

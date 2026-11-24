@@ -25,7 +25,16 @@ VALUES ($1, $2, $3, now())
 RETURNING *;
 
 -- name: GetComputerByToken :one
-SELECT * FROM computers WHERE token_hash = $1 AND revoked_at IS NULL;
+SELECT * FROM computers WHERE token_hash = $1 AND revoked_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM people p WHERE p.id = computers.person_id AND p.disabled_at IS NOT NULL);
+
+-- name: RevokePersonComputers :exec
+UPDATE computers SET revoked_at = now() WHERE person_id = $1 AND revoked_at IS NULL;
+
+-- name: RevokeIdleComputers :execrows
+-- A computer silent for 90 days must be paired again (Fase 0 de segurança).
+UPDATE computers SET revoked_at = now()
+WHERE revoked_at IS NULL AND COALESCE(last_seen_at, created_at) < sqlc.arg(before)::timestamptz;
 
 -- name: GetComputer :one
 SELECT * FROM computers WHERE id = $1;

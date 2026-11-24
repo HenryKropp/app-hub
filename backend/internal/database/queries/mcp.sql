@@ -15,6 +15,9 @@ SELECT * FROM mcp_connections WHERE person_id = $1 AND revoked_at IS NULL
   AND (refresh_expires_at IS NULL OR refresh_expires_at > now())
   AND (kind <> 'code' OR access_expires_at IS NULL OR access_expires_at > now()) ORDER BY id DESC;
 
+-- name: RevokePersonMCPConnections :exec
+UPDATE mcp_connections SET revoked_at = now() WHERE person_id = $1 AND revoked_at IS NULL;
+
 -- name: RevokeMCPConnection :execrows
 UPDATE mcp_connections SET revoked_at = now()
 WHERE id = $1 AND person_id = $2 AND revoked_at IS NULL;

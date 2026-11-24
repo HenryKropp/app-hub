@@ -34,12 +34,17 @@ func (h *Handler) StartScheduler(ctx context.Context) {
 	go func() {
 		t := time.NewTicker(schedulerEvery)
 		defer t.Stop()
+		var swept time.Time
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case now := <-t.C:
 				h.schedulerTick(ctx, now)
+				if now.Sub(swept) >= time.Hour {
+					h.revokeIdleComputers(ctx, now)
+					swept = now
+				}
 			}
 		}
 	}()

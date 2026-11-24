@@ -3,7 +3,7 @@ export type Person = {
   role_id: number; role_name: string; permissions: string[]
   leads: number[]; areas: number[]; sees_others_runs: boolean
 }
-export type PersonRow = { id: number; name: string; email: string; role_id: number; role_name: string; area_ids: number[] }
+export type PersonRow = { id: number; name: string; email: string; role_id: number; role_name: string; area_ids: number[]; disabled?: boolean }
 export type Can = { view: boolean; edit: boolean; restore: boolean; tech: boolean; runs: boolean; access: boolean; grants: boolean; audience?: boolean }
 export type RoleInfo = { id: number; key: string; name: string; permissions: string[]; people_count: number }
 export type NameRef = { id: number; name: string }
@@ -536,7 +536,8 @@ export const api = {
   loginAt: (basePath: string, b: { email: string; password: string }) =>
     requestAt<Person>("POST", `${basePath}/api/auth/login`, b),
   logout: () => request<void>("POST", "/api/auth/logout"),
-  people: () => request<PersonRow[]>("GET", "/api/people"),
+  // all = also the disabled people (the team page shows them with Reativar).
+  people: (all = false) => request<PersonRow[]>("GET", all ? "/api/people?todas=1" : "/api/people"),
   createPerson: (b: { name: string; email: string; password: string; role_id: number }) => request<PersonRow>("POST", "/api/people", b),
   scan: (path: string, mode: "batch" | "single") => request<ScanResult>("POST", "/api/scan", { path, mode }),
   apps: () => request<AppSummary[]>("GET", "/api/apps"),
@@ -551,6 +552,8 @@ export const api = {
   updateApp: (id: number, b: { owner_id: number; backup_id: number | null; manifest: Manifest; updated_at: string }) =>
     request<AppDetail>("PUT", `/api/apps/${id}`, b),
   setPersonRole: (id: number, role_id: number) => request<PersonRow>("PUT", `/api/people/${id}`, { role_id }),
+  disablePerson: (id: number) => request<{ id: number; disabled: boolean }>("POST", `/api/people/${id}/disable`),
+  enablePerson: (id: number) => request<{ id: number; disabled: boolean }>("POST", `/api/people/${id}/enable`),
   roles: () => request<RoleInfo[]>("GET", "/api/roles"),
   createRole: (b: { name: string; permissions: string[] }) => request<RoleInfo>("POST", "/api/roles", b),
   updateRole: (id: number, b: { name: string; permissions: string[] }) => request<RoleInfo>("PUT", `/api/roles/${id}`, b),

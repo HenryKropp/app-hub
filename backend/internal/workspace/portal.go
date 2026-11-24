@@ -435,7 +435,7 @@ func (p *Portal) findLogins(ctx context.Context, email, password string) ([]hand
 			failed = err
 			continue
 		}
-		if person.PasswordHash == "" {
+		if person.PasswordHash == "" || person.DisabledAt.Valid {
 			continue
 		}
 		compared = true

@@ -70,7 +70,7 @@ func (h *Handler) mcpConnection(ctx context.Context, bearer string) (sqlc.McpCon
 		return sqlc.McpConnection{}, sqlc.Person{}, errMCPUnauthorized
 	}
 	p, err := h.q.GetPerson(ctx, conn.PersonID)
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && p.DisabledAt.Valid) {
 		return sqlc.McpConnection{}, sqlc.Person{}, errMCPUnauthorized
 	}
 	if err != nil {

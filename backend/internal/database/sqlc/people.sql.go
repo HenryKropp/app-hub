@@ -25,7 +25,7 @@ func (q *Queries) CountPeople(ctx context.Context) (int64, error) {
 const createPerson = `-- name: CreatePerson :one
 INSERT INTO people (name, email, password_hash, role_id)
 VALUES ($1, $2, $3, $4)
-RETURNING id, name, email, password_hash, created_at, role_id
+RETURNING id, name, email, password_hash, created_at, role_id, disabled_at
 `
 
 type CreatePersonParams struct {
@@ -50,6 +50,7 @@ func (q *Queries) CreatePerson(ctx context.Context, arg CreatePersonParams) (Per
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.RoleID,
+		&i.DisabledAt,
 	)
 	return i, err
 }
@@ -69,6 +70,15 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 	return err
 }
 
+const deletePersonSessions = `-- name: DeletePersonSessions :exec
+DELETE FROM sessions WHERE person_id = $1
+`
+
+func (q *Queries) DeletePersonSessions(ctx context.Context, personID int64) error {
+	_, err := q.db.Exec(ctx, deletePersonSessions, personID)
+	return err
+}
+
 const deleteSession = `-- name: DeleteSession :exec
 DELETE FROM sessions WHERE token = encode(sha256(convert_to($1::text,'UTF8')),'hex')
 `
@@ -79,7 +89,7 @@ func (q *Queries) DeleteSession(ctx context.Context, token string) error {
 }
 
 const getPerson = `-- name: GetPerson :one
-SELECT id, name, email, password_hash, created_at, role_id FROM people WHERE id = $1
+SELECT id, name, email, password_hash, created_at, role_id, disabled_at FROM people WHERE id = $1
 `
 
 func (q *Queries) GetPerson(ctx context.Context, id int64) (Person, error) {
@@ -92,12 +102,13 @@ func (q *Queries) GetPerson(ctx context.Context, id int64) (Person, error) {
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.RoleID,
+		&i.DisabledAt,
 	)
 	return i, err
 }
 
 const getPersonByEmail = `-- name: GetPersonByEmail :one
-SELECT id, name, email, password_hash, created_at, role_id FROM people WHERE email = $1
+SELECT id, name, email, password_hash, created_at, role_id, disabled_at FROM people WHERE email = $1
 `
 
 func (q *Queries) GetPersonByEmail(ctx context.Context, email string) (Person, error) {
@@ -110,14 +121,16 @@ func (q *Queries) GetPersonByEmail(ctx context.Context, email string) (Person, e
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.RoleID,
+		&i.DisabledAt,
 	)
 	return i, err
 }
 
 const getSessionPerson = `-- name: GetSessionPerson :one
-SELECT p.id, p.name, p.email, p.password_hash, p.created_at, p.role_id FROM sessions s
+SELECT p.id, p.name, p.email, p.password_hash, p.created_at, p.role_id, p.disabled_at FROM sessions s
 JOIN people p ON p.id = s.person_id
 WHERE s.token = encode(sha256(convert_to($1::text,'UTF8')),'hex') AND s.expires_at > now()
+  AND s.last_used_at > now() - interval '7 days' AND p.disabled_at IS NULL
 `
 
 func (q *Queries) GetSessionPerson(ctx context.Context, token string) (Person, error) {
@@ -130,12 +143,13 @@ func (q *Queries) GetSessionPerson(ctx context.Context, token string) (Person, e
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.RoleID,
+		&i.DisabledAt,
 	)
 	return i, err
 }
 
 const listPeople = `-- name: ListPeople :many
-SELECT p.id, p.name, p.email, p.role_id, r.name AS role_name, p.created_at,
+SELECT p.id, p.name, p.email, p.role_id, r.name AS role_name, p.created_at, p.disabled_at,
        COALESCE((SELECT array_agg(m.area_id ORDER BY m.area_id) FROM area_members m WHERE m.person_id = p.id), '{}')::bigint[] AS area_ids
 FROM people p
 JOIN roles r ON r.id = p.role_id
@@ -143,13 +157,14 @@ ORDER BY p.name
 `
 
 type ListPeopleRow struct {
-	ID        int64              `json:"id"`
-	Name      string             `json:"name"`
-	Email     string             `json:"email"`
-	RoleID    int64              `json:"role_id"`
-	RoleName  string             `json:"role_name"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	AreaIds   []int64            `json:"area_ids"`
+	ID         int64              `json:"id"`
+	Name       string             `json:"name"`
+	Email      string             `json:"email"`
+	RoleID     int64              `json:"role_id"`
+	RoleName   string             `json:"role_name"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	DisabledAt pgtype.Timestamptz `json:"disabled_at"`
+	AreaIds    []int64            `json:"area_ids"`
 }
 
 func (q *Queries) ListPeople(ctx context.Context) ([]ListPeopleRow, error) {
@@ -168,6 +183,7 @@ func (q *Queries) ListPeople(ctx context.Context) ([]ListPeopleRow, error) {
 			&i.RoleID,
 			&i.RoleName,
 			&i.CreatedAt,
+			&i.DisabledAt,
 			&i.AreaIds,
 		); err != nil {
 			return nil, err
@@ -178,6 +194,24 @@ func (q *Queries) ListPeople(ctx context.Context) ([]ListPeopleRow, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const setPersonDisabled = `-- name: SetPersonDisabled :execrows
+UPDATE people SET disabled_at = CASE WHEN $1::boolean THEN COALESCE(disabled_at, now()) END
+WHERE id = $2
+`
+
+type SetPersonDisabledParams struct {
+	Disabled bool  `json:"disabled"`
+	ID       int64 `json:"id"`
+}
+
+func (q *Queries) SetPersonDisabled(ctx context.Context, arg SetPersonDisabledParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setPersonDisabled, arg.Disabled, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setPersonRole = `-- name: SetPersonRole :exec
@@ -194,11 +228,22 @@ func (q *Queries) SetPersonRole(ctx context.Context, arg SetPersonRoleParams) er
 	return err
 }
 
+const touchSession = `-- name: TouchSession :exec
+UPDATE sessions SET last_used_at = now()
+WHERE token = encode(sha256(convert_to($1::text,'UTF8')),'hex') AND last_used_at < now() - interval '1 hour'
+`
+
+// At most once an hour, so a busy page does not write on every request.
+func (q *Queries) TouchSession(ctx context.Context, token string) error {
+	_, err := q.db.Exec(ctx, touchSession, token)
+	return err
+}
+
 const upsertDevPerson = `-- name: UpsertDevPerson :one
 INSERT INTO people (name, email, password_hash, role_id)
 VALUES ($1, $2, '', (SELECT id FROM roles WHERE key = 'admin'))
 ON CONFLICT (email) DO UPDATE SET email = EXCLUDED.email
-RETURNING id, name, email, password_hash, created_at, role_id
+RETURNING id, name, email, password_hash, created_at, role_id, disabled_at
 `
 
 type UpsertDevPersonParams struct {
@@ -216,6 +261,7 @@ func (q *Queries) UpsertDevPerson(ctx context.Context, arg UpsertDevPersonParams
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.RoleID,
+		&i.DisabledAt,
 	)
 	return i, err
 }

@@ -472,6 +472,7 @@ type Person struct {
 	PasswordHash string             `json:"password_hash"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	RoleID       int64              `json:"role_id"`
+	DisabledAt   pgtype.Timestamptz `json:"disabled_at"`
 }
 
 type Role struct {
@@ -577,10 +578,11 @@ type ServerSetting struct {
 }
 
 type Session struct {
-	Token     string             `json:"token"`
-	PersonID  int64              `json:"person_id"`
-	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Token      string             `json:"token"`
+	PersonID   int64              `json:"person_id"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt pgtype.Timestamptz `json:"last_used_at"`
 }
 
 type SharedApp struct {

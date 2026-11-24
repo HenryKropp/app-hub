@@ -577,6 +577,15 @@ func (q *Queries) RevokeMCPConnection(ctx context.Context, arg RevokeMCPConnecti
 	return result.RowsAffected(), nil
 }
 
+const revokePersonMCPConnections = `-- name: RevokePersonMCPConnections :exec
+UPDATE mcp_connections SET revoked_at = now() WHERE person_id = $1 AND revoked_at IS NULL
+`
+
+func (q *Queries) RevokePersonMCPConnections(ctx context.Context, personID int64) error {
+	_, err := q.db.Exec(ctx, revokePersonMCPConnections, personID)
+	return err
+}
+
 const rotateMCPConnectionTokens = `-- name: RotateMCPConnectionTokens :execrows
 UPDATE mcp_connections
 SET token_hash = $3, access_expires_at = $4, refresh_hash = $5, refresh_expires_at = $6
