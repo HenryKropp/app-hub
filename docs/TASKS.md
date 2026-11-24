@@ -42,8 +42,25 @@ Status: Pending / In Progress / Done / Blocked
 Roteiro aprovado pelo Henry: `docs/superpowers/specs/2026-11-23-roteiro-seguranca.md`.
 Cada fase ganha o próprio desenho antes de construir.
 
-- [ ] Fase 0: fechar furos já encontrados (limite de tentativas global atrás do Caddy, contêineres alcançam o servidor e a internet, cópias sem criptografia na mesma VM, chave do cofre junto do banco, tokens do MCP sem prazo, atualização do Agente sem assinatura própria). **Próximo.**
-- [ ] Fase 1: quem entra (Google/Microsoft, segundo fator, recuperar senha, sessão que expira, revisão de acessos).
+- [x] Fase 0: fechar furos já encontrados. Desenho `docs/superpowers/specs/2026-11-24-seguranca-fase0-design.md`, ADR 048, branch `seguranca-fase0` (2026-11-24). **Construída e testada, sem deploy.**
+  - [x] Limite de tentativas pelo endereço real (X-Real-IP só vindo do Caddy); registro de ações com IP e navegador.
+  - [x] Ziv atende só em 127.0.0.1 (`LISTEN_HOST`); caixas com `--cap-drop=ALL`, `no-new-privileges`, `--pids-limit 256`; HSTS e CSP `script-src 'self'` no site.
+  - [x] Código do Claude vence em 90 dias; OAuth só volta para claude.ai/claude.com/localhost (`OAUTH_REDIRECT_HOSTS` para outros).
+  - [x] Desativar e reativar pessoa (Equipe); sessão cai após 7 dias sem uso; computador sem contato há 90 dias perde o acesso.
+  - [x] Empresa nova escolhe "aprovações ligadas" (padrão) ou "livre para testar".
+  - [x] Chave do cofre com identidade e troca (`HUB_SECRET_KEYS_OLD`, `cmd/trocarchave`).
+  - [x] Atualização do Agente assinada (ed25519, chave no PC do Henry, `cmd/agentkey`); token do Agente com DPAPI.
+  - [x] Cópia diária do banco cifrada (`age`, chave pública no servidor) e enviada ao bucket (`deploy/backup-banco.sh`, timer `ziv-backup`); ensaio de restauração feito.
+  - [x] Checagem no GitHub (testes, govulncheck, npm audit); Go 1.27.4 corrige 14 falhas conhecidas da biblioteca padrão.
+  - [ ] Henry: gerar a chave de assinatura do Agente e a chave das cópias, com segunda cópia de cada (`docs/seguranca-fase0-passo-a-passo.md`, passos 1 e 2).
+  - [ ] Henry: bucket no Google Cloud com retenção de 30 dias e conta de serviço que só grava (passo 3).
+  - [ ] Com o "pode" do Henry: deploy, ligar o timer da cópia, tirar o cron antigo e apagar as cópias abertas de `~/backups` (passo 4).
+  - [ ] Com o "pode" do Henry: na VM, conferir de dentro de uma caixa que o Ziv (8080) não responde, o Postgres (5433) responde e um `X-Real-IP` falso não passa.
+  - [ ] Com o "pode" do Henry: fechar o Postgres para fora (hoje `0.0.0.0:5433`); exige recriar o contêiner `ziv-db` com o volume `ziv-pg`.
+  - [ ] `--read-only` nas caixas: não testado (sem Podman nesta máquina); testar com os apps no ar antes de ligar.
+  - [ ] Bibliotecas do site: sobra 1 falha alta (`undici`, via jsdom e o CLI do shadcn, que não vão para o navegador). Corrigir com versão maior do jsdom e passando o `shadcn` para `devDependencies`.
+  - [ ] Testes que falham só no Windows (Podman falso, links simbólicos, tempo esgotado em 3 testes da Equipe): conferir no GitHub, que roda em Linux.
+- [ ] Fase 1: quem entra (Google/Microsoft, segundo fator, recuperar senha, sessão por empresa, lista de sessões, revisão de acessos). **Próximo**: o Henry pediu para vir logo depois da Fase 0 (2026-11-24).
 - [ ] Fase 2: dados que saem (sites liberados por app com bloqueio, o que vai para a IA e painel de uso, LGPD).
 - [ ] Fase 3: onde os dados moram (servidor no Brasil → híbrido na nuvem do cliente → Ziv inteiro no cliente).
 - [ ] Fase 4: prova para a TI (documento de segurança, DPA com cláusulas da ANPD, anexo CMN 4.893, suboperadores, questionário, plano de incidentes, teste de invasão, ISO 27001).
