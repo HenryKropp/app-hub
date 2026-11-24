@@ -17,12 +17,18 @@ import (
 // ErrBadDownload: the file from the Hub does not match the update job.
 var ErrBadDownload = errors.New("downloaded agent does not match the update job")
 
+// ErrBadSignature: the update is not signed by the key kept off the server.
+var ErrBadSignature = errors.New("downloaded agent is not signed by the Ziv release key")
+
 // Updater replaces this agent with the version the Hub sends.
 type Updater struct {
 	Client     *Client
 	Runner     *Runner
 	StateDir   string
 	CurrentExe string                                 // the running agent
+	// PublicKey (base64 ed25519) checks every update's signature; it is built
+	// into the Agente, so the server alone cannot install a program.
+	PublicKey string
 	Start      func(exe string, args ...string) error // opens a program without waiting
 	// HandOver is how long to wait for the new agent to close this one after
 	// a successful Start (0 = 5 minutes, above the swap's 2-minute watchdog).
@@ -114,6 +120,13 @@ func (u *Updater) download(ctx context.Context, dst string, p agentproto.UpdateP
 	}
 	if n != p.Size || hex.EncodeToString(sum.Sum(nil)) != p.SHA256 {
 		return ErrBadDownload
+	}
+	file, err := os.ReadFile(dst)
+	if err != nil {
+		return err
+	}
+	if !agentproto.VerifyUpdate(u.PublicKey, file, p.Signature) {
+		return ErrBadSignature
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
@@ -227,9 +228,15 @@ func Pair(ctx context.Context, c *Client, name string, open func(string) error) 
 	}
 }
 
+// state is agente.json. On Windows the token is kept sealed with DPAPI
+// (Protected, base64), never as plain text; Token is the older plain form,
+// read once and rewritten sealed (Fase 0 de segurança).
 type state struct {
-	Token string `json:"token"`
+	Token     string `json:"token,omitempty"`
+	Protected string `json:"token_protegido,omitempty"`
 }
+
+var errNoProtection = errors.New("no data protection on this system")
 
 func LoadToken(dir string) string {
 	b, err := os.ReadFile(filepath.Join(dir, "agente.json"))
@@ -238,10 +245,39 @@ func LoadToken(dir string) string {
 	}
 	var s state
 	_ = json.Unmarshal(b, &s)
+	if s.Protected != "" {
+		sealed, err := base64.StdEncoding.DecodeString(s.Protected)
+		if err != nil {
+			return ""
+		}
+		plain, err := unprotect(sealed)
+		if err != nil {
+			slog.Warn("agent token unreadable (another Windows user?)", "err", err)
+			return ""
+		}
+		return string(plain)
+	}
+	if s.Token != "" {
+		if err := SaveToken(dir, s.Token); err != nil {
+			slog.Warn("protect agent token", "err", err)
+		}
+	}
 	return s.Token
 }
 
 func SaveToken(dir, token string) error {
-	b, _ := json.Marshal(state{Token: token})
+	s := state{}
+	if token != "" {
+		sealed, err := protect([]byte(token))
+		switch {
+		case errors.Is(err, errNoProtection):
+			s.Token = token
+		case err != nil:
+			return err
+		default:
+			s.Protected = base64.StdEncoding.EncodeToString(sealed)
+		}
+	}
+	b, _ := json.Marshal(s)
 	return os.WriteFile(filepath.Join(dir, "agente.json"), b, 0o600)
 }

@@ -23,8 +23,28 @@ func withBinary(t *testing.T, h *Handler, body string) (string, int64) {
 		t.Fatal(err)
 	}
 	h.cfg.AgentBinaryPath = bin
+	// The release signature sits next to the binary (scripts/deploy-gcp.sh).
+	if err := os.WriteFile(bin+".sig", []byte("assinatura-de-teste "), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	sum := sha256.Sum256([]byte(body))
 	return hex.EncodeToString(sum[:]), int64(len(body))
+}
+
+// Without the release signature next to the binary the server asks no
+// computer to update: an unsigned update would be refused anyway.
+func TestNoUpdateWithoutSignature(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	token := pairComputer(t, c, "PC")
+	withBinary(t, h, "MZ-new")
+	if err := os.Remove(h.cfg.AgentBinaryPath + ".sig"); err != nil {
+		t.Fatal(err)
+	}
+	c.agent("POST", "/api/agent/hello", token, agentproto.Hello{Name: "PC", Version: "0.1.9", CanUpdate: true}, nil)
+	if n := updateJobs(t); n != 0 {
+		t.Fatalf("unsigned binary queued %d updates", n)
+	}
 }
 
 func nextJob(t *testing.T, c *client, token string) (agentproto.Job, int) {
@@ -67,7 +87,7 @@ func TestUpdateQueuedOnHello(t *testing.T) {
 	}
 	var p agentproto.UpdatePayload
 	_ = json.Unmarshal(j.Payload, &p)
-	if p.Version != agentproto.Version || p.SHA256 != sum || p.Size != size {
+	if p.Version != agentproto.Version || p.SHA256 != sum || p.Size != size || p.Signature != "assinatura-de-teste" {
 		t.Fatalf("payload %+v", p)
 	}
 }
