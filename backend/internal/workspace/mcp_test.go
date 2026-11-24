@@ -61,7 +61,7 @@ func TestPortalRoutesMCPAndWellKnown(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	if _, err := p.create(ctx, "Teste", "teste", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}); err != nil {
+	if _, err := p.create(ctx, "Teste", "teste", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}, false); err != nil {
 		t.Fatal(err)
 	}
 	const tenantToken = "ziv_tenant-test-token"

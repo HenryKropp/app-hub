@@ -21,7 +21,8 @@ import (
 // Each workspace owns a distinct Handler, pool/search_path and in-memory state.
 type WorkspaceOptions struct {
 	Slug, Name, BasePath string
-	Create               func(context.Context, string, string, sqlc.Person) (string, error)
+	// Create opens a company; the bool starts it with approvals on.
+	Create func(ctx context.Context, name, slug string, founder sqlc.Person, strict bool) (string, error)
 	// FindLogins lists the companies (other than the main one) where this
 	// e-mail and password sign in. The e-mail arrives normalized.
 	FindLogins func(ctx context.Context, email, password string) ([]LoginMatch, error)
@@ -125,6 +126,7 @@ func (h *Handler) createWorkspace(w http.ResponseWriter, r *http.Request) {
 		Name     string `json:"name"`
 		Slug     string `json:"slug"`
 		Password string `json:"password"`
+		Start    string `json:"start"`
 	}
 	if !readJSON(w, r, &b) {
 		return
@@ -138,7 +140,7 @@ func (h *Handler) createWorkspace(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 401, "Confirme sua senha atual para criar a empresa.")
 		return
 	}
-	url, err := h.workspace.Create(r.Context(), b.Name, b.Slug, me)
+	url, err := h.workspace.Create(r.Context(), b.Name, b.Slug, me, b.Start != "open")
 	if err != nil {
 		if errors.Is(err, ErrWorkspaceExists) {
 			writeError(w, 409, "Esse endereço de empresa já está em uso.")

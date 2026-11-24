@@ -84,6 +84,8 @@ func (h *Handler) registerCompany(w http.ResponseWriter, r *http.Request) {
 		Name        string `json:"name"`
 		Email       string `json:"email"`
 		Password    string `json:"password"`
+		// Start is "strict" (approvals on, the default) or "open" (free to try).
+		Start string `json:"start"`
 	}
 	if !readJSON(w, r, &b) {
 		return
@@ -117,7 +119,7 @@ func (h *Handler) registerCompany(w http.ResponseWriter, r *http.Request) {
 		if b.Slug == "principal" || h.cfg.ReservedSlugs[b.Slug] {
 			continue
 		}
-		target, err = h.workspace.Create(r.Context(), b.CompanyName, b.Slug, sqlc.Person{Name: c.Name, Email: c.Email, PasswordHash: string(hash)})
+		target, err = h.workspace.Create(r.Context(), b.CompanyName, b.Slug, sqlc.Person{Name: c.Name, Email: c.Email, PasswordHash: string(hash)}, b.Start != "open")
 	}
 	if errors.Is(err, ErrWorkspaceExists) {
 		writeError(w, 409, "Já existem muitas empresas com esse nome. Use um nome mais específico.")

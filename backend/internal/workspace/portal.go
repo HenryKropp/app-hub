@@ -270,7 +270,9 @@ func (p *Portal) keyTaken(e *entry) bool {
 // slugs answer false.
 func (p *Portal) Load(ctx context.Context, slug string) bool { return p.load(ctx, slug) != nil }
 
-func (p *Portal) create(ctx context.Context, name, slug string, me sqlc.Person) (result string, err error) {
+// create opens a new company. strict starts it with approvals on ("Começar
+// com aprovações ligadas"); otherwise it starts free to try (ADR 046).
+func (p *Portal) create(ctx context.Context, name, slug string, me sqlc.Person, strict bool) (result string, err error) {
 	p.createMu.Lock()
 	defer p.createMu.Unlock()
 	// Serialize across portal processes as well as concurrent HTTP requests.
@@ -357,8 +359,13 @@ func (p *Portal) create(ctx context.Context, name, slug string, me sqlc.Person) 
 		return "", err
 	}
 	q := sqlc.New(e.pool)
-	// Migrations 010/030 left the schema strict; a new company starts light (ADR 046).
-	if err = q.ApplyNewCompanyGovernance(ctx); err != nil {
+	// The founder chooses the starting point (Fase 0 de segurança).
+	if strict {
+		err = q.ApplyStrictCompanyGovernance(ctx)
+	} else {
+		err = q.ApplyNewCompanyGovernance(ctx)
+	}
+	if err != nil {
 		return "", err
 	}
 	role, err := q.GetRoleByKey(ctx, pgtype.Text{String: "admin", Valid: true})
@@ -367,7 +374,15 @@ func (p *Portal) create(ctx context.Context, name, slug string, me sqlc.Person) 
 	}
 	// Accounts are workspace-scoped. Initial credentials match the creator;
 	// future password lifecycle is independent, not platform-wide SSO.
-	if _, err = q.CreatePerson(ctx, sqlc.CreatePersonParams{Name: me.Name, Email: me.Email, PasswordHash: me.PasswordHash, RoleID: role.ID}); err != nil {
+	founder, err := q.CreatePerson(ctx, sqlc.CreatePersonParams{Name: me.Name, Email: me.Email, PasswordHash: me.PasswordHash, RoleID: role.ID})
+	if err != nil {
+		return "", err
+	}
+	start := "open"
+	if strict {
+		start = "strict"
+	}
+	if err = q.InsertGovernanceEvent(ctx, sqlc.InsertGovernanceEventParams{Kind: "settings", ActorID: pgtype.Int8{Int64: founder.ID, Valid: true}, Detail: []byte(`{"start":"` + start + `"}`)}); err != nil {
 		return "", err
 	}
 	if err = q.SetCompanyName(ctx, name); err != nil {

@@ -101,3 +101,16 @@ WITH s AS (
     WHERE id RETURNING id
 )
 UPDATE roles SET permissions = array_remove(permissions, 'approve_it') WHERE key = 'admin';
+
+-- name: ApplyStrictCompanyGovernance :exec
+-- "Começar com aprovações ligadas" (Fase 0 de segurança): leader and IT
+-- approve, Claude's keys follow the role, and the admin keeps approve_it so
+-- a founder alone approves their own first app (ADR 046).
+WITH s AS (
+    UPDATE security_settings
+    SET require_app_approval = TRUE, it_approval = TRUE, version_rule = 'risk',
+        code_channel = 'any', mcp_restricted = TRUE
+    WHERE id RETURNING id
+)
+UPDATE roles SET permissions = array_append(permissions, 'approve_it')
+WHERE key = 'admin' AND NOT ('approve_it' = ANY(permissions));

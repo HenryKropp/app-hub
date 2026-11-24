@@ -42,6 +42,7 @@ test("signup creates the company, signs in to it and opens Começar", async () =
     name: "Ana",
     email: "ana@example.com",
     password: "senha-forte-123",
+    start: "strict",
   })
   expect(login).toHaveBeenCalledWith("/w/horizonte", { email: "ana@example.com", password: "senha-forte-123" })
   expect(assign).toHaveBeenCalledWith("/w/horizonte/comecar")
@@ -95,4 +96,15 @@ test("too many companies with the same name asks for a more specific name", asyn
   await submit()
   expect(await screen.findByRole("alert")).toHaveTextContent("nome mais específico")
   expect(screen.getByLabelText("Nome da empresa")).toHaveFocus()
+})
+
+test("the founder can start free to try instead of with approvals on", async () => {
+  const create = vi.spyOn(api, "createEntryCompany").mockResolvedValue({ url: "/w/horizonte/", name: "Horizonte", slug: "horizonte" })
+  vi.spyOn(api, "loginAt").mockResolvedValue({} as never)
+  setup()
+  await fill()
+  expect(screen.getByRole("radio", { name: /Começar com aprovações ligadas/ })).toBeChecked()
+  await userEvent.click(screen.getByRole("radio", { name: /Começar livre para testar/ }))
+  await submit()
+  expect(create).toHaveBeenCalledWith(expect.objectContaining({ start: "open" }))
 })

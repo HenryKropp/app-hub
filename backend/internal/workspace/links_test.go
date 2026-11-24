@@ -50,7 +50,7 @@ func TestServeLinkStaysInItsCompany(t *testing.T) {
 	p, _, _ := testPortal(t)
 	ctx := context.Background()
 	for _, c := range []struct{ name, slug, email string }{{"Horizonte", "horizonte", "ana@h.com"}, {"Aurora", "aurora", "bia@a.com"}} {
-		if _, err := p.create(ctx, c.name, c.slug, sqlc.Person{Name: "X", Email: c.email, PasswordHash: "x"}); err != nil {
+		if _, err := p.create(ctx, c.name, c.slug, sqlc.Person{Name: "X", Email: c.email, PasswordHash: "x"}, false); err != nil {
 			t.Fatal(err)
 		}
 	}

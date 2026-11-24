@@ -389,7 +389,7 @@ func TestPortalLoadUnknown(t *testing.T) {
 func TestNewCompanySchemaMatchesMain(t *testing.T) {
 	p, pool, _ := testPortal(t)
 	ctx := context.Background()
-	if _, err := p.create(ctx, "Horizonte", "horizonte", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}); err != nil {
+	if _, err := p.create(ctx, "Horizonte", "horizonte", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}, false); err != nil {
 		t.Fatal(err)
 	}
 	var schema string
@@ -421,7 +421,7 @@ func TestNewCompanySchemaMatchesMain(t *testing.T) {
 func TestPortalStartRepairsMissingDismissedAt(t *testing.T) {
 	p, pool, _ := testPortal(t)
 	ctx := context.Background()
-	if _, err := p.create(ctx, "Horizonte", "horizonte", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}); err != nil {
+	if _, err := p.create(ctx, "Horizonte", "horizonte", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}, false); err != nil {
 		t.Fatal(err)
 	}
 	var schema string
@@ -505,7 +505,7 @@ func TestPortalLoadsCompanyCreatedElsewhere(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer other.Close()
-	if _, err := other.create(context.Background(), "Horizonte", "horizonte", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}); err != nil {
+	if _, err := other.create(context.Background(), "Horizonte", "horizonte", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}, false); err != nil {
 		t.Fatal(err)
 	}
 	srv := httptest.NewServer(p)
@@ -535,7 +535,7 @@ func TestAnonymousCallsDoNotFloodAudit(t *testing.T) {
 func TestNewCompanyStartsWithoutApprovalRequired(t *testing.T) {
 	p, pool, _ := testPortal(t)
 	ctx := context.Background()
-	if _, err := p.create(ctx, "Aurora", "aurora", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}); err != nil {
+	if _, err := p.create(ctx, "Aurora", "aurora", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}, false); err != nil {
 		t.Fatal(err)
 	}
 	var schema string
@@ -566,7 +566,7 @@ func TestPortalFindLogins(t *testing.T) {
 		return string(h)
 	}
 	for _, c := range []struct{ name, slug, pw string }{{"Cedro", "cedro", "senha-a-123"}, {"Bravo", "bravo", "senha-b-123"}, {"Alfa", "alfa", "senha-a-123"}} {
-		if _, err := p.create(ctx, c.name, c.slug, sqlc.Person{Name: "Ana", Email: "ana@x.com", PasswordHash: hash(c.pw)}); err != nil {
+		if _, err := p.create(ctx, c.name, c.slug, sqlc.Person{Name: "Ana", Email: "ana@x.com", PasswordHash: hash(c.pw)}, false); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -607,7 +607,7 @@ func TestPortalFindLogins(t *testing.T) {
 func TestNewCompanyGovernanceDefaults(t *testing.T) {
 	p, pool, _ := testPortal(t)
 	ctx := context.Background()
-	if _, err := p.create(ctx, "Aurora", "aurora", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}); err != nil {
+	if _, err := p.create(ctx, "Aurora", "aurora", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}, false); err != nil {
 		t.Fatal(err)
 	}
 	var schema string
@@ -690,5 +690,59 @@ func TestSitePageHasScriptPolicy(t *testing.T) {
 	res.Body.Close()
 	if csp := res.Header.Get("Content-Security-Policy"); !strings.Contains(csp, "script-src 'self'") {
 		t.Fatalf("site CSP %q", csp)
+	}
+}
+
+// "Começar com aprovações ligadas": approvals by the leader and by IT are on,
+// Claude's keys are limited by role, and the admin keeps approve_it so the
+// founder alone can approve their first app (ADR 046).
+func TestNewCompanyStrictStart(t *testing.T) {
+	p, pool, _ := testPortal(t)
+	ctx := context.Background()
+	if _, err := p.create(ctx, "Aurora", "aurora", sqlc.Person{Name: "Ana", Email: "ana@example.com", PasswordHash: "x"}, true); err != nil {
+		t.Fatal(err)
+	}
+	var schema string
+	if err := pool.QueryRow(ctx, `SELECT schema_name FROM public.workspace_registry WHERE slug='aurora'`).Scan(&schema); err != nil {
+		t.Fatal(err)
+	}
+	s := pgx.Identifier{schema}.Sanitize()
+	var required, it, mcp bool
+	var rule, channel string
+	if err := pool.QueryRow(ctx, `SELECT require_app_approval, it_approval, mcp_restricted, version_rule, code_channel FROM `+s+`.security_settings`).Scan(&required, &it, &mcp, &rule, &channel); err != nil {
+		t.Fatal(err)
+	}
+	if !required || !it || !mcp || rule != "risk" || channel != "any" {
+		t.Fatalf("strict start: approval %v it %v mcp %v rule %q channel %q", required, it, mcp, rule, channel)
+	}
+	var approveIT bool
+	if err := pool.QueryRow(ctx, `SELECT 'approve_it' = ANY(permissions) FROM `+s+`.roles WHERE key='admin'`).Scan(&approveIT); err != nil || !approveIT {
+		t.Fatalf("admin approve_it %v %v", approveIT, err)
+	}
+	var detail string
+	if err := pool.QueryRow(ctx, `SELECT detail->>'start' FROM `+s+`.governance_events WHERE kind='settings' AND detail ? 'start'`).Scan(&detail); err != nil || detail != "strict" {
+		t.Fatalf("start event %q %v", detail, err)
+	}
+}
+
+// Public sign-up starts with approvals on unless the founder picks "open".
+func TestSignupChoosesStart(t *testing.T) {
+	_, pool, srv := testPortal(t)
+	ctx := context.Background()
+	visitor := browser(t, srv.URL)
+	for name, start := range map[string]string{"Estrita": "", "Livre": "open"} {
+		body := map[string]string{"company_name": name, "name": "Lia", "email": "lia@example.com", "password": "senha-forte-1", "start": start}
+		visitor.want("POST", "/api/entry/companies", body, 201)
+		var schema string
+		if err := pool.QueryRow(ctx, `SELECT schema_name FROM public.workspace_registry WHERE name=$1`, name).Scan(&schema); err != nil {
+			t.Fatal(err)
+		}
+		var required bool
+		if err := pool.QueryRow(ctx, `SELECT require_app_approval FROM `+pgx.Identifier{schema}.Sanitize()+`.security_settings`).Scan(&required); err != nil {
+			t.Fatal(err)
+		}
+		if required != (start != "open") {
+			t.Fatalf("%s (start %q): require_app_approval = %v", name, start, required)
+		}
 	}
 }
