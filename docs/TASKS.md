@@ -578,3 +578,17 @@ Revisão do Henry e do cofundador depois de pôr o app de relatórios no ar (ver
 | Receita diz onde cada parte roda; uma rodada por vez | Pending | Às 9h o servidor e o PC buscaram o BTG ao mesmo tempo |
 | Peças prontas para apps: pastas do SharePoint, código por e-mail ou digitado, fila de aprovação | Pending | O app de relatórios construiu as três sozinho |
 | Servidor mais rápido | Pending | O e2-micro é lento para navegador; montagem leva cerca de 28 min |
+
+## Ideias das palestras do AI Engineer para o MCP (2026-11-24)
+
+Fontes: "Rethinking Claude Code Best Practices" (Lydia Hallie, Anthropic) e "All Code Is Slop (Except Mine)" (Lauren Tan, SpaceXSI), lidas pelos resumos do ai.engineer, sem a transcrição. Ideia comum às duas: regra escrita em texto é a proteção mais fraca; o que precisa valer sempre fica no servidor, em checagens ou no desenho, e o agente precisa de um jeito de provar que terminou. Só pendências, nada decidido. Já cobertos por tarefas acima: "Erros do MCP dizem o próximo passo", o projeto "Testar e publicar sem o Henry" e o "Roteiro de segurança e governança".
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Regras "nunca/sempre" do texto do MCP garantidas pelo servidor | Pending | Ler `mcp_protocolo.md`, `formato_do_app` e a receita e listar cada regra que só está no texto. Para cada uma: o servidor já impede? Se não, ou vira checagem no servidor, ou fica no texto sabendo que pode falhar |
+| Classificar as ferramentas por "dá para desfazer?" | Pending | Tabela com cada ferramenta do MCP: livre (só leitura), muda mas dá para voltar (versão nova, rascunho) ou sem volta (rodar no PC de alguém, publicar, mudar acesso, apagar chave). Toda ação sem volta precisa de confirmação no servidor. Conferir se as marcas `ReadOnlyHint`/`DestructiveHint` de `mcp_tools.go` batem com a tabela (o modo automático do Claude Code usa essas marcas) |
+| Texto do MCP mais curto | Pending | Tirar do protocolo e da receita o que o Claude descobre sozinho lendo o app e as frases enfáticas (IMPORTANTE, NUNCA). Ficam as regras da empresa e o que não está no código. O que der para checar vai para validação (`validate-manifest`, recusa do registro com o motivo) |
+| Correção repetida vira regra | Pending | Anotar toda vez que o Henry corrige o Claude na mesma coisa. Na segunda vez, virar checagem no servidor, na receita automática ou mudança na ferramenta, não mais uma linha no texto |
+| Exemplos limpos no catálogo ("jardinagem") | Pending | O Claude copia o que vê: apps de exemplo (Olá Ziv, `ziv-exemplo-cofre`), fichas e manifestos antigos (`kova.yaml`, `app-hub.yaml`). Revisar e deixar no formato atual o que ele pode usar de modelo, sobretudo antes de registrar os 4 apps que faltam da Etapa 2 |
+| Medir a qualidade do que vem "pelo Claude" | Pending | Junto com o painel de uso: das versões enviadas pelo Claude, quantas falharam no teste, quantas voltaram para a anterior e em quantas a ficha foi corrigida à mão depois. Acompanhar junto com o volume |
+| Proteção do lado do Claude Code (Conectar o Claude) | Pending | O Claude Code lê a pasta do app no PC antes de `preparar_envio`, então lê o `.env` e manda o valor ao modelo; a recusa de senhas do Ziv só age depois. Avaliar sugerir na tela Conectar o Claude uma regra de bloqueio (ex.: ler `.env`) e a sandbox do Claude Code. Conferir a sintaxe na documentação antes |
