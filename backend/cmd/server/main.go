@@ -116,7 +116,7 @@ func main() {
 // HUB_SECRET_KEY or Podman the Hub still starts; only screen apps become
 // unavailable.
 func startShared(ctx context.Context, pool *pgxpool.Pool, cfg config.Config) sharedrun.Deps {
-	v, err := vault.New(cfg.SecretKey)
+	v, err := vault.New(cfg.SecretKey, cfg.OldSecretKeys...)
 	if err != nil {
 		slog.Warn("shared apps without vault (set HUB_SECRET_KEY)", "err", err)
 		v = nil

@@ -31,7 +31,10 @@ type Config struct {
 
 	AgentBinaryPath string
 
-	SecretKey       string // HUB_SECRET_KEY
+	SecretKey string // HUB_SECRET_KEY
+	// OldSecretKeys (HUB_SECRET_KEYS_OLD, comma separated) still open values
+	// sealed before a key change, until cmd/trocarchave re-seals them.
+	OldSecretKeys   []string
 	AppsDBAdminURL  string // APPS_DB_ADMIN_URL; default: DATABASE_URL
 	AppsDBHost      string // APPS_DB_HOST_FOR_CONTAINERS
 	AppsDBContainer string // APPS_DB_CONTAINER (copies via exec)
@@ -99,6 +102,11 @@ func Load() (Config, error) {
 		return cfg, errors.New("DATABASE_URL is required")
 	}
 	cfg.SecretKey = os.Getenv("HUB_SECRET_KEY")
+	for _, k := range strings.Split(os.Getenv("HUB_SECRET_KEYS_OLD"), ",") {
+		if k = strings.TrimSpace(k); k != "" {
+			cfg.OldSecretKeys = append(cfg.OldSecretKeys, k)
+		}
+	}
 	cfg.AppsDBAdminURL = envOr("APPS_DB_ADMIN_URL", cfg.DatabaseURL)
 	cfg.AppsDBHost = envOr("APPS_DB_HOST_FOR_CONTAINERS", "host.containers.internal:5433")
 	cfg.AppsDBContainer = envOr("APPS_DB_CONTAINER", "ziv-db")
@@ -142,7 +150,7 @@ func (c Config) redacted() map[string]any {
 	}
 	return map[string]any{
 		"Port": c.Port, "DatabaseURL": hideURLPassword(c.DatabaseURL), "BaseURL": c.BaseURL, "DevMode": c.DevMode,
-		"AgentBinaryPath": c.AgentBinaryPath, "SecretKey": hide(c.SecretKey),
+		"AgentBinaryPath": c.AgentBinaryPath, "SecretKey": hide(c.SecretKey), "OldSecretKeys": len(c.OldSecretKeys),
 		"ResendAPIKey": hide(c.ResendAPIKey), "MailFrom": c.MailFrom,
 		"AppsDBAdminURL": hideURLPassword(c.AppsDBAdminURL), "AppsDBHost": c.AppsDBHost,
 		"AppsDBContainer": c.AppsDBContainer, "SharedDomain": c.SharedDomain,

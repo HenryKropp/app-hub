@@ -22,6 +22,8 @@ echo "1/5 site"
 cp -r "$ROOT/frontend/dist" "$OUT/frontend/"
 echo "2/5 servidor"
 (cd "$ROOT/backend" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 mise x -- go build -trimpath -o "$OUT/server" ./cmd/server)
+# The vault key change (docs/INFRASTRUCTURE.md) runs on the server when asked.
+(cd "$ROOT/backend" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 mise x -- go build -trimpath -o "$OUT/trocarchave" ./cmd/trocarchave)
 echo "3/5 agente (aponta para $URL)"
 (cd "$ROOT/backend" && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 mise x -- go build -trimpath \
   -ldflags "-H=windowsgui -X main.hubURL=$URL" -o "$OUT/agent/AppHubAgente.exe" ./cmd/agent)

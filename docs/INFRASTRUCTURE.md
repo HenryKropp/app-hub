@@ -16,6 +16,11 @@
 - **Publicar uma versão nova:** `bash scripts/deploy-gcp.sh` (compila aqui, envia e reinicia; as migrações rodam sozinhas).
 - **Ver o que o servidor está fazendo:** `ssh -i ~/.ssh/ziv-gcp ziv@34.24.21.104 'journalctl --user -u ziv -n 100'`.
 - **`HUB_SECRET_KEY`:** cópia em `~/.ziv-producao/HUB_SECRET_KEY` no WSL do Henry. Sem ela, o cofre e as cópias dos bancos dos apps não abrem.
+- **Trocar a `HUB_SECRET_KEY`** (Fase 0 de segurança): cada valor guardado leva a identidade da chave que o cifrou, então dá para trocar sem perder nada.
+  1. Gerar a nova: `cd backend && go run ./cmd/newkey`. Guardar a cópia em `~/.ziv-producao/`.
+  2. No `~/ziv/ziv.env`: `HUB_SECRET_KEY=<nova>` e `HUB_SECRET_KEYS_OLD=<antiga>`. Reiniciar o Ziv (`systemctl --user restart ziv`).
+  3. Recifrar tudo: `set -a; . ~/ziv/ziv.env; set +a; ~/ziv/trocarchave` (o deploy envia o programa). Ele diz quantas chaves e cópias recifrou; rodar de novo não faz mal.
+  4. Tirar `HUB_SECRET_KEYS_OLD` do `ziv.env` e reiniciar. A chave antiga pode ser apagada.
 
 ## Replit (26/10/2026, substituído pela produção acima)
 

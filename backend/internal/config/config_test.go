@@ -79,3 +79,16 @@ func TestOAuthRedirectHosts(t *testing.T) {
 		t.Fatalf("hosts %q", cfg.OAuthRedirectHosts)
 	}
 }
+
+// Old vault keys are read for the key change and never printed.
+func TestOldSecretKeys(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x")
+	t.Setenv("HUB_SECRET_KEYS_OLD", " chave-a , chave-b ,")
+	cfg, _ := Load()
+	if len(cfg.OldSecretKeys) != 2 || cfg.OldSecretKeys[0] != "chave-a" || cfg.OldSecretKeys[1] != "chave-b" {
+		t.Fatalf("old keys %q", cfg.OldSecretKeys)
+	}
+	if s := fmt.Sprintf("%v", cfg); strings.Contains(s, "chave-a") {
+		t.Fatalf("old key printed: %s", s)
+	}
+}
