@@ -11,8 +11,13 @@
 | PostgreSQL | Contêiner Podman `ziv-db` (`postgres:17-alpine`), porta 5433, volume `ziv-pg` | Senha em `~/ziv/.dbpw` |
 | HTTPS | Caddy + Let's Encrypt (subdomínios sob demanda, incluindo `link.` dos links externos) | `/etc/caddy/Caddyfile` |
 | Endereço | DuckDNS `zivapp`; cron de 5 min atualiza o IP | `~/duckdns/duck.sh` |
-| Cópias | `pg_dumpall` diário 06:30 UTC, últimas 7 | `~/backups` |
+| Cópias | `deploy/backup-banco.sh` pelo timer `ziv-backup` às 06:30 UTC: `pg_dumpall` cifrado com a chave **pública** do `age`, últimas 7 em `~/backups` e uma cópia no bucket do Google Cloud (`BACKUP_DEST`) | `~/ziv/backup.env` (modelo em `deploy/backup.env.example`) |
 
+- **Restaurar uma cópia do banco** (precisa da chave privada das cópias, que fica com o Henry, fora do servidor):
+  1. Baixar a cópia: `gcloud storage cp gs://<bucket>/ziv/ziv-AAAAMMDD-HHMM.sql.gz.age .` (ou pegar em `~/backups`).
+  2. Abrir: `age -d -i ~/.ziv-producao/backup-chave.txt ziv-AAAAMMDD-HHMM.sql.gz.age | gunzip > copia.sql`.
+  3. Num Postgres vazio: `psql -U postgres -f copia.sql`. Ensaio feito em 2026-11-24 num Postgres temporário: zero erros, todas as tabelas de volta.
+  4. Apagar `copia.sql` depois de usar (é o banco aberto).
 - **Publicar uma versão nova:** `bash scripts/deploy-gcp.sh` (compila aqui, envia e reinicia; as migrações rodam sozinhas).
 - **Ver o que o servidor está fazendo:** `ssh -i ~/.ssh/ziv-gcp ziv@34.24.21.104 'journalctl --user -u ziv -n 100'`.
 - **`HUB_SECRET_KEY`:** cópia em `~/.ziv-producao/HUB_SECRET_KEY` no WSL do Henry. Sem ela, o cofre e as cópias dos bancos dos apps não abrem.

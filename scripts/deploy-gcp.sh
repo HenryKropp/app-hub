@@ -37,7 +37,10 @@ UPDATE_KEY="$(cd "$ROOT/backend" && mise x -- go run ./cmd/agentkey publica "$SI
   -ldflags "-H=windowsgui -X main.hubURL=$URL -X main.updateKey=$UPDATE_KEY" -o "$OUT/agent/AppHubAgente.exe" ./cmd/agent)
 (cd "$ROOT/backend" && mise x -- go run ./cmd/agentkey assinar "$SIGNING_KEY" "$OUT/agent/AppHubAgente.exe")
 echo "4/5 enviando e reiniciando"
-rsync -a --delete --exclude ziv.env --exclude .dbpw --partial -e "ssh -i $KEY $SSHO" "$OUT/" "$HOST:ziv/"
+cp "$ROOT/deploy/backup-banco.sh" "$OUT/backup-banco.sh"
+# Files that live only on the server are never deleted by the copy.
+rsync -a --delete --exclude ziv.env --exclude .dbpw \
+  --exclude backup.env --exclude backup-recipient.txt --exclude backup-gcp.json --partial -e "ssh -i $KEY $SSHO" "$OUT/" "$HOST:ziv/"
 ssh -i "$KEY" $SSHO "$HOST" 'systemctl --user restart ziv && sleep 4 && systemctl --user is-active ziv'
 curl -fsS -o /dev/null -w "site: %{http_code}\n" "$URL/"
 echo "5/5 caddy"
