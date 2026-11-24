@@ -495,7 +495,7 @@ export const api = {
   entryCompany: () => request<EntryCompany>("GET", "/api/entry/company"),
   findLogins: (b: { email: string; password: string }) =>
     requestAt<{ companies: { slug: string; name: string; url: string }[] }>("POST", "/api/entry/login", b),
-  createEntryCompany: (b: { company_name: string; name: string; email: string; password: string; start: "strict" | "open" }) =>
+  createEntryCompany: (b: { company_name: string; name: string; email: string; password: string; start?: "strict" | "open" }) =>
     requestAt<EntryCompanyCreated>("POST", "/api/entry/companies", b),
   requestCompanyAccess: (b: { name: string; email: string }) =>
     request<{ message: string }>("POST", "/api/entry/requests", b),
