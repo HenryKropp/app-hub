@@ -407,7 +407,8 @@ func (q *Queries) GetPendingMCPAuthRequest(ctx context.Context, id string) (GetP
 }
 
 const listCompanyMCPConnections = `-- name: ListCompanyMCPConnections :many
-SELECT c.id, c.kind, c.name, c.created_at, c.last_used_at, c.revoked_at, c.person_id, p.name AS person_name
+SELECT c.id, c.kind, c.name, c.created_at, c.last_used_at, c.revoked_at, c.person_id, p.name AS person_name,
+       CASE WHEN c.kind = 'code' THEN c.access_expires_at END::timestamptz AS expires_at
 FROM mcp_connections c JOIN people p ON p.id = c.person_id
 ORDER BY c.revoked_at IS NOT NULL, c.created_at DESC
 `
@@ -421,6 +422,7 @@ type ListCompanyMCPConnectionsRow struct {
 	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
 	PersonID   int64              `json:"person_id"`
 	PersonName string             `json:"person_name"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
 }
 
 func (q *Queries) ListCompanyMCPConnections(ctx context.Context) ([]ListCompanyMCPConnectionsRow, error) {
@@ -441,6 +443,7 @@ func (q *Queries) ListCompanyMCPConnections(ctx context.Context) ([]ListCompanyM
 			&i.RevokedAt,
 			&i.PersonID,
 			&i.PersonName,
+			&i.ExpiresAt,
 		); err != nil {
 			return nil, err
 		}
@@ -454,7 +457,8 @@ func (q *Queries) ListCompanyMCPConnections(ctx context.Context) ([]ListCompanyM
 
 const listMCPConnections = `-- name: ListMCPConnections :many
 SELECT id, person_id, kind, name, client_id, token_hash, access_expires_at, refresh_hash, refresh_expires_at, created_at, last_used_at, revoked_at FROM mcp_connections WHERE person_id = $1 AND revoked_at IS NULL
-  AND (refresh_expires_at IS NULL OR refresh_expires_at > now()) ORDER BY id DESC
+  AND (refresh_expires_at IS NULL OR refresh_expires_at > now())
+  AND (kind <> 'code' OR access_expires_at IS NULL OR access_expires_at > now()) ORDER BY id DESC
 `
 
 func (q *Queries) ListMCPConnections(ctx context.Context, personID int64) ([]McpConnection, error) {

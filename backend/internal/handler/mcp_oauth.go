@@ -81,15 +81,27 @@ func randomID(n int) (string, error) {
 
 func ts(t time.Time) pgtype.Timestamptz { return pgtype.Timestamptz{Time: t, Valid: true} }
 
-// validRedirectURI accepts https URLs and http only on this computer.
-func validRedirectURI(raw string) bool {
+// claudeRedirectHosts are where Claude's own apps receive the OAuth code.
+var claudeRedirectHosts = []string{"claude.ai", "claude.com"}
+
+// validRedirectURI accepts http only on this computer, and https only to
+// Claude (claude.ai, claude.com and their subdomains) or a host the server
+// lists (OAUTH_REDIRECT_HOSTS). Any other address could be a fake app
+// registering itself to catch a person's access.
+func validRedirectURI(raw string, extra []string) bool {
 	u, err := url.Parse(raw)
 	if err != nil || u.User != nil || u.Fragment != "" || u.Host == "" || u.Opaque != "" {
 		return false
 	}
 	switch u.Scheme {
 	case "https":
-		return u.Hostname() != ""
+		host := strings.ToLower(u.Hostname())
+		for _, allowed := range append(slices.Clone(claudeRedirectHosts), extra...) {
+			if host == allowed || strings.HasSuffix(host, "."+allowed) {
+				return true
+			}
+		}
+		return false
 	case "http":
 		host := u.Hostname()
 		return host == "localhost" || host == "127.0.0.1"
@@ -120,7 +132,7 @@ func (h *Handler) oauthRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, u := range b.RedirectURIs {
-		if len(u) > 2000 || !validRedirectURI(u) {
+		if len(u) > 2000 || !validRedirectURI(u, h.cfg.OAuthRedirectHosts) {
 			oauthError(w, http.StatusBadRequest, "invalid_redirect_uri", "Endereço de retorno não permitido.")
 			return
 		}
@@ -192,7 +204,7 @@ func (h *Handler) oauthAuthorize(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "get oauth client", err)
 		return
 	}
-	if redirect == "" || !slices.Contains(cl.RedirectUris, redirect) {
+	if redirect == "" || !slices.Contains(cl.RedirectUris, redirect) || !validRedirectURI(redirect, h.cfg.OAuthRedirectHosts) {
 		oauthBadPage(w, "O endereço de retorno não confere com o registrado. Tente conectar de novo pelo Claude.")
 		return
 	}
@@ -445,6 +457,12 @@ func (h *Handler) oauthRefreshGrant(w http.ResponseWriter, r *http.Request) {
 		oauthError(w, http.StatusBadRequest, "invalid_grant", "Conexão expirada. Conecte o Claude ao Ziv de novo.")
 		return
 	}
+	// A client registered before the address list existed, with an address
+	// outside it, does not renew (Fase 0 de segurança).
+	if cl, err := h.q.GetMCPClient(r.Context(), clientID); err != nil || !h.clientAddressesAllowed(cl) {
+		oauthError(w, http.StatusBadRequest, "invalid_grant", "Conexão expirada. Conecte o Claude ao Ziv de novo.")
+		return
+	}
 	if _, err := h.q.GetPerson(r.Context(), conn.PersonID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			oauthError(w, http.StatusBadRequest, "invalid_grant", "A pessoa não está mais no Ziv.")
@@ -477,4 +495,15 @@ func (h *Handler) oauthRefreshGrant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeTokens(w, access, refresh)
+}
+
+// clientAddressesAllowed reports whether every return address of a client is
+// still one the Ziv accepts.
+func (h *Handler) clientAddressesAllowed(cl sqlc.McpClient) bool {
+	for _, u := range cl.RedirectUris {
+		if !validRedirectURI(u, h.cfg.OAuthRedirectHosts) {
+			return false
+		}
+	}
+	return len(cl.RedirectUris) > 0
 }

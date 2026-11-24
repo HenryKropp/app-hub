@@ -101,6 +101,7 @@ type mcpConnectionJSON struct {
 	Name       string     `json:"name"`
 	CreatedAt  time.Time  `json:"created_at"`
 	LastUsedAt *time.Time `json:"last_used_at"`
+	ExpiresAt  *time.Time `json:"expires_at"` // "código" only: the day it stops working
 }
 
 func (h *Handler) listMCPConnections(w http.ResponseWriter, r *http.Request) {
@@ -115,10 +116,19 @@ func (h *Handler) listMCPConnections(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]mcpConnectionJSON, 0, len(rows))
 	for _, c := range rows {
-		out = append(out, mcpConnectionJSON{ID: c.ID, Kind: c.Kind, Name: c.Name, CreatedAt: c.CreatedAt.Time, LastUsedAt: tsPtr(c.LastUsedAt)})
+		j := mcpConnectionJSON{ID: c.ID, Kind: c.Kind, Name: c.Name, CreatedAt: c.CreatedAt.Time, LastUsedAt: tsPtr(c.LastUsedAt)}
+		if c.Kind == "code" {
+			j.ExpiresAt = tsPtr(c.AccessExpiresAt)
+		}
+		out = append(out, j)
 	}
 	writeJSON(w, http.StatusOK, out)
 }
+
+// mcpCodeLifetime is how long a "código" connection works. It cannot renew
+// itself (it is a fixed header in Claude Code), so the person makes a new one;
+// the browser login (OAuth) renews by itself.
+const mcpCodeLifetime = 90 * 24 * time.Hour
 
 func (h *Handler) createMCPCode(w http.ResponseWriter, r *http.Request) {
 	me, ok := h.currentPerson(w, r)
@@ -154,6 +164,7 @@ func (h *Handler) createMCPCode(w http.ResponseWriter, r *http.Request) {
 	}
 	conn, err := h.q.CreateMCPConnection(r.Context(), sqlc.CreateMCPConnectionParams{
 		PersonID: me.ID, Kind: "code", Name: name, TokenHash: hash,
+		AccessExpiresAt: ts(time.Now().Add(mcpCodeLifetime)),
 	})
 	if err != nil {
 		internalError(w, "create mcp code", err)

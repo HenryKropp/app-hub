@@ -89,6 +89,7 @@ type companyMCPJSON struct {
 	CreatedAt  time.Time  `json:"created_at"`
 	LastUsedAt *time.Time `json:"last_used_at"`
 	Revoked    bool       `json:"revoked"`
+	ExpiresAt  *time.Time `json:"expires_at"` // "código" only
 }
 
 func (h *Handler) listCompanyMCP(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +104,7 @@ func (h *Handler) listCompanyMCP(w http.ResponseWriter, r *http.Request) {
 	out := make([]companyMCPJSON, 0, len(rows))
 	for _, c := range rows {
 		out = append(out, companyMCPJSON{ID: c.ID, Kind: c.Kind, Name: c.Name, PersonID: c.PersonID, PersonName: c.PersonName,
-			CreatedAt: c.CreatedAt.Time, LastUsedAt: tsPtr(c.LastUsedAt), Revoked: c.RevokedAt.Valid})
+			CreatedAt: c.CreatedAt.Time, LastUsedAt: tsPtr(c.LastUsedAt), Revoked: c.RevokedAt.Valid, ExpiresAt: tsPtr(c.ExpiresAt)})
 	}
 	writeJSON(w, http.StatusOK, out)
 }

@@ -325,7 +325,7 @@ export type ItemGovernance = {
 export type GovernanceSettings = { it_approval: boolean; version_rule: VersionRule; code_channel: "any" | "mcp"; mcp_restricted: boolean }
 export type GovernanceEvent = { id: number; kind: string; item_kind: string; item_id: number; actor: string; detail: unknown; created_at: string }
 export type GovernanceEntry = { type: "request" | "event"; at: string; request?: ApprovalRequest; event?: GovernanceEvent }
-export type CompanyMCP = { id: number; kind: string; name: string; person_id: number; person_name: string; created_at: string; last_used_at: string | null; revoked: boolean }
+export type CompanyMCP = { id: number; kind: string; name: string; person_id: number; person_name: string; created_at: string; last_used_at: string | null; revoked: boolean; expires_at?: string | null }
 export type SecuritySettings = { retention_days: number; require_app_approval: boolean; block_embedded_secrets: boolean; local_execution_enabled: boolean }
 export type SecurityApp = { id: number; name: string; classification: string; purpose: string; external_domains: string[]; approved: boolean; suspended: boolean }
 export type SecurityInfo = {
@@ -396,7 +396,7 @@ export type ArtifactDetail = ArtifactSummary & {
   can: Can; versions: ArtifactVersion[]; current: number
 }
 /** A way Claude reaches the Ziv as this person: claude.ai (OAuth) or a Claude Code code. */
-export type McpConnection = { id: number; kind: "oauth" | "code"; name: string; created_at: string; last_used_at: string | null }
+export type McpConnection = { id: number; kind: "oauth" | "code"; name: string; created_at: string; last_used_at: string | null; expires_at?: string | null }
 export type McpCode = { id: number; name: string; code: string; command: string }
 export type OAuthRequest = { client_name: string; redirect_host: string }
 

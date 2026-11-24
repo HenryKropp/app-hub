@@ -553,6 +553,8 @@ type SecurityAudit struct {
 	Route     string             `json:"route"`
 	Status    int32              `json:"status"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Ip        string             `json:"ip"`
+	UserAgent string             `json:"user_agent"`
 }
 
 type SecuritySetting struct {

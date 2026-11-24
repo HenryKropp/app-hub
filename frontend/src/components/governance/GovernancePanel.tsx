@@ -98,7 +98,7 @@ export function GovernancePanel() {
             <li key={k.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5">
               <span>
                 <span className="font-medium">{k.person_name}</span> · {k.kind === "oauth" ? "claude.ai" : k.name}
-                <span className="block text-xs text-muted-foreground">Criada {formatWhen(k.created_at)}{k.last_used_at ? ` · usada ${formatWhen(k.last_used_at)}` : " · nunca usada"}</span>
+                <span className="block text-xs text-muted-foreground">Criada {formatWhen(k.created_at)}{k.last_used_at ? ` · usada ${formatWhen(k.last_used_at)}` : " · nunca usada"}{k.expires_at && ` · vale até ${new Date(k.expires_at).toLocaleDateString("pt-BR")}`}</span>
               </span>
               <Button size="sm" variant="outline" aria-label={`Cancelar a chave ${k.name} de ${k.person_name}`} onClick={() => void revoke(k)}>Cancelar</Button>
             </li>
