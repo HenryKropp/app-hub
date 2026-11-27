@@ -130,6 +130,8 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/people", h.listPeople)
 	mux.HandleFunc("POST /api/people", h.createPerson)
 	mux.HandleFunc("PUT /api/people/{id}", h.setPersonRole)
+	mux.HandleFunc("POST /api/people/{id}/disable", h.disablePerson)
+	mux.HandleFunc("POST /api/people/{id}/enable", h.enablePerson)
 	mux.HandleFunc("GET /api/roles", h.listRoles)
 	mux.HandleFunc("POST /api/roles", h.createRole)
 	mux.HandleFunc("PUT /api/roles/{id}", h.updateRole)
@@ -299,6 +301,9 @@ func internalError(w http.ResponseWriter, msg string, err error) {
 func (h *Handler) currentPerson(w http.ResponseWriter, r *http.Request) (sqlc.Person, bool) {
 	if id, ok := mcpPersonID(r.Context()); ok {
 		p, err := h.q.GetPerson(r.Context(), id)
+		if err == nil && p.DisabledAt.Valid {
+			err = pgx.ErrNoRows // a disabled person is treated as gone
+		}
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				writeError(w, http.StatusUnauthorized, "Entre no Ziv para continuar.")
@@ -313,6 +318,9 @@ func (h *Handler) currentPerson(w http.ResponseWriter, r *http.Request) (sqlc.Pe
 	if err == nil && c.Value != "" {
 		p, err := h.q.GetSessionPerson(r.Context(), c.Value)
 		if err == nil {
+			if err := h.q.TouchSession(r.Context(), c.Value); err != nil {
+				slog.Warn("touch session", "err", err)
+			}
 			return p, true
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
@@ -467,7 +475,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "get person", err)
 		return
 	}
-	if err != nil || p.PasswordHash == "" || bcrypt.CompareHashAndPassword([]byte(p.PasswordHash), []byte(c.Password)) != nil {
+	if err != nil || p.PasswordHash == "" || bcrypt.CompareHashAndPassword([]byte(p.PasswordHash), []byte(c.Password)) != nil || p.DisabledAt.Valid {
 		writeError(w, http.StatusUnauthorized, "E-mail ou senha não conferem.")
 		return
 	}
@@ -528,6 +536,7 @@ type personRow struct {
 	RoleID   int64   `json:"role_id"`
 	RoleName string  `json:"role_name"`
 	AreaIDs  []int64 `json:"area_ids"`
+	Disabled bool    `json:"disabled"`
 }
 
 func nonNil(v []int64) []int64 {
@@ -546,9 +555,15 @@ func (h *Handler) listPeople(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "list people", err)
 		return
 	}
+	// Disabled people leave every choice of access; the team page asks for
+	// everyone (?todas=1) to show them with "Reativar".
+	all := r.URL.Query().Get("todas") == "1"
 	out := make([]personRow, 0, len(people))
 	for _, p := range people {
-		out = append(out, personRow{ID: p.ID, Name: p.Name, Email: p.Email, RoleID: p.RoleID, RoleName: p.RoleName, AreaIDs: nonNil(p.AreaIds)})
+		if p.DisabledAt.Valid && !all {
+			continue
+		}
+		out = append(out, personRow{ID: p.ID, Name: p.Name, Email: p.Email, RoleID: p.RoleID, RoleName: p.RoleName, AreaIDs: nonNil(p.AreaIds), Disabled: p.DisabledAt.Valid})
 	}
 	writeJSON(w, http.StatusOK, out)
 }

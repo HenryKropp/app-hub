@@ -20,11 +20,11 @@ DELETE FROM roles WHERE id = $1;
 
 -- name: CountManagersExceptPerson :one
 SELECT count(*) FROM people p JOIN roles r ON r.id = p.role_id
-WHERE r.permissions @> ARRAY['manage_people','manage_roles']::text[] AND p.id <> $1;
+WHERE r.permissions @> ARRAY['manage_people','manage_roles']::text[] AND p.id <> $1 AND p.disabled_at IS NULL;
 
 -- name: CountManagersExceptRole :one
 SELECT count(*) FROM people p JOIN roles r ON r.id = p.role_id
-WHERE r.permissions @> ARRAY['manage_people','manage_roles']::text[] AND r.id <> $1;
+WHERE r.permissions @> ARRAY['manage_people','manage_roles']::text[] AND r.id <> $1 AND p.disabled_at IS NULL;
 
 -- name: ListLedAreaIDs :many
 SELECT area_id FROM area_leaders WHERE person_id = $1;

@@ -1,0 +1,10 @@
+[Unit]
+Description=Ziv: cópia diária do banco às 06:30 UTC
+
+[Timer]
+OnCalendar=*-*-* 06:30:00 UTC
+# A copy missed while the server was off runs when it comes back.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

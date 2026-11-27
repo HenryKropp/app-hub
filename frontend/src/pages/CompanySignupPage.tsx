@@ -22,6 +22,7 @@ export function CompanySignupPage() {
   const [ownerName, setOwnerName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [start, setStart] = useState<"strict" | "open">("strict")
   const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -59,6 +60,7 @@ export function CompanySignupPage() {
         name: ownerName.trim(),
         email: email.trim(),
         password,
+        start,
       })
       const path = localPath(result.url)
       if (!path) throw new Error("O endereço retornado pela empresa não é válido.")
@@ -112,6 +114,17 @@ export function CompanySignupPage() {
             </Button>
           </div>
         </Field>
+        <fieldset className="mt-1 flex flex-col gap-2 border-t border-border pt-4">
+          <legend className="text-sm font-medium">Como a empresa começa</legend>
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 text-sm has-[:checked]:border-primary">
+            <input type="radio" name="start" value="strict" checked={start === "strict"} onChange={() => setStart("strict")} className="mt-0.5" />
+            <span><span className="font-medium">Começar com aprovações ligadas (recomendado)</span><span className="block text-muted-foreground">Todo app passa pelo líder da área e pela TI antes de ir ao ar. Dá para afrouxar depois no Admin.</span></span>
+          </label>
+          <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 text-sm has-[:checked]:border-primary">
+            <input type="radio" name="start" value="open" checked={start === "open"} onChange={() => setStart("open")} className="mt-0.5" />
+            <span><span className="font-medium">Começar livre para testar</span><span className="block text-muted-foreground">Os apps vão ao ar sem aprovação. Dá para ligar as aprovações depois no Admin.</span></span>
+          </label>
+        </fieldset>
         {error && <p role="alert" className={authError}>{error}</p>}
         <Button type="submit" size="lg" className="mt-1 w-full" disabled={busy}>{busy ? "Criando espaço…" : "Criar espaço da empresa"} {!busy && <ArrowRight data-icon="inline-end" />}</Button>
       </form>

@@ -154,7 +154,7 @@ func (q *Queries) ClearPersonAreaGrants(ctx context.Context, arg ClearPersonArea
 
 const countManagersExceptPerson = `-- name: CountManagersExceptPerson :one
 SELECT count(*) FROM people p JOIN roles r ON r.id = p.role_id
-WHERE r.permissions @> ARRAY['manage_people','manage_roles']::text[] AND p.id <> $1
+WHERE r.permissions @> ARRAY['manage_people','manage_roles']::text[] AND p.id <> $1 AND p.disabled_at IS NULL
 `
 
 func (q *Queries) CountManagersExceptPerson(ctx context.Context, id int64) (int64, error) {
@@ -166,7 +166,7 @@ func (q *Queries) CountManagersExceptPerson(ctx context.Context, id int64) (int6
 
 const countManagersExceptRole = `-- name: CountManagersExceptRole :one
 SELECT count(*) FROM people p JOIN roles r ON r.id = p.role_id
-WHERE r.permissions @> ARRAY['manage_people','manage_roles']::text[] AND r.id <> $1
+WHERE r.permissions @> ARRAY['manage_people','manage_roles']::text[] AND r.id <> $1 AND p.disabled_at IS NULL
 `
 
 func (q *Queries) CountManagersExceptRole(ctx context.Context, id int64) (int64, error) {

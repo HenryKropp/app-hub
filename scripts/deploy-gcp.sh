@@ -22,11 +22,25 @@ echo "1/5 site"
 cp -r "$ROOT/frontend/dist" "$OUT/frontend/"
 echo "2/5 servidor"
 (cd "$ROOT/backend" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 mise x -- go build -trimpath -o "$OUT/server" ./cmd/server)
-echo "3/5 agente (aponta para $URL)"
+# The vault key change (docs/INFRASTRUCTURE.md) runs on the server when asked.
+(cd "$ROOT/backend" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 mise x -- go build -trimpath -o "$OUT/trocarchave" ./cmd/trocarchave)
+echo "3/5 agente (aponta para $URL, assinado)"
+# The release key never goes to the server (ADR 048): the Agente is signed
+# here, and the PCs install only updates with this signature.
+SIGNING_KEY="${ZIV_AGENT_SIGNING_KEY:-$HOME/.ziv-producao/agente-assinatura.key}"
+if [[ ! -f "$SIGNING_KEY" ]]; then
+	echo "Falta a chave de assinatura do Agente em $SIGNING_KEY (ver docs/seguranca-fase0-passo-a-passo.md)." >&2
+	exit 1
+fi
+UPDATE_KEY="$(cd "$ROOT/backend" && mise x -- go run ./cmd/agentkey publica "$SIGNING_KEY")"
 (cd "$ROOT/backend" && GOOS=windows GOARCH=amd64 CGO_ENABLED=0 mise x -- go build -trimpath \
-  -ldflags "-H=windowsgui -X main.hubURL=$URL" -o "$OUT/agent/AppHubAgente.exe" ./cmd/agent)
+  -ldflags "-H=windowsgui -X main.hubURL=$URL -X main.updateKey=$UPDATE_KEY" -o "$OUT/agent/AppHubAgente.exe" ./cmd/agent)
+(cd "$ROOT/backend" && mise x -- go run ./cmd/agentkey assinar "$SIGNING_KEY" "$OUT/agent/AppHubAgente.exe")
 echo "4/5 enviando e reiniciando"
-rsync -a --delete --exclude ziv.env --exclude .dbpw --partial -e "ssh -i $KEY $SSHO" "$OUT/" "$HOST:ziv/"
+cp "$ROOT/deploy/backup-banco.sh" "$OUT/backup-banco.sh"
+# Files that live only on the server are never deleted by the copy.
+rsync -a --delete --exclude ziv.env --exclude .dbpw \
+  --exclude backup.env --exclude backup-recipient.txt --exclude backup-gcp.json --partial -e "ssh -i $KEY $SSHO" "$OUT/" "$HOST:ziv/"
 ssh -i "$KEY" $SSHO "$HOST" 'systemctl --user restart ziv && sleep 4 && systemctl --user is-active ziv'
 curl -fsS -o /dev/null -w "site: %{http_code}\n" "$URL/"
 echo "5/5 caddy"

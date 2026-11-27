@@ -46,7 +46,18 @@ func (h *Handler) maybeEnqueueUpdate(ctx context.Context, c sqlc.Computer) error
 	if err != nil {
 		return err
 	}
-	_, err = h.enqueue(ctx, c.ID, nil, agentproto.KindUpdate, agentproto.UpdatePayload{Version: agentproto.Version, SHA256: sum, Size: size})
+	// The release signature is made off the server (scripts/deploy-gcp.sh)
+	// and sits next to the binary. Without it the Agente would refuse the
+	// update, so none is asked for.
+	sig, err := os.ReadFile(h.cfg.AgentBinaryPath + ".sig")
+	if errors.Is(err, fs.ErrNotExist) {
+		slog.Warn("agent update skipped: no release signature next to the binary", "path", h.cfg.AgentBinaryPath+".sig")
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	_, err = h.enqueue(ctx, c.ID, nil, agentproto.KindUpdate, agentproto.UpdatePayload{Version: agentproto.Version, SHA256: sum, Size: size, Signature: strings.TrimSpace(string(sig))})
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return nil // hello and next raced; one update is already queued

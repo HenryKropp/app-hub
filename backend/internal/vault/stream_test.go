@@ -66,7 +66,7 @@ func TestStreamRejectsTampering(t *testing.T) {
 	v, _ := New(NewKey())
 	big := make([]byte, 2*chunkSize+10)
 	sealed := sealAll(t, v, big)
-	firstChunk := len(streamMagic) + 4 + v.aead.NonceSize() + chunkSize + v.aead.Overhead()
+	firstChunk := len(streamMagic) + 4 + 4 + v.cur.aead.NonceSize() + chunkSize + v.cur.aead.Overhead()
 
 	other, _ := New(NewKey())
 	flipped := append([]byte{}, sealed...)

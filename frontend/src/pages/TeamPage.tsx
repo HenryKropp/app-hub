@@ -33,7 +33,7 @@ export function TeamPage() {
   const load = useCallback(() => {
     const wantPeople = has(me, "manage_people") || has(me, "manage_areas") || (me?.leads.length ?? 0) > 0
     Promise.all([
-      wantPeople ? api.people() : Promise.resolve([] as PersonRow[]),
+      wantPeople ? api.people(true) : Promise.resolve([] as PersonRow[]),
       has(me, "manage_people") || has(me, "manage_roles") ? api.roles() : Promise.resolve([] as RoleInfo[]),
       api.areas(),
       has(me, "manage_roles") ? api.membership() : Promise.resolve({ invitations: [], requests: [] } as Membership),
@@ -87,7 +87,7 @@ export function TeamPage() {
       ) : tab === "pessoas" ? (
         <PeopleTab people={people} setPeople={setPeople} roles={roles} areas={areas} me={me!} reloadRoles={reloadRoles} />
       ) : tab === "areas" ? (
-        <AreasTab areas={areas} people={people} reload={load} canAreas={canAreas} leads={leads} />
+        <AreasTab areas={areas} people={people.filter((p) => !p.disabled)} reload={load} canAreas={canAreas} leads={leads} />
       ) : tab === "cargos" ? (
         <RolesTab roles={roles} setRoles={setRoles} myRoleId={me!.role_id} />
       ) : (
@@ -126,6 +126,22 @@ function PeopleTab({ people, setPeople, roles, areas, me, reloadRoles }: { peopl
     if (p.id === me.id) await refresh().catch(() => {})
   }
 
+  // Disabling ends the person's sessions, Claude connections and computers;
+  // nothing is deleted, and Reativar lets them sign in again.
+  const toggleDisabled = async (p: PersonRow) => {
+    if (!p.disabled && !window.confirm(`Desativar ${p.name}? A pessoa sai do Ziv agora: não entra mais, e o Claude e o computador dela são desconectados. Nada é apagado.`)) return
+    setRowErrors((e) => ({ ...e, [p.id]: "" }))
+    setSaving(p.id)
+    try {
+      const r = p.disabled ? await api.enablePerson(p.id) : await api.disablePerson(p.id)
+      setPeople((l) => l.map((x) => (x.id === p.id ? { ...x, disabled: r.disabled } : x)))
+    } catch (err) {
+      setRowErrors((e) => ({ ...e, [p.id]: errText(err, p.disabled ? "Não foi possível reativar." : "Não foi possível desativar.") }))
+    } finally {
+      setSaving(null)
+    }
+  }
+
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     setError("")
@@ -160,6 +176,7 @@ function PeopleTab({ people, setPeople, roles, areas, me, reloadRoles }: { peopl
                     </p>
                     <p className="truncate text-sm text-muted-foreground">{p.email}</p>
                     <p className="truncate text-sm text-muted-foreground">{names || "Sem área"}</p>
+                    {p.disabled && <span className="mt-1 inline-block rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground">Desativada</span>}
                   </div>
                 </div>
                 {role && !within(role) ? (
@@ -175,6 +192,11 @@ function PeopleTab({ people, setPeople, roles, areas, me, reloadRoles }: { peopl
                       </option>
                     ))}
                   </NativeSelect>
+                )}
+                {p.id !== me.id && (!role || within(role)) && has(me, "manage_people") && (
+                  <Button variant="outline" size="sm" aria-label={`${p.disabled ? "Reativar" : "Desativar"} ${p.name}`} disabled={saving === p.id} onClick={() => void toggleDisabled(p)}>
+                    {p.disabled ? "Reativar" : "Desativar"}
+                  </Button>
                 )}
               </div>
               {rowErrors[p.id] && (

@@ -46,7 +46,10 @@ export function ClaudeConnections() {
               <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground">{c.kind === "oauth" ? "claude.ai" : "código"}</span>
               <div className="min-w-0 flex-1">
                 <p className="font-medium">{c.name}</p>
-                <p className="text-sm text-muted-foreground">{c.last_used_at ? `Último uso: ${formatWhen(c.last_used_at)}` : "Nunca usado"}</p>
+                <p className="text-sm text-muted-foreground">
+                  {c.last_used_at ? `Último uso: ${formatWhen(c.last_used_at)}` : "Nunca usado"}
+                  {c.expires_at && ` · Vale até ${new Date(c.expires_at).toLocaleDateString("pt-BR")}`}
+                </p>
               </div>
               <Button variant="outline" size="sm" onClick={() => disconnect(c)}>Desconectar</Button>
             </li>

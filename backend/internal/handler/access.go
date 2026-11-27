@@ -76,7 +76,8 @@ func (h *Handler) loadAccess(ctx context.Context, me sqlc.Person) (*access.Perso
 	}
 	p := &access.Person{ID: me.ID, Perms: map[string]bool{}, Leads: map[int64]bool{}, Member: map[int64]bool{},
 		ViewerApps: map[int64]bool{}, AppGrants: map[int64]map[string]bool{}, AreaGrants: map[int64]map[string]bool{},
-		ViewerArtifacts: map[int64]bool{}, ArtifactGrants: map[int64]map[string]bool{}}
+		ViewerArtifacts: map[int64]bool{}, ArtifactGrants: map[int64]map[string]bool{},
+		Disabled: me.DisabledAt.Valid}
 	for _, perm := range role.Permissions {
 		p.Perms[perm] = true
 	}

@@ -3,7 +3,7 @@ export type Person = {
   role_id: number; role_name: string; permissions: string[]
   leads: number[]; areas: number[]; sees_others_runs: boolean
 }
-export type PersonRow = { id: number; name: string; email: string; role_id: number; role_name: string; area_ids: number[] }
+export type PersonRow = { id: number; name: string; email: string; role_id: number; role_name: string; area_ids: number[]; disabled?: boolean }
 export type Can = { view: boolean; edit: boolean; restore: boolean; tech: boolean; runs: boolean; access: boolean; grants: boolean; audience?: boolean }
 export type RoleInfo = { id: number; key: string; name: string; permissions: string[]; people_count: number }
 export type NameRef = { id: number; name: string }
@@ -325,7 +325,7 @@ export type ItemGovernance = {
 export type GovernanceSettings = { it_approval: boolean; version_rule: VersionRule; code_channel: "any" | "mcp"; mcp_restricted: boolean }
 export type GovernanceEvent = { id: number; kind: string; item_kind: string; item_id: number; actor: string; detail: unknown; created_at: string }
 export type GovernanceEntry = { type: "request" | "event"; at: string; request?: ApprovalRequest; event?: GovernanceEvent }
-export type CompanyMCP = { id: number; kind: string; name: string; person_id: number; person_name: string; created_at: string; last_used_at: string | null; revoked: boolean }
+export type CompanyMCP = { id: number; kind: string; name: string; person_id: number; person_name: string; created_at: string; last_used_at: string | null; revoked: boolean; expires_at?: string | null }
 export type SecuritySettings = { retention_days: number; require_app_approval: boolean; block_embedded_secrets: boolean; local_execution_enabled: boolean }
 export type SecurityApp = { id: number; name: string; classification: string; purpose: string; external_domains: string[]; approved: boolean; suspended: boolean }
 export type SecurityInfo = {
@@ -396,7 +396,7 @@ export type ArtifactDetail = ArtifactSummary & {
   can: Can; versions: ArtifactVersion[]; current: number
 }
 /** A way Claude reaches the Ziv as this person: claude.ai (OAuth) or a Claude Code code. */
-export type McpConnection = { id: number; kind: "oauth" | "code"; name: string; created_at: string; last_used_at: string | null }
+export type McpConnection = { id: number; kind: "oauth" | "code"; name: string; created_at: string; last_used_at: string | null; expires_at?: string | null }
 export type McpCode = { id: number; name: string; code: string; command: string }
 export type OAuthRequest = { client_name: string; redirect_host: string }
 
@@ -495,7 +495,7 @@ export const api = {
   entryCompany: () => request<EntryCompany>("GET", "/api/entry/company"),
   findLogins: (b: { email: string; password: string }) =>
     requestAt<{ companies: { slug: string; name: string; url: string }[] }>("POST", "/api/entry/login", b),
-  createEntryCompany: (b: { company_name: string; name: string; email: string; password: string }) =>
+  createEntryCompany: (b: { company_name: string; name: string; email: string; password: string; start?: "strict" | "open" }) =>
     requestAt<EntryCompanyCreated>("POST", "/api/entry/companies", b),
   requestCompanyAccess: (b: { name: string; email: string }) =>
     request<{ message: string }>("POST", "/api/entry/requests", b),
@@ -536,7 +536,8 @@ export const api = {
   loginAt: (basePath: string, b: { email: string; password: string }) =>
     requestAt<Person>("POST", `${basePath}/api/auth/login`, b),
   logout: () => request<void>("POST", "/api/auth/logout"),
-  people: () => request<PersonRow[]>("GET", "/api/people"),
+  // all = also the disabled people (the team page shows them with Reativar).
+  people: (all = false) => request<PersonRow[]>("GET", all ? "/api/people?todas=1" : "/api/people"),
   createPerson: (b: { name: string; email: string; password: string; role_id: number }) => request<PersonRow>("POST", "/api/people", b),
   scan: (path: string, mode: "batch" | "single") => request<ScanResult>("POST", "/api/scan", { path, mode }),
   apps: () => request<AppSummary[]>("GET", "/api/apps"),
@@ -551,6 +552,8 @@ export const api = {
   updateApp: (id: number, b: { owner_id: number; backup_id: number | null; manifest: Manifest; updated_at: string }) =>
     request<AppDetail>("PUT", `/api/apps/${id}`, b),
   setPersonRole: (id: number, role_id: number) => request<PersonRow>("PUT", `/api/people/${id}`, { role_id }),
+  disablePerson: (id: number) => request<{ id: number; disabled: boolean }>("POST", `/api/people/${id}/disable`),
+  enablePerson: (id: number) => request<{ id: number; disabled: boolean }>("POST", `/api/people/${id}/enable`),
   roles: () => request<RoleInfo[]>("GET", "/api/roles"),
   createRole: (b: { name: string; permissions: string[] }) => request<RoleInfo>("POST", "/api/roles", b),
   updateRole: (id: number, b: { name: string; permissions: string[] }) => request<RoleInfo>("PUT", `/api/roles/${id}`, b),

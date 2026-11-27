@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -12,11 +13,17 @@ import (
 )
 
 type Config struct {
-	Port        string
-	DatabaseURL string
-	BaseURL     string
-	DevMode     bool
-	SetupCode   string // SETUP_CODE: code for the principal's first access
+	Port string
+	// ListenHost is where the server answers (LISTEN_HOST, default
+	// 127.0.0.1): only Caddy on the same machine reaches it, not app boxes.
+	ListenHost string
+	// OAuthRedirectHosts are extra hosts an OAuth client may return to,
+	// besides Claude and this computer (OAUTH_REDIRECT_HOSTS, comma separated).
+	OAuthRedirectHosts []string
+	DatabaseURL        string
+	BaseURL            string
+	DevMode            bool
+	SetupCode          string // SETUP_CODE: code for the principal's first access
 
 	// E-mail of external link codes (ADR 045); both empty = e-mail off.
 	ResendAPIKey string // RESEND_API_KEY
@@ -24,7 +31,10 @@ type Config struct {
 
 	AgentBinaryPath string
 
-	SecretKey       string // HUB_SECRET_KEY
+	SecretKey string // HUB_SECRET_KEY
+	// OldSecretKeys (HUB_SECRET_KEYS_OLD, comma separated) still open values
+	// sealed before a key change, until cmd/trocarchave re-seals them.
+	OldSecretKeys   []string
 	AppsDBAdminURL  string // APPS_DB_ADMIN_URL; default: DATABASE_URL
 	AppsDBHost      string // APPS_DB_HOST_FOR_CONTAINERS
 	AppsDBContainer string // APPS_DB_CONTAINER (copies via exec)
@@ -82,10 +92,21 @@ func Load() (Config, error) {
 	if cfg.Port == "" {
 		cfg.Port = "8080"
 	}
+	cfg.ListenHost = envOr("LISTEN_HOST", "127.0.0.1")
+	for _, h := range strings.Split(os.Getenv("OAUTH_REDIRECT_HOSTS"), ",") {
+		if h = strings.ToLower(strings.TrimSpace(h)); h != "" {
+			cfg.OAuthRedirectHosts = append(cfg.OAuthRedirectHosts, h)
+		}
+	}
 	if cfg.DatabaseURL == "" {
 		return cfg, errors.New("DATABASE_URL is required")
 	}
 	cfg.SecretKey = os.Getenv("HUB_SECRET_KEY")
+	for _, k := range strings.Split(os.Getenv("HUB_SECRET_KEYS_OLD"), ",") {
+		if k = strings.TrimSpace(k); k != "" {
+			cfg.OldSecretKeys = append(cfg.OldSecretKeys, k)
+		}
+	}
 	cfg.AppsDBAdminURL = envOr("APPS_DB_ADMIN_URL", cfg.DatabaseURL)
 	cfg.AppsDBHost = envOr("APPS_DB_HOST_FOR_CONTAINERS", "host.containers.internal:5433")
 	cfg.AppsDBContainer = envOr("APPS_DB_CONTAINER", "ziv-db")
@@ -110,6 +131,9 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
+// ListenAddr is the address the HTTP server listens on.
+func (c Config) ListenAddr() string { return net.JoinHostPort(c.ListenHost, c.Port) }
+
 // SecureCookies is true when the Hub is served over HTTPS.
 func (c Config) SecureCookies() bool {
 	return strings.HasPrefix(c.BaseURL, "https://")
@@ -126,7 +150,7 @@ func (c Config) redacted() map[string]any {
 	}
 	return map[string]any{
 		"Port": c.Port, "DatabaseURL": hideURLPassword(c.DatabaseURL), "BaseURL": c.BaseURL, "DevMode": c.DevMode,
-		"AgentBinaryPath": c.AgentBinaryPath, "SecretKey": hide(c.SecretKey),
+		"AgentBinaryPath": c.AgentBinaryPath, "SecretKey": hide(c.SecretKey), "OldSecretKeys": len(c.OldSecretKeys),
 		"ResendAPIKey": hide(c.ResendAPIKey), "MailFrom": c.MailFrom,
 		"AppsDBAdminURL": hideURLPassword(c.AppsDBAdminURL), "AppsDBHost": c.AppsDBHost,
 		"AppsDBContainer": c.AppsDBContainer, "SharedDomain": c.SharedDomain,

@@ -22,6 +22,11 @@ import (
 // hubURL is set at build time (scripts/build-agent.sh); APPHUB_URL overrides it.
 var hubURL = "http://localhost:8080"
 
+// updateKey is the public key (base64 ed25519) of the Ziv release key, set at
+// build time (scripts/build-agent.sh, scripts/deploy-gcp.sh). The Agente
+// installs only updates signed with it; built without one, it installs none.
+var updateKey string
+
 var lockAddr = "127.0.0.1:47631"
 var workspaceID string
 
@@ -111,6 +116,7 @@ func main() {
 		time.Sleep(5 * time.Second)
 	}
 	connected.Store(true)
+	agent.ProtectToken(dir) // this version works here: no rollback will need the plain token
 	exe, err := os.Executable()
 	if err != nil {
 		slog.Warn("cannot locate the running agent; self-update may fail", "err", err)
@@ -118,7 +124,7 @@ func main() {
 	runner := &agent.Runner{Launcher: agent.ExecLauncher{}, StateDir: dir, OpenURL: openBrowser}
 	a := &agent.Agent{
 		Client: client, StateDir: dir, Name: name, ChooseFolder: chooseFolder, Runner: runner,
-		Updater: &agent.Updater{Client: client, Runner: runner, StateDir: dir, CurrentExe: exe,
+		Updater: &agent.Updater{Client: client, Runner: runner, StateDir: dir, CurrentExe: exe, PublicKey: updateKey,
 			Start: func(p string, args ...string) error { _, err := startProcess(p, args...); return err }},
 	}
 	if err := a.Loop(ctx); errors.Is(err, agent.ErrUnauthorized) {

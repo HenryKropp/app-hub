@@ -288,19 +288,12 @@ func (p *Podman) Start(ctx context.Context, s StartSpec) (string, error) {
 	if err := envFile.Close(); err != nil {
 		return "", err
 	}
-	args := []string{"run", "-d", "--name", s.Name, "--network", s.Network,
-		"--add-host", "host.containers.internal:host-gateway",
-		"-p", fmt.Sprintf("127.0.0.1::%d", s.Port),
-		"--memory", fmt.Sprintf("%dm", s.MemoryMB), "--cpus", strconv.FormatFloat(s.CPUs, 'f', 2, 64),
-		"--env-file", envFile.Name()}
 	if s.DataDir != "" {
 		if err := os.MkdirAll(s.DataDir, 0o700); err != nil {
 			return "", err
 		}
-		args = append(args, "-v", s.DataDir+":/data:Z")
 	}
-	args = append(args, labelArgs(s.Labels)...)
-	args = append(args, s.Image)
+	args := startArgs(s, envFile.Name())
 	out, err := p.run(ctx, shortTimeout, nil, args...)
 	if err != nil {
 		if !errors.Is(err, ErrUnavailable) {
@@ -309,6 +302,23 @@ func (p *Podman) Start(ctx context.Context, s StartSpec) (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(out)), nil
+}
+
+// startArgs is the podman run command line for an app box. Every box drops
+// Linux capabilities, cannot gain privileges (setuid) and may run at most
+// 256 processes, so a broken or hostile app cannot fork-bomb the server.
+func startArgs(s StartSpec, envFile string) []string {
+	args := []string{"run", "-d", "--name", s.Name, "--network", s.Network,
+		"--add-host", "host.containers.internal:host-gateway",
+		"-p", fmt.Sprintf("127.0.0.1::%d", s.Port),
+		"--memory", fmt.Sprintf("%dm", s.MemoryMB), "--cpus", strconv.FormatFloat(s.CPUs, 'f', 2, 64),
+		"--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", "256",
+		"--env-file", envFile}
+	if s.DataDir != "" {
+		args = append(args, "-v", s.DataDir+":/data:Z")
+	}
+	args = append(args, labelArgs(s.Labels)...)
+	return append(args, s.Image)
 }
 
 func (p *Podman) Stop(ctx context.Context, id string) error {

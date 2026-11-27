@@ -12,7 +12,11 @@ WHERE id = $1 AND (last_used_at IS NULL OR last_used_at < now() - interval '1 mi
 
 -- name: ListMCPConnections :many
 SELECT * FROM mcp_connections WHERE person_id = $1 AND revoked_at IS NULL
-  AND (refresh_expires_at IS NULL OR refresh_expires_at > now()) ORDER BY id DESC;
+  AND (refresh_expires_at IS NULL OR refresh_expires_at > now())
+  AND (kind <> 'code' OR access_expires_at IS NULL OR access_expires_at > now()) ORDER BY id DESC;
+
+-- name: RevokePersonMCPConnections :exec
+UPDATE mcp_connections SET revoked_at = now() WHERE person_id = $1 AND revoked_at IS NULL;
 
 -- name: RevokeMCPConnection :execrows
 UPDATE mcp_connections SET revoked_at = now()
@@ -104,7 +108,8 @@ DELETE FROM mcp_key_uploads WHERE expires_at < now() - interval '1 day' OR used_
 SELECT id, person_id, app_id FROM mcp_key_uploads WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now();
 
 -- name: ListCompanyMCPConnections :many
-SELECT c.id, c.kind, c.name, c.created_at, c.last_used_at, c.revoked_at, c.person_id, p.name AS person_name
+SELECT c.id, c.kind, c.name, c.created_at, c.last_used_at, c.revoked_at, c.person_id, p.name AS person_name,
+       CASE WHEN c.kind = 'code' THEN c.access_expires_at END::timestamptz AS expires_at
 FROM mcp_connections c JOIN people p ON p.id = c.person_id
 ORDER BY c.revoked_at IS NOT NULL, c.created_at DESC;
 

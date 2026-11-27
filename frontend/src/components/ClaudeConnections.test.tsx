@@ -71,3 +71,9 @@ test("settings does not offer the connector address or Gerar código", async () 
   await screen.findByRole("list", { name: "Conexões do Claude" })
   expect(screen.queryByRole("button", { name: /Gerar código|Copiar/ })).not.toBeInTheDocument()
 })
+
+test("a código row shows until when it works", async () => {
+  vi.spyOn(api, "mcpConnections").mockResolvedValue([conn({ id: 3, kind: "code", name: "Notebook", expires_at: "2027-02-22T12:00:00Z" })])
+  mount()
+  expect(await screen.findByText(/Vale até 22\/02\/2027/)).toBeInTheDocument()
+})

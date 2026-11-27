@@ -147,6 +147,9 @@ type UpdatePayload struct {
 	Version string `json:"version"`
 	SHA256  string `json:"sha256"`
 	Size    int64  `json:"size"`
+	// Signature (base64 ed25519, SignUpdate) is checked by the Agente with
+	// its built-in public key before it installs the update.
+	Signature string `json:"signature"`
 }
 
 type Hello struct {

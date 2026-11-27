@@ -1,0 +1,9 @@
+# Daily encrypted copy of the Ziv database (deploy/backup-banco.sh).
+# Install as the ziv user: copy both files to ~/.config/systemd/user/, then
+#   systemctl --user daemon-reload && systemctl --user enable --now ziv-backup.timer
+[Unit]
+Description=Ziv: cópia cifrada do banco principal
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash %h/ziv/backup-banco.sh

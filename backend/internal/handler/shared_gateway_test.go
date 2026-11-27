@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"io"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -148,5 +149,26 @@ func TestGatewayBackendAllowed(t *testing.T) {
 	}
 	if _, ok, _ := b.Allowed(context.Background(), ana, id, false); !ok {
 		t.Fatal("plain user cannot open an unrestricted app")
+	}
+}
+
+// A disabled person loses the screen apps at the next check, not after the
+// 12-hour address session runs out (Fase 0 final review).
+func TestGatewayBackendRefusesDisabledPerson(t *testing.T) {
+	c, h := newPoolClient(t)
+	setupAdmin(t, c)
+	d := withShared(t, h)
+	id := sharedApp(t, h, d, "notas")
+	createPersonAs(t, c, "Ana", "ana@exemplo.com", "usuario")
+	ana := personID(t, "ana@exemplo.com")
+	b := h.GatewayBackend()
+	if _, ok, _ := b.Allowed(context.Background(), ana, id, false); !ok {
+		t.Fatal("ana cannot open the open app before disable")
+	}
+	if st := c.do("POST", fmt.Sprintf("/api/people/%d/disable", ana), nil, nil); st != http.StatusOK {
+		t.Fatalf("disable = %d", st)
+	}
+	if _, ok, _ := b.Allowed(context.Background(), ana, id, false); ok {
+		t.Fatal("disabled person still opens the screen app")
 	}
 }

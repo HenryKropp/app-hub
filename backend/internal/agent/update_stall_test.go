@@ -13,7 +13,7 @@ import (
 // A new agent that never closes this one must not leave the runner held.
 func TestUpdaterReleasesWhenHandOverStalls(t *testing.T) {
 	hub := &fakeHub{results: map[int64][]agentproto.Result{}, uploads: map[int64]string{}}
-	hub.jobs = []agentproto.Job{{ID: 9, Kind: agentproto.KindUpdate, Payload: payload(agentproto.UpdatePayload{SHA256: digest("MZ-new"), Size: 6})}}
+	hub.jobs = []agentproto.Job{{ID: 9, Kind: agentproto.KindUpdate, Payload: payload(agentproto.UpdatePayload{SHA256: digest("MZ-new"), Size: 6, Signature: sig("MZ-new")})}}
 	srv := httptest.NewServer(hub.handler())
 	defer srv.Close()
 	client := &Client{BaseURL: srv.URL, Token: "t", HTTP: srv.Client()}

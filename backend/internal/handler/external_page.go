@@ -11,7 +11,6 @@ import (
 	"errors"
 	"html/template"
 	"log/slog"
-	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -126,22 +125,6 @@ func sameSite(r *http.Request) bool {
 	}
 	u, err := url.Parse(o)
 	return o != "null" && err == nil && strings.EqualFold(u.Host, r.Host)
-}
-
-// remoteHost is the visitor's address. Behind Caddy every request comes from
-// loopback, so there the address Caddy puts in X-Real-IP is used; from
-// anywhere else the header is ignored (anyone could send it).
-func remoteHost(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		host = r.RemoteAddr
-	}
-	if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
-		if real := strings.TrimSpace(r.Header.Get("X-Real-IP")); net.ParseIP(real) != nil {
-			return real
-		}
-	}
-	return host
 }
 
 // linkCodeBudgetLeft keeps the daily budgets in the database, so a restart

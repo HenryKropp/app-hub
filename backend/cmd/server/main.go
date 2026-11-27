@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/HenryKropp/app-hub/backend/internal/handler"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -92,7 +93,7 @@ func main() {
 	go group.Loop(ctx)
 
 	// Hosts under SHARED_APPS_DOMAIN go to their company's gateway; the rest is the portal.
-	srv := &http.Server{Addr: ":" + cfg.Port, Handler: router.Root(portal), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 90 * time.Second, MaxHeaderBytes: 1 << 20}
+	srv := &http.Server{Addr: cfg.ListenAddr(), Handler: handler.StrictTransport(cfg, router.Root(portal)), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 90 * time.Second, MaxHeaderBytes: 1 << 20}
 	stopped := make(chan struct{})
 	go func() {
 		defer close(stopped)
@@ -115,7 +116,7 @@ func main() {
 // HUB_SECRET_KEY or Podman the Hub still starts; only screen apps become
 // unavailable.
 func startShared(ctx context.Context, pool *pgxpool.Pool, cfg config.Config) sharedrun.Deps {
-	v, err := vault.New(cfg.SecretKey)
+	v, err := vault.New(cfg.SecretKey, cfg.OldSecretKeys...)
 	if err != nil {
 		slog.Warn("shared apps without vault (set HUB_SECRET_KEY)", "err", err)
 		v = nil

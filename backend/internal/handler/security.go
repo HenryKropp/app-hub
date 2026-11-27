@@ -21,7 +21,8 @@ import (
 // Each workspace owns a distinct Handler, pool/search_path and in-memory state.
 type WorkspaceOptions struct {
 	Slug, Name, BasePath string
-	Create               func(context.Context, string, string, sqlc.Person) (string, error)
+	// Create opens a company; the bool starts it with approvals on.
+	Create func(ctx context.Context, name, slug string, founder sqlc.Person, strict bool) (string, error)
 	// FindLogins lists the companies (other than the main one) where this
 	// e-mail and password sign in. The e-mail arrives normalized.
 	FindLogins func(ctx context.Context, email, password string) ([]LoginMatch, error)
@@ -125,6 +126,7 @@ func (h *Handler) createWorkspace(w http.ResponseWriter, r *http.Request) {
 		Name     string `json:"name"`
 		Slug     string `json:"slug"`
 		Password string `json:"password"`
+		Start    string `json:"start"`
 	}
 	if !readJSON(w, r, &b) {
 		return
@@ -138,7 +140,7 @@ func (h *Handler) createWorkspace(w http.ResponseWriter, r *http.Request) {
 		writeError(w, 401, "Confirme sua senha atual para criar a empresa.")
 		return
 	}
-	url, err := h.workspace.Create(r.Context(), b.Name, b.Slug, me)
+	url, err := h.workspace.Create(r.Context(), b.Name, b.Slug, me, b.Start != "open")
 	if err != nil {
 		if errors.Is(err, ErrWorkspaceExists) {
 			writeError(w, 409, "Esse endereço de empresa já está em uso.")
@@ -340,11 +342,13 @@ type auditEvent struct {
 	Action  string    `json:"action"`
 	Route   string    `json:"route"`
 	Status  int       `json:"status"`
+	IP      string    `json:"ip"`
+	Agent   string    `json:"user_agent"`
 	Created time.Time `json:"created_at"`
 }
 
 func (h *Handler) auditEvents(ctx context.Context) ([]auditEvent, error) {
-	rows, err := h.q.SecurityDB().Query(ctx, `SELECT id,actor_id,action,route,status,created_at FROM security_audit ORDER BY id DESC LIMIT 100`)
+	rows, err := h.q.SecurityDB().Query(ctx, `SELECT id,actor_id,action,route,status,ip,user_agent,created_at FROM security_audit ORDER BY id DESC LIMIT 100`)
 	if err != nil {
 		return nil, err
 	}
@@ -352,7 +356,7 @@ func (h *Handler) auditEvents(ctx context.Context) ([]auditEvent, error) {
 	out := []auditEvent{}
 	for rows.Next() {
 		var e auditEvent
-		if err := rows.Scan(&e.ID, &e.Actor, &e.Action, &e.Route, &e.Status, &e.Created); err != nil {
+		if err := rows.Scan(&e.ID, &e.Actor, &e.Action, &e.Route, &e.Status, &e.IP, &e.Agent, &e.Created); err != nil {
 			return nil, err
 		}
 		out = append(out, e)
