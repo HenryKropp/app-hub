@@ -48,7 +48,8 @@ do início do Windows. O Henry aprovou o desenho em 2026-11-27
 - **Desenho do ícone** (escolhido pelo Henry em 2026-11-27, Agente 0.5.1): o
   ícone oficial do Ziv (quadrado petróleo, haste do i cor de areia) com uma
   bolinha de estado no canto. Conectado: pingo coral (o farol aceso) e
-  bolinha verde. Desconectado: pingo e bolinha cinza. Gerado por
+  bolinha verde. Sem conexão ou desconectado: pingo cinza e bolinha
+  vermelha (pedido do Henry, Agente 0.5.2). Gerado por
   `backend/cmd/agent/icons/gerar.go`.
 
 ## Rationale

@@ -2,7 +2,8 @@
 
 // gerar writes the Agente's tray icons (ADR 049): the Ziv icon (petrol
 // square, sand "i") with a status dot in the corner. Connected: coral "i" dot
-// (the lighthouse on) and a green status dot. Disconnected: both grey.
+// (the lighthouse on) and a green status dot. Disconnected: grey "i" dot
+// and a red status dot.
 // Run: go run gerar.go
 package main
 
@@ -22,13 +23,13 @@ var (
 	coral  = color.RGBA{0xff, 0x6b, 0x4a, 0xff}
 	white  = color.RGBA{0xff, 0xff, 0xff, 0xff}
 	green  = color.RGBA{0x16, 0xa3, 0x4a, 0xff}
-	grey   = color.RGBA{0x9c, 0xa3, 0xaf, 0xff}
+	red    = color.RGBA{0xdc, 0x26, 0x26, 0xff}
 	dark   = color.RGBA{0x6b, 0x72, 0x80, 0xff}
 )
 
 func main() {
 	write("conectado.ico", coral, green)
-	write("sem-conexao.ico", dark, grey)
+	write("sem-conexao.ico", dark, red)
 }
 
 func write(name string, dot, status color.RGBA) {
