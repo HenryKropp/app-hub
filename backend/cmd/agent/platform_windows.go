@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"golang.org/x/sys/windows/registry"
+
+	"github.com/HenryKropp/app-hub/backend/internal/agent"
 )
 
 const createNoWindow = 0x08000000
@@ -35,6 +37,9 @@ func install(dir string) (bool, error) {
 	if strings.EqualFold(filepath.Clean(self), filepath.Clean(target)) {
 		return false, nil
 	}
+	// Running a fresh download is an explicit request to connect: a computer
+	// removed in the Ziv pairs again instead of waiting grey (ADR 049).
+	agent.ClearDisconnected(dir)
 	// An older agent may be running from the target; ask it to quit.
 	if resp, err := http.Post(localURL("/quit"), "", nil); err == nil {
 		resp.Body.Close()

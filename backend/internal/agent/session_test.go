@@ -265,3 +265,15 @@ func TestClientGoodbye(t *testing.T) {
 		t.Fatalf("want ErrUnauthorized, got %v", err)
 	}
 }
+
+func TestClearDisconnected(t *testing.T) {
+	dir := t.TempDir()
+	if err := MarkDisconnected(dir); err != nil {
+		t.Fatal(err)
+	}
+	ClearDisconnected(dir)
+	if IsMarkedDisconnected(dir) {
+		t.Fatal("mark still there")
+	}
+	ClearDisconnected(dir) // no mark: no panic, no error
+}

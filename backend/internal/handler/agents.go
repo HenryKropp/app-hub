@@ -268,6 +268,8 @@ func (h *Handler) agentGoodbye(w http.ResponseWriter, r *http.Request) {
 		internalError(w, "goodbye", err)
 		return
 	}
+	// /api/agent/ routes skip the request audit; this one changes access.
+	h.keyAudit(r.Context(), c.PersonID, "computer.goodbye", "POST /api/agent/goodbye")
 	w.WriteHeader(http.StatusNoContent)
 }
 

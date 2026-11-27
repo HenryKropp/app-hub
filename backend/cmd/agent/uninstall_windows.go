@@ -14,19 +14,21 @@ import (
 	"github.com/HenryKropp/app-hub/backend/internal/agentproto"
 )
 
-const uninstallKey = `Software\Microsoft\Windows\CurrentVersion\Uninstall\ZivAgente`
+const uninstallRoot = `Software\Microsoft\Windows\CurrentVersion\Uninstall\`
+
+func uninstallKey() string { return uninstallRoot + appEntryName(workspaceID) }
 
 // registerAppEntry lists the Agente in Settings → Apps → Installed apps for
 // this Windows user, with Windows' own Uninstall button (no admin needed).
 func registerAppEntry(dir string) error {
 	exe := filepath.Join(dir, "AppHubAgente.exe")
-	k, _, err := registry.CreateKey(registry.CURRENT_USER, uninstallKey, registry.SET_VALUE)
+	k, _, err := registry.CreateKey(registry.CURRENT_USER, uninstallKey(), registry.SET_VALUE)
 	if err != nil {
 		return err
 	}
 	defer k.Close()
 	for name, v := range map[string]string{
-		"DisplayName":     appDisplayName,
+		"DisplayName":     appEntryLabel(hubURL),
 		"Publisher":       "Ziv",
 		"DisplayVersion":  agentproto.Version,
 		"DisplayIcon":     exe,
@@ -46,7 +48,7 @@ func registerAppEntry(dir string) error {
 }
 
 func removeAppEntry() error {
-	err := registry.DeleteKey(registry.CURRENT_USER, uninstallKey)
+	err := registry.DeleteKey(registry.CURRENT_USER, uninstallKey())
 	if err == registry.ErrNotExist {
 		return nil
 	}
@@ -54,14 +56,17 @@ func removeAppEntry() error {
 }
 
 // removeFolder deletes the Agente's folder after this process exits: a
-// running program cannot delete its own file. ping is the wait because
-// timeout needs a console.
+// running program cannot delete its own file (removalCommand).
 func removeFolder(dir string) error {
+	line, err := removalCommand(dir, workspaceID == "")
+	if err != nil {
+		return err
+	}
 	cmd := exec.Command("cmd.exe")
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		HideWindow:    true,
 		CreationFlags: createNoWindow,
-		CmdLine:       `cmd.exe /c ping -n 4 127.0.0.1 >nul & rmdir /s /q "` + dir + `"`,
+		CmdLine:       "cmd.exe /c " + line,
 	}
 	cmd.Dir = os.TempDir()
 	return cmd.Start()

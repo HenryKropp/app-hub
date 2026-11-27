@@ -62,6 +62,12 @@ func MarkDisconnected(stateDir string) error {
 	return os.WriteFile(filepath.Join(stateDir, disconnectedMark), nil, 0o600)
 }
 
+// ClearDisconnected drops the mark: running a fresh download is an explicit
+// request to connect again.
+func ClearDisconnected(stateDir string) {
+	_ = os.Remove(filepath.Join(stateDir, disconnectedMark))
+}
+
 func IsMarkedDisconnected(stateDir string) bool {
 	_, err := os.Stat(filepath.Join(stateDir, disconnectedMark))
 	return err == nil
@@ -105,7 +111,7 @@ func (s *Session) Start(ctx context.Context) error {
 			if err := SaveToken(s.StateDir, token); err != nil {
 				slog.Error("save token", "err", err)
 			}
-			_ = os.Remove(filepath.Join(s.StateDir, disconnectedMark))
+			ClearDisconnected(s.StateDir)
 			s.Client.Token = token
 		}
 		if !s.hello(ctx) {

@@ -24,9 +24,11 @@ do início do Windows. O Henry aprovou o desenho em 2026-11-27
     sozinho a cada boot e continua no início do Windows, para o ícone
     aparecer.
 - **Aplicativos instalados.** O Agente grava, a cada início,
-  `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ZivAgente`, sem
-  precisar de administrador, com
-  `UninstallString = "<pasta>\AppHubAgente.exe" --desinstalar`.
+  `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ZivAgente`
+  (empresa principal) ou `ZivAgente-<empresa>` (as outras), sem precisar de
+  administrador, com nome "Ziv Agente (endereço do Ziv)" e
+  `UninstallString = "<pasta>\AppHubAgente.exe" --desinstalar`. Cada empresa
+  aparece e sai sozinha, como no início do Windows.
 - **Desinstalar** (pelo menu ou pelo Windows), passos que rodam mesmo se um
   falhar:
   1. fecha o Agente;
@@ -34,7 +36,12 @@ do início do Windows. O Henry aprovou o desenho em 2026-11-27
      segue assim mesmo);
   3. tira do início do Windows;
   4. tira a entrada de Aplicativos instalados;
-  5. apaga a pasta por um `cmd` que espera o Agente sair.
+  5. apaga a pasta por um `cmd` que espera o Agente sair. A pasta da empresa
+     principal guarda as outras em `workspaces\`: dela saem só os arquivos
+     dela, e a pasta só some se ficar vazia.
+  - Gravado na auditoria como `computer.goodbye`.
+- **Baixar e abrir o Agente de novo** apaga a marca `desconectado`: é um
+  pedido claro de conectar, e o navegador abre para aprovar.
 - **Segunda abertura** do `.exe` instalado com o Agente rodando: caixa de
   mensagem "já está rodando". O `fyne.io/systray` não mostra balão.
 - Agente 0.5.0.

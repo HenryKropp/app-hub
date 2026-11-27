@@ -220,6 +220,8 @@ func TestAgentGoodbye(t *testing.T) {
 	c, _ := newPoolClient(t)
 	setupAdmin(t, c)
 	token := pairComputer(t, c, "PC")
+	other := pairComputer(t, c, "PC2")
+	before := auditCount(t, "computer.goodbye")
 
 	if code := c.agent("POST", "/api/agent/goodbye", "errado", nil, nil); code != http.StatusUnauthorized {
 		t.Fatalf("bad token %d", code)
@@ -235,8 +237,14 @@ func TestAgentGoodbye(t *testing.T) {
 		Computers []computerJSON `json:"computers"`
 	}
 	c.do("GET", "/api/computers/me", nil, &me)
-	if len(me.Computers) != 0 {
-		t.Fatalf("computer still listed: %+v", me.Computers)
+	if len(me.Computers) != 1 || me.Computers[0].Name != "PC2" {
+		t.Fatalf("want only PC2 listed: %+v", me.Computers)
+	}
+	if code := c.agent("POST", "/api/agent/hello", other, agentproto.Hello{Name: "PC2", Version: agentproto.Version}, nil); code != http.StatusNoContent {
+		t.Fatalf("other computer hello %d", code)
+	}
+	if got := auditCount(t, "computer.goodbye"); got != before+1 {
+		t.Fatalf("goodbye audit rows %d, want %d", got, before+1)
 	}
 	if code := c.agent("POST", "/api/agent/goodbye", token, nil, nil); code != http.StatusUnauthorized {
 		t.Fatalf("second goodbye %d", code)

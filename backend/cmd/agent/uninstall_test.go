@@ -3,6 +3,9 @@ package main
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+	"strings"
 	"reflect"
 	"testing"
 
@@ -39,5 +42,54 @@ func TestTrayLabel(t *testing.T) {
 		if got := trayLabel(st, "0.5.0", "PC-1"); got != want {
 			t.Errorf("state %d: %q, want %q", st, got, want)
 		}
+	}
+}
+
+func TestRemovalCommandKeepsOtherCompanies(t *testing.T) {
+	root := t.TempDir()
+	for _, d := range []string{"workspaces", "runs"} {
+		if err := os.MkdirAll(filepath.Join(root, d), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "AppHubAgente.exe"), []byte("MZ"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd, err := removalCommand(root, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		`rmdir /s /q "` + filepath.Join(root, "runs") + `"`,
+		`del /f /q "` + filepath.Join(root, "AppHubAgente.exe") + `"`,
+		`rmdir "` + root + `"`,
+	} {
+		if !strings.Contains(cmd, want) {
+			t.Errorf("command lacks %q:\n%s", want, cmd)
+		}
+	}
+	if strings.Contains(cmd, "workspaces") {
+		t.Errorf("command touches other companies:\n%s", cmd)
+	}
+
+	company := filepath.Join(root, "workspaces", "abc")
+	cmd, err = removalCommand(company, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(cmd, `rmdir /s /q "`+company+`"`) {
+		t.Errorf("company command:\n%s", cmd)
+	}
+}
+
+func TestAppEntryPerCompany(t *testing.T) {
+	if got := appEntryName(""); got != "ZivAgente" {
+		t.Errorf("root entry %q", got)
+	}
+	if got := appEntryName("abc123"); got != "ZivAgente-abc123" {
+		t.Errorf("company entry %q", got)
+	}
+	if got := appEntryLabel("https://zivapp.duckdns.org/w/teste"); got != "Ziv Agente (zivapp.duckdns.org/w/teste)" {
+		t.Errorf("label %q", got)
 	}
 }
