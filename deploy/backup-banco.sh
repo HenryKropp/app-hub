@@ -41,9 +41,15 @@ case "$BACKUP_DEST" in
 "") ;;
 gs://*)
 	# A service account that can only create objects in the bucket; the
-	# bucket's retention lock keeps every copy for 30 days.
-	CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE="${BACKUP_GCP_KEY_FILE:?BACKUP_GCP_KEY_FILE}" \
+	# bucket's retention policy keeps every copy for 30 days. Default: the
+	# VM's own identity (no key file to leak; Google blocks key creation by
+	# default). BACKUP_GCP_KEY_FILE only for a server outside Google Cloud.
+	if [[ -n "${BACKUP_GCP_KEY_FILE:-}" ]]; then
+		CLOUDSDK_AUTH_CREDENTIAL_FILE_OVERRIDE="$BACKUP_GCP_KEY_FILE" \
+			gcloud storage cp --no-clobber "$out" "${BACKUP_DEST%/}/"
+	else
 		gcloud storage cp --no-clobber "$out" "${BACKUP_DEST%/}/"
+	fi
 	echo "backup: enviado para ${BACKUP_DEST%/}/"
 	;;
 *)

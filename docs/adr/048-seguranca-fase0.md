@@ -28,7 +28,10 @@ Este ADR registra as decisões de arquitetura; os detalhes estão no desenho.
 - **Cópia do banco cifrada com chave pública** (`age`). O servidor grava, mas
   não consegue abrir as próprias cópias. Uma cópia vai para fora da máquina
   (`BACKUP_DEST`: hoje um bucket do Google Cloud com trava de retenção de 30
-  dias, e uma conta que só grava). Trocar o destino é mudar uma linha.
+  dias, e uma conta que só grava). Trocar o destino é mudar uma linha. A VM
+  envia com a própria identidade (roda como a conta `ziv-copias`), sem
+  arquivo de chave: o Google bloqueia a criação de chave por padrão, e um
+  arquivo de chave no servidor seria mais um segredo para vazar.
 - **Chave do cofre com identidade.** Todo valor e toda cópia cifrados com a
   `HUB_SECRET_KEY` levam 4 bytes do SHA-256 da chave. `HUB_SECRET_KEYS_OLD`
   mantém chaves antigas válidas, e `cmd/trocarchave` recifra tudo na chave

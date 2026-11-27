@@ -54,8 +54,10 @@ No Console do Google Cloud, projeto do Ziv:
 4. De volta ao bucket, em **Permissões → Conceder acesso:** a conta
    `ziv-copias@...` com o papel **Storage Object Creator**. Esse papel só
    grava: a conta não lê nem apaga.
-5. Na conta de serviço, abra **Chaves → Adicionar chave → JSON.** Salve o
-   arquivo como `~/.ziv-producao/backup-gcp.json`.
+5. **Sem arquivo de chave.** O Google bloqueia por padrão a criação de chave
+   de conta de serviço (`iam.disableServiceAccountKeyCreation`), e está certo:
+   arquivo de chave pode vazar. Em vez disso, a VM passa a rodar como a conta
+   `ziv-copias` (passo 4). Feito em 2026-11-27: bucket `ziv-copias-henry`.
 
 ## 4. Publicar e ligar no servidor (com o Claude, depois do seu "pode")
 
@@ -65,9 +67,13 @@ O Claude faz, com o seu "pode" explícito:
    passo 1, envia o servidor e reinicia.
 2. Na VM:
    - instalar o `age` (`sudo apt install age`);
-   - copiar `backup-recipient.txt` e `backup-gcp.json` para `~/ziv/`;
+   - copiar `backup-recipient.txt` para `~/ziv/`;
    - criar `~/ziv/backup.env` a partir de `deploy/backup.env.example`, com o
      nome do bucket.
+   - trocar a identidade da VM para a conta `ziv-copias`, com acesso de
+     gravação ao Storage. O Google só deixa trocar com a VM desligada: o Ziv
+     fica 1 a 2 minutos fora do ar. Antes, conferir que o IP é fixo, senão o
+     endereço `zivapp.duckdns.org` precisa ser atualizado.
 3. Ligar a cópia diária:
    - copiar `deploy/ziv-backup.service` e `deploy/ziv-backup.timer` para
      `~/.config/systemd/user/`;

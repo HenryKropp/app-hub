@@ -52,8 +52,8 @@ Cada fase ganha o próprio desenho antes de construir.
   - [x] Atualização do Agente assinada (ed25519, chave no PC do Henry, `cmd/agentkey`); token do Agente com DPAPI.
   - [x] Cópia diária do banco cifrada (`age`, chave pública no servidor) e enviada ao bucket (`deploy/backup-banco.sh`, timer `ziv-backup`); ensaio de restauração feito.
   - [x] Checagem no GitHub (testes, govulncheck, npm audit); Go 1.27.4 corrige 14 falhas conhecidas da biblioteca padrão.
-  - [ ] Henry: gerar a chave de assinatura do Agente e a chave das cópias, com segunda cópia de cada (`docs/seguranca-fase0-passo-a-passo.md`, passos 1 e 2).
-  - [ ] Henry: bucket no Google Cloud com retenção de 30 dias e conta de serviço que só grava (passo 3).
+  - [x] Chave de assinatura do Agente e chave das cópias geradas em `~/.ziv-producao` (2026-11-27). Falta o Henry guardar a segunda cópia de cada.
+  - [x] Bucket `ziv-copias-henry` (us-east1, retenção de 30 dias) e conta `ziv-copias` com só "Criador de objetos" (2026-11-27). Sem arquivo de chave: o Google bloqueia; a VM passa a rodar como `ziv-copias` no deploy.
   - [ ] Com o "pode" do Henry: deploy, ligar o timer da cópia, tirar o cron antigo e apagar as cópias abertas de `~/backups` (passo 4).
   - [ ] Com o "pode" do Henry: na VM, conferir de dentro de uma caixa que o Ziv (8080) não responde, o Postgres (5433) responde e um `X-Real-IP` falso não passa.
   - [ ] Com o "pode" do Henry: fechar o Postgres para fora (hoje `0.0.0.0:5433`); exige recriar o contêiner `ziv-db` com o volume `ziv-pg`.
