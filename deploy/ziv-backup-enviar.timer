@@ -1,0 +1,9 @@
+[Unit]
+Description=Ziv: envio diário das cópias ao bucket (depois da cópia das 06:30 UTC)
+
+[Timer]
+OnCalendar=*-*-* 06:45:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

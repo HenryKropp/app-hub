@@ -1,5 +1,7 @@
 # Fase 0 de segurança: o que o Henry faz fora do código
 
+> **Feito em 2026-11-27.** Passos 1 a 4 concluídos; ver `docs/TASKS.md` para o que sobrou.
+
 O código está no branch `seguranca-fase0` (ADR 048). Estes passos são seus,
 nesta ordem. Os passos 1 e 2 você faz sozinho, no seu PC. Os passos 3 a 5
 mexem no Google Cloud e no servidor. Peça ao Claude para fazer junto e dê o

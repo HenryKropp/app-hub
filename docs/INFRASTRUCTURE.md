@@ -6,20 +6,20 @@
 
 | Componente | Execução | Configuração |
 |---|---|---|
-| Máquina | Google Cloud e2-micro, `us-east1`, Ubuntu 24.04, IP 34.24.21.104 | SSH `ziv@34.24.21.104` com `~/.ssh/ziv-gcp` |
+| Máquina | Google Cloud e2-micro, `us-east1`, Ubuntu 24.04, IP efêmero (34.138.225.174 desde 2026-11-27; o DuckDNS acompanha a cada 5 min), roda como a conta `ziv-copias` | SSH `ziv@zivapp.duckdns.org` com `~/.ssh/ziv-gcp` |
 | Ziv (site + servidor) | Serviço systemd do usuário `ziv`, porta 8080 | `~/ziv/ziv.env` (fora do git) |
 | PostgreSQL | Contêiner Podman `ziv-db` (`postgres:17-alpine`), porta 5433, volume `ziv-pg` | Senha em `~/ziv/.dbpw` |
 | HTTPS | Caddy + Let's Encrypt (subdomínios sob demanda, incluindo `link.` dos links externos) | `/etc/caddy/Caddyfile` |
 | Endereço | DuckDNS `zivapp`; cron de 5 min atualiza o IP | `~/duckdns/duck.sh` |
-| Cópias | `deploy/backup-banco.sh` pelo timer `ziv-backup` às 06:30 UTC: `pg_dumpall` cifrado com a chave **pública** do `age`, últimas 7 em `~/backups` e uma cópia no bucket do Google Cloud (`BACKUP_DEST`) | `~/ziv/backup.env` (modelo em `deploy/backup.env.example`) |
+| Cópias | `deploy/backup-banco.sh` pelo timer `ziv-backup` às 06:30 UTC: `pg_dumpall` cifrado com a chave **pública** do `age`, últimas 7 em `~/backups`. Às 06:45 UTC o timer de sistema `ziv-backup-enviar` (root, `/usr/local/sbin/ziv-backup-enviar` = `deploy/backup-enviar.sh`) manda as novas para o bucket `ziv-copias-henry` com a identidade da VM (conta `ziv-copias`, só cria objetos; retenção de 30 dias). O usuário `ziv`, que roda os apps, não alcança o servidor de metadados do Google (`ziv-bloqueia-metadados.service`, regra de iptables) | `~/ziv/backup.env` (modelo `deploy/backup.env.example`) e `/etc/ziv-backup-enviar.env` (root, modelo `deploy/backup-enviar.env.example`) |
 
 - **Restaurar uma cópia do banco** (precisa da chave privada das cópias, que fica com o Henry, fora do servidor):
-  1. Baixar a cópia: `gcloud storage cp gs://<bucket>/ziv/ziv-AAAAMMDD-HHMM.sql.gz.age .` (ou pegar em `~/backups`).
+  1. Baixar a cópia: no Console do Google Cloud, bucket `ziv-copias-henry`, pasta `ziv/` (a conta da VM não lê o bucket; ou pegar em `~/backups`).
   2. Abrir: `age -d -i ~/.ziv-producao/backup-chave.txt ziv-AAAAMMDD-HHMM.sql.gz.age | gunzip > copia.sql`.
   3. Num Postgres vazio: `psql -U postgres -f copia.sql`. Ensaio feito em 2026-11-24 num Postgres temporário: zero erros, todas as tabelas de volta.
   4. Apagar `copia.sql` depois de usar (é o banco aberto).
 - **Publicar uma versão nova:** `bash scripts/deploy-gcp.sh` (compila aqui, envia e reinicia; as migrações rodam sozinhas).
-- **Ver o que o servidor está fazendo:** `ssh -i ~/.ssh/ziv-gcp ziv@34.24.21.104 'journalctl --user -u ziv -n 100'`.
+- **Ver o que o servidor está fazendo:** `ssh -i ~/.ssh/ziv-gcp ziv@zivapp.duckdns.org 'journalctl --user -u ziv -n 100'`.
 - **`HUB_SECRET_KEY`:** cópia em `~/.ziv-producao/HUB_SECRET_KEY` no WSL do Henry. Sem ela, o cofre e as cópias dos bancos dos apps não abrem.
 - **Trocar a `HUB_SECRET_KEY`** (Fase 0 de segurança): cada valor guardado leva a identidade da chave que o cifrou, então dá para trocar sem perder nada.
   1. Gerar a nova: `cd backend && go run ./cmd/newkey`. Guardar a cópia em `~/.ziv-producao/`.

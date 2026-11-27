@@ -31,7 +31,12 @@ Este ADR registra as decisões de arquitetura; os detalhes estão no desenho.
   dias, e uma conta que só grava). Trocar o destino é mudar uma linha. A VM
   envia com a própria identidade (roda como a conta `ziv-copias`), sem
   arquivo de chave: o Google bloqueia a criação de chave por padrão, e um
-  arquivo de chave no servidor seria mais um segredo para vazar.
+  arquivo de chave no servidor seria mais um segredo para vazar. Como os
+  apps rodam como o usuário `ziv` e alcançavam o servidor de metadados do
+  Google (achado no teste de 2026-11-27), esse usuário é bloqueado por
+  iptables, e o envio ao bucket roda como root, num timer à parte
+  (`deploy/backup-enviar.sh`). O envio fala direto com a API de Storage: o
+  `gcloud storage cp` lê o objeto antes, e a conta só cria.
 - **Chave do cofre com identidade.** Todo valor e toda cópia cifrados com a
   `HUB_SECRET_KEY` levam 4 bytes do SHA-256 da chave. `HUB_SECRET_KEYS_OLD`
   mantém chaves antigas válidas, e `cmd/trocarchave` recifra tudo na chave

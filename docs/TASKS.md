@@ -42,7 +42,7 @@ Status: Pending / In Progress / Done / Blocked
 Roteiro aprovado pelo Henry: `docs/superpowers/specs/2026-11-23-roteiro-seguranca.md`.
 Cada fase ganha o próprio desenho antes de construir.
 
-- [x] Fase 0: fechar furos já encontrados. Desenho `docs/superpowers/specs/2026-11-24-seguranca-fase0-design.md`, ADR 048, branch `seguranca-fase0` (2026-11-24). **Construída e testada, sem deploy.**
+- [x] Fase 0: fechar furos já encontrados. Desenho `docs/superpowers/specs/2026-11-24-seguranca-fase0-design.md`, ADR 048, branch `seguranca-fase0` (2026-11-24). **No ar desde 2026-11-27** (merge 90e08c2).
   - [x] Limite de tentativas pelo endereço real (X-Real-IP só vindo do Caddy); registro de ações com IP e navegador.
   - [x] Ziv atende só em 127.0.0.1 (`LISTEN_HOST`); caixas com `--cap-drop=ALL`, `no-new-privileges`, `--pids-limit 256`; HSTS e CSP `script-src 'self'` no site.
   - [x] Código do Claude vence em 90 dias; OAuth só volta para claude.ai/claude.com/localhost (`OAUTH_REDIRECT_HOSTS` para outros).
@@ -54,9 +54,12 @@ Cada fase ganha o próprio desenho antes de construir.
   - [x] Checagem no GitHub (testes, govulncheck, npm audit); Go 1.27.4 corrige 14 falhas conhecidas da biblioteca padrão.
   - [x] Chave de assinatura do Agente e chave das cópias geradas em `~/.ziv-producao` (2026-11-27). Falta o Henry guardar a segunda cópia de cada.
   - [x] Bucket `ziv-copias-henry` (us-east1, retenção de 30 dias) e conta `ziv-copias` com só "Criador de objetos" (2026-11-27). Sem arquivo de chave: o Google bloqueia; a VM passa a rodar como `ziv-copias` no deploy.
-  - [ ] Com o "pode" do Henry: deploy, ligar o timer da cópia, tirar o cron antigo e apagar as cópias abertas de `~/backups` (passo 4).
-  - [ ] Com o "pode" do Henry: na VM, conferir de dentro de uma caixa que o Ziv (8080) não responde, o Postgres (5433) responde e um `X-Real-IP` falso não passa.
-  - [ ] Com o "pode" do Henry: fechar o Postgres para fora (hoje `0.0.0.0:5433`); exige recriar o contêiner `ziv-db` com o volume `ziv-pg`.
+  - [x] Deploy (2026-11-27); timer da cópia ligado; cron antigo e cópias em texto aberto apagados; cópia chegou ao bucket e abre com a chave do Henry.
+  - [x] VM roda como `ziv-copias` (parada e religada; o IP mudou para 34.138.225.174, o DuckDNS acompanhou; `deploy-gcp.sh` usa o nome).
+  - [x] Isolamento conferido de dentro de uma caixa: Ziv (8080) não responde, Postgres (5433) responde, `X-Real-IP` é sobrescrito pelo Caddy.
+  - [x] Furo achado no teste e fechado: a caixa alcançava o servidor de metadados do Google e podia pegar a identidade da VM. Agora o usuário `ziv` é bloqueado (iptables) e o envio ao bucket roda como root (`ziv-backup-enviar`).
+  - [ ] Postgres em `0.0.0.0:5433`: de fora já está fechado pelo firewall do Google (conferido). Publicar só para as caixas exige recriar o `ziv-db`; baixa prioridade.
+  - [ ] Henry: guardar a segunda cópia de `agente-assinatura.key` e `backup-chave.txt`.
   - [ ] `--read-only` nas caixas: não testado (sem Podman nesta máquina); testar com os apps no ar antes de ligar.
   - [ ] Bibliotecas do site: sobra 1 falha alta (`undici`, via jsdom e o CLI do shadcn, que não vão para o navegador). Corrigir com versão maior do jsdom e passando o `shadcn` para `devDependencies`.
   - [ ] Testes que falham só no Windows (Podman falso, links simbólicos, tempo esgotado em 3 testes da Equipe): conferir no GitHub, que roda em Linux.

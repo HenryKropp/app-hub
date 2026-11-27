@@ -8,7 +8,8 @@
 # Needs the SSH key ~/.ssh/ziv-gcp (its public half is in the VM's metadata).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-HOST="${ZIV_HOST:-ziv@34.24.21.104}"
+# By name: the VM's IP can change on a stop/start; DuckDNS follows it.
+HOST="${ZIV_HOST:-ziv@zivapp.duckdns.org}"
 URL="${ZIV_URL:-https://zivapp.duckdns.org}"
 KEY="${ZIV_SSH_KEY:-$HOME/.ssh/ziv-gcp}"
 # Some networks drop SSH packets marked for priority (DSCP); IPQoS=none avoids it.

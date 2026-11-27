@@ -1,0 +1,10 @@
+# Sends the encrypted copies to the bucket, as root (deploy/backup-enviar.sh).
+# Install: /etc/systemd/system/, with the script at /usr/local/sbin/ziv-backup-enviar
+[Unit]
+Description=Ziv: envia as cópias cifradas para o bucket
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ziv-backup-enviar
