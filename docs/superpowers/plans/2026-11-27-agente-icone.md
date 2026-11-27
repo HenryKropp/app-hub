@@ -25,7 +25,7 @@
 - Segunda abertura do `.exe` com o Agente já rodando: caixa de mensagem `O Ziv Agente já está rodando. Veja o ícone perto do relógio.` (Mudança do desenho: o `fyne.io/systray` não mostra balão.)
 - Nome na lista de Aplicativos instalados: `Ziv Agente`, editor `Ziv`. Chave `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\ZivAgente`, com `UninstallString` = `"<pasta>\AppHubAgente.exe" --desinstalar`.
 - Pasta e nome do executável não mudam: `%LOCALAPPDATA%\AppHub\AppHubAgente.exe` (ADR 013/014).
-- Nenhum nome proibido (ver memória "Sem Alis no GitHub") em arquivos versionados.
+- Nenhum nome proibido (ver regra de nomes da memória) em arquivos versionados.
 
 ## Review Focus
 
