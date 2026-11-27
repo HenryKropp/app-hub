@@ -100,6 +100,12 @@ func (c *Client) Hello(ctx context.Context, name string) error {
 	return err
 }
 
+// Goodbye disconnects this computer in the Ziv (uninstall).
+func (c *Client) Goodbye(ctx context.Context) error {
+	_, err := c.do(ctx, "POST", "/api/agent/goodbye", nil, "", nil)
+	return err
+}
+
 // Next waits for the next job; nil means none arrived in the Hub's wait.
 func (c *Client) Next(ctx context.Context) (*agentproto.Job, error) {
 	var j agentproto.Job

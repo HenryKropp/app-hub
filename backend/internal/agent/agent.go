@@ -25,11 +25,25 @@ type Agent struct {
 	RetryBase time.Duration
 	// Updater applies update jobs; nil means this agent cannot update itself.
 	Updater *Updater
+	// OnReachable is told when the Ziv stops or starts answering (the icon's
+	// grey and green). Called only on changes; nil means nobody listens.
+	OnReachable func(bool)
 }
 
 // Loop asks the Hub for jobs until ctx ends or the token is revoked.
 func (a *Agent) Loop(ctx context.Context) error {
 	backoff := time.Second
+	reachable := 0 // 0 unknown, 1 yes, -1 no
+	report := func(ok bool) {
+		v := -1
+		if ok {
+			v = 1
+		}
+		if v != reachable && a.OnReachable != nil {
+			a.OnReachable(ok)
+		}
+		reachable = v
+	}
 	for ctx.Err() == nil {
 		job, err := a.Client.Next(ctx)
 		if errors.Is(err, ErrUnauthorized) {
@@ -39,12 +53,14 @@ func (a *Agent) Loop(ctx context.Context) error {
 			if ctx.Err() != nil {
 				break
 			}
+			report(false)
 			slog.Warn("hub unreachable", "err", err, "retry_in", backoff)
 			time.Sleep(backoff)
 			backoff = min(backoff*2, 30*time.Second)
 			continue
 		}
 		backoff = time.Second
+		report(true)
 		if job != nil {
 			go a.handle(ctx, *job)
 		}

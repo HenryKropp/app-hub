@@ -257,6 +257,20 @@ func (h *Handler) revokeComputer(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// agentGoodbye is called by an Agente being uninstalled: the computer
+// disconnects itself, like DELETE /api/computers/{id} (ADR 049).
+func (h *Handler) agentGoodbye(w http.ResponseWriter, r *http.Request) {
+	c, ok := h.currentComputer(w, r)
+	if !ok {
+		return
+	}
+	if err := h.q.RevokeComputer(r.Context(), c.ID); err != nil {
+		internalError(w, "goodbye", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // agentHello is called when the agent starts. Runs that were open on this
 // computer cannot be finished any more.
 func (h *Handler) agentHello(w http.ResponseWriter, r *http.Request) {

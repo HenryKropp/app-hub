@@ -215,3 +215,30 @@ func TestAgentDownload(t *testing.T) {
 		t.Fatalf("anonymous %d", code)
 	}
 }
+
+func TestAgentGoodbye(t *testing.T) {
+	c, _ := newPoolClient(t)
+	setupAdmin(t, c)
+	token := pairComputer(t, c, "PC")
+
+	if code := c.agent("POST", "/api/agent/goodbye", "errado", nil, nil); code != http.StatusUnauthorized {
+		t.Fatalf("bad token %d", code)
+	}
+	if code := c.agent("POST", "/api/agent/goodbye", token, nil, nil); code != http.StatusNoContent {
+		t.Fatalf("goodbye %d", code)
+	}
+	hello := agentproto.Hello{Name: "PC", Version: agentproto.Version}
+	if code := c.agent("POST", "/api/agent/hello", token, hello, nil); code != http.StatusUnauthorized {
+		t.Fatalf("hello after goodbye %d", code)
+	}
+	var me struct {
+		Computers []computerJSON `json:"computers"`
+	}
+	c.do("GET", "/api/computers/me", nil, &me)
+	if len(me.Computers) != 0 {
+		t.Fatalf("computer still listed: %+v", me.Computers)
+	}
+	if code := c.agent("POST", "/api/agent/goodbye", token, nil, nil); code != http.StatusUnauthorized {
+		t.Fatalf("second goodbye %d", code)
+	}
+}
