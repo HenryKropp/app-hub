@@ -68,6 +68,13 @@ Cada fase ganha o próprio desenho antes de construir.
 - [ ] Fase 3: onde os dados moram (servidor no Brasil → híbrido na nuvem do cliente → Ziv inteiro no cliente).
 - [ ] Fase 4: prova para a TI (documento de segurança, DPA com cláusulas da ANPD, anexo CMN 4.893, suboperadores, questionário, plano de incidentes, teste de invasão, ISO 27001).
 
+## Agente visível: ícone e desinstalar (2026-11-27, ADR 049)
+
+- [x] Ícone perto do relógio (verde/cinza) com menu: estado, Abrir o Ziv, Conectar de novo, Sair, Desinstalar.
+- [x] "Ziv Agente" em Aplicativos instalados; desinstalar avisa o Ziv (`POST /api/agent/goodbye`) e apaga a pasta.
+- [x] Desconectado no Ziv: ícone cinza e "Conectar de novo", sem abrir o navegador sozinho.
+- [ ] Teste do Henry no Windows: atualizar para 0.5.0, ver o ícone, desconectar e reconectar, desinstalar pelo Windows.
+
 ## Links externos (2026-11-17, ADR 045)
 
 - [x] Projeto 1: link externo para artifact (código por e-mail ou aberto; mais recente ou versão fixa; prazo; Cancelar; lista no Admin; endereço `link.`). Branch `links-externos`.
