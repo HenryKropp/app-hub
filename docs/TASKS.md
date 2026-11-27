@@ -73,6 +73,7 @@ Cada fase ganha o próprio desenho antes de construir.
 - [x] Ícone perto do relógio (verde/cinza) com menu: estado, Abrir o Ziv, Conectar de novo, Sair, Desinstalar.
 - [x] "Ziv Agente" em Aplicativos instalados (uma entrada por empresa); desinstalar avisa o Ziv (`POST /api/agent/goodbye`, na auditoria) e apaga só a pasta daquela empresa.
 - [x] Baixar e abrir de novo reconecta um PC desconectado.
+- [x] Ícone trocado do Z para o i do Ziv, com bolinha de estado (Agente 0.5.1); Henry escolheu o desenho.
 - [ ] Pequenos, para depois: ícone fantasma ao sair por atualização; clique em Conectar de novo antes da hora se perde; desinstalar não fecha apps abertos nem avisa no fim; `%` no caminho da pasta; voltar para 0.4.0 deixa entrada morta em Aplicativos instalados; a linha em Aplicativos instalados aparece sem ícone (o .exe não tem ícone embutido).
 - [x] Desconectado no Ziv: ícone cinza e "Conectar de novo", sem abrir o navegador sozinho.
 - [x] Teste do Henry no Windows (2026-11-27): atualizou para 0.5.0, ícone verde, menu, Aplicativos instalados (uma linha por empresa), desconectar → cinza, Conectar de novo → verde, desinstalar a Teste pelo Windows sem afetar a principal.

@@ -45,6 +45,11 @@ do início do Windows. O Henry aprovou o desenho em 2026-11-27
 - **Segunda abertura** do `.exe` instalado com o Agente rodando: caixa de
   mensagem "já está rodando". O `fyne.io/systray` não mostra balão.
 - Agente 0.5.0.
+- **Desenho do ícone** (escolhido pelo Henry em 2026-11-27, Agente 0.5.1): o
+  ícone oficial do Ziv (quadrado petróleo, haste do i cor de areia) com uma
+  bolinha de estado no canto. Conectado: pingo coral (o farol aceso) e
+  bolinha verde. Desconectado: pingo e bolinha cinza. Gerado por
+  `backend/cmd/agent/icons/gerar.go`.
 
 ## Rationale
 - Ícone com menu resolve o "não sei se está ligado" sem janela própria. O

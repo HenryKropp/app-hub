@@ -65,7 +65,7 @@ sabe se ele está ligado e não tem como desinstalá-lo. Isso parece estranho e
   chave do computador. Revoga o próprio computador, como o
   `DELETE /api/computers/{id}`, e registra a ação na auditoria.
 - **Versão do Agente:** 0.5.0. Os PCs recebem pela atualização assinada.
-- **Ícone:** o "Z" do Ziv com uma bolinha de estado, em `.ico` embutido.
+- **Ícone:** o i do Ziv (ícone oficial) com uma bolinha de estado, em `.ico` embutido. O pingo fica coral quando conectado e cinza quando não (ADR 049, desenho aprovado na versão 0.5.1).
 - **Instância única:** o Agente já usa a porta `127.0.0.1:47631` como trava.
   Um segundo clique no `.exe` só pede ao Agente que já está rodando para
   mostrar o balão "O Ziv Agente já está rodando", sem abrir uma segunda cópia.
