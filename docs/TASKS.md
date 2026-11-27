@@ -75,7 +75,7 @@ Cada fase ganha o próprio desenho antes de construir.
 - [x] Baixar e abrir de novo reconecta um PC desconectado.
 - [ ] Pequenos, para depois: ícone fantasma ao sair por atualização; clique em Conectar de novo antes da hora se perde; desinstalar não fecha apps abertos nem avisa no fim; `%` no caminho da pasta; voltar para 0.4.0 deixa entrada morta em Aplicativos instalados.
 - [x] Desconectado no Ziv: ícone cinza e "Conectar de novo", sem abrir o navegador sozinho.
-- [ ] Teste do Henry no Windows: atualizar para 0.5.0, ver o ícone, desconectar e reconectar, desinstalar pelo Windows.
+- [x] Teste do Henry no Windows (2026-11-27): atualizou para 0.5.0, ícone verde, menu, Aplicativos instalados (uma linha por empresa), desconectar → cinza, Conectar de novo → verde, desinstalar a Teste pelo Windows sem afetar a principal.
 
 ## Links externos (2026-11-17, ADR 045)
 
