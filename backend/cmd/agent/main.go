@@ -1,5 +1,5 @@
-// Command agent is the Agente do Ziv: it runs invisibly on a person's Windows
-// computer and opens apps when the Hub asks.
+// Command agent is the Agente do Ziv: it runs on a person's Windows computer,
+// shows an icon next to the clock (ADR 049) and opens apps when the Hub asks.
 package main
 
 import (
@@ -54,6 +54,13 @@ func main() {
 		runUpdate(dir)
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == "--desinstalar" {
+		// From Settings → Apps: the Agente may be running; ask it to close first.
+		if messageBox(confirmUninstall, true) {
+			uninstall(context.Background(), dir, quitRunning)
+		}
+		return
+	}
 
 	handedOff, err := install(dir)
 	if err != nil {
@@ -69,6 +76,7 @@ func main() {
 	ln, err := net.Listen("tcp", lockAddr)
 	if err != nil {
 		slog.Info("another agent is already running")
+		messageBox(alreadyRunning, false)
 		return
 	}
 	go http.Serve(ln, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -88,58 +96,74 @@ func main() {
 		}
 		http.NotFound(w, r)
 	}))
+	if err := registerAppEntry(dir); err != nil {
+		slog.Warn("installed apps entry", "err", err)
+	}
 
 	name, _ := os.Hostname()
-	client := &agent.Client{BaseURL: hubURL, Token: agent.LoadToken(dir), HTTP: &http.Client{Timeout: 0}}
-	if client.Token == "" {
-		token, err := agent.Pair(ctx, client, name, openBrowser)
-		if err != nil {
-			slog.Error("pairing", "err", err)
-			return
+	client := &agent.Client{BaseURL: hubURL, HTTP: &http.Client{Timeout: 0}}
+	status := &agent.Status{}
+	status.Subscribe(func(st agent.State) {
+		if st == agent.StateConnected {
+			connected.Store(true)
 		}
-		if err := agent.SaveToken(dir, token); err != nil {
-			slog.Error("save token", "err", err)
-			return
-		}
-		client.Token = token
-	}
-	for {
-		err := client.Hello(ctx, name)
-		if err == nil {
-			break
-		}
-		if errors.Is(err, agent.ErrUnauthorized) {
-			forget(dir)
-			return
-		}
-		slog.Warn("hello", "err", err)
-		time.Sleep(5 * time.Second)
-	}
-	connected.Store(true)
-	agent.ProtectToken(dir) // this version works here: no rollback will need the plain token
+	})
 	exe, err := os.Executable()
 	if err != nil {
 		slog.Warn("cannot locate the running agent; self-update may fail", "err", err)
 	}
-	runner := &agent.Runner{Launcher: agent.ExecLauncher{}, StateDir: dir, OpenURL: openBrowser}
-	a := &agent.Agent{
-		Client: client, StateDir: dir, Name: name, ChooseFolder: chooseFolder, Runner: runner,
-		Updater: &agent.Updater{Client: client, Runner: runner, StateDir: dir, CurrentExe: exe, PublicKey: updateKey,
-			Start: func(p string, args ...string) error { _, err := startProcess(p, args...); return err }},
+	reconnect := make(chan struct{}, 1)
+	session := &agent.Session{
+		Client: client, Name: name, StateDir: dir, Open: openBrowser, Status: status,
+		Reconnect: reconnect, Retry: 5 * time.Second,
+		Run: func(ctx context.Context) error {
+			runner := &agent.Runner{Launcher: agent.ExecLauncher{}, StateDir: dir, OpenURL: openBrowser}
+			a := &agent.Agent{
+				Client: client, StateDir: dir, Name: name, ChooseFolder: chooseFolder, Runner: runner,
+				Updater: &agent.Updater{Client: client, Runner: runner, StateDir: dir, CurrentExe: exe, PublicKey: updateKey,
+					Start: func(p string, args ...string) error { _, err := startProcess(p, args...); return err }},
+				OnReachable: func(ok bool) {
+					if ok {
+						status.Set(agent.StateConnected)
+					} else {
+						status.Set(agent.StateOffline)
+					}
+				},
+			}
+			return a.Loop(ctx)
+		},
 	}
-	if err := a.Loop(ctx); errors.Is(err, agent.ErrUnauthorized) {
-		forget(dir)
-	}
+	go func() { _ = session.Start(ctx) }()
+
+	runTray(ctx, trayActions{
+		Status: status, Version: agentproto.Version, Name: name,
+		Open: func() { _ = openBrowser(hubURL) },
+		Reconnect: func() {
+			select {
+			case reconnect <- struct{}{}:
+			default:
+			}
+		},
+		Quit: cancel,
+		Uninstall: func() {
+			uninstall(ctx, dir, func() {})
+			cancel()
+		},
+	})
 }
 
-// forget runs when the computer was disconnected in the Hub: the agent drops
-// its token and stops starting with Windows, until it is installed again.
-func forget(dir string) {
-	slog.Info("computer disconnected in the Hub; forgetting token and autostart")
-	_ = agent.SaveToken(dir, "")
-	if err := removeAutostart(); err != nil {
-		slog.Warn("remove autostart", "err", err)
-	}
+// uninstall removes the Agente from this computer and tells the Ziv
+// (ADR 049). quit closes a running Agente first (none when it is this one).
+func uninstall(ctx context.Context, dir string, quit func()) {
+	client := &agent.Client{BaseURL: hubURL, Token: agent.LoadToken(dir), HTTP: &http.Client{Timeout: 15 * time.Second}}
+	errs := uninstallSteps{
+		QuitRunning:     quit,
+		Goodbye:         client.Goodbye,
+		RemoveAutostart: removeAutostart,
+		RemoveAppEntry:  removeAppEntry,
+		RemoveFolder:    removeFolder,
+	}.run(ctx, dir)
+	slog.Info("uninstalled", "problems", len(errs))
 }
 
 // runUpdate is update mode: this is the downloaded agent, which installs

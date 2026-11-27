@@ -256,6 +256,7 @@ func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/computers/me", h.myComputers)
 	mux.HandleFunc("DELETE /api/computers/{id}", h.revokeComputer)
 	mux.HandleFunc("POST /api/agent/hello", h.agentHello)
+	mux.HandleFunc("POST /api/agent/goodbye", h.agentGoodbye)
 	mux.HandleFunc("GET /api/agent/download", h.agentDownload)
 	mux.HandleFunc("GET /api/agent/binary", h.agentBinary)
 	mux.HandleFunc("GET /api/agent/next", h.agentNext)
